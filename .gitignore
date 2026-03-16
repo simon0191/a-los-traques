@@ -5,3 +5,4 @@ assets/photos/
 .DS_Store
 *.log
 .partykit/
+.claude/worktrees
