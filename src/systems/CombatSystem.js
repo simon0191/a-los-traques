@@ -185,6 +185,10 @@ export class CombatSystem {
    * Call this each frame after movement is applied and before hit detection.
    */
   resolveBodyCollision(f1, f2) {
+    // Skip collision when either fighter is airborne — allows jumping over opponent
+    const airThreshold = GROUND_Y - 20;
+    if (f1.sprite.y < airThreshold || f2.sprite.y < airThreshold) return;
+
     const halfW = FIGHTER_BODY_WIDTH / 2;
     const f1x = f1.sprite.x;
     const f2x = f2.sprite.x;

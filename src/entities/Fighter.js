@@ -22,8 +22,8 @@ export class Fighter {
     this.isOnGround = true;
     this.hitConnected = false; // Set true by CombatSystem when attack lands
 
-    // Air dash tracking
-    this.hasAirDashed = false;
+    // Double jump tracking
+    this.hasDoubleJumped = false;
     this._airborneTime = 0; // ms since leaving ground
   }
 
@@ -39,7 +39,7 @@ export class Fighter {
     const wasAirborne = !this.isOnGround;
     this.isOnGround = this.sprite.body.blocked.down || this.sprite.y >= GROUND_Y;
     if (this.isOnGround && wasAirborne) {
-      this.hasAirDashed = false;
+      this.hasDoubleJumped = false;
       this._airborneTime = 0;
     }
     if (!this.isOnGround) {
@@ -83,31 +83,20 @@ export class Fighter {
   }
 
   jump() {
-    if (!this.isOnGround || this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
-    this.sprite.body.setVelocityY(-350);
-    this.state = 'jumping';
-    this.isOnGround = false;
-    this.scene.game.audioManager.play('jump');
-  }
+    if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
 
-  airDash(dirX) {
-    if (this.isOnGround || this.hasAirDashed) return;
-    if (this.state === 'hurt' || this.state === 'knockdown') return;
-    if (dirX === 0) return;
-    // Must be airborne for at least 150ms to avoid accidental dash on jump
-    if (this._airborneTime < 150) return;
-
-    this.hasAirDashed = true;
-    const dashSpeed = 300;
-    this.sprite.body.setVelocityX(dirX > 0 ? dashSpeed : -dashSpeed);
-    this.sprite.body.setVelocityY(-120); // slight lift
-    this.scene.game.audioManager.play('jump');
-
-    // Brief tint to show dash
-    this.sprite.setTint(0x88ccff);
-    this.scene.time.delayedCall(150, () => {
-      if (this.sprite && this.sprite.clearTint) this.sprite.clearTint();
-    });
+    if (this.isOnGround) {
+      // Normal jump
+      this.sprite.body.setVelocityY(-350);
+      this.state = 'jumping';
+      this.isOnGround = false;
+      this.scene.game.audioManager.play('jump');
+    } else if (!this.hasDoubleJumped && this._airborneTime > 100) {
+      // Double jump: reset Y velocity and boost upward
+      this.hasDoubleJumped = true;
+      this.sprite.body.setVelocityY(-380);
+      this.scene.game.audioManager.play('jump');
+    }
   }
 
   attack(type) {
@@ -218,7 +207,7 @@ export class Fighter {
     this.hurtTimer = 0;
     this.currentAttack = null;
     this.hitConnected = false;
-    this.hasAirDashed = false;
+    this.hasDoubleJumped = false;
     this._airborneTime = 0;
   }
 

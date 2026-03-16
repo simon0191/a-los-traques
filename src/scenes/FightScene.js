@@ -330,11 +330,9 @@ export class FightScene extends Phaser.Scene {
       fighter.stop();
     }
 
-    // Jump / Air dash
+    // Jump (+ double jump if already airborne)
     if (input.up) {
       fighter.jump();
-      const dirX = input.left ? -1 : input.right ? 1 : 0;
-      fighter.airDash(dirX);
     }
 
     // Block (down while on ground)
@@ -496,8 +494,6 @@ export class FightScene extends Phaser.Scene {
 
     if (inputState.up) {
       fighter.jump();
-      const dirX = inputState.left ? -1 : inputState.right ? 1 : 0;
-      fighter.airDash(dirX);
     }
 
     if (inputState.down && fighter.isOnGround) fighter.block();
