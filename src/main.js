@@ -1,0 +1,30 @@
+import Phaser from 'phaser';
+import { GAME_WIDTH, GAME_HEIGHT } from './config.js';
+import { BootScene } from './scenes/BootScene.js';
+import { TitleScene } from './scenes/TitleScene.js';
+import { SelectScene } from './scenes/SelectScene.js';
+import { PreFightScene } from './scenes/PreFightScene.js';
+import { FightScene } from './scenes/FightScene.js';
+import { VictoryScene } from './scenes/VictoryScene.js';
+
+const config = {
+  type: Phaser.AUTO,
+  width: GAME_WIDTH,
+  height: GAME_HEIGHT,
+  pixelArt: true,
+  backgroundColor: '#1a1a2e',
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { y: 0 },
+      debug: false
+    }
+  },
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  scene: [BootScene, TitleScene, SelectScene, PreFightScene, FightScene, VictoryScene]
+};
+
+window.game = new Phaser.Game(config);

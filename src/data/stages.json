@@ -1,0 +1,37 @@
+[
+  {
+    "id": "dojo",
+    "name": "El Dojo",
+    "bgColor": "#2d1b4e",
+    "groundColor": "#4a3728",
+    "description": "Traditional dojo with wooden floor and paper walls"
+  },
+  {
+    "id": "street",
+    "name": "La Calle",
+    "bgColor": "#1a2a3a",
+    "groundColor": "#3a3a3a",
+    "description": "Night street with neon signs and rain"
+  },
+  {
+    "id": "temple",
+    "name": "El Templo",
+    "bgColor": "#2a1a1a",
+    "groundColor": "#5a4a3a",
+    "description": "Ancient temple with fire braziers"
+  },
+  {
+    "id": "beach",
+    "name": "La Playa",
+    "bgColor": "#1a3a5a",
+    "groundColor": "#c4a84a",
+    "description": "Sunset beach with waves and palm trees"
+  },
+  {
+    "id": "rooftop",
+    "name": "La Azotea",
+    "bgColor": "#0a0a2a",
+    "groundColor": "#4a4a4a",
+    "description": "City rooftop at night with skyline"
+  }
+]

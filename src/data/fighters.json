@@ -1,0 +1,362 @@
+[
+  {
+    "id": "simon",
+    "name": "Sim0n",
+    "subtitle": "El Arquitecto",
+    "description": "Lean man with sharp eyes, wearing a dark hoodie with glowing circuit patterns, fingerless gloves, and combat boots. Hair slicked back with a single streak of electric blue.",
+    "color": "0x4A90D9",
+    "stats": { "hp": 100, "speed": 3, "power": 3, "defense": 3, "special": 5 },
+    "moves": {
+      "lightPunch":  { "damage": 5,  "startup": 3,  "active": 2, "recovery": 4 },
+      "heavyPunch":  { "damage": 11, "startup": 6,  "active": 3, "recovery": 8 },
+      "lightKick":   { "damage": 6,  "startup": 4,  "active": 2, "recovery": 5 },
+      "heavyKick":   { "damage": 13, "startup": 7,  "active": 3, "recovery": 9 },
+      "special":     { "damage": 30, "startup": 9,  "active": 6, "recovery": 13, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Yo diseno tu derrota antes de que empiece la pelea.",
+      "victory": "Todo salio segun el plano. Como siempre.",
+      "defeat": "Error 404... dignidad no encontrada."
+    }
+  },
+  {
+    "id": "carlos",
+    "name": "Carl0s",
+    "subtitle": "El Toro",
+    "description": "Massive bull-like man with broad shoulders, scarred arms, red bandana, torn sleeveless shirt, thick gold chain, and a permanent scowl. Dark skin, shaved head.",
+    "color": "0xCC3333",
+    "stats": { "hp": 100, "speed": 1, "power": 5, "defense": 4, "special": 2 },
+    "moves": {
+      "lightPunch":  { "damage": 7,  "startup": 5,  "active": 3, "recovery": 5 },
+      "heavyPunch":  { "damage": 16, "startup": 9,  "active": 4, "recovery": 11 },
+      "lightKick":   { "damage": 8,  "startup": 5,  "active": 3, "recovery": 6 },
+      "heavyKick":   { "damage": 18, "startup": 10, "active": 4, "recovery": 12 },
+      "special":     { "damage": 32, "startup": 14, "active": 6, "recovery": 18, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Cuando el toro embiste, nadie queda de pie.",
+      "victory": "Ole! Otro que muerde el polvo!",
+      "defeat": "Hasta los toros... necesitan descanso..."
+    }
+  },
+  {
+    "id": "maria",
+    "name": "Mar1a",
+    "subtitle": "La Centella",
+    "description": "Petite woman with lightning-fast movements, bright yellow sports top, short spiky platinum hair, electric tattoos running down both arms, lightweight sneakers.",
+    "color": "0xFFD700",
+    "stats": { "hp": 100, "speed": 5, "power": 1, "defense": 2, "special": 4 },
+    "moves": {
+      "lightPunch":  { "damage": 3,  "startup": 1,  "active": 2, "recovery": 2 },
+      "heavyPunch":  { "damage": 8,  "startup": 4,  "active": 2, "recovery": 6 },
+      "lightKick":   { "damage": 4,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyKick":   { "damage": 10, "startup": 5,  "active": 2, "recovery": 7 },
+      "special":     { "damage": 22, "startup": 7,  "active": 5, "recovery": 12, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Parpadea y ya perdiste, mi amor.",
+      "victory": "Rapida como el rayo, bonita como el sol!",
+      "defeat": "Ay no... se me rompio una una..."
+    }
+  },
+  {
+    "id": "diego",
+    "name": "D1ego",
+    "subtitle": "El Fantasma",
+    "description": "Slim mysterious figure in a long pale coat with hood partially covering his face, bandages on his hands, ghostly pale skin, silver eyes, moves like smoke.",
+    "color": "0x8866BB",
+    "stats": { "hp": 100, "speed": 5, "power": 2, "defense": 2, "special": 3 },
+    "moves": {
+      "lightPunch":  { "damage": 4,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyPunch":  { "damage": 9,  "startup": 5,  "active": 2, "recovery": 7 },
+      "lightKick":   { "damage": 5,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyKick":   { "damage": 11, "startup": 6,  "active": 2, "recovery": 8 },
+      "special":     { "damage": 24, "startup": 8,  "active": 5, "recovery": 13, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "No puedes golpear lo que no puedes ver.",
+      "victory": "Desaparezco... como si nunca hubiera estado aqui.",
+      "defeat": "Parece que este fantasma... fue exorcizado."
+    }
+  },
+  {
+    "id": "lucia",
+    "name": "Luc1a",
+    "subtitle": "La Tormenta",
+    "description": "Athletic woman with wild curly dark hair flowing like storm clouds, deep purple bodysuit with lightning accents, stormy grey eyes, wind-swept cape.",
+    "color": "0x6644AA",
+    "stats": { "hp": 100, "speed": 3, "power": 3, "defense": 3, "special": 5 },
+    "moves": {
+      "lightPunch":  { "damage": 5,  "startup": 3,  "active": 2, "recovery": 4 },
+      "heavyPunch":  { "damage": 12, "startup": 6,  "active": 3, "recovery": 8 },
+      "lightKick":   { "damage": 6,  "startup": 4,  "active": 2, "recovery": 5 },
+      "heavyKick":   { "damage": 13, "startup": 7,  "active": 3, "recovery": 9 },
+      "special":     { "damage": 30, "startup": 8,  "active": 6, "recovery": 14, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "La tormenta no pide permiso para llegar.",
+      "victory": "Despues de la tormenta... no queda nada de ti!",
+      "defeat": "Hasta las tormentas... se calman eventualmente."
+    }
+  },
+  {
+    "id": "pablo",
+    "name": "Pabl0",
+    "subtitle": "El Titan",
+    "description": "Enormous wrestler-type man with a lucha libre mask in green and gold, bare chest showing massive muscles, championship belt, spiked wristbands.",
+    "color": "0x228B22",
+    "stats": { "hp": 100, "speed": 1, "power": 4, "defense": 5, "special": 2 },
+    "moves": {
+      "lightPunch":  { "damage": 6,  "startup": 5,  "active": 3, "recovery": 5 },
+      "heavyPunch":  { "damage": 15, "startup": 9,  "active": 4, "recovery": 11 },
+      "lightKick":   { "damage": 7,  "startup": 6,  "active": 3, "recovery": 6 },
+      "heavyKick":   { "damage": 16, "startup": 10, "active": 4, "recovery": 12 },
+      "special":     { "damage": 28, "startup": 14, "active": 5, "recovery": 18, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "El Titan no cae. El Titan APLASTA.",
+      "victory": "Eso fue calentamiento. Quien sigue?",
+      "defeat": "Im... imposible... necesito... un sandwich."
+    }
+  },
+  {
+    "id": "elena",
+    "name": "El3na",
+    "subtitle": "La Serpiente",
+    "description": "Lithe woman with long black hair in a braid, green scaled bodysuit, snake fang earrings, sharp nails painted emerald, moves with serpentine grace.",
+    "color": "0x33CC66",
+    "stats": { "hp": 100, "speed": 5, "power": 2, "defense": 2, "special": 3 },
+    "moves": {
+      "lightPunch":  { "damage": 4,  "startup": 2,  "active": 2, "recovery": 2 },
+      "heavyPunch":  { "damage": 9,  "startup": 4,  "active": 3, "recovery": 6 },
+      "lightKick":   { "damage": 5,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyKick":   { "damage": 11, "startup": 5,  "active": 3, "recovery": 7 },
+      "special":     { "damage": 23, "startup": 8,  "active": 5, "recovery": 13, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Ssss... ven mas cerca, no muerdo... mucho.",
+      "victory": "Otro raton atrapado en mis anillos!",
+      "defeat": "Me pisaron... la cola... ay..."
+    }
+  },
+  {
+    "id": "miguel",
+    "name": "M1guel",
+    "subtitle": "El Martillo",
+    "description": "Stocky blacksmith-type man with thick forearms, leather apron over bare chest, heavy boots, soot-covered face, wild red beard, carries invisible hammer.",
+    "color": "0xCC6633",
+    "stats": { "hp": 100, "speed": 2, "power": 5, "defense": 3, "special": 2 },
+    "moves": {
+      "lightPunch":  { "damage": 6,  "startup": 4,  "active": 3, "recovery": 5 },
+      "heavyPunch":  { "damage": 15, "startup": 8,  "active": 4, "recovery": 10 },
+      "lightKick":   { "damage": 7,  "startup": 5,  "active": 2, "recovery": 6 },
+      "heavyKick":   { "damage": 16, "startup": 9,  "active": 3, "recovery": 11 },
+      "special":     { "damage": 30, "startup": 12, "active": 5, "recovery": 16, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Cada golpe mio es como un martillazo en el yunque!",
+      "victory": "Forjado en fuego, templado en victoria!",
+      "defeat": "Creo que me... doble el martillo..."
+    }
+  },
+  {
+    "id": "sofia",
+    "name": "S0fia",
+    "subtitle": "La Bruja",
+    "description": "Mystical woman with glowing violet eyes, dark flowing robes with constellation patterns, silver crescent moon headpiece, floating arcane symbols around her hands.",
+    "color": "0x9933CC",
+    "stats": { "hp": 100, "speed": 2, "power": 2, "defense": 2, "special": 5 },
+    "moves": {
+      "lightPunch":  { "damage": 4,  "startup": 3,  "active": 2, "recovery": 4 },
+      "heavyPunch":  { "damage": 10, "startup": 6,  "active": 3, "recovery": 8 },
+      "lightKick":   { "damage": 5,  "startup": 4,  "active": 2, "recovery": 5 },
+      "heavyKick":   { "damage": 11, "startup": 7,  "active": 3, "recovery": 9 },
+      "special":     { "damage": 35, "startup": 8,  "active": 7, "recovery": 12, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Las estrellas ya me dijeron que gano yo.",
+      "victory": "La magia siempre vence a los punos, tonto!",
+      "defeat": "Mi bola de cristal... no vio esto venir..."
+    }
+  },
+  {
+    "id": "andres",
+    "name": "Andr3s",
+    "subtitle": "El Rayo",
+    "description": "Wiry young man with electric blue mohawk, sleeveless lightning-bolt jacket, ripped jeans, chain accessories, manic grin, crackling energy around fists.",
+    "color": "0x00CCFF",
+    "stats": { "hp": 100, "speed": 5, "power": 4, "defense": 1, "special": 3 },
+    "moves": {
+      "lightPunch":  { "damage": 5,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyPunch":  { "damage": 13, "startup": 5,  "active": 3, "recovery": 7 },
+      "lightKick":   { "damage": 6,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyKick":   { "damage": 15, "startup": 6,  "active": 3, "recovery": 8 },
+      "special":     { "damage": 28, "startup": 8,  "active": 5, "recovery": 14, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Soy tan rapido que me pego a mi mismo por accidente!",
+      "victory": "Zas! Ni me viste! Bueno, ya no ves nada...",
+      "defeat": "Velocidad sin... armadura... mala idea..."
+    }
+  },
+  {
+    "id": "valentina",
+    "name": "Val3ntina",
+    "subtitle": "La Fiera",
+    "description": "Fierce woman with wild crimson hair, tiger-stripe face paint, torn military pants, wrapped fists, combat scars, ferocious amber eyes, fanged grin.",
+    "color": "0xFF6633",
+    "stats": { "hp": 100, "speed": 3, "power": 4, "defense": 2, "special": 3 },
+    "moves": {
+      "lightPunch":  { "damage": 6,  "startup": 3,  "active": 2, "recovery": 4 },
+      "heavyPunch":  { "damage": 14, "startup": 6,  "active": 3, "recovery": 8 },
+      "lightKick":   { "damage": 7,  "startup": 3,  "active": 2, "recovery": 5 },
+      "heavyKick":   { "damage": 15, "startup": 7,  "active": 3, "recovery": 9 },
+      "special":     { "damage": 27, "startup": 9,  "active": 5, "recovery": 14, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Huele a miedo aqui... y me ENCANTA.",
+      "victory": "La fiera siempre come bien!",
+      "defeat": "Grrr... esto no se queda asi..."
+    }
+  },
+  {
+    "id": "juan",
+    "name": "Juan",
+    "subtitle": "El Muro",
+    "description": "Gigantic stoic man built like a concrete wall, grey military buzz cut, stone-colored skin, heavy iron gauntlets, thick neck, unmoving expression, cracked ground beneath feet.",
+    "color": "0x888888",
+    "stats": { "hp": 100, "speed": 1, "power": 3, "defense": 5, "special": 2 },
+    "moves": {
+      "lightPunch":  { "damage": 5,  "startup": 5,  "active": 3, "recovery": 5 },
+      "heavyPunch":  { "damage": 13, "startup": 8,  "active": 4, "recovery": 10 },
+      "lightKick":   { "damage": 6,  "startup": 6,  "active": 3, "recovery": 6 },
+      "heavyKick":   { "damage": 14, "startup": 9,  "active": 4, "recovery": 11 },
+      "special":     { "damage": 26, "startup": 13, "active": 6, "recovery": 17, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Golpeame. Anda. Necesito saber si aun siento algo.",
+      "victory": "No me movi. Tu si. Al suelo.",
+      "defeat": "Hasta los muros... caen... algun dia..."
+    }
+  },
+  {
+    "id": "camila",
+    "name": "Cam1la",
+    "subtitle": "La Sombra",
+    "description": "Ninja-like woman in dark purple and black, face mask, short dark hair with violet tips, throwing daggers strapped to thighs, moves like a shadow, pale skin.",
+    "color": "0x443366",
+    "stats": { "hp": 100, "speed": 5, "power": 2, "defense": 1, "special": 4 },
+    "moves": {
+      "lightPunch":  { "damage": 4,  "startup": 1,  "active": 2, "recovery": 2 },
+      "heavyPunch":  { "damage": 9,  "startup": 4,  "active": 2, "recovery": 6 },
+      "lightKick":   { "damage": 5,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyKick":   { "damage": 10, "startup": 5,  "active": 2, "recovery": 7 },
+      "special":     { "damage": 26, "startup": 7,  "active": 5, "recovery": 12, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Cuando me veas, ya sera demasiado tarde.",
+      "victory": "Shhh... vuelve a dormir...",
+      "defeat": "Me descubrieron... que verguenza profesional."
+    }
+  },
+  {
+    "id": "mateo",
+    "name": "Mat3o",
+    "subtitle": "El Volcan",
+    "description": "Hulking man with obsidian skin cracked with glowing magma lines, shirtless, volcanic rock pauldrons, smoke rising from shoulders, burning orange eyes, molten fists.",
+    "color": "0xFF4400",
+    "stats": { "hp": 100, "speed": 2, "power": 5, "defense": 3, "special": 4 },
+    "moves": {
+      "lightPunch":  { "damage": 6,  "startup": 4,  "active": 3, "recovery": 5 },
+      "heavyPunch":  { "damage": 15, "startup": 8,  "active": 4, "recovery": 10 },
+      "lightKick":   { "damage": 7,  "startup": 5,  "active": 3, "recovery": 6 },
+      "heavyKick":   { "damage": 17, "startup": 9,  "active": 4, "recovery": 11 },
+      "special":     { "damage": 32, "startup": 10, "active": 6, "recovery": 15, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "La lava sube... y cuando exploto, NADIE se salva!",
+      "victory": "ERUPCION TOTAL! Quien quiere ser ceniza?!",
+      "defeat": "El volcan... se apago... necesito magma..."
+    }
+  },
+  {
+    "id": "isabella",
+    "name": "Isab3lla",
+    "subtitle": "La Rosa",
+    "description": "Elegant woman with rose-pink hair in an updo, thorned vine bracelets, flowing red dress with armored corset, graceful fighting stance, beauty mark, confident smile.",
+    "color": "0xFF69B4",
+    "stats": { "hp": 100, "speed": 3, "power": 3, "defense": 4, "special": 3 },
+    "moves": {
+      "lightPunch":  { "damage": 5,  "startup": 3,  "active": 2, "recovery": 4 },
+      "heavyPunch":  { "damage": 12, "startup": 6,  "active": 3, "recovery": 8 },
+      "lightKick":   { "damage": 6,  "startup": 4,  "active": 2, "recovery": 5 },
+      "heavyKick":   { "damage": 13, "startup": 7,  "active": 3, "recovery": 9 },
+      "special":     { "damage": 25, "startup": 10, "active": 5, "recovery": 14, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Toda rosa tiene espinas. Las mias son de acero.",
+      "victory": "Bella y letal. Acostumbrate.",
+      "defeat": "Me arrancaron... un petalo... imperdonable."
+    }
+  },
+  {
+    "id": "santiago",
+    "name": "Sant1ago",
+    "subtitle": "El Lobo",
+    "description": "Lean predatory man with silver-white hair, wolf pelt draped over one shoulder, claw-mark scars across chest, feral yellow eyes, sharp canines, crouched stance.",
+    "color": "0xAABBCC",
+    "stats": { "hp": 100, "speed": 4, "power": 4, "defense": 1, "special": 3 },
+    "moves": {
+      "lightPunch":  { "damage": 5,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyPunch":  { "damage": 13, "startup": 5,  "active": 3, "recovery": 8 },
+      "lightKick":   { "damage": 6,  "startup": 3,  "active": 2, "recovery": 4 },
+      "heavyKick":   { "damage": 15, "startup": 6,  "active": 3, "recovery": 9 },
+      "special":     { "damage": 27, "startup": 9,  "active": 5, "recovery": 14, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "La manada no necesita piedad. Yo tampoco.",
+      "victory": "Auuuuu! El lobo come esta noche!",
+      "defeat": "Un lobo herido... es aun mas peligroso... recuerdalo."
+    }
+  },
+  {
+    "id": "daniela",
+    "name": "Dan1ela",
+    "subtitle": "La Estrella",
+    "description": "Confident woman with star-shaped hair clips, gold and white fighting outfit, radiant aura, warm brown skin, bright smile, balanced athletic build, star tattoo on cheek.",
+    "color": "0xFFCC00",
+    "stats": { "hp": 100, "speed": 3, "power": 3, "defense": 3, "special": 3 },
+    "moves": {
+      "lightPunch":  { "damage": 5,  "startup": 3,  "active": 2, "recovery": 4 },
+      "heavyPunch":  { "damage": 12, "startup": 6,  "active": 3, "recovery": 8 },
+      "lightKick":   { "damage": 6,  "startup": 4,  "active": 2, "recovery": 5 },
+      "heavyKick":   { "damage": 14, "startup": 8,  "active": 3, "recovery": 10 },
+      "special":     { "damage": 25, "startup": 10, "active": 5, "recovery": 15, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Todas las estrellas brillan. Yo brillo MAS.",
+      "victory": "Estrella fugaz! Pediste un deseo? Tarde!",
+      "defeat": "Hasta las estrellas... se apagan... pero vuelven a salir."
+    }
+  },
+  {
+    "id": "felipe",
+    "name": "F3lipe",
+    "subtitle": "El Trueno",
+    "description": "Towering man with a thundercloud mohawk, metallic armor on one arm, exposed muscular torso with storm tattoos, heavy boots that crack the ground, deep booming voice.",
+    "color": "0x3366FF",
+    "stats": { "hp": 100, "speed": 2, "power": 5, "defense": 2, "special": 4 },
+    "moves": {
+      "lightPunch":  { "damage": 6,  "startup": 4,  "active": 3, "recovery": 5 },
+      "heavyPunch":  { "damage": 15, "startup": 8,  "active": 4, "recovery": 10 },
+      "lightKick":   { "damage": 7,  "startup": 5,  "active": 2, "recovery": 6 },
+      "heavyKick":   { "damage": 17, "startup": 9,  "active": 3, "recovery": 11 },
+      "special":     { "damage": 33, "startup": 10, "active": 6, "recovery": 15, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Escuchas eso? Es el trueno que viene por ti.",
+      "victory": "BOOM! El trueno siempre llega despues del rayo!",
+      "defeat": "El cielo... se despeja... por ahora..."
+    }
+  }
+]
