@@ -7,6 +7,7 @@ import { Fighter } from '../entities/Fighter.js';
 import { InputManager } from '../systems/InputManager.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { AIController } from '../systems/AIController.js';
+import { DevConsole } from '../systems/DevConsole.js';
 import fightersData from '../data/fighters.json';
 
 // ---------------------------------------------------------------------------
@@ -85,6 +86,16 @@ export class FightScene extends Phaser.Scene {
       this._setupOnlineMode();
     }
 
+    // -- Audio --
+    const audio = this.game.audioManager;
+    audio.setScene(this);
+    audio.playMusic('bgm_fight');
+    audio.createMuteButton(this);
+
+    // -- Dev console (backtick to toggle) --
+    DevConsole._AIController = AIController;
+    this.devConsole = new DevConsole(this);
+
     // -- Space key for restart --
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
@@ -126,8 +137,10 @@ export class FightScene extends Phaser.Scene {
       this._handleP1Input();
 
       // -- Handle P2 AI --
-      this.aiController.update(time, delta);
-      this.aiController.applyDecisions();
+      if (this.aiController) {
+        this.aiController.update(time, delta);
+        this.aiController.applyDecisions();
+      }
 
       // -- Body collision (push-back) --
       this.combat.resolveBodyCollision(this.p1Fighter, this.p2Fighter);
@@ -298,6 +311,12 @@ export class FightScene extends Phaser.Scene {
   // P1 INPUT
   // =========================================================================
   _handleP1Input() {
+    // Skip keyboard input when dev console is open
+    if (this.devConsole && this.devConsole.visible) {
+      this.p1Fighter.stop();
+      return;
+    }
+
     const input = this.inputManager;
     const fighter = this.p1Fighter;
     const speed = 80 + (fighter.data.stats.speed * 20); // speed stat: 1=100, 3=140, 5=180
@@ -311,9 +330,11 @@ export class FightScene extends Phaser.Scene {
       fighter.stop();
     }
 
-    // Jump
+    // Jump / Air dash
     if (input.up) {
       fighter.jump();
+      const dirX = input.left ? -1 : input.right ? 1 : 0;
+      fighter.airDash(dirX);
     }
 
     // Block (down while on ground)
@@ -473,7 +494,11 @@ export class FightScene extends Phaser.Scene {
       fighter.stop();
     }
 
-    if (inputState.up) fighter.jump();
+    if (inputState.up) {
+      fighter.jump();
+      const dirX = inputState.left ? -1 : inputState.right ? 1 : 0;
+      fighter.airDash(dirX);
+    }
 
     if (inputState.down && fighter.isOnGround) fighter.block();
 
@@ -492,6 +517,7 @@ export class FightScene extends Phaser.Scene {
 
     this.centerText.setText(`ROUND ${this.combat.roundNumber}`);
     this.subtitleText.setText('');
+    this.game.audioManager.play('announce_round');
 
     // Scale-up + fade-in tween for round text
     this.centerText.setScale(2.5).setAlpha(0);
@@ -506,6 +532,7 @@ export class FightScene extends Phaser.Scene {
 
     this.time.delayedCall(1500, () => {
       this.centerText.setText('A PELEAR!');
+      this.game.audioManager.play('announce_fight');
       this.centerText.setScale(2).setAlpha(0);
       this.tweens.add({
         targets: this.centerText,
@@ -535,6 +562,7 @@ export class FightScene extends Phaser.Scene {
 
     this.centerText.setText('K.O.!');
     this.subtitleText.setText('');
+    this.game.audioManager.play('announce_ko');
 
     // Scale-up tween for KO text
     this.centerText.setScale(3).setAlpha(0);
@@ -590,6 +618,7 @@ export class FightScene extends Phaser.Scene {
 
     this.centerText.setText('K.O.!');
     this.subtitleText.setText('');
+    this.game.audioManager.play('announce_ko');
 
     // Scale-up tween for final KO text
     this.centerText.setScale(3).setAlpha(0);
