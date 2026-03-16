@@ -24,3 +24,6 @@ export const FIGHTER_COLORS = {
 // Stage bounds
 export const STAGE_LEFT = 20;
 export const STAGE_RIGHT = 460;
+
+// Fighter body collision width (used for push-back between fighters)
+export const FIGHTER_BODY_WIDTH = 36;

@@ -129,6 +129,9 @@ export class FightScene extends Phaser.Scene {
       this.aiController.update(time, delta);
       this.aiController.applyDecisions();
 
+      // -- Body collision (push-back) --
+      this.combat.resolveBodyCollision(this.p1Fighter, this.p2Fighter);
+
       // -- Facing --
       this.p1Fighter.faceOpponent(this.p2Fighter);
       this.p2Fighter.faceOpponent(this.p1Fighter);
@@ -415,6 +418,9 @@ export class FightScene extends Phaser.Scene {
     // Apply remote input to remote fighter
     const remoteInput = nm.getRemoteInput(this.frameCounter);
     this._applyInputToFighter(this.remoteFighter, remoteInput);
+
+    // Body collision (push-back)
+    this.combat.resolveBodyCollision(this.p1Fighter, this.p2Fighter);
 
     // Facing (both sides)
     this.p1Fighter.faceOpponent(this.p2Fighter);
