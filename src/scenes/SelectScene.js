@@ -213,8 +213,9 @@ export class SelectScene extends Phaser.Scene {
     // Update display
     this.updateP1Display();
 
-    // In online mode, listen for opponent ready early
+    // In online mode, reset stale state and listen for opponent ready early
     if (this.gameMode === 'online' && this.networkManager) {
+      this.networkManager.resetForReselect();
       this.networkManager.onOpponentReady((fighterId) => {
         this.opponentFighterId = fighterId;
         this.opponentReady = true;

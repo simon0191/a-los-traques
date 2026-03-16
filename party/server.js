@@ -66,6 +66,17 @@ export default class FightRoom {
         // Relay directly to opponent
         this._sendToOther(slot, data);
         break;
+      case 'leave':
+        // Reset both players' ready state so they can re-select fighters
+        for (let i = 0; i < 2; i++) {
+          if (this.players[i]) {
+            this.players[i].ready = false;
+            this.players[i].fighterId = null;
+          }
+        }
+        this.started = false;
+        this._sendToOther(slot, data);
+        break;
     }
   }
 

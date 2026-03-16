@@ -106,10 +106,6 @@ export class VictoryScene extends Phaser.Scene {
           fontFamily: 'Arial', fontSize: '8px', color: '#ffcc00'
         }).setOrigin(0.5);
 
-        this.networkManager.onRematch(() => {
-          this._goToFight();
-        });
-
         // If we already received a rematch request
         if (this._rematchReceived) {
           this._goToFight();
@@ -121,15 +117,17 @@ export class VictoryScene extends Phaser.Scene {
 
     this.createButton(GAME_WIDTH / 2 + 70, 252, 'ELEGIR OTRO', () => {
       if (this.gameMode === 'online' && this.networkManager) {
-        this.networkManager.destroy();
+        this.networkManager.sendLeave();
+        this._goToSelect();
+      } else {
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('SelectScene', { gameMode: 'local' });
+        });
       }
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('SelectScene', { gameMode: 'local' });
-      });
     });
 
-    // In online mode, listen for rematch from opponent even before pressing button
+    // In online mode, listen for rematch/leave from opponent even before pressing button
     if (this.gameMode === 'online' && this.networkManager) {
       this._rematchReceived = false;
       this.networkManager.onRematch(() => {
@@ -139,12 +137,32 @@ export class VictoryScene extends Phaser.Scene {
         }
       });
 
+      this.networkManager.onLeave(() => {
+        if (this._rematchText) this._rematchText.destroy();
+        const msg = this.add.text(GAME_WIDTH / 2, 235, 'Oponente quiere cambiar luchador...', {
+          fontFamily: 'Arial', fontSize: '8px', color: '#ffcc00'
+        }).setOrigin(0.5);
+        this.time.delayedCall(800, () => {
+          this._goToSelect();
+        });
+      });
+
       this.networkManager.onDisconnect(() => {
         this.add.text(GAME_WIDTH / 2, 235, 'Oponente desconectado', {
           fontFamily: 'Arial', fontSize: '8px', color: '#ff4444'
         }).setOrigin(0.5);
       });
     }
+  }
+
+  _goToSelect() {
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('SelectScene', {
+        gameMode: 'online',
+        networkManager: this.networkManager
+      });
+    });
   }
 
   _goToFight() {

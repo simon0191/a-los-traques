@@ -25,6 +25,7 @@ export class NetworkManager {
     this._onError = null;
     this._onSync = null;
     this._onRoundEvent = null;
+    this._onLeave = null;
 
     // Input buffer: frame -> inputState
     this.remoteInputBuffer = {};
@@ -94,6 +95,9 @@ export class NetworkManager {
       case 'round_event':
         if (this._onRoundEvent) this._onRoundEvent(msg);
         break;
+      case 'leave':
+        if (this._onLeave) this._onLeave();
+        break;
     }
   }
 
@@ -109,6 +113,7 @@ export class NetworkManager {
   onError(cb) { this._onError = cb; }
   onSync(cb) { this._onSync = cb; }
   onRoundEvent(cb) { this._onRoundEvent = cb; }
+  onLeave(cb) { this._onLeave = cb; }
 
   // --- Public API: send messages ---
   sendReady(fighterId) {
@@ -121,6 +126,10 @@ export class NetworkManager {
 
   sendRematch() {
     this._send({ type: 'rematch' });
+  }
+
+  sendLeave() {
+    this._send({ type: 'leave' });
   }
 
   sendSync(state) {
@@ -160,6 +169,19 @@ export class NetworkManager {
 
   getPlayerSlot() { return this.playerSlot; }
   getInputDelay() { return INPUT_DELAY; }
+
+  resetForReselect() {
+    this.remoteInputBuffer = {};
+    this.lastRemoteInput = null;
+    this.localFrame = 0;
+    this._onOpponentReady = null;
+    this._onStart = null;
+    this._onRemoteInput = null;
+    this._onRematch = null;
+    this._onLeave = null;
+    this._onSync = null;
+    this._onRoundEvent = null;
+  }
 
   destroy() {
     if (this.socket) {
