@@ -13,6 +13,8 @@ export class VictoryScene extends Phaser.Scene {
     this.p1Id = data.p1Id;
     this.p2Id = data.p2Id;
     this.stageId = data.stageId;
+    this.gameMode = data.gameMode || 'local';
+    this.networkManager = data.networkManager || null;
   }
 
   create() {
@@ -97,20 +99,63 @@ export class VictoryScene extends Phaser.Scene {
 
     // Buttons
     this.createButton(GAME_WIDTH / 2 - 70, 252, 'REVANCHA', () => {
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('FightScene', {
-          p1Id: this.p1Id,
-          p2Id: this.p2Id,
-          stageId: this.stageId
+      if (this.gameMode === 'online' && this.networkManager) {
+        this.networkManager.sendRematch();
+        this._waitingRematch = true;
+        this._rematchText = this.add.text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
+          fontFamily: 'Arial', fontSize: '8px', color: '#ffcc00'
+        }).setOrigin(0.5);
+
+        this.networkManager.onRematch(() => {
+          this._goToFight();
         });
-      });
+
+        // If we already received a rematch request
+        if (this._rematchReceived) {
+          this._goToFight();
+        }
+      } else {
+        this._goToFight();
+      }
     });
 
     this.createButton(GAME_WIDTH / 2 + 70, 252, 'ELEGIR OTRO', () => {
+      if (this.gameMode === 'online' && this.networkManager) {
+        this.networkManager.destroy();
+      }
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('SelectScene');
+        this.scene.start('SelectScene', { gameMode: 'local' });
+      });
+    });
+
+    // In online mode, listen for rematch from opponent even before pressing button
+    if (this.gameMode === 'online' && this.networkManager) {
+      this._rematchReceived = false;
+      this.networkManager.onRematch(() => {
+        this._rematchReceived = true;
+        if (this._waitingRematch) {
+          this._goToFight();
+        }
+      });
+
+      this.networkManager.onDisconnect(() => {
+        this.add.text(GAME_WIDTH / 2, 235, 'Oponente desconectado', {
+          fontFamily: 'Arial', fontSize: '8px', color: '#ff4444'
+        }).setOrigin(0.5);
+      });
+    }
+  }
+
+  _goToFight() {
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('FightScene', {
+        p1Id: this.p1Id,
+        p2Id: this.p2Id,
+        stageId: this.stageId,
+        gameMode: this.gameMode,
+        networkManager: this.networkManager
       });
     });
   }

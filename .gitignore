@@ -4,3 +4,4 @@ assets/_raw/
 assets/photos/
 .DS_Store
 *.log
+.partykit/

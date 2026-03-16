@@ -12,6 +12,8 @@ export class PreFightScene extends Phaser.Scene {
     this.p1Id = data.p1Id;
     this.p2Id = data.p2Id;
     this.stageId = data.stageId;
+    this.gameMode = data.gameMode || 'local';
+    this.networkManager = data.networkManager || null;
   }
 
   create() {
@@ -156,7 +158,9 @@ export class PreFightScene extends Phaser.Scene {
       this.scene.start('FightScene', {
         p1Id: this.p1Id,
         p2Id: this.p2Id,
-        stageId: this.stageId
+        stageId: this.stageId,
+        gameMode: this.gameMode,
+        networkManager: this.networkManager
       });
     });
   }

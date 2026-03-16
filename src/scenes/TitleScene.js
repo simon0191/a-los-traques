@@ -48,28 +48,13 @@ export class TitleScene extends Phaser.Scene {
     // Decorative line
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 200, 2, 0xccccff, 0.6);
 
-    // Flashing prompt text
-    this.promptText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 40, 'TOCA PARA JUGAR', {
-      fontFamily: 'Arial',
-      fontSize: '14px',
-      color: '#ffcc00'
-    }).setOrigin(0.5);
-
-    this.time.addEvent({
-      delay: 500,
-      loop: true,
-      callback: () => {
-        this.promptText.setVisible(!this.promptText.visible);
-      }
-    });
-
-    // Input: any key or pointer starts the game
-    this.input.keyboard.on('keydown', () => {
+    // Mode buttons
+    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'VS MAQUINA', () => {
       this.goToSelect();
     });
 
-    this.input.on('pointerdown', () => {
-      this.goToSelect();
+    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 68, 'EN LINEA', () => {
+      this.goToLobby();
     });
 
     this.transitioning = false;
@@ -85,8 +70,37 @@ export class TitleScene extends Phaser.Scene {
     }
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('SelectScene');
+      this.scene.start('SelectScene', { gameMode: 'local' });
     });
+  }
+
+  goToLobby() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('LobbyScene', { roomId: null });
+    });
+  }
+
+  _createButton(x, y, label, callback) {
+    const bg = this.add.rectangle(x, y, 140, 24, 0x222244)
+      .setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor: true });
+
+    const text = this.add.text(x, y, label, {
+      fontFamily: 'Arial',
+      fontSize: '12px',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+
+    bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
+    bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
+    bg.on('pointerdown', callback);
   }
 
   update() {

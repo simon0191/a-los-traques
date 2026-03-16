@@ -43,6 +43,8 @@ export class FightScene extends Phaser.Scene {
     }
     this.stageId = data && (data.stageId || data.stage) ? (data.stageId || data.stage) : null;
     this.aiDifficulty = (data && data.difficulty) ? data.difficulty : 'medium';
+    this.gameMode = (data && data.gameMode) || 'local';
+    this.networkManager = (data && data.networkManager) || null;
   }
 
   // =========================================================================
@@ -74,8 +76,14 @@ export class FightScene extends Phaser.Scene {
     // -- Build HUD --
     this._createHUD();
 
-    // -- AI controller --
-    this.aiController = new AIController(this, this.p2Fighter, this.p1Fighter, this.aiDifficulty);
+    // -- AI controller (local mode only) --
+    if (this.gameMode !== 'online') {
+      this.aiController = new AIController(this, this.p2Fighter, this.p1Fighter, this.aiDifficulty);
+    } else {
+      this.aiController = null;
+      this.frameCounter = 0;
+      this._setupOnlineMode();
+    }
 
     // -- Space key for restart --
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -109,23 +117,29 @@ export class FightScene extends Phaser.Scene {
       return;
     }
 
-    // -- Handle P1 input --
-    this._handleP1Input();
+    if (this.gameMode === 'online') {
+      // Online: _handleOnlineUpdate does facing, hit detection (host only),
+      // state sync, and HUD update internally
+      this._handleOnlineUpdate(time, delta);
+    } else {
+      // -- Handle P1 input --
+      this._handleP1Input();
 
-    // -- Handle P2 AI --
-    this.aiController.update(time, delta);
-    this.aiController.applyDecisions();
+      // -- Handle P2 AI --
+      this.aiController.update(time, delta);
+      this.aiController.applyDecisions();
 
-    // -- Facing --
-    this.p1Fighter.faceOpponent(this.p2Fighter);
-    this.p2Fighter.faceOpponent(this.p1Fighter);
+      // -- Facing --
+      this.p1Fighter.faceOpponent(this.p2Fighter);
+      this.p2Fighter.faceOpponent(this.p1Fighter);
 
-    // -- Hit detection (both directions) --
-    this.combat.checkHit(this.p1Fighter, this.p2Fighter);
-    this.combat.checkHit(this.p2Fighter, this.p1Fighter);
+      // -- Hit detection (both directions) --
+      this.combat.checkHit(this.p1Fighter, this.p2Fighter);
+      this.combat.checkHit(this.p2Fighter, this.p1Fighter);
 
-    // -- Update HUD --
-    this._updateHUD();
+      // -- Update HUD --
+      this._updateHUD();
+    }
   }
 
   // =========================================================================
@@ -316,6 +330,155 @@ export class FightScene extends Phaser.Scene {
   }
 
   // =========================================================================
+  // ONLINE MODE
+  // =========================================================================
+  _setupOnlineMode() {
+    const nm = this.networkManager;
+    const slot = nm.getPlayerSlot();
+
+    // slot 0 = host (runs authoritative combat), slot 1 = guest (receives state)
+    this.isHost = slot === 0;
+
+    // Determine which fighter is local vs remote
+    this.localFighter = slot === 0 ? this.p1Fighter : this.p2Fighter;
+    this.remoteFighter = slot === 0 ? this.p2Fighter : this.p1Fighter;
+
+    // Sync counter: host sends state every N frames
+    this._syncInterval = 3;
+
+    nm.onDisconnect(() => {
+      this.combat.roundActive = false;
+      this._onlineDisconnected = true;
+      this.centerText.setText('DESCONECTADO');
+      this.subtitleText.setText('Oponente abandono la pelea');
+      this.localFighter.stop();
+      this.remoteFighter.stop();
+    });
+
+    // Guest: receive authoritative state syncs from host
+    if (!this.isHost) {
+      nm.onSync((msg) => {
+        // Apply authoritative HP, special, timer, positions
+        this.p1Fighter.hp = msg.p1hp;
+        this.p1Fighter.special = msg.p1sp;
+        this.p2Fighter.hp = msg.p2hp;
+        this.p2Fighter.special = msg.p2sp;
+        this.combat.timer = msg.timer;
+        // Sync positions to prevent drift
+        this.p1Fighter.sprite.x = msg.p1x;
+        this.p2Fighter.sprite.x = msg.p2x;
+      });
+
+      nm.onRoundEvent((msg) => {
+        // Host tells us about round outcomes
+        this.combat.stopRound();
+        this.combat.p1RoundsWon = msg.p1Rounds;
+        this.combat.p2RoundsWon = msg.p2Rounds;
+        this.combat.roundNumber = msg.roundNumber;
+
+        if (msg.event === 'ko' || msg.event === 'timeup') {
+          if (msg.matchOver) {
+            this.combat.matchOver = true;
+            this.onMatchOver(msg.winnerIndex);
+          } else {
+            this.onRoundOver(msg.winnerIndex);
+          }
+        }
+      });
+    }
+  }
+
+  _handleOnlineUpdate(time, delta) {
+    this.frameCounter++;
+    const nm = this.networkManager;
+
+    // Read local input and send it
+    const input = this.inputManager;
+    const localInput = {
+      left: input.left,
+      right: input.right,
+      up: input.up,
+      down: input.down,
+      lp: input.lightPunch,
+      hp: input.heavyPunch,
+      lk: input.lightKick,
+      hk: input.heavyKick,
+      sp: input.special
+    };
+
+    nm.sendInput(this.frameCounter, localInput);
+
+    // Apply local input to local fighter
+    this._applyInputToFighter(this.localFighter, localInput);
+    input.consumeTouch();
+
+    // Apply remote input to remote fighter
+    const remoteInput = nm.getRemoteInput(this.frameCounter);
+    this._applyInputToFighter(this.remoteFighter, remoteInput);
+
+    // Facing (both sides)
+    this.p1Fighter.faceOpponent(this.p2Fighter);
+    this.p2Fighter.faceOpponent(this.p1Fighter);
+
+    // Host: run hit detection and send state syncs
+    if (this.isHost) {
+      this.combat.checkHit(this.p1Fighter, this.p2Fighter);
+      this.combat.checkHit(this.p2Fighter, this.p1Fighter);
+
+      // Send periodic state sync
+      if (this.frameCounter % this._syncInterval === 0) {
+        nm.sendSync({
+          p1hp: this.p1Fighter.hp,
+          p1sp: this.p1Fighter.special,
+          p2hp: this.p2Fighter.hp,
+          p2sp: this.p2Fighter.special,
+          timer: this.combat.timer,
+          p1x: this.p1Fighter.sprite.x,
+          p2x: this.p2Fighter.sprite.x
+        });
+      }
+    }
+
+    this._updateHUD();
+  }
+
+  /** Send round event from host to guest via network */
+  _sendRoundEvent(event, winnerIndex) {
+    if (this.gameMode === 'online' && this.isHost && this.networkManager) {
+      this.networkManager.sendRoundEvent({
+        event,
+        winnerIndex,
+        p1Rounds: this.combat.p1RoundsWon,
+        p2Rounds: this.combat.p2RoundsWon,
+        roundNumber: this.combat.roundNumber,
+        matchOver: this.combat.matchOver
+      });
+    }
+  }
+
+  _applyInputToFighter(fighter, inputState) {
+    const speed = 80 + (fighter.data.stats.speed * 20);
+
+    if (inputState.left) {
+      fighter.moveLeft(speed);
+    } else if (inputState.right) {
+      fighter.moveRight(speed);
+    } else {
+      fighter.stop();
+    }
+
+    if (inputState.up) fighter.jump();
+
+    if (inputState.down && fighter.isOnGround) fighter.block();
+
+    if (inputState.lp) fighter.attack('lightPunch');
+    else if (inputState.hp) fighter.attack('heavyPunch');
+    else if (inputState.lk) fighter.attack('lightKick');
+    else if (inputState.hk) fighter.attack('heavyKick');
+    else if (inputState.sp) fighter.attack('special');
+  }
+
+  // =========================================================================
   // ROUND FLOW
   // =========================================================================
   _showRoundIntro() {
@@ -359,6 +522,9 @@ export class FightScene extends Phaser.Scene {
    * @param {number} winnerIndex - 0 for P1, 1 for P2
    */
   onRoundOver(winnerIndex) {
+    // Host sends round event to guest
+    this._sendRoundEvent('ko', winnerIndex);
+
     const winnerName = winnerIndex === 0 ? this.p1Data.name : this.p2Data.name;
 
     this.centerText.setText('K.O.!');
@@ -401,6 +567,9 @@ export class FightScene extends Phaser.Scene {
    * @param {number} winnerIndex - 0 for P1, 1 for P2
    */
   onMatchOver(winnerIndex) {
+    // Host sends match-over event to guest
+    this._sendRoundEvent('ko', winnerIndex);
+
     const winnerData = winnerIndex === 0 ? this.p1Data : this.p2Data;
     const loserData = winnerIndex === 0 ? this.p2Data : this.p1Data;
 
@@ -435,7 +604,9 @@ export class FightScene extends Phaser.Scene {
           loserId: loserData.id,
           p1Id: this.p1Id,
           p2Id: this.p2Id,
-          stageId: this.stageId
+          stageId: this.stageId,
+          gameMode: this.gameMode,
+          networkManager: this.networkManager
         });
       });
     });

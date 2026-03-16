@@ -5,6 +5,7 @@ import { TitleScene } from './scenes/TitleScene.js';
 import { SelectScene } from './scenes/SelectScene.js';
 import { PreFightScene } from './scenes/PreFightScene.js';
 import { FightScene } from './scenes/FightScene.js';
+import { LobbyScene } from './scenes/LobbyScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
 
 const config = {
@@ -24,7 +25,7 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [BootScene, TitleScene, SelectScene, PreFightScene, FightScene, VictoryScene]
+  scene: [BootScene, TitleScene, LobbyScene, SelectScene, PreFightScene, FightScene, VictoryScene]
 };
 
 window.game = new Phaser.Game(config);

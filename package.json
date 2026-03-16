@@ -4,9 +4,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "party:dev": "npx partykit dev",
+    "party:deploy": "npx partykit deploy"
   },
   "dependencies": {
+    "partykit": "^0.0.115",
+    "partysocket": "^1.1.16",
     "phaser": "^3.90.0",
     "vite": "^8.0.0"
   }

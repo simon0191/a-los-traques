@@ -17,11 +17,16 @@ export class CombatSystem {
     this.timer = ROUND_TIME;
     this.roundActive = true;
     // Start timer countdown
+    // In online mode, only the host counts down and triggers timeUp.
+    // The guest's timer is overwritten by sync messages from the host.
+    const isOnlineGuest = this.scene.gameMode === 'online' && !this.scene.isHost;
     this.timerEvent = this.scene.time.addEvent({
       delay: 1000,
       callback: () => {
-        this.timer--;
-        if (this.timer <= 0) this.timeUp();
+        if (!isOnlineGuest) {
+          this.timer--;
+          if (this.timer <= 0) this.timeUp();
+        }
       },
       loop: true
     });
@@ -116,6 +121,7 @@ export class CombatSystem {
 
   timeUp() {
     this.stopRound();
+    this._lastEndReason = 'timeup';
     // Player with more HP wins
     const p1 = this.scene.p1Fighter;
     const p2 = this.scene.p2Fighter;

@@ -16,6 +16,11 @@ export class SelectScene extends Phaser.Scene {
     super('SelectScene');
   }
 
+  init(data) {
+    this.gameMode = (data && data.gameMode) || 'local';
+    this.networkManager = (data && data.networkManager) || null;
+  }
+
   create() {
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
@@ -24,6 +29,8 @@ export class SelectScene extends Phaser.Scene {
     this.p2Index = -1; // not yet selected
     this.p1Confirmed = false;
     this.transitioning = false;
+    this.opponentFighterId = null;
+    this.opponentReady = false;
 
     // Background
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
@@ -205,6 +212,17 @@ export class SelectScene extends Phaser.Scene {
 
     // Update display
     this.updateP1Display();
+
+    // In online mode, listen for opponent ready early
+    if (this.gameMode === 'online' && this.networkManager) {
+      this.networkManager.onOpponentReady((fighterId) => {
+        this.opponentFighterId = fighterId;
+        this.opponentReady = true;
+        if (this.p1Confirmed) {
+          this._showOpponentSelection(fighterId);
+        }
+      });
+    }
   }
 
   moveP1Cursor(dx, dy) {
@@ -244,19 +262,65 @@ export class SelectScene extends Phaser.Scene {
     const cell = this.gridCells[this.p1Index];
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
 
-    // Auto-select P2 as random different fighter
-    let p2Idx;
-    do {
-      p2Idx = Phaser.Math.Between(0, this.fighters.length - 1);
-    } while (p2Idx === this.p1Index);
-    this.p2Index = p2Idx;
+    if (this.gameMode === 'online') {
+      // Send ready with our fighter selection
+      const myFighter = this.fighters[this.p1Index];
+      this.networkManager.sendReady(myFighter.id);
+      this.confirmedText.setText('Esperando al oponente...');
 
+      // Listen for opponent ready
+      this.networkManager.onOpponentReady((fighterId) => {
+        this.opponentFighterId = fighterId;
+        this.opponentReady = true;
+        this._showOpponentSelection(fighterId);
+      });
+
+      // Listen for start signal
+      this.networkManager.onStart((data) => {
+        // Server decided stage + confirmed both fighters
+        this._startData = data;
+        this.confirmedText.setText('Listo! Preparando combate...');
+        this.time.delayedCall(800, () => {
+          this.goToPreFight();
+        });
+      });
+
+      // If opponent was already ready before us
+      if (this.opponentReady) {
+        this._showOpponentSelection(this.opponentFighterId);
+      }
+    } else {
+      // Local mode: auto-select P2 as random different fighter
+      let p2Idx;
+      do {
+        p2Idx = Phaser.Math.Between(0, this.fighters.length - 1);
+      } while (p2Idx === this.p1Index);
+      this.p2Index = p2Idx;
+
+      this._showP2Selection(p2Idx);
+      this.confirmedText.setText('Listo! Preparando combate...');
+
+      // Transition after short delay
+      this.time.delayedCall(1000, () => {
+        this.goToPreFight();
+      });
+    }
+  }
+
+  _showOpponentSelection(fighterId) {
+    const idx = this.fighters.findIndex(f => f.id === fighterId);
+    if (idx === -1) return;
+    this.p2Index = idx;
+    this._showP2Selection(idx);
+  }
+
+  _showP2Selection(idx) {
     // Show P2 cursor
-    const p2Cell = this.gridCells[this.p2Index];
+    const p2Cell = this.gridCells[idx];
     this.p2Cursor.setPosition(p2Cell.x, p2Cell.y).setVisible(true);
 
     // Update P2 display
-    const p2Fighter = this.fighters[this.p2Index];
+    const p2Fighter = this.fighters[idx];
     this.p2NameText.setText(p2Fighter.name);
     this.p2SubtitleText.setText(p2Fighter.subtitle);
     this.p2Portrait.setFillStyle(parseInt(p2Fighter.color, 16));
@@ -266,29 +330,33 @@ export class SelectScene extends Phaser.Scene {
       const val = p2Fighter.stats[stat];
       this.p2StatBars[i].width = (val / 5) * 60;
     });
-
-    this.confirmedText.setText('Listo! Preparando combate...');
-
-    // Transition after short delay
-    this.time.delayedCall(1000, () => {
-      this.goToPreFight();
-    });
   }
 
   goToPreFight() {
     if (this.transitioning) return;
     this.transitioning = true;
 
-    // Pick random stage
-    const stageIndex = Phaser.Math.Between(0, stagesData.length - 1);
-    const stageId = stagesData[stageIndex].id;
+    let p1Id, p2Id, stageId;
+
+    if (this.gameMode === 'online' && this._startData) {
+      p1Id = this._startData.p1Id;
+      p2Id = this._startData.p2Id;
+      stageId = this._startData.stageId;
+    } else {
+      p1Id = this.fighters[this.p1Index].id;
+      p2Id = this.fighters[this.p2Index].id;
+      const stageIndex = Phaser.Math.Between(0, stagesData.length - 1);
+      stageId = stagesData[stageIndex].id;
+    }
 
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('PreFightScene', {
-        p1Id: this.fighters[this.p1Index].id,
-        p2Id: this.fighters[this.p2Index].id,
-        stageId: stageId
+        p1Id,
+        p2Id,
+        stageId,
+        gameMode: this.gameMode,
+        networkManager: this.networkManager
       });
     });
   }
