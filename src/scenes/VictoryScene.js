@@ -18,6 +18,12 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   create() {
+    const audio = this.game.audioManager;
+    audio.setScene(this);
+    audio.playMusic('bgm_victory', { loop: false, volume: 0.5 });
+    audio.play('announce_victory');
+    audio.createMuteButton(this);
+
     this.cameras.main.fadeIn(500, 255, 255, 255);
 
     const winner = fightersData.find(f => f.id === this.winnerId);
@@ -199,7 +205,10 @@ export class VictoryScene extends Phaser.Scene {
       text.setColor('#ffffff');
     });
 
-    bg.on('pointerdown', callback);
+    bg.on('pointerdown', () => {
+      this.game.audioManager.play('ui_confirm');
+      callback();
+    });
 
     return { bg, text };
   }

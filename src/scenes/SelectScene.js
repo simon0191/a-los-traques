@@ -22,6 +22,10 @@ export class SelectScene extends Phaser.Scene {
   }
 
   create() {
+    const audio = this.game.audioManager;
+    audio.setScene(this);
+    audio.createMuteButton(this);
+
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
     this.fighters = fightersData;
@@ -237,6 +241,7 @@ export class SelectScene extends Phaser.Scene {
     if (newIndex < this.fighters.length) {
       this.p1Index = newIndex;
       this.updateP1Display();
+      this.game.audioManager.play('ui_navigate');
     }
   }
 
@@ -257,6 +262,7 @@ export class SelectScene extends Phaser.Scene {
   }
 
   confirmP1() {
+    this.game.audioManager.play('ui_confirm');
     this.p1Confirmed = true;
 
     // Highlight confirmed cell

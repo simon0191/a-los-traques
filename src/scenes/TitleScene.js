@@ -7,6 +7,19 @@ export class TitleScene extends Phaser.Scene {
   }
 
   create() {
+    const audio = this.game.audioManager;
+    audio.setScene(this);
+
+    // Safari AudioContext unlock
+    const startMusic = () => audio.playMusic('bgm_menu');
+    if (this.sound.locked) {
+      this.sound.once('unlocked', startMusic);
+    } else {
+      startMusic();
+    }
+
+    audio.createMuteButton(this);
+
     // Animated background rectangles
     this.bgRects = [];
     const colors = [0x1a1a2e, 0x16213e, 0x0f3460, 0x533483, 0x2c2c54];
@@ -100,7 +113,10 @@ export class TitleScene extends Phaser.Scene {
 
     bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
     bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
-    bg.on('pointerdown', callback);
+    bg.on('pointerdown', () => {
+      this.game.audioManager.play('ui_confirm');
+      callback();
+    });
   }
 
   update() {

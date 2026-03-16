@@ -35,6 +35,10 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   create() {
+    const audio = this.game.audioManager;
+    audio.setScene(this);
+    audio.createMuteButton(this);
+
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
     // Background
@@ -153,7 +157,10 @@ export class LobbyScene extends Phaser.Scene {
 
     bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
     bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
-    bg.on('pointerdown', callback);
+    bg.on('pointerdown', () => {
+      this.game.audioManager.play('ui_confirm');
+      callback();
+    });
 
     return { bg, text };
   }

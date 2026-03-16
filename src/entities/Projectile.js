@@ -12,6 +12,7 @@ export class Projectile {
     // Create a small colored rectangle
     this.sprite = scene.add.rectangle(x, y, 16, 8, 0xffcc00);
     this.sprite.setDepth(5);
+    scene.game.audioManager.play('projectile_fire');
   }
 
   update(delta) {

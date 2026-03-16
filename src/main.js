@@ -7,6 +7,7 @@ import { PreFightScene } from './scenes/PreFightScene.js';
 import { FightScene } from './scenes/FightScene.js';
 import { LobbyScene } from './scenes/LobbyScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
+import { AudioManager } from './systems/AudioManager.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -29,3 +30,4 @@ const config = {
 };
 
 window.game = new Phaser.Game(config);
+new AudioManager(window.game);

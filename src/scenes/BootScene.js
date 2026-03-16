@@ -6,6 +6,33 @@ export class BootScene extends Phaser.Scene {
     super('BootScene');
   }
 
+  preload() {
+    // Music
+    this.load.audio('bgm_menu', 'assets/audio/bgm_menu.mp3');
+    this.load.audio('bgm_fight', 'assets/audio/bgm_fight.mp3');
+    this.load.audio('bgm_victory', 'assets/audio/bgm_victory.mp3');
+    // Combat SFX
+    this.load.audio('hit_light', 'assets/audio/hit_light.mp3');
+    this.load.audio('hit_heavy', 'assets/audio/hit_heavy.mp3');
+    this.load.audio('hit_special', 'assets/audio/hit_special.mp3');
+    this.load.audio('hit_block', 'assets/audio/hit_block.mp3');
+    this.load.audio('whiff', 'assets/audio/whiff.mp3');
+    this.load.audio('ko', 'assets/audio/ko.mp3');
+    this.load.audio('jump', 'assets/audio/jump.mp3');
+    this.load.audio('special_charge', 'assets/audio/special_charge.mp3');
+    this.load.audio('projectile_fire', 'assets/audio/projectile_fire.mp3');
+    // Announcer
+    this.load.audio('announce_round', 'assets/audio/announce_round.mp3');
+    this.load.audio('announce_fight', 'assets/audio/announce_fight.mp3');
+    this.load.audio('announce_ko', 'assets/audio/announce_ko.mp3');
+    this.load.audio('announce_timeup', 'assets/audio/announce_timeup.mp3');
+    this.load.audio('announce_victory', 'assets/audio/announce_victory.mp3');
+    // UI
+    this.load.audio('ui_navigate', 'assets/audio/ui_navigate.mp3');
+    this.load.audio('ui_confirm', 'assets/audio/ui_confirm.mp3');
+    this.load.audio('ui_cancel', 'assets/audio/ui_cancel.mp3');
+  }
+
   create() {
     // Generate placeholder rectangle textures for fighters
     this.generateFighterPlaceholder('fighter_p1', FIGHTER_COLORS.p1);

@@ -62,6 +62,11 @@ export class CombatSystem {
   }
 
   applyDamage(attacker, defender) {
+    // Dev console god mode: P1 takes no damage
+    if (this.scene.devConsole && this.scene.devConsole.godMode && defender.playerIndex === 0) {
+      return;
+    }
+
     const move = attacker.currentAttack;
     let damage = move.damage;
 
@@ -78,6 +83,18 @@ export class CombatSystem {
     const isSpecial = move.type === 'special';
     const isHeavy = move.type && (move.type.startsWith('heavy') || damage >= 12);
     const intensity = isSpecial ? 'special' : isHeavy ? 'heavy' : 'light';
+
+    // Play hit sound based on intensity
+    const audio = this.scene.game.audioManager;
+    if (defender.state === 'blocking') {
+      audio.play('hit_block');
+    } else if (isSpecial) {
+      audio.play('hit_special');
+    } else if (isHeavy) {
+      audio.play('hit_heavy');
+    } else {
+      audio.play('hit_light');
+    }
 
     // Defender takes damage (takeDamage handles block reduction and defender meter gain)
     const ko = defender.takeDamage(damage, attacker.sprite.x);
@@ -121,6 +138,7 @@ export class CombatSystem {
 
   timeUp() {
     this.stopRound();
+    this.scene.game.audioManager.play('announce_timeup');
     this._lastEndReason = 'timeup';
     // Player with more HP wins
     const p1 = this.scene.p1Fighter;
@@ -137,6 +155,7 @@ export class CombatSystem {
 
   handleKO(winner, loser) {
     this.stopRound();
+    this.scene.game.audioManager.play('ko');
     const winnerIndex = winner.playerIndex;
     // Dramatic KO shake
     this.scene.cameras.main.shake(300, 0.015);

@@ -21,6 +21,10 @@ export class Fighter {
     this.hurtTimer = 0;
     this.isOnGround = true;
     this.hitConnected = false; // Set true by CombatSystem when attack lands
+
+    // Air dash tracking
+    this.hasAirDashed = false;
+    this._airborneTime = 0; // ms since leaving ground
   }
 
   update(time, delta) {
@@ -32,7 +36,15 @@ export class Fighter {
     }
 
     // Ground check
+    const wasAirborne = !this.isOnGround;
     this.isOnGround = this.sprite.body.blocked.down || this.sprite.y >= GROUND_Y;
+    if (this.isOnGround && wasAirborne) {
+      this.hasAirDashed = false;
+      this._airborneTime = 0;
+    }
+    if (!this.isOnGround) {
+      this._airborneTime += delta;
+    }
 
     // Clamp to stage bounds
     this.sprite.x = Phaser.Math.Clamp(this.sprite.x, STAGE_LEFT, STAGE_RIGHT);
@@ -75,6 +87,27 @@ export class Fighter {
     this.sprite.body.setVelocityY(-350);
     this.state = 'jumping';
     this.isOnGround = false;
+    this.scene.game.audioManager.play('jump');
+  }
+
+  airDash(dirX) {
+    if (this.isOnGround || this.hasAirDashed) return;
+    if (this.state === 'hurt' || this.state === 'knockdown') return;
+    if (dirX === 0) return;
+    // Must be airborne for at least 150ms to avoid accidental dash on jump
+    if (this._airborneTime < 150) return;
+
+    this.hasAirDashed = true;
+    const dashSpeed = 300;
+    this.sprite.body.setVelocityX(dirX > 0 ? dashSpeed : -dashSpeed);
+    this.sprite.body.setVelocityY(-120); // slight lift
+    this.scene.game.audioManager.play('jump');
+
+    // Brief tint to show dash
+    this.sprite.setTint(0x88ccff);
+    this.scene.time.delayedCall(150, () => {
+      if (this.sprite && this.sprite.clearTint) this.sprite.clearTint();
+    });
   }
 
   attack(type) {
@@ -95,6 +128,7 @@ export class Fighter {
 
     if (type === 'special') {
       this.special -= 50;
+      this.scene.game.audioManager.play('special_charge');
       // Yellow glow for special attacks
       this.sprite.setTint(0xffcc00);
       this.scene.time.delayedCall(Math.min(this.attackCooldown, 400), () => {
@@ -104,7 +138,12 @@ export class Fighter {
 
     // Return to idle after attack
     this.scene.time.delayedCall(this.attackCooldown, () => {
-      if (this.state === 'attacking') this.state = 'idle';
+      if (this.state === 'attacking') {
+        if (!this.hitConnected) {
+          this.scene.game.audioManager.play('whiff');
+        }
+        this.state = 'idle';
+      }
       this.currentAttack = null;
     });
 
@@ -179,6 +218,8 @@ export class Fighter {
     this.hurtTimer = 0;
     this.currentAttack = null;
     this.hitConnected = false;
+    this.hasAirDashed = false;
+    this._airborneTime = 0;
   }
 
   get alive() {

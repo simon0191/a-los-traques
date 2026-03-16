@@ -17,6 +17,11 @@ export class PreFightScene extends Phaser.Scene {
   }
 
   create() {
+    const audio = this.game.audioManager;
+    audio.setScene(this);
+    audio.fadeOutMusic(1500);
+    audio.createMuteButton(this);
+
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
     const p1 = fightersData.find(f => f.id === this.p1Id);
