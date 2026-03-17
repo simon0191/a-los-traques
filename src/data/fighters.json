@@ -83,7 +83,7 @@
     "id": "carito",
     "name": "Carito",
     "subtitle": "La Bruja del Guaro",
-    "description": "Mystical witch in flowing purple robes with pink accents and a pointed hat adorned with glowing runes. Holds a bottle of guaro in one hand that emanates magical smoke. Wild curly hair, mischievous grin, floating potion bottles orbit around her. Broomstick strapped to her back.",
+    "description": "Powerful chaos sorceress in a long crimson and purple coat with arcane rune patterns and a flowing dark cape. Golden elegant tiara with a glowing red gem. Wild curly hair flowing with red chaos magic energy, hands wreathed in swirling purple and crimson hex orbs. Holds a bottle of guaro that radiates magical smoke. Confident powerful stance, hexagonal reality-warping energy crackles around her fingers.",
     "color": "0x9933CC",
     "stats": { "hp": 100, "speed": 3, "power": 2, "defense": 2, "special": 5 },
     "moves": {
@@ -123,7 +123,7 @@
     "id": "peks",
     "name": "Peks",
     "subtitle": "La Que Sabe",
-    "description": "Mystical oracle woman floating slightly above the ground, wearing a flowing blue robe with orange and lilac cosmic patterns. Third eye glowing on her forehead, long silver hair flowing weightlessly, crystal orb floating between her hands. Serene expression, arcane circles orbit around her.",
+    "description": "Mystical oracle woman floating slightly above the ground, wearing a flowing blue robe with orange and lilac cosmic patterns. Third eye glowing on her forehead, SHORT cropped silver hair above the shoulders, crystal orb floating between her hands. Serene expression, arcane circles orbit around her. Her special power summons magical silver hair tendrils that ensnare opponents.",
     "color": "0x3366FF",
     "stats": { "hp": 100, "speed": 2, "power": 2, "defense": 3, "special": 5 },
     "moves": {
@@ -143,9 +143,9 @@
     "id": "lini",
     "name": "LinaPcmn",
     "subtitle": "La Elfa",
-    "description": "Graceful elf warrior in dark navy blue and black leather armor with elegant silver filigree. Long pointed ears, flowing dark hair with midnight blue streaks, sharp elven features. Dual curved elven blades, light-footed stance, ethereal forest glow around her.",
+    "description": "Graceful elf sorceress in a flowing dark navy blue robe with elegant silver runes and midnight blue accents. Long pointed ears, flowing dark hair with midnight blue streaks, sharp elven features. Glowing arcane tattoos on her arms, silver and midnight blue magical orbs float around her hands, ethereal magic circles orbit her, mystical energy radiates from her fingertips.",
     "color": "0x000080",
-    "stats": { "hp": 100, "speed": 5, "power": 2, "defense": 2, "special": 3 },
+    "stats": { "hp": 100, "speed": 4, "power": 2, "defense": 2, "special": 4 },
     "moves": {
       "lightPunch":  { "damage": 3,  "startup": 1,  "active": 2, "recovery": 2 },
       "heavyPunch":  { "damage": 8,  "startup": 4,  "active": 2, "recovery": 6 },

@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/portraits/lini.png",
+  "prompt": "Graceful elf warrior in dark navy blue and black leather armor with elegant silver filigree. Long pointed ears, flowing dark hair with midnight blue streaks, sharp elven features. Dual curved elven blades, light-footed stance, ethereal forest glow around her.",
+  "width": 128,
+  "height": 128,
+  "referenceImages": ["assets/photos/lini.png"]
+}

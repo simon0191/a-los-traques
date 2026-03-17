@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/portraits/cami.png",
+  "prompt": "Fire pirate captain in a black coat with red flame patterns, burning cutlass in one hand, hook hand wreathed in fire on the other. Pirate hat with a flaming skull emblem, eyepatch, wicked grin, smoke rising from his shoulders. Charred boots on a burning deck.",
+  "width": 128,
+  "height": 128,
+  "referenceImages": ["assets/photos/cami.png"]
+}

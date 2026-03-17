@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/portraits/migue.png",
+  "prompt": "Captain America-inspired super soldier in a black and blue tactical suit with a star emblem on the chest. Carries a round vibranium-style shield with blue and black rings, strong jaw, determined expression, short military haircut. Heroic stance, shield raised and ready.",
+  "width": 128,
+  "height": 128,
+  "referenceImages": ["assets/photos/migue.png"]
+}

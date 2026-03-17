@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/fighters/cami/",
+  "description": "Fire pirate captain in a black coat with red flame patterns, burning cutlass in one hand, hook hand wreathed in fire on the other. Pirate hat with a flaming skull emblem, eyepatch, wicked grin, smoke rising from his shoulders. Charred boots on a burning deck.",
+  "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
+  "referenceImages": ["assets/photos/cami.png"],
+  "referenceSheet": "assets/references/cami_ref.png"
+}

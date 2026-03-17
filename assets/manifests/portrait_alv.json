@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/portraits/alv.png",
+  "prompt": "Scorpion-inspired fighter in orange and red ninja outfit with a fierce skull mask. Rope kunai weapon attached to his arm, blazing Ferrari-red eyes behind the mask. Athletic muscular build, tattered orange hood, chains wrapped around forearms. Hellfire aura flickers around him.",
+  "width": 128,
+  "height": 128,
+  "referenceImages": ["assets/photos/alv.png"]
+}

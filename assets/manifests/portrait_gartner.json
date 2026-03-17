@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/portraits/gartner.png",
+  "prompt": "Stealth ninja in dark blue and black tactical gear, ghostly pale skin that seems to fade into shadows. Face wrapped in dark cloth leaving only piercing blue eyes visible, silent and deadly stance. Smoke bombs on belt, tanto blade in reverse grip, barely visible in the darkness.",
+  "width": 128,
+  "height": 128,
+  "referenceImages": ["assets/photos/gartner.png"]
+}

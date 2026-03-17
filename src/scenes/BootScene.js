@@ -20,7 +20,7 @@ const ANIM_DEFS = {
 };
 
 // Fighters that have real sprite assets (add IDs here as they're generated)
-const FIGHTERS_WITH_SPRITES = ['simon', 'jeka'];
+const FIGHTERS_WITH_SPRITES = ['simon', 'jeka', 'chicha', 'cata', 'carito', 'mao', 'peks', 'lini', 'alv', 'sun', 'gartner', 'richi', 'cami', 'migue'];
 
 export class BootScene extends Phaser.Scene {
   constructor() {

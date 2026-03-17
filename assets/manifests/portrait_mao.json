@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/portraits/mao.png",
+  "prompt": "Elite sniper-archer hybrid in a pink and black tactical suit. Wears a high-tech visor over one eye, carries a futuristic compound bow with glowing pink energy arrows. Lean athletic build, short spiky hair, calm focused expression. Quiver on back with various trick arrows.",
+  "width": 128,
+  "height": 128,
+  "referenceImages": ["assets/photos/mao.png"]
+}
