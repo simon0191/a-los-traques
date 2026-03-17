@@ -66,8 +66,14 @@ export class SelectScene extends Phaser.Scene {
       const fighter = this.fighters[i];
       const color = parseInt(fighter.color, 16);
 
-      // Fighter colored rectangle
-      const rect = this.add.rectangle(x, y, CELL_W - 4, CELL_H - 10, color);
+      // Fighter cell: use portrait if available, else colored rectangle
+      let rect;
+      if (this.textures.exists(`portrait_${fighter.id}`)) {
+        rect = this.add.image(x, y, `portrait_${fighter.id}`)
+          .setDisplaySize(CELL_W - 4, CELL_H - 10);
+      } else {
+        rect = this.add.rectangle(x, y, CELL_W - 4, CELL_H - 10, color);
+      }
 
       // Fighter name below rectangle
       const nameText = this.add.text(x, y + CELL_H / 2 - 6, fighter.name, {
@@ -111,8 +117,9 @@ export class SelectScene extends Phaser.Scene {
       fontStyle: 'italic'
     });
 
-    // P1 Portrait
-    this.p1Portrait = this.add.rectangle(panelX + 130, 85, 50, 50, 0x333333);
+    // P1 Portrait (image or rectangle placeholder)
+    this.p1PortraitImg = this.add.image(panelX + 130, 70, '__DEFAULT').setDisplaySize(45, 45).setVisible(false);
+    this.p1Portrait = this.add.rectangle(panelX + 130, 70, 45, 45, 0x333333);
 
     // P1 Stats
     this.p1StatLabels = [];
@@ -159,8 +166,9 @@ export class SelectScene extends Phaser.Scene {
       fontStyle: 'italic'
     });
 
-    // P2 Portrait
-    this.p2Portrait = this.add.rectangle(panelX + 130, 210, 50, 50, 0x333333);
+    // P2 Portrait (image or rectangle placeholder)
+    this.p2PortraitImg = this.add.image(panelX + 130, 198, '__DEFAULT').setDisplaySize(45, 45).setVisible(false);
+    this.p2Portrait = this.add.rectangle(panelX + 130, 198, 45, 45, 0x333333);
 
     // P2 Stats
     this.p2StatBars = [];
@@ -252,7 +260,14 @@ export class SelectScene extends Phaser.Scene {
     const fighter = this.fighters[this.p1Index];
     this.p1NameText.setText(fighter.name);
     this.p1SubtitleText.setText(fighter.subtitle);
-    this.p1Portrait.setFillStyle(parseInt(fighter.color, 16));
+    if (this.textures.exists(`portrait_${fighter.id}`)) {
+      this.p1PortraitImg.setTexture(`portrait_${fighter.id}`).setDisplaySize(45, 45).setVisible(true);
+      this.p1Portrait.setVisible(false);
+    } else {
+      this.p1PortraitImg.setVisible(false);
+      this.p1Portrait.setVisible(true);
+      this.p1Portrait.setFillStyle(parseInt(fighter.color, 16));
+    }
 
     const statNames = ['speed', 'power', 'defense', 'special'];
     statNames.forEach((stat, i) => {
@@ -330,7 +345,14 @@ export class SelectScene extends Phaser.Scene {
     const p2Fighter = this.fighters[idx];
     this.p2NameText.setText(p2Fighter.name);
     this.p2SubtitleText.setText(p2Fighter.subtitle);
-    this.p2Portrait.setFillStyle(parseInt(p2Fighter.color, 16));
+    if (this.textures.exists(`portrait_${p2Fighter.id}`)) {
+      this.p2PortraitImg.setTexture(`portrait_${p2Fighter.id}`).setDisplaySize(45, 45).setVisible(true);
+      this.p2Portrait.setVisible(false);
+    } else {
+      this.p2PortraitImg.setVisible(false);
+      this.p2Portrait.setVisible(true);
+      this.p2Portrait.setFillStyle(parseInt(p2Fighter.color, 16));
+    }
 
     const statNames = ['speed', 'power', 'defense', 'special'];
     statNames.forEach((stat, i) => {
