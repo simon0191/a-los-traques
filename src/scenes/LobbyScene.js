@@ -11,7 +11,7 @@ function getPartyHost() {
   if (loc === 'localhost' || loc === '127.0.0.1') {
     return 'localhost:1999';
   }
-  return 'a-los-traques.username.partykit.dev';
+  return 'a-los-traques.simon0191.partykit.dev';
 }
 
 function generateRoomId() {
