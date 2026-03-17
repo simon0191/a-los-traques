@@ -7,6 +7,7 @@ import { Fighter } from '../entities/Fighter.js';
 import { InputManager } from '../systems/InputManager.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { AIController } from '../systems/AIController.js';
+import { TouchControls } from '../systems/TouchControls.js';
 import { DevConsole } from '../systems/DevConsole.js';
 import fightersData from '../data/fighters.json';
 
@@ -71,6 +72,7 @@ export class FightScene extends Phaser.Scene {
 
     // -- Systems --
     this.inputManager = new InputManager(this);
+    this.touchControls = new TouchControls(this, this.inputManager);
     this.combat = new CombatSystem(this);
 
     // -- Projectiles array --
@@ -122,8 +124,11 @@ export class FightScene extends Phaser.Scene {
       }
     }
 
+    // Update touch controls each frame
+    if (this.touchControls) this.touchControls.update();
+
     if (!this.combat.roundActive) {
-      // Allow restart after match over
+      // Allow restart after match over (Space key or tap)
       if (this.combat.matchOver && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
         this.scene.restart();
       }
@@ -707,6 +712,7 @@ export class FightScene extends Phaser.Scene {
   shutdown() {
     if (this.combat) this.combat.stopRound();
     if (this.aiController) this.aiController.destroy();
+    if (this.touchControls) this.touchControls.destroy();
     // Destroy projectiles
     for (const proj of this.projectiles) {
       proj.destroy();
