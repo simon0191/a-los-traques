@@ -48,12 +48,14 @@ export class SelectScene extends Phaser.Scene {
       strokeThickness: 3
     }).setOrigin(0.5);
 
-    // Player labels
-    this.add.text(GRID_START_X, 34, 'P1: Flechas + Z', {
-      fontFamily: 'Arial',
-      fontSize: '8px',
-      color: '#6688ff'
-    });
+    // Player labels (only show keyboard hint on non-touch devices)
+    if (!this.sys.game.device.input.touch) {
+      this.add.text(GRID_START_X, 34, 'P1: Flechas + Z', {
+        fontFamily: 'Arial',
+        fontSize: '8px',
+        color: '#6688ff'
+      });
+    }
 
     // Draw fighter grid
     this.gridCells = [];
@@ -82,8 +84,33 @@ export class SelectScene extends Phaser.Scene {
         color: '#ffffff'
       }).setOrigin(0.5);
 
+      // Make cell tappable for touch selection
+      rect.setInteractive();
+      rect.on('pointerdown', () => {
+        if (this.transitioning || this.p1Confirmed) return;
+        this.p1Index = i;
+        this.updateP1Display();
+        this.game.audioManager.play('ui_navigate');
+      });
+
       this.gridCells.push({ rect, nameText, x, y });
     }
+
+    // "LISTO" confirm button for touch devices
+    const listoY = GRID_START_Y + ROWS * (CELL_H + GRID_GAP) + 10;
+    const listoBtn = this.add.rectangle(
+      GRID_START_X + (COLS * (CELL_W + GRID_GAP)) / 2 - GRID_GAP / 2,
+      listoY, 80, 22, 0x3366ff
+    ).setInteractive();
+    this.add.text(listoBtn.x, listoBtn.y, 'LISTO', {
+      fontFamily: 'Arial Black, Arial',
+      fontSize: '11px',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    listoBtn.on('pointerdown', () => {
+      if (this.transitioning || this.p1Confirmed) return;
+      this.confirmP1();
+    });
 
     // P1 cursor (blue border)
     this.p1Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)

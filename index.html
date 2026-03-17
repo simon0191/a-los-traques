@@ -22,12 +22,18 @@
     html, body {
       background: #000;
       overflow: hidden;
-      position: fixed;
       width: 100%;
       height: 100%;
       overscroll-behavior: none;
       -webkit-overflow-scrolling: none;
-      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    #game-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
     }
     canvas {
       display: block;
@@ -60,6 +66,24 @@
     <div style="font-size: 48px; margin-bottom: 16px;">📱↔️</div>
     <div>Gira tu dispositivo</div>
   </div>
+  <div id="game-container"></div>
+  <script>
+    // Size game container to actual visible viewport (not behind browser chrome)
+    var gc = document.getElementById('game-container');
+    function fixHeight() {
+      var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      var vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+      gc.style.width = vw + 'px';
+      gc.style.height = vh + 'px';
+      // Tell Phaser to re-measure if game exists
+      if (window.game && window.game.scale) window.game.scale.refresh();
+    }
+    fixHeight();
+    window.addEventListener('resize', fixHeight);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', fixHeight);
+    }
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
