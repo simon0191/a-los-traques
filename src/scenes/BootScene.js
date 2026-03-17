@@ -1,5 +1,26 @@
 import Phaser from 'phaser';
 import { FIGHTER_WIDTH, FIGHTER_HEIGHT, FIGHTER_COLORS } from '../config.js';
+import fightersData from '../data/fighters.json';
+
+// Animation definitions: name -> frame count
+const ANIM_DEFS = {
+  idle:         { frames: 4, repeat: -1 },
+  walk:         { frames: 4, repeat: -1 },
+  light_punch:  { frames: 4, repeat: 0 },
+  heavy_punch:  { frames: 5, repeat: 0 },
+  light_kick:   { frames: 4, repeat: 0 },
+  heavy_kick:   { frames: 5, repeat: 0 },
+  special:      { frames: 5, repeat: 0 },
+  block:        { frames: 2, repeat: 0 },
+  hurt:         { frames: 3, repeat: 0 },
+  knockdown:    { frames: 4, repeat: 0 },
+  victory:      { frames: 4, repeat: -1 },
+  defeat:       { frames: 3, repeat: 0 },
+  jump:         { frames: 3, repeat: 0 },
+};
+
+// Fighters that have real sprite assets (add IDs here as they're generated)
+const FIGHTERS_WITH_SPRITES = ['simon'];
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -31,12 +52,37 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('ui_navigate', 'assets/audio/ui_navigate.mp3');
     this.load.audio('ui_confirm', 'assets/audio/ui_confirm.mp3');
     this.load.audio('ui_cancel', 'assets/audio/ui_cancel.mp3');
+
+    // Load fighter sprite sheets and portraits
+    for (const id of FIGHTERS_WITH_SPRITES) {
+      for (const [animName, def] of Object.entries(ANIM_DEFS)) {
+        this.load.spritesheet(
+          `fighter_${id}_${animName}`,
+          `assets/fighters/${id}/${animName}.png`,
+          { frameWidth: FIGHTER_WIDTH, frameHeight: FIGHTER_HEIGHT }
+        );
+      }
+      this.load.image(`portrait_${id}`, `assets/portraits/${id}.png`);
+    }
   }
 
   create() {
     // Generate placeholder rectangle textures for fighters
     this.generateFighterPlaceholder('fighter_p1', FIGHTER_COLORS.p1);
     this.generateFighterPlaceholder('fighter_p2', FIGHTER_COLORS.p2);
+
+    // Create animations for fighters with real sprites
+    for (const id of FIGHTERS_WITH_SPRITES) {
+      for (const [animName, def] of Object.entries(ANIM_DEFS)) {
+        const key = `fighter_${id}_${animName}`;
+        this.anims.create({
+          key: `${id}_${animName}`,
+          frames: this.anims.generateFrameNumbers(key, { start: 0, end: def.frames - 1 }),
+          frameRate: 8,
+          repeat: def.repeat,
+        });
+      }
+    }
 
     // Generate health bar textures
     this.generateRect('hp_bar_bg', 150, 12, 0x333333);

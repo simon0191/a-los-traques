@@ -60,11 +60,13 @@ export class FightScene extends Phaser.Scene {
     this._createBackground();
 
     // -- Create Fighter entities --
+    const p1Tex = this.textures.exists(`fighter_${this.p1Id}_idle`) ? `fighter_${this.p1Id}_idle` : 'fighter_p1';
+    const p2Tex = this.textures.exists(`fighter_${this.p2Id}_idle`) ? `fighter_${this.p2Id}_idle` : 'fighter_p2';
     this.p1Fighter = new Fighter(
-      this, GAME_WIDTH * 0.3, GROUND_Y, 'fighter_p1', this.p1Data, 0
+      this, GAME_WIDTH * 0.3, GROUND_Y, p1Tex, this.p1Data, 0
     );
     this.p2Fighter = new Fighter(
-      this, GAME_WIDTH * 0.7, GROUND_Y, 'fighter_p2', this.p2Data, 1
+      this, GAME_WIDTH * 0.7, GROUND_Y, p2Tex, this.p2Data, 1
     );
 
     // -- Systems --

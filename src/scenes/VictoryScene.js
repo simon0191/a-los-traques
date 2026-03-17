@@ -60,7 +60,12 @@ export class VictoryScene extends Phaser.Scene {
     });
 
     // Winner portrait (large, centered)
-    this.add.rectangle(GAME_WIDTH / 2, 100, 80, 80, winnerColor);
+    if (this.textures.exists(`portrait_${this.winnerId}`)) {
+      this.add.image(GAME_WIDTH / 2, 100, `portrait_${this.winnerId}`)
+        .setDisplaySize(80, 80);
+    } else {
+      this.add.rectangle(GAME_WIDTH / 2, 100, 80, 80, winnerColor);
+    }
     this.add.rectangle(GAME_WIDTH / 2, 100, 80, 80, 0x000000, 0)
       .setStrokeStyle(3, 0xffcc00);
 

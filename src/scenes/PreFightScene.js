@@ -45,7 +45,12 @@ export class PreFightScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 3, GAME_HEIGHT, 0xffffff, 0.3);
 
     // P1 portrait (left side)
-    this.add.rectangle(GAME_WIDTH / 4, GAME_HEIGHT / 2 - 15, 90, 100, p1Color);
+    if (this.textures.exists(`portrait_${this.p1Id}`)) {
+      this.add.image(GAME_WIDTH / 4, GAME_HEIGHT / 2 - 15, `portrait_${this.p1Id}`)
+        .setDisplaySize(90, 100);
+    } else {
+      this.add.rectangle(GAME_WIDTH / 4, GAME_HEIGHT / 2 - 15, 90, 100, p1Color);
+    }
     this.add.rectangle(GAME_WIDTH / 4, GAME_HEIGHT / 2 - 15, 90, 100, 0x000000, 0)
       .setStrokeStyle(2, 0x3366ff);
 
@@ -76,7 +81,12 @@ export class PreFightScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // P2 portrait (right side)
-    this.add.rectangle(GAME_WIDTH * 3 / 4, GAME_HEIGHT / 2 - 15, 90, 100, p2Color);
+    if (this.textures.exists(`portrait_${this.p2Id}`)) {
+      this.add.image(GAME_WIDTH * 3 / 4, GAME_HEIGHT / 2 - 15, `portrait_${this.p2Id}`)
+        .setDisplaySize(90, 100);
+    } else {
+      this.add.rectangle(GAME_WIDTH * 3 / 4, GAME_HEIGHT / 2 - 15, 90, 100, p2Color);
+    }
     this.add.rectangle(GAME_WIDTH * 3 / 4, GAME_HEIGHT / 2 - 15, 90, 100, 0x000000, 0)
       .setStrokeStyle(2, 0xff3333);
 

@@ -9,6 +9,7 @@
     "party:deploy": "npx partykit deploy"
   },
   "dependencies": {
+    "@google/genai": "^1.45.0",
     "partykit": "^0.0.115",
     "partysocket": "^1.1.16",
     "phaser": "^3.90.0",
