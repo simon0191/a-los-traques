@@ -141,28 +141,30 @@ export class NetworkManager {
   }
 
   /**
-   * Get the remote input for the given frame.
-   * If not available, repeat the last known input.
-   * @param {number} frame
+   * Get the latest remote input, consuming any pending one-shot attacks.
+   * Frame parameter is unused — we always consume the newest input since
+   * host/guest frame counters are not synchronized.
    * @returns {object} input state
    */
-  getRemoteInput(frame) {
-    if (this.remoteInputBuffer[frame]) {
-      const input = this.remoteInputBuffer[frame];
-      // Clean up old frames
-      for (const key of Object.keys(this.remoteInputBuffer)) {
-        if (Number(key) < frame - 30) {
-          delete this.remoteInputBuffer[key];
-        }
-      }
-      return input;
-    }
-    // Fallback: repeat last known input (minus one-shot attacks)
-    if (this.lastRemoteInput) {
-      return {
-        ...this.lastRemoteInput,
+  getRemoteInput() {
+    // If there are buffered inputs, consume the latest one
+    const frames = Object.keys(this.remoteInputBuffer).map(Number);
+    if (frames.length > 0) {
+      const latest = Math.max(...frames);
+      const input = this.remoteInputBuffer[latest];
+      // Clear all buffered inputs — they've been consumed
+      this.remoteInputBuffer = {};
+      // Update lastRemoteInput for movement continuity,
+      // but strip one-shot attacks so they don't repeat
+      this.lastRemoteInput = {
+        ...input,
         lp: false, hp: false, lk: false, hk: false, sp: false
       };
+      return input;
+    }
+    // No new input: repeat last known movement (attacks already stripped)
+    if (this.lastRemoteInput) {
+      return { ...this.lastRemoteInput };
     }
     return { left: false, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
   }

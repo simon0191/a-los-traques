@@ -437,7 +437,7 @@ export class FightScene extends Phaser.Scene {
     input.consumeTouch();
 
     // Apply remote input to remote fighter
-    const remoteInput = nm.getRemoteInput(this.frameCounter);
+    const remoteInput = nm.getRemoteInput();
     this._applyInputToFighter(this.remoteFighter, remoteInput);
 
     // Body collision (push-back)
