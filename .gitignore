@@ -6,3 +6,4 @@ assets/photos/
 *.log
 .partykit/
 .claude/worktrees
+.vercel
