@@ -9,6 +9,24 @@ import { GoogleGenAI } from "@google/genai";
 import fs from "fs";
 import path from "path";
 
+const LOG_DIR = "assets/_raw";
+const LOG_FILE = path.join(LOG_DIR, "gemini-requests.jsonl");
+
+function logRequest({ prompt, model, inputPaths, outputPath, attempt, success, error }) {
+  if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+  const entry = {
+    timestamp: new Date().toISOString(),
+    model,
+    prompt,
+    inputPaths: inputPaths || [],
+    outputPath,
+    attempt,
+    success,
+    ...(error && { error }),
+  };
+  fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + "\n");
+}
+
 let aiInstance = null;
 
 function getAI() {
@@ -52,9 +70,10 @@ export async function generateImage({
   const contents = [];
 
   // Normalize to array
-  const refPaths = inputPaths
+  const resolvedInputPaths = inputPaths
     ? Array.isArray(inputPaths) ? inputPaths : [inputPaths]
     : [];
+  const refPaths = resolvedInputPaths;
 
   let addedRefs = 0;
   for (const inputPath of refPaths) {
@@ -97,6 +116,7 @@ export async function generateImage({
             fs.mkdirSync(dir, { recursive: true });
           }
           fs.writeFileSync(outputPath, buffer);
+          logRequest({ prompt, model, inputPaths: resolvedInputPaths, outputPath, attempt, success: true });
           return { success: true, path: outputPath, bytes: buffer.length };
         }
       }
@@ -117,7 +137,9 @@ export async function generateImage({
         err.message?.includes("SAFETY") ||
         err.message?.includes("blocked")
       ) {
-        return { success: false, error: `Safety filter: ${err.message}` };
+        const safetyError = `Safety filter: ${err.message}`;
+        logRequest({ prompt, model, inputPaths: resolvedInputPaths, outputPath, attempt, success: false, error: safetyError });
+        return { success: false, error: safetyError };
       }
 
       if (
@@ -137,5 +159,7 @@ export async function generateImage({
     }
   }
 
-  return { success: false, error: lastError?.message || "Unknown error" };
+  const finalError = lastError?.message || "Unknown error";
+  logRequest({ prompt, model, inputPaths: resolvedInputPaths, outputPath, attempt: retries, success: false, error: finalError });
+  return { success: false, error: finalError };
 }

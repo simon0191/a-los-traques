@@ -95,6 +95,7 @@ async function main() {
   console.log(`Output: ${config.output}`);
   console.log(`Skip generate: ${opts.skipGenerate}`);
   console.log(`Delay: ${opts.delay}ms, Retries: ${opts.retries}`);
+  console.log(`Request log: assets/_raw/gemini-requests.jsonl`);
   if (config.referenceImages.length > 0) {
     console.log(`Reference images: ${config.referenceImages.join(", ")}`);
   }
