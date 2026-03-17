@@ -1,0 +1,6 @@
+{
+  "output": "assets/fighters/jeka/",
+  "description": "Agile catwoman fighter in a sleek pink and black bodysuit with cat ears and a long tail. Glitter particles float around her clawed gloves. Sharp feline eyes with pink eyeliner, playful yet deadly stance. Sparkling trails follow her movements.",
+  "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
+  "referenceImages": ["assets/photos/jeka.jpg"]
+}
