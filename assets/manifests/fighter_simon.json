@@ -1,0 +1,7 @@
+{
+  "output": "assets/fighters/simon/",
+  "description": "Muay Thai fighter engulfed in green flames. Muscular build with traditional Muay Thai shorts and hand wraps, both fists ablaze with emerald fire. Green bandana, black combat tape on shins. Fighting stance with raised knee, radiating intense heat.",
+  "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
+  "referenceImages": ["assets/photos/simo.png"],
+  "referenceSheet": "assets/references/simon_ref.png"
+}

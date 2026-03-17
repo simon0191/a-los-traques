@@ -93,7 +93,14 @@ export class Fighter {
     if (animState !== this._prevAnimState) {
       const key = `${this.fighterId}_${animState}`;
       if (this.scene.anims.exists(key)) {
-        this.sprite.play(key);
+        // For attack animations, match framerate to attack duration
+        if (this.state === 'attacking' && this.currentAttack && this.attackCooldown > 0) {
+          const anim = this.scene.anims.get(key);
+          const fps = (anim.frames.length / this.attackCooldown) * 1000;
+          this.sprite.play({ key, frameRate: fps });
+        } else {
+          this.sprite.play(key);
+        }
         this._prevAnimState = animState;
       }
     }
@@ -101,7 +108,7 @@ export class Fighter {
 
   faceOpponent(opponent) {
     this.facingRight = this.sprite.x < opponent.sprite.x;
-    this.sprite.setFlipX(this.facingRight);
+    this.sprite.setFlipX(!this.facingRight);
   }
 
   moveLeft(speed) {
