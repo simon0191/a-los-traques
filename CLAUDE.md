@@ -21,13 +21,15 @@ src/
   data/            # fighters.json (14 fighters), stages.json (5 stages)
   config.js        # Constants (dimensions, ground Y, fighter size 128x128)
 assets/
-  fighters/{id}/   # Animation strip PNGs (idle.png, walk.png, etc.)
-  portraits/       # Portrait images per fighter
   references/      # Golden reference images for generation pipeline
   photos/          # Source photos of friends (input for generation)
   manifests/       # JSON configs for asset pipeline (fighter_, portrait_, reference_)
-  audio/           # Music, SFX, announcer MP3s
   _raw/            # Intermediate files from asset pipeline (not shipped)
+public/
+  assets/
+    fighters/{id}/ # Animation strip PNGs (idle.png, walk.png, etc.)
+    portraits/     # Portrait images per fighter
+    audio/         # Music, SFX, announcer MP3s
 scripts/
   asset-pipeline/  # Gemini-based sprite generation pipeline
 party/

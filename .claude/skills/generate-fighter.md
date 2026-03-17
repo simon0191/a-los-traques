@@ -80,7 +80,7 @@ After the user confirms which frames need flipping:
 
 2. Reassemble each affected strip (use correct frame count per animation):
    ```bash
-   magick "${RAW}/${ANIM}/${ANIM}_0.png" "${RAW}/${ANIM}/${ANIM}_1.png" ... +append "assets/fighters/{id}/${ANIM}.png"
+   magick "${RAW}/${ANIM}/${ANIM}_0.png" "${RAW}/${ANIM}/${ANIM}_1.png" ... +append "public/assets/fighters/{id}/${ANIM}.png"
    ```
 
 3. Show the fixed strips to the user for final confirmation.
