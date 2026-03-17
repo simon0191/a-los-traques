@@ -16,6 +16,8 @@ import {
   resizeExact,
   padToAspect,
   appendHorizontal,
+  detectFacingDirection,
+  flipHorizontal,
 } from "../process.js";
 import { validateAsset } from "../validate.js";
 
@@ -77,6 +79,7 @@ export async function runFighterPipeline(config) {
       "knockdown",
     ],
     referenceImages = [],
+    referenceSheet = null,
     rawDir = "assets/_raw/fighters",
     skipGenerate = false,
     retries = 3,
@@ -151,12 +154,25 @@ export async function runFighterPipeline(config) {
               ? `frame ${f + 1} of ${anim.frames}, end of motion`
               : `frame ${f + 1} of ${anim.frames}, mid motion`;
 
-        const prompt = `${description}, ${anim.label}, ${frameLabel}, full body visible, single character centered in image, on solid bright green #00FF00 background, ${STYLE_PREFIX}`;
+        const prompt =
+          `${description}, ${anim.label}, ${frameLabel}. ` +
+          `Character MUST face RIGHT — front of body and face point to the right side of the image. ` +
+          `Character must look IDENTICAL to the reference image: same body proportions, clothing, hair, colors. ` +
+          `Full body visible, single character centered, solid bright green #00FF00 background. ` +
+          STYLE_PREFIX;
 
         let generated = false;
         for (let attempt = 1; attempt <= retries; attempt++) {
           const allRefs = [...referenceImages];
+          // Golden reference sheet takes priority
+          if (referenceSheet && fs.existsSync(referenceSheet)) allRefs.push(referenceSheet);
+          // Then first-frame self-reference for consistency
           if (referenceImage) allRefs.push(referenceImage);
+          // Previous frame of same animation for motion continuity (frames 2+)
+          if (f > 0 && framePaths.length > 0) {
+            const prevFrame = framePaths[framePaths.length - 1];
+            if (fs.existsSync(prevFrame)) allRefs.push(prevFrame);
+          }
           const result = await generateImage({
             prompt,
             outputPath: rawPath,
@@ -218,6 +234,15 @@ export async function runFighterPipeline(config) {
       try {
         // 1. Remove green background
         removeBackground(rawPath, noBgPath);
+
+        // 1b. Direction validation — flip if facing left
+        const facing = detectFacingDirection(noBgPath);
+        if (facing === 'left') {
+          console.log(`      Direction: facing left, auto-flipping to right`);
+          flipHorizontal(noBgPath, noBgPath);
+        } else if (facing === 'ambiguous') {
+          console.warn(`      Direction: ambiguous, keeping as-is`);
+        }
 
         // 2. Crop to content
         cropToContent(noBgPath, croppedPath);

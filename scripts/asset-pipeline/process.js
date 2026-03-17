@@ -140,6 +140,47 @@ export function hasAlpha(imagePath) {
 }
 
 /**
+ * Flip image horizontally (mirror).
+ */
+export function flipHorizontal(inputPath, outputPath) {
+  run(`magick "${inputPath}" -flop "${outputPath}"`);
+}
+
+/**
+ * Detect whether a sprite faces LEFT or RIGHT by comparing opaque pixel
+ * density on each half of the image. More mass on the right side of the
+ * image means the character faces right (body/chest is on the right).
+ *
+ * @returns {'left'|'right'|'ambiguous'}
+ */
+export function detectFacingDirection(imagePath) {
+  const dims = getImageDimensions(imagePath);
+  const halfW = Math.floor(dims.width / 2);
+
+  // Count opaque pixels in left half
+  const leftOpaque = run(
+    `magick "${imagePath}" -crop ${halfW}x${dims.height}+0+0 +repage -alpha extract -format "%[fx:mean]" info:`
+  );
+  // Count opaque pixels in right half
+  const rightOpaque = run(
+    `magick "${imagePath}" -crop ${halfW}x${dims.height}+${halfW}+0 +repage -alpha extract -format "%[fx:mean]" info:`
+  );
+
+  const left = parseFloat(leftOpaque);
+  const right = parseFloat(rightOpaque);
+  const total = left + right;
+
+  if (total < 0.01) return 'ambiguous';
+
+  const ratio = left / total;
+  // If left half has significantly more mass, the character's front is on the left = facing left
+  // If right half has significantly more mass, facing right
+  if (ratio > 0.58) return 'left';
+  if (ratio < 0.42) return 'right';
+  return 'ambiguous';
+}
+
+/**
  * Get percentage of transparent pixels.
  */
 export function getTransparentPercent(imagePath) {

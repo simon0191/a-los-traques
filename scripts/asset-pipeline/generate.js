@@ -71,7 +71,7 @@ export async function generateImage({
 
   // If reference images were provided, prepend a consistency instruction
   const refPrefix = addedRefs > 0
-    ? `Use the provided reference image${addedRefs > 1 ? "s" : ""} to match the character's appearance, colors, and art style exactly. `
+    ? `The generated character must look EXACTLY like the character in the reference image${addedRefs > 1 ? "s" : ""} — same face, body type, clothing, hair, and colors. Character must face RIGHT in profile view. `
     : "";
   contents.push({ text: refPrefix + prompt });
 

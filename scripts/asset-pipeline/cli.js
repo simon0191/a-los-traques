@@ -6,7 +6,7 @@
  * Usage:
  *   node scripts/asset-pipeline/cli.js <type> <config.json> [--skip-generate] [--delay N] [--retries N] [--ref PATH]
  *
- * Types: fighter, portrait, stage, ui
+ * Types: fighter, portrait, stage, ui, reference
  */
 
 import fs from "fs";
@@ -14,12 +14,14 @@ import { runFighterPipeline } from "./pipelines/fighter.js";
 import { runPortraitPipeline } from "./pipelines/portrait.js";
 import { runStagePipeline } from "./pipelines/stage.js";
 import { runUIPipeline } from "./pipelines/ui.js";
+import { runReferencePipeline } from "./pipelines/reference.js";
 
 const PIPELINES = {
   fighter: runFighterPipeline,
   portrait: runPortraitPipeline,
   stage: runStagePipeline,
   ui: runUIPipeline,
+  reference: runReferencePipeline,
 };
 
 function parseArgs() {
