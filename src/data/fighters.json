@@ -278,5 +278,45 @@
       "victory": "Mision cumplida, soldado. Descansa en paz.",
       "defeat": "El Capi... cae... pero se levanta... siempre..."
     }
+  },
+  {
+    "id": "bozzi",
+    "name": "Bozz",
+    "subtitle": "El Pulpo",
+    "description": "Elastic octopus-themed brawler in a dark purple and black suit with tentacle-like stretchy arms. Lean wiry build, deep purple aura, suction-cup patterns on his gloves and boots. Wild messy hair, mischievous grin, arms extending unnaturally long in a fighting stance.",
+    "color": "0x4B0082",
+    "stats": { "hp": 100, "speed": 4, "power": 3, "defense": 2, "special": 3 },
+    "moves": {
+      "lightPunch":  { "damage": 5,  "startup": 2,  "active": 3, "recovery": 3 },
+      "heavyPunch":  { "damage": 12, "startup": 5,  "active": 4, "recovery": 7 },
+      "lightKick":   { "damage": 6,  "startup": 3,  "active": 3, "recovery": 4 },
+      "heavyKick":   { "damage": 14, "startup": 6,  "active": 4, "recovery": 8 },
+      "special":     { "damage": 28, "startup": 8,  "active": 6, "recovery": 13, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Ocho brazos y todos te van a pegar.",
+      "victory": "Te envolvi como calamar! Tinta y todo!",
+      "defeat": "Me secaron... los tentaculos... necesito agua..."
+    }
+  },
+  {
+    "id": "angy",
+    "name": "Angy",
+    "subtitle": "The Mystic Arrow",
+    "description": "Mystic archer in light blue and silver armor with a flowing cape. Long golden hair, piercing blue eyes, elegant compound bow that fires glowing magical arrows. Athletic build, confident stance, arrows of light shimmer in her quiver.",
+    "color": "0x87CEEB",
+    "stats": { "hp": 100, "speed": 4, "power": 3, "defense": 2, "special": 4 },
+    "moves": {
+      "lightPunch":  { "damage": 4,  "startup": 2,  "active": 2, "recovery": 3 },
+      "heavyPunch":  { "damage": 11, "startup": 5,  "active": 3, "recovery": 7 },
+      "lightKick":   { "damage": 5,  "startup": 3,  "active": 2, "recovery": 4 },
+      "heavyKick":   { "damage": 13, "startup": 6,  "active": 3, "recovery": 8 },
+      "special":     { "damage": 30, "startup": 9,  "active": 5, "recovery": 13, "cost": 50 }
+    },
+    "dialogs": {
+      "intro": "Mi arco no falla. Vos si.",
+      "victory": "Flecha mistica directo al corazon!",
+      "defeat": "Se me acabaron... las flechas magicas..."
+    }
   }
 ]
