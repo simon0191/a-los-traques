@@ -12,10 +12,18 @@ export class Fighter {
     this.sprite.setOrigin(0.5, 1); // Bottom center origin
     this.sprite.body.setGravityY(GRAVITY);
 
+    // Check if this fighter has real sprite animations
+    this.fighterId = fighterData.id;
+    this.hasAnims = scene.anims.exists(`${this.fighterId}_idle`);
+    if (this.hasAnims) {
+      this.sprite.play(`${this.fighterId}_idle`);
+    }
+
     // State
     this.hp = MAX_HP;
     this.special = 0;
     this.state = 'idle'; // idle, walking, jumping, attacking, hurt, knockdown, blocking, victory, defeat
+    this._prevAnimState = null;
     this.facingRight = playerIndex === 0;
     this.attackCooldown = 0;
     this.hurtTimer = 0;
@@ -54,11 +62,46 @@ export class Fighter {
       this.sprite.y = GROUND_Y;
       this.sprite.body.setVelocityY(0);
     }
+
+    // Update animation based on state
+    if (this.hasAnims) {
+      this._updateAnimation();
+    }
+  }
+
+  _updateAnimation() {
+    // Map state to animation key
+    let animState = this.state;
+    if (animState === 'attacking' && this.currentAttack) {
+      // Map attack types to animation names
+      const attackMap = {
+        lightPunch: 'light_punch',
+        heavyPunch: 'heavy_punch',
+        lightKick: 'light_kick',
+        heavyKick: 'heavy_kick',
+        special: 'special',
+      };
+      animState = attackMap[this.currentAttack.type] || 'idle';
+    } else if (animState === 'walking') {
+      animState = 'walk';
+    } else if (animState === 'jumping') {
+      animState = 'jump';
+    } else if (animState === 'blocking') {
+      animState = 'block';
+    }
+
+    if (animState !== this._prevAnimState) {
+      const key = `${this.fighterId}_${animState}`;
+      if (this.scene.anims.exists(key)) {
+        this.sprite.play(key);
+        this._prevAnimState = animState;
+      }
+    }
   }
 
   faceOpponent(opponent) {
     this.facingRight = this.sprite.x < opponent.sprite.x;
-    this.sprite.setFlipX(!this.facingRight);
+    this.sprite.setFlipX(this.facingRight);
   }
 
   moveLeft(speed) {
@@ -108,6 +151,7 @@ export class Fighter {
     if (!moveData) return false;
 
     this.state = 'attacking';
+    this._prevAnimState = null;
     this.hitConnected = false;
     this.currentAttack = { type, ...moveData };
 
@@ -203,12 +247,16 @@ export class Fighter {
     this.hp = MAX_HP;
     this.special = 0;
     this.state = 'idle';
+    this._prevAnimState = null;
     this.attackCooldown = 0;
     this.hurtTimer = 0;
     this.currentAttack = null;
     this.hitConnected = false;
     this.hasDoubleJumped = false;
     this._airborneTime = 0;
+    if (this.hasAnims) {
+      this.sprite.play(`${this.fighterId}_idle`);
+    }
   }
 
   get alive() {
