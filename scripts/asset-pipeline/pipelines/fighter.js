@@ -16,8 +16,6 @@ import {
   resizeExact,
   padToAspect,
   appendHorizontal,
-  detectFacingDirection,
-  flipHorizontal,
 } from "../process.js";
 import { validateAsset } from "../validate.js";
 
@@ -252,15 +250,6 @@ export async function runFighterPipeline(config) {
       try {
         // 1. Remove chroma-key background
         removeBackground(rawPath, noBgPath, { hueMin: bg.hueMin, hueMax: bg.hueMax });
-
-        // 1b. Direction validation — flip if facing left
-        const facing = detectFacingDirection(noBgPath);
-        if (facing === 'left') {
-          console.log(`      Direction: facing left, auto-flipping to right`);
-          flipHorizontal(noBgPath, noBgPath);
-        } else if (facing === 'ambiguous') {
-          console.warn(`      Direction: ambiguous, keeping as-is`);
-        }
 
         // 2. Crop to content
         cropToContent(noBgPath, croppedPath);
