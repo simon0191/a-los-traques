@@ -5,7 +5,36 @@ export class AudioManager {
     this.currentMusic = null;
     this.currentMusicKey = null;
     this.muted = localStorage.getItem('alt_muted') === 'true';
+    this._audioUnlocked = false;
     game.audioManager = this;
+
+    // Mobile browsers suspend Web Audio until a user gesture.
+    // Keep trying on each touch/click until we successfully resume.
+    const unlock = () => {
+      if (this._audioUnlocked) {
+        removeListeners();
+        return;
+      }
+      const ctx = game.sound && game.sound.context;
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().then(() => {
+          this._audioUnlocked = true;
+          removeListeners();
+        });
+      } else if (ctx && ctx.state === 'running') {
+        this._audioUnlocked = true;
+        removeListeners();
+      }
+      // If game.sound.context doesn't exist yet, keep listeners active
+    };
+    const removeListeners = () => {
+      document.removeEventListener('touchstart', unlock, true);
+      document.removeEventListener('touchend', unlock, true);
+      document.removeEventListener('click', unlock, true);
+    };
+    document.addEventListener('touchstart', unlock, true);
+    document.addEventListener('touchend', unlock, true);
+    document.addEventListener('click', unlock, true);
   }
 
   setScene(scene) {
@@ -15,8 +44,16 @@ export class AudioManager {
     }
   }
 
+  _tryResumeContext() {
+    const ctx = this.game.sound && this.game.sound.context;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume();
+    }
+  }
+
   play(key) {
     if (!this.scene || !this.scene.cache.audio.exists(key)) return;
+    this._tryResumeContext();
     this.scene.sound.play(key);
   }
 
@@ -24,6 +61,7 @@ export class AudioManager {
     if (!this.scene || !this.scene.cache.audio.exists(key)) return;
     if (this.currentMusicKey === key && this.currentMusic && this.currentMusic.isPlaying) return;
 
+    this._tryResumeContext();
     this.stopMusic();
     const loop = config.loop !== undefined ? config.loop : true;
     this.currentMusic = this.scene.sound.add(key, { loop, volume: config.volume || 0.4 });
