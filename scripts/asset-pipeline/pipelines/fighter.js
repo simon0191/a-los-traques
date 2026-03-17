@@ -21,8 +21,23 @@ import {
 } from "../process.js";
 import { validateAsset } from "../validate.js";
 
-const STYLE_PREFIX =
-  "Neo Geo pixel art, King of Fighters style, side-view fighting game sprite, detailed pixel art, clean edges, vibrant colors, do not use any green colors on the character";
+// Green chroma-key background (default)
+const GREEN_BG = {
+  promptColor: "bright green #00FF00",
+  styleNote: "do not use any green colors on the character",
+  hueMin: 70, hueMax: 170,
+};
+
+// Magenta chroma-key background (when character uses green)
+const MAGENTA_BG = {
+  promptColor: "bright magenta #FF00FF",
+  styleNote: "do not use any magenta or pink colors on the character",
+  hueMin: 280, hueMax: 340,
+};
+
+function pickBackground(description) {
+  return /green/i.test(description) ? MAGENTA_BG : GREEN_BG;
+}
 
 const ANIMATIONS = {
   idle: { frames: 4, label: "standing idle fighting stance, side view" },
@@ -85,6 +100,9 @@ export async function runFighterPipeline(config) {
     retries = 3,
     delay = 3000,
   } = config;
+
+  const bg = pickBackground(description);
+  const STYLE_PREFIX = `Neo Geo pixel art, King of Fighters style, side-view fighting game sprite, detailed pixel art, clean edges, vibrant colors, ${bg.styleNote}`;
 
   const fighterName = path.basename(output.replace(/\/+$/, ""));
   const fighterRawDir = config.rawDir
@@ -156,9 +174,9 @@ export async function runFighterPipeline(config) {
 
         const prompt =
           `${description}, ${anim.label}, ${frameLabel}. ` +
-          `Character MUST face RIGHT — front of body and face point to the right side of the image. ` +
+          `IMPORTANT: The character MUST face RIGHT. The character's chest, face, and front of body MUST point toward the RIGHT side of the image. The character should be in profile/three-quarter view looking RIGHT. This is a strict requirement. ` +
           `Character must look IDENTICAL to the reference image: same body proportions, clothing, hair, colors. ` +
-          `Full body visible, single character centered, solid bright green #00FF00 background. ` +
+          `Full body visible, single character centered, solid ${bg.promptColor} background. ` +
           STYLE_PREFIX;
 
         let generated = false;
@@ -232,8 +250,8 @@ export async function runFighterPipeline(config) {
 
       // Post-process pipeline
       try {
-        // 1. Remove green background
-        removeBackground(rawPath, noBgPath);
+        // 1. Remove chroma-key background
+        removeBackground(rawPath, noBgPath, { hueMin: bg.hueMin, hueMax: bg.hueMax });
 
         // 1b. Direction validation — flip if facing left
         const facing = detectFacingDirection(noBgPath);

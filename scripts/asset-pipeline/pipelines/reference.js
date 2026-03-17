@@ -13,10 +13,25 @@ import fs from "fs";
 import { generateImage } from "../generate.js";
 import { removeBackground, cropToContent, padToAspect, resizeExact } from "../process.js";
 
-const STYLE_PREFIX =
-  "Neo Geo pixel art, King of Fighters style, side-view fighting game sprite, detailed pixel art, clean edges, vibrant colors, do not use any green colors on the character";
-
 const REF_SIZE = 256;
+
+// Green chroma-key background (default)
+const GREEN_BG = {
+  promptColor: "bright green #00FF00",
+  styleNote: "do not use any green colors on the character",
+  hueMin: 70, hueMax: 170,
+};
+
+// Magenta chroma-key background (when character uses green)
+const MAGENTA_BG = {
+  promptColor: "bright magenta #FF00FF",
+  styleNote: "do not use any magenta or pink colors on the character",
+  hueMin: 280, hueMax: 340,
+};
+
+function pickBackground(description) {
+  return /green/i.test(description) ? MAGENTA_BG : GREEN_BG;
+}
 
 /**
  * @param {object} config
@@ -53,13 +68,16 @@ export async function runReferencePipeline(config) {
 
   console.log(`  Generating golden reference for "${id}"`);
 
+  const bg = pickBackground(description);
+  const STYLE_PREFIX = `Neo Geo pixel art, King of Fighters style, side-view fighting game sprite, detailed pixel art, clean edges, vibrant colors, ${bg.styleNote}`;
+
   if (!skipGenerate) {
     const prompt =
       `Character design for a fighting game: ${description}. ` +
       `Standing neutral pose, arms slightly raised in fighting ready position. ` +
-      `Character MUST face RIGHT — their face and front of body point to the right side of the image. ` +
+      `IMPORTANT: The character MUST face RIGHT. The character's chest, face, and front of body MUST point toward the RIGHT side of the image. The character should be in profile/three-quarter view looking RIGHT. This is a strict requirement. ` +
       `Full body visible head to toe, single character, centered. ` +
-      `Solid bright green #00FF00 background. ` +
+      `Solid ${bg.promptColor} background. ` +
       STYLE_PREFIX;
 
     let generated = false;
@@ -97,7 +115,7 @@ export async function runReferencePipeline(config) {
 
   // Post-process: remove BG, crop, pad, resize
   try {
-    removeBackground(rawPath, noBgPath);
+    removeBackground(rawPath, noBgPath, { hueMin: bg.hueMin, hueMax: bg.hueMax });
     cropToContent(noBgPath, croppedPath);
     padToAspect(croppedPath, paddedPath, 1, 1);
     resizeExact(paddedPath, cleanPath, REF_SIZE, REF_SIZE);
