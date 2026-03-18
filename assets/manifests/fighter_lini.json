@@ -3,5 +3,5 @@
   "description": "Graceful elf sorceress in a flowing dark navy blue robe with elegant silver runes and midnight blue accents. Long pointed ears, flowing dark hair with midnight blue streaks, sharp elven features. Glowing arcane tattoos on her arms, magical orbs float around her hands, ethereal magic circles orbit her, mystical forest energy radiates from her fingertips.",
   "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
   "referenceImages": ["assets/photos/lini.png"],
-  "referenceSheet": "assets/references/lini_ref.png"
+  "referenceSheet": "assets/references/lini_ref_padded.png"
 }

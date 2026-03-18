@@ -3,5 +3,5 @@
   "description": "Dark mage brujo in a tattered red and black robe with arcane symbols glowing crimson. Skull necklace, shadowy aura swirling around his hands, deep-set glowing red eyes, wild dark hair, ritualistic face paint. Dark energy crackles between his fingers.",
   "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
   "referenceImages": ["assets/photos/chicha.png"],
-  "referenceSheet": "assets/references/chicha_ref.png"
+  "referenceSheet": "assets/references/chicha_ref_padded.png"
 }
