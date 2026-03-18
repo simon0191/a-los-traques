@@ -5,36 +5,22 @@ export class AudioManager {
     this.currentMusic = null;
     this.currentMusicKey = null;
     this.muted = localStorage.getItem('alt_muted') === 'true';
-    this._audioUnlocked = false;
+    this._pendingMusic = null;
     game.audioManager = this;
 
-    // Mobile browsers suspend Web Audio until a user gesture.
-    // Keep trying on each touch/click until we successfully resume.
+    // Mobile iOS browsers suspend Web Audio until a user gesture.
+    // Use bubble phase (not capture) so Phaser's own unlock fires first,
+    // then we resume the context as a backup. Keep listeners until both
+    // the AudioContext is running AND Phaser reports unlocked.
     const unlock = () => {
-      if (this._audioUnlocked) {
-        removeListeners();
-        return;
-      }
       const ctx = game.sound && game.sound.context;
       if (ctx && ctx.state === 'suspended') {
-        ctx.resume().then(() => {
-          this._audioUnlocked = true;
-          removeListeners();
-        });
-      } else if (ctx && ctx.state === 'running') {
-        this._audioUnlocked = true;
-        removeListeners();
+        ctx.resume();
       }
-      // If game.sound.context doesn't exist yet, keep listeners active
     };
-    const removeListeners = () => {
-      document.removeEventListener('touchstart', unlock, true);
-      document.removeEventListener('touchend', unlock, true);
-      document.removeEventListener('click', unlock, true);
-    };
-    document.addEventListener('touchstart', unlock, true);
-    document.addEventListener('touchend', unlock, true);
-    document.addEventListener('click', unlock, true);
+    document.addEventListener('touchstart', unlock);
+    document.addEventListener('touchend', unlock);
+    document.addEventListener('click', unlock);
   }
 
   setScene(scene) {
@@ -44,16 +30,10 @@ export class AudioManager {
     }
   }
 
-  _tryResumeContext() {
-    const ctx = this.game.sound && this.game.sound.context;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume();
-    }
-  }
-
   play(key) {
     if (!this.scene || !this.scene.cache.audio.exists(key)) return;
-    this._tryResumeContext();
+    // If Phaser sound is still locked (iOS), skip SFX — they're not critical
+    if (this.scene.sound.locked) return;
     this.scene.sound.play(key);
   }
 
@@ -61,12 +41,29 @@ export class AudioManager {
     if (!this.scene || !this.scene.cache.audio.exists(key)) return;
     if (this.currentMusicKey === key && this.currentMusic && this.currentMusic.isPlaying) return;
 
-    this._tryResumeContext();
-    this.stopMusic();
-    const loop = config.loop !== undefined ? config.loop : true;
-    this.currentMusic = this.scene.sound.add(key, { loop, volume: config.volume || 0.4 });
-    this.currentMusic.play();
-    this.currentMusicKey = key;
+    const startMusic = () => {
+      this.stopMusic();
+      const loop = config.loop !== undefined ? config.loop : true;
+      this.currentMusic = this.scene.sound.add(key, { loop, volume: config.volume || 0.4 });
+      this.currentMusic.play();
+      this.currentMusicKey = key;
+    };
+
+    // On iOS, Phaser's sound manager stays locked until the first user gesture.
+    // Defer music start until Phaser itself reports unlocked.
+    if (this.scene.sound.locked) {
+      this._pendingMusic = { key, config };
+      this.scene.sound.once('unlocked', () => {
+        // Only play if this is still the pending request (not superseded)
+        if (this._pendingMusic && this._pendingMusic.key === key) {
+          this._pendingMusic = null;
+          startMusic();
+        }
+      });
+    } else {
+      this._pendingMusic = null;
+      startMusic();
+    }
   }
 
   stopMusic() {

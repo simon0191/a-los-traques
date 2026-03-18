@@ -10,13 +10,7 @@ export class TitleScene extends Phaser.Scene {
     const audio = this.game.audioManager;
     audio.setScene(this);
 
-    // Safari AudioContext unlock
-    const startMusic = () => audio.playMusic('bgm_menu');
-    if (this.sound.locked) {
-      this.sound.once('unlocked', startMusic);
-    } else {
-      startMusic();
-    }
+    audio.playMusic('bgm_menu');
 
     audio.createMuteButton(this);
 
