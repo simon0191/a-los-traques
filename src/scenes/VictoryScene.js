@@ -172,6 +172,13 @@ export class VictoryScene extends Phaser.Scene {
         this.add.text(GAME_WIDTH / 2, 235, 'Oponente desconectado', {
           fontFamily: 'Arial', fontSize: '8px', color: '#ff4444'
         }).setOrigin(0.5);
+        this.time.delayedCall(1500, () => {
+          this.networkManager.destroy();
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('TitleScene');
+          });
+        });
       });
     }
   }

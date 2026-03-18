@@ -265,6 +265,14 @@ export class SelectScene extends Phaser.Scene {
     // Update display
     this.updateP1Display();
 
+    // Room code display (online mode, bottom center)
+    if (this.gameMode === 'online' && this.networkManager) {
+      this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8, `SALA: ${this.networkManager.roomId}`, {
+        fontSize: '7px', fontFamily: 'monospace', color: '#aaaacc',
+        stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5, 1).setDepth(10);
+    }
+
     // In online mode, reset stale state and listen for opponent ready early
     if (this.gameMode === 'online' && this.networkManager) {
       this.networkManager.resetForReselect();
@@ -274,6 +282,22 @@ export class SelectScene extends Phaser.Scene {
         if (this.p1Confirmed) {
           this._showOpponentSelection(fighterId);
         }
+      });
+
+      this.networkManager.onDisconnect(() => {
+        this.transitioning = true;
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Oponente desconectado', {
+          fontSize: '14px', fontFamily: 'monospace', color: '#ff4444',
+          stroke: '#000000', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(50);
+        this.time.delayedCall(1500, () => {
+          this.networkManager.destroy();
+          this.networkManager = null;
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('TitleScene');
+          });
+        });
       });
     }
   }

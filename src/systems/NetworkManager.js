@@ -2,6 +2,16 @@ import PartySocket from 'partysocket';
 
 const INPUT_DELAY = 3;
 
+// Message types that support callback buffering (B5)
+const BUFFERABLE_TYPES = ['sync', 'round_event', 'start'];
+
+// Map message types to their callback property names
+const TYPE_TO_CALLBACK = {
+  sync: '_onSync',
+  round_event: '_onRoundEvent',
+  start: '_onStart',
+};
+
 export class NetworkManager {
   /**
    * @param {string} roomId
@@ -14,19 +24,21 @@ export class NetworkManager {
     this.connected = false;
     this.localFrame = 0;
     this.isSpectator = false;
+    this.latency = 0;
+    this._pingInterval = null;
 
-    // Callbacks
+    // Callbacks (managed via setter properties for bufferable types)
     this._onAssign = null;
     this._onOpponentJoined = null;
     this._onOpponentReady = null;
-    this._onStart = null;
+    this.__onStart = null;
     this._onRemoteInput = null;
     this._onDisconnect = null;
     this._onRematch = null;
     this._onFull = null;
     this._onError = null;
-    this._onSync = null;
-    this._onRoundEvent = null;
+    this.__onSync = null;
+    this.__onRoundEvent = null;
     this._onLeave = null;
     this._onAssignSpectator = null;
     this._onSpectatorCount = null;
@@ -34,6 +46,33 @@ export class NetworkManager {
     this._onFightState = null;
     this._onPotionApplied = null;
     this._onPotion = null;
+
+    // B5: Pending callback messages queue
+    this._pendingCallbackMessages = {
+      sync: [],
+      round_event: [],
+      start: [],
+    };
+
+    // B5: Define setter properties that flush pending messages when callback is set
+    for (const type of BUFFERABLE_TYPES) {
+      const privateProp = `__on${type.charAt(0).toUpperCase()}${type.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`;
+      const publicProp = `_on${type.charAt(0).toUpperCase()}${type.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`;
+      Object.defineProperty(this, publicProp, {
+        get() { return this[privateProp]; },
+        set(cb) {
+          this[privateProp] = cb;
+          if (cb && this._pendingCallbackMessages[type] && this._pendingCallbackMessages[type].length > 0) {
+            const pending = this._pendingCallbackMessages[type].splice(0);
+            for (const msg of pending) {
+              cb(msg);
+            }
+          }
+        },
+        configurable: true,
+        enumerable: true,
+      });
+    }
 
     // Input buffer: frame -> inputState
     this.remoteInputBuffer = {};
@@ -44,6 +83,9 @@ export class NetworkManager {
     this.lastRemoteInputP1 = null;
     this.remoteInputBufferP2 = {};
     this.lastRemoteInputP2 = null;
+
+    // B4: Pending messages queue for when disconnected
+    this._pendingMessages = [];
 
     // Determine protocol based on host
     const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
@@ -63,21 +105,43 @@ export class NetworkManager {
 
     this.socket = new PartySocket(socketOptions);
 
-    this.socket.addEventListener('message', (event) => {
-      this._handleMessage(JSON.parse(event.data));
-    });
-
-    this.socket.addEventListener('open', () => {
+    // B2: Store bound handler references for cleanup
+    this._boundOnMessage = (event) => {
+      // B1: Wrap JSON.parse in try-catch
+      try {
+        this._handleMessage(JSON.parse(event.data));
+      } catch (e) {
+        // Silently ignore malformed messages
+        return;
+      }
+    };
+    this._boundOnOpen = () => {
       this.connected = true;
-    });
-
-    this.socket.addEventListener('close', () => {
+      // B4: Flush pending messages on reconnect
+      if (this._pendingMessages.length > 0) {
+        const pending = this._pendingMessages.splice(0);
+        for (const msg of pending) {
+          this._send(msg);
+        }
+      }
+      // Start ping measurement
+      if (!this._pingInterval) {
+        this._pingInterval = setInterval(() => {
+          this._send({ type: 'ping', t: Date.now() });
+        }, 3000);
+      }
+    };
+    this._boundOnClose = () => {
       this.connected = false;
-    });
-
-    this.socket.addEventListener('error', () => {
+    };
+    this._boundOnError = () => {
       if (this._onError) this._onError();
-    });
+    };
+
+    this.socket.addEventListener('message', this._boundOnMessage);
+    this.socket.addEventListener('open', this._boundOnOpen);
+    this.socket.addEventListener('close', this._boundOnClose);
+    this.socket.addEventListener('error', this._boundOnError);
   }
 
   _handleMessage(msg) {
@@ -93,7 +157,11 @@ export class NetworkManager {
         if (this._onOpponentReady) this._onOpponentReady(msg.fighterId);
         break;
       case 'start':
-        if (this._onStart) this._onStart(msg);
+        if (this._onStart) {
+          this._onStart(msg);
+        } else {
+          this._pendingCallbackMessages.start.push(msg);
+        }
         break;
       case 'input':
         if (this.isSpectator && msg.slot != null) {
@@ -118,10 +186,18 @@ export class NetworkManager {
         if (this._onFull) this._onFull();
         break;
       case 'sync':
-        if (this._onSync) this._onSync(msg);
+        if (this._onSync) {
+          this._onSync(msg);
+        } else {
+          this._pendingCallbackMessages.sync.push(msg);
+        }
         break;
       case 'round_event':
-        if (this._onRoundEvent) this._onRoundEvent(msg);
+        if (this._onRoundEvent) {
+          this._onRoundEvent(msg);
+        } else {
+          this._pendingCallbackMessages.round_event.push(msg);
+        }
         break;
       case 'leave':
         if (this._onLeave) this._onLeave();
@@ -144,6 +220,9 @@ export class NetworkManager {
         break;
       case 'potion':
         if (this._onPotion) this._onPotion(msg.target, msg.potionType);
+        break;
+      case 'pong':
+        this.latency = Date.now() - msg.t;
         break;
     }
   }
@@ -205,14 +284,27 @@ export class NetworkManager {
    * Get the latest remote input, consuming any pending one-shot attacks.
    * Frame parameter is unused — we always consume the newest input since
    * host/guest frame counters are not synchronized.
+   * B3: OR-merge attack flags across all buffered frames to avoid losing inputs.
    * @returns {object} input state
    */
   getRemoteInput() {
-    // If there are buffered inputs, consume the latest one
+    // If there are buffered inputs, consume them all
     const frames = Object.keys(this.remoteInputBuffer).map(Number);
     if (frames.length > 0) {
       const latest = Math.max(...frames);
-      const input = this.remoteInputBuffer[latest];
+      const input = { ...this.remoteInputBuffer[latest] };
+
+      // B3: OR-merge attack flags from ALL buffered frames
+      const attackFlags = ['lp', 'hp', 'lk', 'hk', 'sp'];
+      for (const frame of frames) {
+        const frameInput = this.remoteInputBuffer[frame];
+        for (const flag of attackFlags) {
+          if (frameInput[flag]) {
+            input[flag] = true;
+          }
+        }
+      }
+
       // Clear all buffered inputs — they've been consumed
       this.remoteInputBuffer = {};
       // Update lastRemoteInput for movement continuity,
@@ -232,6 +324,7 @@ export class NetworkManager {
 
   /**
    * Get the latest remote input for a specific player slot (spectator mode).
+   * B3: OR-merge attack flags across all buffered frames.
    * @param {number} slot - 0 for P1, 1 for P2
    * @returns {object} input state
    */
@@ -242,7 +335,19 @@ export class NetworkManager {
     const frames = Object.keys(buf).map(Number);
     if (frames.length > 0) {
       const latest = Math.max(...frames);
-      const input = buf[latest];
+      const input = { ...buf[latest] };
+
+      // B3: OR-merge attack flags from ALL buffered frames
+      const attackFlags = ['lp', 'hp', 'lk', 'hk', 'sp'];
+      for (const frame of frames) {
+        const frameInput = buf[frame];
+        for (const flag of attackFlags) {
+          if (frameInput[flag]) {
+            input[flag] = true;
+          }
+        }
+      }
+
       if (slot === 0) {
         this.remoteInputBufferP1 = {};
         this.lastRemoteInputP1 = { ...input, lp: false, hp: false, lk: false, hk: false, sp: false };
@@ -279,15 +384,53 @@ export class NetworkManager {
   }
 
   destroy() {
+    if (this._pingInterval) {
+      clearInterval(this._pingInterval);
+      this._pingInterval = null;
+    }
     if (this.socket) {
+      // B2: Remove event listeners before closing
+      this.socket.removeEventListener('message', this._boundOnMessage);
+      this.socket.removeEventListener('open', this._boundOnOpen);
+      this.socket.removeEventListener('close', this._boundOnClose);
+      this.socket.removeEventListener('error', this._boundOnError);
       this.socket.close();
       this.socket = null;
     }
+
+    // B2: Null out all callback properties
+    this._onAssign = null;
+    this._onOpponentJoined = null;
+    this._onOpponentReady = null;
+    this._onStart = null;
+    this._onRemoteInput = null;
+    this._onDisconnect = null;
+    this._onRematch = null;
+    this._onFull = null;
+    this._onError = null;
+    this._onSync = null;
+    this._onRoundEvent = null;
+    this._onLeave = null;
+    this._onAssignSpectator = null;
+    this._onSpectatorCount = null;
+    this._onShout = null;
+    this._onFightState = null;
+    this._onPotionApplied = null;
+    this._onPotion = null;
+
+    // Clear bound handler references
+    this._boundOnMessage = null;
+    this._boundOnOpen = null;
+    this._boundOnClose = null;
+    this._boundOnError = null;
   }
 
   _send(msg) {
     if (this.socket && this.connected) {
       this.socket.send(JSON.stringify(msg));
+    } else {
+      // B4: Queue messages when disconnected, flush on reconnect
+      this._pendingMessages.push(msg);
     }
   }
 }

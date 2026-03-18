@@ -69,7 +69,12 @@ export default class FightRoom {
   }
 
   onMessage(message, connection) {
-    const data = JSON.parse(/** @type {string} */ (message));
+    let data;
+    try {
+      data = JSON.parse(/** @type {string} */ (message));
+    } catch {
+      return;
+    }
     const slot = this._slotOf(connection.id);
     const isSpectator = this._isSpectator(connection.id);
 
@@ -105,6 +110,7 @@ export default class FightRoom {
 
     switch (data.type) {
       case 'ready': {
+        if (this.started || this.players[slot].ready) break;
         this.players[slot].fighterId = data.fighterId;
         this.players[slot].ready = true;
 
@@ -136,8 +142,13 @@ export default class FightRoom {
         break;
       case 'sync':
       case 'round_event':
+        if (slot !== 0) break;
         this._sendToOther(slot, data);
         this._broadcastToSpectators(data);
+        break;
+      case 'ping':
+        // Echo back directly to sender
+        connection.send(JSON.stringify({ type: 'pong', t: data.t }));
         break;
       case 'rematch':
         // Relay directly to opponent
@@ -175,10 +186,13 @@ export default class FightRoom {
     this._sendToOther(slot, { type: 'disconnect' });
     this._broadcastToSpectators({ type: 'disconnect' });
 
-    // If both players gone, clear fight state so late spectators don't get stale data
-    if (!this.players[0] && !this.players[1]) {
-      this.started = false;
-      this.fightInfo = null;
+    // Reset room to pre-match state so reconnection can start a new match
+    this.started = false;
+    this.fightInfo = null;
+    const otherSlot = slot === 0 ? 1 : 0;
+    if (this.players[otherSlot]) {
+      this.players[otherSlot].ready = false;
+      this.players[otherSlot].fighterId = null;
     }
   }
 
