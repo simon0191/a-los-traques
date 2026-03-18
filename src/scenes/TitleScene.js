@@ -178,6 +178,7 @@ export class TitleScene extends Phaser.Scene {
     this._joinInput.inputMode = 'text';
     this._joinInput.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);opacity:0.01;font-size:16px;width:80px;z-index:1000;';
     document.body.appendChild(this._joinInput);
+    window._suppressFixHeight = true;
     this._joinInput.focus();
 
     this._joinInput.addEventListener('input', () => {
@@ -228,8 +229,16 @@ export class TitleScene extends Phaser.Scene {
 
   _hideJoinOverlay() {
     if (this._joinInput) {
+      this._joinInput.blur();
       this._joinInput.remove();
       this._joinInput = null;
+      // iOS keyboard dismissal is animated — keep fixHeight suppressed
+      // so intermediate visualViewport resize events don't shrink the container.
+      // Re-enable after the keyboard animation completes and force a refresh.
+      setTimeout(() => {
+        window._suppressFixHeight = false;
+        if (typeof window.fixHeight === 'function') window.fixHeight();
+      }, 500);
     }
     if (this._joinOverlay) {
       this._joinOverlay.destroy();
