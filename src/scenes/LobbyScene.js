@@ -108,7 +108,7 @@ export class LobbyScene extends Phaser.Scene {
 
     this.network.onError(() => {
       this.statusText.setText('Error de conexion');
-      this.subText.setText('Asegura que el servidor este corriendo\nnpm run party:dev');
+      this.subText.setText('Asegura que el servidor este corriendo\nbun run party:dev');
     });
 
     this.network.onAssign((slot) => {
