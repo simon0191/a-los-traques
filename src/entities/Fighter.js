@@ -5,6 +5,9 @@ import {
   WALL_SLIDE_SPEED, WALL_JUMP_X, WALL_JUMP_Y
 } from '../config.js';
 
+export { calculateBlockDamage } from './combat-block.js';
+import { calculateBlockDamage } from './combat-block.js';
+
 export class Fighter {
   constructor(scene, x, y, textureKey, fighterData, playerIndex) {
     this.scene = scene;
@@ -271,7 +274,7 @@ export class Fighter {
 
   takeDamage(amount, attackerX) {
     if (this.state === 'blocking') {
-      amount = Math.floor(amount * 0.2); // Block reduces damage to 20%
+      amount = calculateBlockDamage(amount);
       this.sprite.clearTint(); // Clear block tint
     }
 

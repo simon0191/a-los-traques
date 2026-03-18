@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { MAX_HP, MAX_SPECIAL, SPECIAL_COST, ROUND_TIME, ROUNDS_TO_WIN, GAME_WIDTH, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, FIGHTER_BODY_WIDTH } from '../config.js';
+import { calculateDamage } from './combat-math.js';
+
+export { calculateDamage } from './combat-math.js';
 
 export class CombatSystem {
   constructor(scene) {
@@ -69,13 +72,7 @@ export class CombatSystem {
     }
 
     const move = attacker.currentAttack;
-    let damage = move.damage;
-
-    // Apply attacker's power stat modifier (1-5 scale, 3 = neutral)
-    const powerMod = 0.7 + (attacker.data.stats.power * 0.1);
-    // Apply defender's defense stat modifier
-    const defMod = 1.1 - (defender.data.stats.defense * 0.04);
-    damage = Math.round(damage * powerMod * defMod);
+    let damage = calculateDamage(move.damage, attacker.data.stats.power, defender.data.stats.defense);
 
     // Attacker gains special meter from dealing damage (20% of damage dealt)
     attacker.special = Math.min(MAX_SPECIAL, attacker.special + damage * 0.2);
