@@ -20,7 +20,7 @@ const ANIM_DEFS = {
 };
 
 // Keep in sync with BootScene
-const FIGHTERS_WITH_SPRITES = ['simon', 'jeka'];
+const FIGHTERS_WITH_SPRITES = ['simon', 'jeka', 'chicha', 'cata', 'carito', 'mao', 'peks', 'lini', 'alv', 'sun', 'gartner', 'richi', 'cami', 'migue', 'bozzi', 'angy'];
 
 const ANIM_NAMES = Object.keys(ANIM_DEFS);
 
