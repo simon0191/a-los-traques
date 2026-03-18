@@ -70,7 +70,8 @@
   <script>
     // Size game container to actual visible viewport (not behind browser chrome)
     var gc = document.getElementById('game-container');
-    function fixHeight() {
+    window.fixHeight = function fixHeight() {
+      if (window._suppressFixHeight) return;
       var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
       var vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
       gc.style.width = vw + 'px';
@@ -78,10 +79,10 @@
       // Tell Phaser to re-measure if game exists
       if (window.game && window.game.scale) window.game.scale.refresh();
     }
-    fixHeight();
-    window.addEventListener('resize', fixHeight);
+    window.fixHeight();
+    window.addEventListener('resize', window.fixHeight);
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', fixHeight);
+      window.visualViewport.addEventListener('resize', window.fixHeight);
     }
   </script>
   <script type="module" src="/src/main.js"></script>
