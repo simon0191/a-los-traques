@@ -19,7 +19,8 @@ export class CombatSystem {
     // Start timer countdown
     // In online mode, only the host counts down and triggers timeUp.
     // The guest's timer is overwritten by sync messages from the host.
-    const isOnlineGuest = this.scene.gameMode === 'online' && !this.scene.isHost;
+    const isOnlineGuest = (this.scene.gameMode === 'online' && !this.scene.isHost)
+      || this.scene.gameMode === 'spectator';
     this.timerEvent = this.scene.time.addEvent({
       delay: 1000,
       callback: () => {
