@@ -69,7 +69,12 @@ export default class FightRoom {
   }
 
   onMessage(message, connection) {
-    const data = JSON.parse(/** @type {string} */ (message));
+    let data;
+    try {
+      data = JSON.parse(/** @type {string} */ (message));
+    } catch {
+      return;
+    }
     const slot = this._slotOf(connection.id);
     const isSpectator = this._isSpectator(connection.id);
 
@@ -105,6 +110,7 @@ export default class FightRoom {
 
     switch (data.type) {
       case 'ready': {
+        if (this.started || this.players[slot].ready) break;
         this.players[slot].fighterId = data.fighterId;
         this.players[slot].ready = true;
 
@@ -136,6 +142,7 @@ export default class FightRoom {
         break;
       case 'sync':
       case 'round_event':
+        if (slot !== 0) break;
         this._sendToOther(slot, data);
         this._broadcastToSpectators(data);
         break;

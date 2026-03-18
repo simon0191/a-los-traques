@@ -321,6 +321,94 @@ describe('FightRoom', () => {
     });
   });
 
+  // ---- Malformed input ----
+
+  describe('malformed input', () => {
+    it('does not crash or relay on non-JSON input', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      conn1.send.mockClear();
+      conn2.send.mockClear();
+
+      expect(() => room.onMessage('not json!!!', conn1)).not.toThrow();
+      expect(conn2.send).not.toHaveBeenCalled();
+    });
+  });
+
+  // ---- Double-ready prevention ----
+
+  describe('double-ready prevention', () => {
+    beforeEach(() => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      conn1.send.mockClear();
+      conn2.send.mockClear();
+    });
+
+    it('ignores second ready from same player', () => {
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      expect(room.players[0].fighterId).toBe('simon');
+
+      conn2.send.mockClear();
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'changed' }), conn1);
+      // fighterId should not change
+      expect(room.players[0].fighterId).toBe('simon');
+      // No second opponent_ready sent
+      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(c2Msgs.filter(m => m.type === 'opponent_ready').length).toBe(0);
+    });
+
+    it('ignores ready after game has started', () => {
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
+      expect(room.started).toBe(true);
+
+      // Use leave to reset ready flags but keep started via direct manipulation
+      room.players[0].ready = false;
+      room.players[0].fighterId = null;
+      // started is still true
+
+      conn2.send.mockClear();
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'hacked' }), conn1);
+      // Should be ignored because started is true
+      expect(room.players[0].fighterId).toBeNull();
+      expect(conn2.send).not.toHaveBeenCalled();
+    });
+  });
+
+  // ---- Host-only sync/round_event ----
+
+  describe('host-only authoritative messages', () => {
+    beforeEach(() => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      conn1.send.mockClear();
+      conn2.send.mockClear();
+    });
+
+    it('drops sync from non-host (slot 1)', () => {
+      room.onMessage(JSON.stringify({ type: 'sync', frame: 1, hp: [100, 80] }), conn2);
+      expect(conn1.send).not.toHaveBeenCalled();
+    });
+
+    it('drops round_event from non-host (slot 1)', () => {
+      room.onMessage(JSON.stringify({ type: 'round_event', event: 'ko' }), conn2);
+      expect(conn1.send).not.toHaveBeenCalled();
+    });
+
+    it('allows sync from host (slot 0)', () => {
+      room.onMessage(JSON.stringify({ type: 'sync', frame: 1 }), conn1);
+      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(c2Msgs.some(m => m.type === 'sync')).toBe(true);
+    });
+
+    it('allows round_event from host (slot 0)', () => {
+      room.onMessage(JSON.stringify({ type: 'round_event', event: 'ko' }), conn1);
+      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(c2Msgs.some(m => m.type === 'round_event')).toBe(true);
+    });
+  });
+
   // ---- Message routing ----
 
   describe('message routing', () => {
