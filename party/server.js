@@ -166,6 +166,10 @@ export default class FightRoom {
         this.fightInfo = null;
         this._sendToOther(slot, data);
         break;
+      case 'ping':
+        // RTT measurement: echo back as pong with original timestamp
+        connection.send(JSON.stringify({ type: 'pong', t: data.t }));
+        break;
     }
   }
 

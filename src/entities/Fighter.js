@@ -53,11 +53,33 @@ export class Fighter {
     this._isTouchingWall = false;
     this._wallDir = 0; // -1 = left wall, 1 = right wall
     this._hasWallJumped = false;
+
+    // Timer for special attack tint (replaces delayedCall for determinism)
+    this._specialTintTimer = 0;
   }
 
   update(time, delta) {
     // Update cooldowns
     if (this.attackCooldown > 0) this.attackCooldown -= delta;
+
+    // Attack completion (deterministic — replaces delayedCall)
+    if (this.attackCooldown <= 0 && this.state === 'attacking') {
+      if (!this.hitConnected && !this.scene._muteEffects) {
+        this.scene.game.audioManager.play('whiff');
+      }
+      this.state = 'idle';
+      this.currentAttack = null;
+    }
+
+    // Special tint timer (deterministic — replaces delayedCall)
+    if (this._specialTintTimer > 0) {
+      this._specialTintTimer -= delta;
+      if (this._specialTintTimer <= 0) {
+        this._specialTintTimer = 0;
+        if (this.sprite && this.sprite.clearTint) this.sprite.clearTint();
+      }
+    }
+
     if (this.hurtTimer > 0) {
       this.hurtTimer -= delta;
       if (this.hurtTimer <= 0) this.state = 'idle';
@@ -185,7 +207,7 @@ export class Fighter {
       this.sprite.body.setVelocityY(-350);
       this.state = 'jumping';
       this.isOnGround = false;
-      this.scene.game.audioManager.play('jump');
+      if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
     } else if (this._isTouchingWall && !this._hasWallJumped) {
       // Wall jump: push away from wall + upward
       this._hasWallJumped = true;
@@ -193,12 +215,12 @@ export class Fighter {
       this.sprite.body.setVelocityY(WALL_JUMP_Y);
       this.sprite.body.setVelocityX(-this._wallDir * WALL_JUMP_X);
       this.state = 'jumping';
-      this.scene.game.audioManager.play('jump');
+      if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
     } else if (!this.hasDoubleJumped && this._airborneTime > 100) {
       // Double jump: reset Y velocity and boost upward
       this.hasDoubleJumped = true;
       this.sprite.body.setVelocityY(-380);
-      this.scene.game.audioManager.play('jump');
+      if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
     }
   }
 
@@ -226,24 +248,17 @@ export class Fighter {
 
     if (type === 'special') {
       this.special -= 50;
-      this.scene.game.audioManager.play('special_charge');
-      // Yellow glow for special attacks
-      this.sprite.setTint(0xffcc00);
-      this.scene.time.delayedCall(Math.min(this.attackCooldown, 400), () => {
-        if (this.sprite && this.sprite.clearTint) this.sprite.clearTint();
-      });
+      if (!this.scene._muteEffects) {
+        this.scene.game.audioManager.play('special_charge');
+      }
+      // Yellow glow for special attacks (deterministic timer)
+      if (!this.scene._muteEffects) {
+        this.sprite.setTint(0xffcc00);
+      }
+      this._specialTintTimer = Math.min(this.attackCooldown, 400);
     }
 
-    // Return to idle after attack
-    this.scene.time.delayedCall(this.attackCooldown, () => {
-      if (this.state === 'attacking') {
-        if (!this.hitConnected) {
-          this.scene.game.audioManager.play('whiff');
-        }
-        this.state = 'idle';
-      }
-      this.currentAttack = null;
-    });
+    // Attack completion is now handled deterministically in update()
 
     return true;
   }
@@ -323,6 +338,7 @@ export class Fighter {
     this._isTouchingWall = false;
     this._wallDir = 0;
     this._hasWallJumped = false;
+    this._specialTintTimer = 0;
     if (this.hasAnims) {
       this.sprite.play(`${this.fighterId}_idle`);
     }
