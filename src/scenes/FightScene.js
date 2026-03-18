@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
   GAME_WIDTH, GAME_HEIGHT, GROUND_Y, STAGE_LEFT, STAGE_RIGHT,
-  MAX_HP, MAX_SPECIAL, ROUNDS_TO_WIN
+  MAX_HP, MAX_SPECIAL, MAX_STAMINA, ROUNDS_TO_WIN, FIGHTER_COLORS
 } from '../config.js';
 import { Fighter } from '../entities/Fighter.js';
 import { InputManager } from '../systems/InputManager.js';
@@ -25,6 +25,12 @@ const SPECIAL_BAR_H = 6;
 const SPECIAL_BAR_Y = BAR_Y + BAR_H + 4;
 const SPECIAL_P1_X = BAR_P1_X;
 const SPECIAL_P2_X = GAME_WIDTH - 16 - SPECIAL_BAR_W;
+
+const STAMINA_BAR_W = 100;
+const STAMINA_BAR_H = 5;
+const STAMINA_BAR_Y = SPECIAL_BAR_Y + SPECIAL_BAR_H + 3;
+const STAMINA_P1_X = BAR_P1_X;
+const STAMINA_P2_X = GAME_WIDTH - 16 - STAMINA_BAR_W;
 
 export class FightScene extends Phaser.Scene {
   constructor() {
@@ -118,6 +124,19 @@ export class FightScene extends Phaser.Scene {
     audio.playMusic('bgm_fight');
     audio.createMuteButton(this);
 
+    // -- Dev console (backtick to toggle) --
+    DevConsole._AIController = AIController;
+    this.devConsole = new DevConsole(this);
+
+    // -- Space key for restart --
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
+    // -- Pause system --
+    this.isPaused = false;
+    this._pauseOverlay = null;
+    this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    this.escKey.on('down', () => this._togglePause());
+
     // -- Start first round intro --
     this._showRoundIntro();
   }
@@ -126,6 +145,8 @@ export class FightScene extends Phaser.Scene {
   // UPDATE
   // =========================================================================
   update(time, delta) {
+    if (this.isPaused) return;
+
     // Always update fighters (gravity, timers, ground check)
     this.p1Fighter.update(time, delta);
     this.p2Fighter.update(time, delta);
@@ -282,6 +303,47 @@ export class FightScene extends Phaser.Scene {
       this.roundDotsP2.push(p2Dot);
     }
 
+    // --- Stamina bars ---
+    // P1 stamina
+    this.staBgP1 = this.add.rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
+      .setOrigin(0, 0).setDepth(depth);
+    this.staBarP1 = this.add.rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x00cccc)
+      .setOrigin(0, 0).setDepth(depth + 1);
+    this.add.rectangle(STAMINA_P1_X + STAMINA_BAR_W / 2, STAMINA_BAR_Y + STAMINA_BAR_H / 2, STAMINA_BAR_W + 2, STAMINA_BAR_H + 2)
+      .setStrokeStyle(1, 0x444444).setFillStyle().setDepth(depth + 2);
+
+    // P2 stamina
+    this.staBgP2 = this.add.rectangle(STAMINA_P2_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
+      .setOrigin(0, 0).setDepth(depth);
+    this.staBarP2 = this.add.rectangle(STAMINA_P2_X + STAMINA_BAR_W, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x00cccc)
+      .setOrigin(1, 0).setDepth(depth + 1);
+    this.add.rectangle(STAMINA_P2_X + STAMINA_BAR_W / 2, STAMINA_BAR_Y + STAMINA_BAR_H / 2, STAMINA_BAR_W + 2, STAMINA_BAR_H + 2)
+      .setStrokeStyle(1, 0x444444).setFillStyle().setDepth(depth + 2);
+
+    // --- Bar labels ---
+    const labelStyle = { fontSize: '5px', fontFamily: 'monospace', stroke: '#000000', strokeThickness: 1 };
+
+    // ESP labels (special)
+    this.add.text(SPECIAL_P1_X + SPECIAL_BAR_W + 3, SPECIAL_BAR_Y, 'ESP', { ...labelStyle, color: '#ffcc00' })
+      .setOrigin(0, 0).setDepth(depth + 3);
+    this.add.text(SPECIAL_P2_X - 3, SPECIAL_BAR_Y, 'ESP', { ...labelStyle, color: '#ffcc00' })
+      .setOrigin(1, 0).setDepth(depth + 3);
+
+    // STA labels (stamina)
+    this.add.text(STAMINA_P1_X + STAMINA_BAR_W + 3, STAMINA_BAR_Y, 'STA', { ...labelStyle, color: '#00cccc' })
+      .setOrigin(0, 0).setDepth(depth + 3);
+    this.add.text(STAMINA_P2_X - 3, STAMINA_BAR_Y, 'STA', { ...labelStyle, color: '#00cccc' })
+      .setOrigin(1, 0).setDepth(depth + 3);
+
+    // --- Pause button (below timer, local mode only) ---
+    if (this.gameMode !== 'online') {
+      this.pauseBtn = this.add.text(GAME_WIDTH / 2, BAR_Y + 34, '||', {
+        fontSize: '10px', fontFamily: 'monospace', color: '#888888',
+        stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5, 0).setDepth(depth + 3).setInteractive({ useHandCursor: true });
+      this.pauseBtn.on('pointerdown', () => this._togglePause());
+    }
+
     // --- Center text (for announcements) ---
     this.centerText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '', {
       fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
@@ -322,6 +384,16 @@ export class FightScene extends Phaser.Scene {
     else this.spBarP1.setFillStyle(0xffcc00);
     if (spRatioP2 >= 1) this.spBarP2.setFillStyle(0xffff00);
     else this.spBarP2.setFillStyle(0xffcc00);
+
+    // Stamina bars
+    const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA, 0, 1);
+    const staRatioP2 = Phaser.Math.Clamp(this.p2Fighter.stamina / MAX_STAMINA, 0, 1);
+    this.staBarP1.width = STAMINA_BAR_W * staRatioP1;
+    this.staBarP2.width = STAMINA_BAR_W * staRatioP2;
+
+    // Flash red when depleted
+    this.staBarP1.setFillStyle(staRatioP1 < 0.15 ? 0xff4444 : 0x00cccc);
+    this.staBarP2.setFillStyle(staRatioP2 < 0.15 ? 0xff4444 : 0x00cccc);
 
     // Timer
     this.timerText.setText(String(Math.max(0, this.combat.timer)));
@@ -414,8 +486,10 @@ export class FightScene extends Phaser.Scene {
         // Apply authoritative HP, special, timer, positions
         this.p1Fighter.hp = msg.p1hp;
         this.p1Fighter.special = msg.p1sp;
+        this.p1Fighter.stamina = msg.p1sta != null ? msg.p1sta : this.p1Fighter.stamina;
         this.p2Fighter.hp = msg.p2hp;
         this.p2Fighter.special = msg.p2sp;
+        this.p2Fighter.stamina = msg.p2sta != null ? msg.p2sta : this.p2Fighter.stamina;
         this.combat.timer = msg.timer;
         // Sync positions to prevent drift
         this.p1Fighter.sprite.x = msg.p1x;
@@ -504,8 +578,10 @@ export class FightScene extends Phaser.Scene {
         nm.sendSync({
           p1hp: this.p1Fighter.hp,
           p1sp: this.p1Fighter.special,
+          p1sta: this.p1Fighter.stamina,
           p2hp: this.p2Fighter.hp,
           p2sp: this.p2Fighter.special,
+          p2sta: this.p2Fighter.stamina,
           timer: this.combat.timer,
           p1x: this.p1Fighter.sprite.x,
           p2x: this.p2Fighter.sprite.x
@@ -763,6 +839,59 @@ export class FightScene extends Phaser.Scene {
       this._spectatorCountText.setText(`${count} espectador${count !== 1 ? 'es' : ''}`);
     } else {
       this._spectatorCountText.setText('');
+
+  // =========================================================================
+  // PAUSE SYSTEM
+  // =========================================================================
+  _togglePause() {
+    if (this.gameMode === 'online') {
+      // Show brief "no pause online" message
+      if (this._noPauseMsg) return;
+      this._noPauseMsg = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'NO PAUSA EN LINEA', {
+        fontSize: '12px', fontFamily: 'monospace', color: '#ff4444',
+        stroke: '#000000', strokeThickness: 3
+      }).setOrigin(0.5).setDepth(50);
+      this.time.delayedCall(1200, () => {
+        if (this._noPauseMsg) { this._noPauseMsg.destroy(); this._noPauseMsg = null; }
+      });
+      return;
+    }
+    if (this.isPaused) this._resumeGame();
+    else this._pauseGame();
+  }
+
+  _pauseGame() {
+    this.isPaused = true;
+    this.physics.world.pause();
+    this.time.paused = true;
+    this.tweens.pauseAll();
+
+    // Dark overlay + text
+    this._pauseOverlay = this.add.container(0, 0).setDepth(60);
+    const bg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6);
+    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 'PAUSA', {
+      fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 4
+    }).setOrigin(0.5);
+    const hint = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 15, 'Toca o pulsa ESC para continuar', {
+      fontSize: '8px', fontFamily: 'monospace', color: '#aaaaaa',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this._pauseOverlay.add([bg, title, hint]);
+
+    // Allow tap on overlay to resume
+    bg.setInteractive();
+    bg.on('pointerdown', () => this._resumeGame());
+  }
+
+  _resumeGame() {
+    this.isPaused = false;
+    this.physics.world.resume();
+    this.time.paused = false;
+    this.tweens.resumeAll();
+    if (this._pauseOverlay) {
+      this._pauseOverlay.destroy();
+      this._pauseOverlay = null;
     }
   }
 
@@ -964,6 +1093,7 @@ export class FightScene extends Phaser.Scene {
   // CLEANUP
   // =========================================================================
   shutdown() {
+    if (this.isPaused) this._resumeGame();
     if (this.combat) this.combat.stopRound();
     if (this.aiController) this.aiController.destroy();
     if (this.touchControls) this.touchControls.destroy();
