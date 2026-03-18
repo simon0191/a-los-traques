@@ -1,6 +1,6 @@
 # A Los Traques
 
-Street Fighter-style fighting game starring 14 real friends. iPhone 15 landscape Safari target.
+Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape Safari target.
 480x270 internal resolution, Phaser 3 + Vite, ES6 modules, all UI text in Spanish.
 
 ## Build & Run
@@ -18,7 +18,7 @@ src/
   scenes/          # Boot -> Title -> Select -> PreFight -> Fight -> Victory
   entities/        # Fighter.js (sprite + state machine + animation)
   systems/         # CombatSystem, InputManager, TouchControls, AIController, NetworkManager
-  data/            # fighters.json (14 fighters), stages.json (5 stages)
+  data/            # fighters.json (16 fighters), stages.json (5 stages)
   config.js        # Constants (dimensions, ground Y, fighter size 128x128)
 assets/
   references/      # Golden reference images for generation pipeline
@@ -70,7 +70,7 @@ Use the `/generate-fighter` skill for the full workflow. Key points:
 1. Add photo to `assets/photos/{id}.jpg`
 2. Create manifests: `reference_{id}.json` and `fighter_{id}.json`
 3. Run `/generate-fighter {id}`
-4. Add fighter ID to `FIGHTERS_WITH_SPRITES` in `src/scenes/BootScene.js`
+4. Add fighter ID to `FIGHTERS_WITH_SPRITES` in `src/scenes/BootScene.js` and `src/scenes/InspectorScene.js`
 
 ### Animation frame counts
 idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), special(5), block(2), hurt(3), knockdown(4), victory(4), defeat(3), jump(3)

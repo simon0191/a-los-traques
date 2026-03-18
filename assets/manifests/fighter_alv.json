@@ -3,5 +3,5 @@
   "description": "Scorpion-inspired fighter in orange and red ninja outfit with a fierce skull mask. Rope kunai weapon attached to his arm, blazing Ferrari-red eyes behind the mask. Athletic muscular build, tattered orange hood, chains wrapped around forearms. Hellfire aura flickers around him.",
   "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
   "referenceImages": ["assets/photos/alv.png"],
-  "referenceSheet": "assets/references/alv_ref.png"
+  "referenceSheet": "assets/references/alv_ref_padded.png"
 }

@@ -3,5 +3,5 @@
   "description": "Fierce street fighter woman with an aquamarine and navy blue outfit, wielding a gleaming combat knife in each hand. River Plate jersey torn into a battle crop top, bandana covering half her face, intense eyes, scars on arms. Streetwise stance, blades glinting with aquamarine light.",
   "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
   "referenceImages": ["assets/photos/sun.png"],
-  "referenceSheet": "assets/references/sun_ref.png"
+  "referenceSheet": "assets/references/sun_ref_padded.png"
 }

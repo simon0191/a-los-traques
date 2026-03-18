@@ -1,6 +1,7 @@
 {
-  "output": "public/assets/portraits/",
-  "id": "bozzi",
-  "description": "Elastic octopus-themed brawler in a dark purple and black suit with tentacle-like stretchy arms. Lean wiry build, deep purple aura, suction-cup patterns on his gloves and boots.",
+  "output": "public/assets/portraits/bozzi.png",
+  "prompt": "Elastic octopus-themed brawler in a dark purple and black suit with tentacle-like stretchy arms. Lean wiry build, deep purple aura, suction-cup patterns on his gloves and boots. Wild messy hair, mischievous grin, arms extending unnaturally long in a fighting stance.",
+  "width": 128,
+  "height": 128,
   "referenceImages": ["assets/references/bozzi_ref_clean.png"]
 }

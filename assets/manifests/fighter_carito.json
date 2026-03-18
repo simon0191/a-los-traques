@@ -3,5 +3,5 @@
   "description": "Mystical witch in flowing purple robes with pink accents and a pointed hat adorned with glowing runes. Holds a bottle of guaro in one hand that emanates magical smoke. Wild curly hair, mischievous grin, floating potion bottles orbit around her. Broomstick strapped to her back.",
   "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
   "referenceImages": ["assets/photos/carito.png"],
-  "referenceSheet": "assets/references/carito_ref.png"
+  "referenceSheet": "assets/references/carito_ref_padded.png"
 }
