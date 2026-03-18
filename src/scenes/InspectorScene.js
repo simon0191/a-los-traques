@@ -57,16 +57,22 @@ export class InspectorScene extends Phaser.Scene {
     this.listTexts = [];
     this.listDots = [];
 
-    const startY = 32;
+    const listTop = 32;
     const rowH = 17;
+    const listBottom = GAME_HEIGHT - 4;
+    const visibleHeight = listBottom - listTop;
+
+    // Container holds all list items; we scroll it vertically
+    this.listContainer = this.add.container(0, 0);
 
     for (let i = 0; i < fightersData.length; i++) {
       const f = fightersData[i];
-      const y = startY + i * rowH;
+      const y = listTop + i * rowH;
       const hasSprites = FIGHTERS_WITH_SPRITES.includes(f.id);
       const color = parseInt(f.color.replace('0x', '#').replace('#', ''), 16);
 
       const dot = this.add.circle(10, y + 6, 4, color);
+      this.listContainer.add(dot);
       this.listDots.push(dot);
 
       const txt = this.add.text(20, y, f.id, {
@@ -80,15 +86,38 @@ export class InspectorScene extends Phaser.Scene {
       txt.on('pointerout', () => { if (i !== this.selectedIndex) txt.setColor(hasSprites ? '#ffffff' : '#888888'); });
 
       if (hasSprites) {
-        this.add.text(LEFT_PANEL_WIDTH - 12, y, '*', {
+        const star = this.add.text(LEFT_PANEL_WIDTH - 12, y, '*', {
           fontFamily: 'Arial',
           fontSize: '11px',
           color: '#ffcc00',
         }).setOrigin(1, 0);
+        this.listContainer.add(star);
       }
 
+      this.listContainer.add(txt);
       this.listTexts.push(txt);
     }
+
+    // Mask the list to the visible panel area
+    const maskShape = this.make.graphics({ x: 0, y: 0, add: false });
+    maskShape.fillRect(0, listTop, LEFT_PANEL_WIDTH - 2, visibleHeight);
+    this.listContainer.setMask(new Phaser.Display.Masks.GeometryMask(this, maskShape));
+
+    // Scroll limits
+    this.listContentHeight = fightersData.length * rowH;
+    this.listVisibleHeight = visibleHeight;
+    this.listTop = listTop;
+    this.listRowH = rowH;
+    this.listScrollY = 0;
+    this.listMinScroll = Math.min(0, -(this.listContentHeight - visibleHeight));
+
+    // Touch/pointer drag scrolling on left panel
+    this.input.on('pointermove', (pointer) => {
+      if (!pointer.isDown || pointer.x > LEFT_PANEL_WIDTH) return;
+      const dy = pointer.y - pointer.prevPosition.y;
+      if (dy === 0) return;
+      this._scrollList(this.listScrollY + dy);
+    });
 
     // Right panel elements
     this.portraitImage = this.add.image(LEFT_PANEL_WIDTH + 20, 42, '__DEFAULT').setOrigin(0, 0).setDisplaySize(48, 48).setVisible(false);
@@ -160,6 +189,16 @@ export class InspectorScene extends Phaser.Scene {
 
     // Highlight selected
     this.listTexts[index].setColor('#ffcc00');
+
+    // Auto-scroll to keep selected item visible
+    const itemY = index * this.listRowH; // position relative to list start
+    const viewTop = -this.listScrollY;
+    const viewBottom = viewTop + this.listVisibleHeight;
+    if (itemY < viewTop) {
+      this._scrollList(-itemY);
+    } else if (itemY + this.listRowH > viewBottom) {
+      this._scrollList(-(itemY + this.listRowH - this.listVisibleHeight));
+    }
 
     // Update name/subtitle
     this.nameText.setText(fighter.name);
@@ -248,6 +287,11 @@ export class InspectorScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('TitleScene');
     });
+  }
+
+  _scrollList(targetY) {
+    this.listScrollY = Phaser.Math.Clamp(targetY, this.listMinScroll, 0);
+    this.listContainer.setY(this.listScrollY);
   }
 
   _createButton(x, y, label, callback) {
