@@ -839,6 +839,8 @@ export class FightScene extends Phaser.Scene {
       this._spectatorCountText.setText(`${count} espectador${count !== 1 ? 'es' : ''}`);
     } else {
       this._spectatorCountText.setText('');
+    }
+  }
 
   // =========================================================================
   // PAUSE SYSTEM
