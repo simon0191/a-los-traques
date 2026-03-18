@@ -17,8 +17,13 @@ export class Fighter {
     this.sprite.body.setGravityY(GRAVITY);
 
     // Check if this fighter has real sprite animations
+    // We verify the texture has more than 1 frame, because Phaser registers
+    // animations even when the spritesheet PNG 404s (falling back to a
+    // single-frame placeholder texture), which causes a crash on play().
     this.fighterId = fighterData.id;
-    this.hasAnims = scene.anims.exists(`${this.fighterId}_idle`);
+    const idleTexKey = `fighter_${this.fighterId}_idle`;
+    const idleTex = scene.textures.exists(idleTexKey) && scene.textures.get(idleTexKey);
+    this.hasAnims = idleTex && idleTex.frameTotal > 2;
     if (this.hasAnims) {
       this.sprite.play(`${this.fighterId}_idle`);
     }
