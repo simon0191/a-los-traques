@@ -174,6 +174,12 @@ export default class FightRoom {
     this.players[slot] = null;
     this._sendToOther(slot, { type: 'disconnect' });
     this._broadcastToSpectators({ type: 'disconnect' });
+
+    // If both players gone, clear fight state so late spectators don't get stale data
+    if (!this.players[0] && !this.players[1]) {
+      this.started = false;
+      this.fightInfo = null;
+    }
   }
 
   _slotOf(connId) {

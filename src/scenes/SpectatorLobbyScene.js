@@ -97,6 +97,11 @@ export class SpectatorLobbyScene extends Phaser.Scene {
     this.network.onStart((msg) => {
       this._goToFight(msg.p1Id, msg.p2Id, msg.stageId);
     });
+
+    this.network.onDisconnect(() => {
+      this.statusText.setText('La pelea termino');
+      this.subText.setText('Los jugadores se desconectaron');
+    });
   }
 
   _goToFight(p1Id, p2Id, stageId) {
