@@ -265,6 +265,14 @@ export class SelectScene extends Phaser.Scene {
     // Update display
     this.updateP1Display();
 
+    // Room code display (online mode, bottom center)
+    if (this.gameMode === 'online' && this.networkManager) {
+      this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8, `SALA: ${this.networkManager.roomId}`, {
+        fontSize: '7px', fontFamily: 'monospace', color: '#aaaacc',
+        stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5, 1).setDepth(10);
+    }
+
     // In online mode, reset stale state and listen for opponent ready early
     if (this.gameMode === 'online' && this.networkManager) {
       this.networkManager.resetForReselect();

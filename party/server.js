@@ -146,6 +146,10 @@ export default class FightRoom {
         this._sendToOther(slot, data);
         this._broadcastToSpectators(data);
         break;
+      case 'ping':
+        // Echo back directly to sender
+        connection.send(JSON.stringify({ type: 'pong', t: data.t }));
+        break;
       case 'rematch':
         // Relay directly to opponent
         this._sendToOther(slot, data);

@@ -346,6 +346,23 @@ export class FightScene extends Phaser.Scene {
       this.pauseBtn.on('pointerdown', () => this._togglePause());
     }
 
+    // --- Ping + room code (online/spectator, bottom center) ---
+    if ((this.gameMode === 'online' || this.gameMode === 'spectator') && this.networkManager) {
+      const infoY = GAME_HEIGHT - 8;
+      this._roomCodeText = this.add.text(GAME_WIDTH / 2, infoY, `SALA: ${this.networkManager.roomId}`, {
+        fontSize: '7px', fontFamily: 'monospace', color: '#aaaacc',
+        stroke: '#000000', strokeThickness: 2
+      }).setOrigin(0.5, 1).setDepth(depth + 3);
+
+      if (this.gameMode === 'online') {
+        this._pingText = this.add.text(GAME_WIDTH / 2, infoY - 10, '', {
+          fontSize: '7px', fontFamily: 'monospace', color: '#44ff44',
+          stroke: '#000000', strokeThickness: 2
+        }).setOrigin(0.5, 1).setDepth(depth + 3);
+        this._pingUpdateCounter = 0;
+      }
+    }
+
     // --- Center text (for announcements) ---
     this.centerText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '', {
       fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
@@ -409,6 +426,19 @@ export class FightScene extends Phaser.Scene {
     for (let i = 0; i < ROUNDS_TO_WIN; i++) {
       this.roundDotsP1[i].setFillStyle(i < this.combat.p1RoundsWon ? 0x00cc44 : 0x333333);
       this.roundDotsP2[i].setFillStyle(i < this.combat.p2RoundsWon ? 0xcc2200 : 0x333333);
+    }
+
+    // Ping indicator (update ~1x per second)
+    if (this._pingText && this.networkManager) {
+      this._pingUpdateCounter = (this._pingUpdateCounter || 0) + 1;
+      if (this._pingUpdateCounter >= 60) {
+        this._pingUpdateCounter = 0;
+        const ms = this.networkManager.latency;
+        this._pingText.setText(`${ms}ms`);
+        if (ms > 150) this._pingText.setColor('#ff4444');
+        else if (ms > 80) this._pingText.setColor('#ffcc00');
+        else this._pingText.setColor('#44ff44');
+      }
     }
   }
 

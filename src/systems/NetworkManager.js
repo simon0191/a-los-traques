@@ -24,6 +24,8 @@ export class NetworkManager {
     this.connected = false;
     this.localFrame = 0;
     this.isSpectator = false;
+    this.latency = 0;
+    this._pingInterval = null;
 
     // Callbacks (managed via setter properties for bufferable types)
     this._onAssign = null;
@@ -122,6 +124,12 @@ export class NetworkManager {
           this._send(msg);
         }
       }
+      // Start ping measurement
+      if (!this._pingInterval) {
+        this._pingInterval = setInterval(() => {
+          this._send({ type: 'ping', t: Date.now() });
+        }, 3000);
+      }
     };
     this._boundOnClose = () => {
       this.connected = false;
@@ -212,6 +220,9 @@ export class NetworkManager {
         break;
       case 'potion':
         if (this._onPotion) this._onPotion(msg.target, msg.potionType);
+        break;
+      case 'pong':
+        this.latency = Date.now() - msg.t;
         break;
     }
   }
@@ -373,6 +384,10 @@ export class NetworkManager {
   }
 
   destroy() {
+    if (this._pingInterval) {
+      clearInterval(this._pingInterval);
+      this._pingInterval = null;
+    }
     if (this.socket) {
       // B2: Remove event listeners before closing
       this.socket.removeEventListener('message', this._boundOnMessage);

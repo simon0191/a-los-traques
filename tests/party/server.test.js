@@ -427,6 +427,30 @@ describe('FightRoom', () => {
     });
   });
 
+  // ---- Ping/pong ----
+
+  describe('ping/pong', () => {
+    it('echoes pong with same timestamp back to sender', () => {
+      room.onConnect(conn1, makeCtx());
+      conn1.send.mockClear();
+
+      room.onMessage(JSON.stringify({ type: 'ping', t: 1234567890 }), conn1);
+
+      const msgs = conn1.send.mock.calls.map(c => JSON.parse(c[0]));
+      expect(msgs).toEqual([{ type: 'pong', t: 1234567890 }]);
+    });
+
+    it('does not relay ping to other players', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      conn2.send.mockClear();
+
+      room.onMessage(JSON.stringify({ type: 'ping', t: 999 }), conn1);
+
+      expect(conn2.send).not.toHaveBeenCalled();
+    });
+  });
+
   // ---- Message routing ----
 
   describe('message routing', () => {
