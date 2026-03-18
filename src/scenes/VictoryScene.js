@@ -109,7 +109,7 @@ export class VictoryScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Buttons
-    this.createButton(GAME_WIDTH / 2 - 70, 252, 'REVANCHA', () => {
+    this.createButton(GAME_WIDTH / 2 - 115, 252, 'REVANCHA', () => {
       if (this.gameMode === 'online' && this.networkManager) {
         this.networkManager.sendRematch();
         this._waitingRematch = true;
@@ -126,7 +126,7 @@ export class VictoryScene extends Phaser.Scene {
       }
     });
 
-    this.createButton(GAME_WIDTH / 2 + 70, 252, 'ELEGIR OTRO', () => {
+    this.createButton(GAME_WIDTH / 2, 252, 'ELEGIR OTRO', () => {
       if (this.gameMode === 'online' && this.networkManager) {
         this.networkManager.sendLeave();
         this._goToSelect();
@@ -136,6 +136,16 @@ export class VictoryScene extends Phaser.Scene {
           this.scene.start('SelectScene', { gameMode: 'local' });
         });
       }
+    });
+
+    this.createButton(GAME_WIDTH / 2 + 115, 252, 'MENU', () => {
+      if (this.gameMode === 'online' && this.networkManager) {
+        this.networkManager.destroy();
+      }
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('TitleScene');
+      });
     });
 
     // In online mode, listen for rematch/leave from opponent even before pressing button
@@ -190,7 +200,7 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   createButton(x, y, label, callback) {
-    const bg = this.add.rectangle(x, y, 110, 22, 0x222244)
+    const bg = this.add.rectangle(x, y, 100, 22, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
 

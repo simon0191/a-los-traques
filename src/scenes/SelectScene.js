@@ -214,6 +214,19 @@ export class SelectScene extends Phaser.Scene {
       this.p2StatBars.push(bar);
     });
 
+    // Back button
+    this._createButton(60, GAME_HEIGHT - 20, 'VOLVER', () => {
+      if (this.p1Confirmed || this.transitioning) return;
+      this.game.audioManager.play('ui_cancel');
+      if (this.gameMode === 'online' && this.networkManager) {
+        this.networkManager.destroy();
+      }
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('TitleScene');
+      });
+    });
+
     // Confirmed overlay text
     this.confirmedText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, '', {
       fontFamily: 'Arial',
@@ -386,6 +399,27 @@ export class SelectScene extends Phaser.Scene {
       const val = p2Fighter.stats[stat];
       this.p2StatBars[i].width = (val / 5) * 60;
     });
+  }
+
+  _createButton(x, y, label, callback) {
+    const bg = this.add.rectangle(x, y, 110, 20, 0x222244)
+      .setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor: true });
+
+    const text = this.add.text(x, y, label, {
+      fontFamily: 'Arial',
+      fontSize: '9px',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+
+    bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
+    bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
+    bg.on('pointerdown', () => {
+      this.game.audioManager.play('ui_confirm');
+      callback();
+    });
+
+    return { bg, text };
   }
 
   goToPreFight() {
