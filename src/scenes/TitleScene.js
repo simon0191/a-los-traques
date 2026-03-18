@@ -78,6 +78,10 @@ export class TitleScene extends Phaser.Scene {
       this.goToInspector();
     });
 
+    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 129, 'MUSICA', () => {
+      this.goToMusic();
+    });
+
     this.transitioning = false;
   }
 
@@ -114,6 +118,15 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('InspectorScene');
+    });
+  }
+
+  goToMusic() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('MusicScene');
     });
   }
 
