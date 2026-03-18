@@ -91,10 +91,12 @@ export class BootScene extends Phaser.Scene {
     this.generateRect('special_bar_bg', 100, 8, 0x333333);
     this.generateRect('special_bar_fill', 100, 8, 0xffcc00);
 
-    // If URL has ?room=, go directly to lobby as joiner
+    // If URL has ?room=, go directly to lobby as joiner or spectator
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
-    if (roomId) {
+    if (roomId && params.get('spectate') === '1') {
+      this.scene.start('SpectatorLobbyScene', { roomId });
+    } else if (roomId) {
       this.scene.start('LobbyScene', { roomId });
     } else {
       this.scene.start('TitleScene');

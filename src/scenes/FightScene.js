@@ -77,23 +77,45 @@ export class FightScene extends Phaser.Scene {
     );
 
     // -- Systems --
-    this.inputManager = new InputManager(this);
-    this.touchControls = new TouchControls(this, this.inputManager);
     this.combat = new CombatSystem(this);
 
     // -- Projectiles array --
     this.projectiles = [];
 
+    // -- Active shouts tracking --
+    this._activeShouts = [];
+
     // -- Build HUD --
     this._createHUD();
 
-    // -- AI controller (local mode only) --
-    if (this.gameMode !== 'online') {
-      this.aiController = new AIController(this, this.p2Fighter, this.p1Fighter, this.aiDifficulty);
-    } else {
+    if (this.gameMode === 'spectator') {
+      // Spectator: no input, no AI, no dev console
+      this.inputManager = null;
+      this.touchControls = null;
       this.aiController = null;
+      this.devConsole = null;
+      this.spaceKey = null;
       this.frameCounter = 0;
-      this._setupOnlineMode();
+      this._setupSpectatorMode();
+    } else {
+      this.inputManager = new InputManager(this);
+      this.touchControls = new TouchControls(this, this.inputManager);
+
+      // -- AI controller (local mode only) --
+      if (this.gameMode !== 'online') {
+        this.aiController = new AIController(this, this.p2Fighter, this.p1Fighter, this.aiDifficulty);
+      } else {
+        this.aiController = null;
+        this.frameCounter = 0;
+        this._setupOnlineMode();
+      }
+
+      // -- Dev console (backtick to toggle) --
+      DevConsole._AIController = AIController;
+      this.devConsole = new DevConsole(this);
+
+      // -- Space key for restart --
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
     // -- Audio --
@@ -141,9 +163,18 @@ export class FightScene extends Phaser.Scene {
     // Update touch controls each frame
     if (this.touchControls) this.touchControls.update();
 
+    if (this.gameMode === 'spectator') {
+      // Spectator: apply remote inputs for animation, update HUD, no combat
+      if (this.combat.roundActive) {
+        this._handleSpectatorUpdate();
+      }
+      this._updateHUD();
+      return;
+    }
+
     if (!this.combat.roundActive) {
       // Allow restart after match over (Space key or tap)
-      if (this.combat.matchOver && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+      if (this.combat.matchOver && this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
         this.scene.restart();
       }
       return;
@@ -482,6 +513,24 @@ export class FightScene extends Phaser.Scene {
         }
       });
     }
+
+    // All online players: register shout display + potion visuals + spectator count
+    nm.onShout((text) => this._displayShout(text));
+    nm.onPotionApplied((target, potionType) => this._showPotionEffect(target, potionType));
+    nm.onSpectatorCount((count) => this._updateSpectatorCount(count));
+
+    // Host: handle potion requests from spectators
+    if (this.isHost) {
+      nm.onPotion((target, potionType) => {
+        if (!this.combat.roundActive) return;
+        const fighter = target === 0 ? this.p1Fighter : this.p2Fighter;
+        if (potionType === 'hp') {
+          fighter.hp = Math.min(MAX_HP, fighter.hp + 10);
+        } else {
+          fighter.special = Math.min(MAX_SPECIAL, fighter.special + 15);
+        }
+      });
+    }
   }
 
   _handleOnlineUpdate(time, delta) {
@@ -580,6 +629,216 @@ export class FightScene extends Phaser.Scene {
     else if (inputState.hk) fighter.attack('heavyKick');
     else if (inputState.sp) fighter.attack('special');
   }
+
+  // =========================================================================
+  // SPECTATOR MODE
+  // =========================================================================
+  _setupSpectatorMode() {
+    const nm = this.networkManager;
+
+    // Receive authoritative state syncs from host
+    nm.onSync((msg) => {
+      this.p1Fighter.hp = msg.p1hp;
+      this.p1Fighter.special = msg.p1sp;
+      this.p2Fighter.hp = msg.p2hp;
+      this.p2Fighter.special = msg.p2sp;
+      this.combat.timer = msg.timer;
+      this.p1Fighter.sprite.x = msg.p1x;
+      this.p2Fighter.sprite.x = msg.p2x;
+    });
+
+    nm.onRoundEvent((msg) => {
+      this.combat.stopRound();
+      this.combat.p1RoundsWon = msg.p1Rounds;
+      this.combat.p2RoundsWon = msg.p2Rounds;
+      this.combat.roundNumber = msg.roundNumber;
+
+      if (msg.event === 'ko' || msg.event === 'timeup') {
+        if (msg.matchOver) {
+          this.combat.matchOver = true;
+          this.onMatchOver(msg.winnerIndex);
+        } else {
+          this.onRoundOver(msg.winnerIndex);
+        }
+      }
+    });
+
+    nm.onShout((text) => this._displayShout(text));
+    nm.onPotionApplied((target, potionType) => this._showPotionEffect(target, potionType));
+    nm.onSpectatorCount((count) => this._updateSpectatorCount(count));
+
+    nm.onDisconnect(() => {
+      this.combat.roundActive = false;
+      this.centerText.setText('DESCONECTADO');
+      this.subtitleText.setText('Un jugador abandono la pelea');
+      this.p1Fighter.stop();
+      this.p2Fighter.stop();
+    });
+
+    // Spectator badge
+    this.add.text(GAME_WIDTH - 8, 40, 'ESPECTADOR', {
+      fontSize: '7px', fontFamily: 'Arial', color: '#88ccff',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(1, 0).setDepth(25);
+
+    // Spectator count display
+    this._spectatorCountText = this.add.text(GAME_WIDTH - 8, 49, '', {
+      fontSize: '7px', fontFamily: 'Arial', color: '#aaaacc',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(1, 0).setDepth(25);
+
+    // Build spectator UI overlay
+    this._createSpectatorOverlay();
+  }
+
+  _handleSpectatorUpdate() {
+    const nm = this.networkManager;
+
+    // Apply inputs from both players for animations
+    const p1Input = nm.getRemoteInputForSlot(0);
+    this._applyInputToFighter(this.p1Fighter, p1Input);
+
+    const p2Input = nm.getRemoteInputForSlot(1);
+    this._applyInputToFighter(this.p2Fighter, p2Input);
+
+    // Body collision + facing
+    this.combat.resolveBodyCollision(this.p1Fighter, this.p2Fighter);
+    this.p1Fighter.faceOpponent(this.p2Fighter);
+    this.p2Fighter.faceOpponent(this.p1Fighter);
+  }
+
+  _createSpectatorOverlay() {
+    const barY = GAME_HEIGHT - 25;
+    // Semi-transparent dark bar
+    this.add.rectangle(GAME_WIDTH / 2, barY + 12, GAME_WIDTH, 25, 0x000000)
+      .setAlpha(0.6).setDepth(25);
+
+    const shouts = ['DALE!', 'NOOO!', 'VAMOS!', 'OLE!'];
+    const shoutCooldowns = {};
+    const btnW = 48;
+    const shoutStartX = 30;
+
+    shouts.forEach((text, i) => {
+      const x = shoutStartX + i * (btnW + 4);
+      shoutCooldowns[text] = 0;
+      this._createSpectatorButton(x, barY + 12, btnW, 18, text, 0x224488, () => {
+        const now = Date.now();
+        if (now - shoutCooldowns[text] < 2000) return;
+        shoutCooldowns[text] = now;
+        this.networkManager.sendShout(text);
+      });
+    });
+
+    // Potion buttons
+    const potions = [
+      { label: 'vida J1', target: 0, potionType: 'hp' },
+      { label: 'esp J1', target: 0, potionType: 'special' },
+      { label: 'vida J2', target: 1, potionType: 'hp' },
+      { label: 'esp J2', target: 1, potionType: 'special' }
+    ];
+    const potionStartX = GAME_WIDTH - 30 - (potions.length - 1) * (btnW + 4);
+    this._potionButtons = [];
+    let potionCooldown = 0;
+
+    potions.forEach((p, i) => {
+      const x = potionStartX + i * (btnW + 4);
+      const btn = this._createSpectatorButton(x, barY + 12, btnW, 18, p.label, 0x446622, () => {
+        const now = Date.now();
+        if (now - potionCooldown < 15000) return;
+        potionCooldown = now;
+        this.networkManager.sendPotion(p.target, p.potionType);
+        // Gray out all potion buttons during cooldown
+        this._potionButtons.forEach(b => b.bg.setFillStyle(0x333333));
+        this.time.delayedCall(15000, () => {
+          this._potionButtons.forEach(b => b.bg.setFillStyle(0x446622));
+        });
+      });
+      this._potionButtons.push(btn);
+    });
+  }
+
+  _createSpectatorButton(x, y, w, h, label, color, callback) {
+    const bg = this.add.rectangle(x, y, w, h, color)
+      .setStrokeStyle(1, 0x666688)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(26);
+    const text = this.add.text(x, y, label, {
+      fontSize: '7px', fontFamily: 'Arial', color: '#ffffff'
+    }).setOrigin(0.5).setDepth(27);
+
+    bg.on('pointerover', () => text.setColor('#ffcc00'));
+    bg.on('pointerout', () => text.setColor('#ffffff'));
+    bg.on('pointerdown', callback);
+
+    return { bg, text };
+  }
+
+  // =========================================================================
+  // SHOUTS & POTIONS (all modes)
+  // =========================================================================
+  _displayShout(text) {
+    // Max 3 active shouts
+    if (this._activeShouts.length >= 3) return;
+
+    const x = Phaser.Math.Between(120, 360);
+    const startY = 195;
+    const shoutText = this.add.text(x, startY, text, {
+      fontSize: '12px', fontFamily: 'Arial Black, Arial', color: '#ffcc00',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5).setDepth(25);
+
+    this._activeShouts.push(shoutText);
+
+    this.tweens.add({
+      targets: shoutText,
+      y: startY - 30,
+      alpha: 0,
+      duration: 2000,
+      ease: 'Power1',
+      onComplete: () => {
+        const idx = this._activeShouts.indexOf(shoutText);
+        if (idx !== -1) this._activeShouts.splice(idx, 1);
+        shoutText.destroy();
+      }
+    });
+  }
+
+  _showPotionEffect(target, potionType) {
+    const fighter = target === 0 ? this.p1Fighter : this.p2Fighter;
+    const tintColor = potionType === 'hp' ? 0x00ff66 : 0xffff00;
+    const label = potionType === 'hp' ? '+10 HP' : '+15 ESP';
+
+    // Tint flash
+    fighter.sprite.setTint(tintColor);
+    this.time.delayedCall(300, () => fighter.sprite.clearTint());
+
+    // Floating text
+    const floatText = this.add.text(fighter.sprite.x, fighter.sprite.y - 40, label, {
+      fontSize: '10px', fontFamily: 'Arial', color: potionType === 'hp' ? '#00ff66' : '#ffff00',
+      stroke: '#000000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(25);
+
+    this.tweens.add({
+      targets: floatText,
+      y: floatText.y - 20,
+      alpha: 0,
+      duration: 1200,
+      onComplete: () => floatText.destroy()
+    });
+  }
+
+  _updateSpectatorCount(count) {
+    if (!this._spectatorCountText) {
+      // Create spectator count text for online players too
+      this._spectatorCountText = this.add.text(GAME_WIDTH - 8, 40, '', {
+        fontSize: '7px', fontFamily: 'Arial', color: '#aaaacc',
+        stroke: '#000000', strokeThickness: 2
+      }).setOrigin(1, 0).setDepth(25);
+    }
+    if (count > 0) {
+      this._spectatorCountText.setText(`${count} espectador${count !== 1 ? 'es' : ''}`);
+    } else {
+      this._spectatorCountText.setText('');
 
   // =========================================================================
   // PAUSE SYSTEM

@@ -6,9 +6,40 @@ export default class FightRoom {
     /** @type {(PlayerSlot|null)[]} */
     this.players = [null, null];
     this.started = false;
+    this.spectators = new Set();
+    this.fightInfo = null;
+    /** @type {Map<string, number>} shout rate-limit: connId -> last shout timestamp */
+    this._shoutCooldowns = new Map();
+    /** @type {Map<string, number>} potion rate-limit: connId -> last potion timestamp */
+    this._potionCooldowns = new Map();
   }
 
   onConnect(connection, ctx) {
+    // Check if spectator
+    const url = new URL(ctx.request.url);
+    const isSpectator = url.searchParams.get('spectate') === '1';
+
+    if (isSpectator) {
+      this.spectators.add(connection.id);
+      const count = this.spectators.size;
+      connection.send(JSON.stringify({ type: 'assign_spectator', spectatorCount: count }));
+      this._broadcast({ type: 'spectator_count', count });
+      // Send fight state catch-up if fight already started
+      if (this.fightInfo) {
+        connection.send(JSON.stringify({
+          type: 'fight_state',
+          p1Id: this.fightInfo.p1Id,
+          p2Id: this.fightInfo.p2Id,
+          stageId: this.fightInfo.stageId,
+          started: this.started,
+          p1Rounds: this.players[0]?.ready ? 0 : 0,
+          p2Rounds: this.players[1]?.ready ? 0 : 0,
+          roundNumber: 1
+        }));
+      }
+      return;
+    }
+
     // Clean up stale slots whose connections no longer exist
     this._cleanupStaleSlots();
 
@@ -26,6 +57,11 @@ export default class FightRoom {
     // Tell this player their slot
     connection.send(JSON.stringify({ type: 'assign', player: slot }));
 
+    // Send spectator count if there are spectators
+    if (this.spectators.size > 0) {
+      connection.send(JSON.stringify({ type: 'spectator_count', count: this.spectators.size }));
+    }
+
     // If both connected, notify both
     if (this.players[0] && this.players[1]) {
       this._broadcast({ type: 'opponent_joined' });
@@ -35,6 +71,36 @@ export default class FightRoom {
   onMessage(message, connection) {
     const data = JSON.parse(/** @type {string} */ (message));
     const slot = this._slotOf(connection.id);
+    const isSpectator = this._isSpectator(connection.id);
+
+    // Handle spectator messages
+    if (isSpectator) {
+      switch (data.type) {
+        case 'shout': {
+          const now = Date.now();
+          const last = this._shoutCooldowns.get(connection.id) || 0;
+          if (now - last < 2000) return; // 2s rate limit
+          this._shoutCooldowns.set(connection.id, now);
+          this._broadcast({ type: 'shout', text: String(data.text).slice(0, 20) });
+          break;
+        }
+        case 'potion': {
+          const now = Date.now();
+          const last = this._potionCooldowns.get(connection.id) || 0;
+          if (now - last < 15000) return; // 15s rate limit
+          this._potionCooldowns.set(connection.id, now);
+          const target = data.target === 0 ? 0 : 1;
+          const potionType = data.potionType === 'special' ? 'special' : 'hp';
+          // Send potion request to host only
+          this._sendToHost({ type: 'potion', target, potionType });
+          // Broadcast visual feedback to all
+          this._broadcast({ type: 'potion_applied', target, potionType });
+          break;
+        }
+      }
+      return;
+    }
+
     if (slot === -1) return;
 
     switch (data.type) {
@@ -50,6 +116,11 @@ export default class FightRoom {
           this.started = true;
           const stageIds = ['dojo', 'rooftop', 'beach', 'arcade', 'park'];
           const stageId = stageIds[Math.floor(Math.random() * stageIds.length)];
+          this.fightInfo = {
+            p1Id: this.players[0].fighterId,
+            p2Id: this.players[1].fighterId,
+            stageId
+          };
           this._broadcast({
             type: 'start',
             p1Id: this.players[0].fighterId,
@@ -60,8 +131,14 @@ export default class FightRoom {
         break;
       }
       case 'input':
+        this._sendToOther(slot, data);
+        this._broadcastToSpectators({ ...data, slot });
+        break;
       case 'sync':
       case 'round_event':
+        this._sendToOther(slot, data);
+        this._broadcastToSpectators(data);
+        break;
       case 'rematch':
         // Relay directly to opponent
         this._sendToOther(slot, data);
@@ -75,23 +152,44 @@ export default class FightRoom {
           }
         }
         this.started = false;
+        this.fightInfo = null;
         this._sendToOther(slot, data);
         break;
     }
   }
 
   onClose(connection) {
+    // Handle spectator disconnect
+    if (this._isSpectator(connection.id)) {
+      this.spectators.delete(connection.id);
+      this._shoutCooldowns.delete(connection.id);
+      this._potionCooldowns.delete(connection.id);
+      this._broadcast({ type: 'spectator_count', count: this.spectators.size });
+      return;
+    }
+
     const slot = this._slotOf(connection.id);
     if (slot === -1) return;
 
     this.players[slot] = null;
     this._sendToOther(slot, { type: 'disconnect' });
+    this._broadcastToSpectators({ type: 'disconnect' });
+
+    // If both players gone, clear fight state so late spectators don't get stale data
+    if (!this.players[0] && !this.players[1]) {
+      this.started = false;
+      this.fightInfo = null;
+    }
   }
 
   _slotOf(connId) {
     if (this.players[0]?.id === connId) return 0;
     if (this.players[1]?.id === connId) return 1;
     return -1;
+  }
+
+  _isSpectator(connId) {
+    return this.spectators.has(connId);
   }
 
   /** Remove player slots whose connection is no longer alive */
@@ -117,6 +215,29 @@ export default class FightRoom {
       if (conn.id === other.id) {
         conn.send(json);
         break;
+      }
+    }
+  }
+
+  _sendToHost(msg) {
+    const host = this.players[0];
+    if (!host) return;
+
+    const json = JSON.stringify(msg);
+    for (const conn of this.party.getConnections()) {
+      if (conn.id === host.id) {
+        conn.send(json);
+        break;
+      }
+    }
+  }
+
+  _broadcastToSpectators(msg) {
+    if (this.spectators.size === 0) return;
+    const json = JSON.stringify(msg);
+    for (const conn of this.party.getConnections()) {
+      if (this.spectators.has(conn.id)) {
+        conn.send(json);
       }
     }
   }
