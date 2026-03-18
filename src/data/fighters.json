@@ -223,7 +223,7 @@
     "id": "richi",
     "name": "Ric",
     "subtitle": "El Errante",
-    "description": "Blazing fire ram warrior in forest green and emerald armor with massive curved ram horns wreathed in flames. Thick muscular build, hooved boots, wild fiery mane, glowing ember eyes. Charges forward with horns lowered, trails of green and emerald fire follow his movements.",
+    "description": "Blazing fire ram warrior in dark hunter green and deep olive armor with massive curved ram horns wreathed in flames. Thick muscular build, hooved boots, wild fiery mane, glowing ember eyes. Charges forward with horns lowered, trails of dark green fire follow his movements.",
     "color": "0x228B22",
     "stats": { "hp": 100, "speed": 2, "power": 5, "defense": 3, "special": 2 },
     "moves": {
