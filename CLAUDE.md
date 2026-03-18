@@ -6,11 +6,11 @@ Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape
 ## Build & Run
 
 ```bash
-npm run dev          # Vite dev server
-npm run party:dev    # PartyKit dev server (port 1999)
-npx vite build       # Production build (Phaser chunk size warning is expected)
-npm test             # Run tests in watch mode (Vitest)
-npm run test:run     # Run tests once (CI)
+bun run dev          # Vite dev server
+bun run party:dev    # PartyKit dev server (port 1999)
+bunx vite build      # Production build (Phaser chunk size warning is expected)
+bun test             # Run tests in watch mode (Vitest)
+bun run test:run     # Run tests once (CI)
 ```
 
 ## Project Structure
@@ -99,4 +99,4 @@ CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to m
 - PartyKit server at `party/server.js`, max 2 players per room
 - Host-authoritative: P1 (slot 0) runs hit detection + timer, sends sync every 3 frames
 - URL join: `?room=XXXX` skips title, goes directly to LobbyScene
-- `npm run party:dev` for local dev, `npm run party:deploy` to deploy
+- `bun run party:dev` for local dev, `bun run party:deploy` to deploy

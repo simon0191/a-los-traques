@@ -5,8 +5,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "party:dev": "npx partykit dev",
-    "party:deploy": "npx partykit deploy",
+    "party:dev": "bunx partykit dev",
+    "party:deploy": "bunx partykit deploy",
     "test": "vitest",
     "test:run": "vitest run"
   },
