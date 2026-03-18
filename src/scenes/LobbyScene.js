@@ -112,6 +112,13 @@ export class LobbyScene extends Phaser.Scene {
           navigator.clipboard.writeText(link).catch(() => {});
           this.subText.setText('Enlace copiado!');
         });
+
+        // Add spectator link button
+        const spectatorLink = `${window.location.origin}${window.location.pathname}?room=${this.roomId}&spectate=1`;
+        this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80, 'ENLACE ESPECTADOR', () => {
+          navigator.clipboard.writeText(spectatorLink).catch(() => {});
+          this.subText.setText('Enlace espectador copiado!');
+        });
       } else {
         this.statusText.setText('Conectado! Esperando...');
       }
