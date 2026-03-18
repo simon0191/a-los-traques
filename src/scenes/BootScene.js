@@ -2,6 +2,12 @@ import Phaser from 'phaser';
 import { FIGHTER_WIDTH, FIGHTER_HEIGHT, FIGHTER_COLORS } from '../config.js';
 import fightersData from '../data/fighters.json';
 
+// Auto-discover fight music MP3s at build time via Vite glob
+const fightMusicFiles = Object.keys(
+  import.meta.glob('/public/assets/audio/fights/*.mp3')
+).map(p => p.replace('/public', ''));
+
+
 // Animation definitions: name -> frame count
 const ANIM_DEFS = {
   idle:         { frames: 4, repeat: -1 },
@@ -30,8 +36,15 @@ export class BootScene extends Phaser.Scene {
   preload() {
     // Music
     this.load.audio('bgm_menu', 'assets/audio/bgm_menu.mp3');
-    this.load.audio('bgm_fight', 'assets/audio/bgm_fight.mp3');
     this.load.audio('bgm_victory', 'assets/audio/bgm_victory.mp3');
+    // Fight music: load all MP3s from public/assets/audio/fights/
+    for (let i = 0; i < fightMusicFiles.length; i++) {
+      this.load.audio(`bgm_fight_${i}`, fightMusicFiles[i]);
+    }
+    // Fallback to original bgm_fight if no files in fights/ folder
+    if (fightMusicFiles.length === 0) {
+      this.load.audio('bgm_fight_0', 'assets/audio/bgm_fight.mp3');
+    }
     // Combat SFX
     this.load.audio('hit_light', 'assets/audio/hit_light.mp3');
     this.load.audio('hit_heavy', 'assets/audio/hit_heavy.mp3');
@@ -67,6 +80,10 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    // Store fight music count in registry so FightScene can pick randomly
+    const count = fightMusicFiles.length > 0 ? fightMusicFiles.length : 1;
+    this.game.registry.set('fightMusicCount', count);
+
     // Generate placeholder rectangle textures for fighters
     this.generateFighterPlaceholder('fighter_p1', FIGHTER_COLORS.p1);
     this.generateFighterPlaceholder('fighter_p2', FIGHTER_COLORS.p2);

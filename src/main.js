@@ -9,6 +9,7 @@ import { LobbyScene } from './scenes/LobbyScene.js';
 import { SpectatorLobbyScene } from './scenes/SpectatorLobbyScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
 import { InspectorScene } from './scenes/InspectorScene.js';
+import { MusicScene } from './scenes/MusicScene.js';
 import { AudioManager } from './systems/AudioManager.js';
 
 const config = {
@@ -29,7 +30,7 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [BootScene, TitleScene, LobbyScene, SpectatorLobbyScene, SelectScene, PreFightScene, FightScene, VictoryScene, InspectorScene]
+  scene: [BootScene, TitleScene, LobbyScene, SpectatorLobbyScene, SelectScene, PreFightScene, FightScene, VictoryScene, InspectorScene, MusicScene]
 };
 
 window.game = new Phaser.Game(config);

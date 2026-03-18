@@ -121,7 +121,9 @@ export class FightScene extends Phaser.Scene {
     // -- Audio --
     const audio = this.game.audioManager;
     audio.setScene(this);
-    audio.playMusic('bgm_fight');
+    const fightMusicCount = this.game.registry.get('fightMusicCount') || 1;
+    const trackIndex = Math.floor(Math.random() * fightMusicCount);
+    audio.playMusic(`bgm_fight_${trackIndex}`);
     audio.createMuteButton(this);
 
     // -- Dev console (backtick to toggle) --
