@@ -9,6 +9,8 @@ Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape
 npm run dev          # Vite dev server
 npm run party:dev    # PartyKit dev server (port 1999)
 npx vite build       # Production build (Phaser chunk size warning is expected)
+npm test             # Run tests in watch mode (Vitest)
+npm run test:run     # Run tests once (CI)
 ```
 
 ## Project Structure
@@ -34,6 +36,10 @@ scripts/
   asset-pipeline/  # Gemini-based sprite generation pipeline
 party/
   server.js        # PartyKit multiplayer server
+tests/
+  data/            # fighters.json data validation
+  party/           # PartyKit server (slot assignment, rate limiting, routing)
+  systems/         # combat-math, collision, AI difficulty
 ```
 
 ## Conventions
@@ -81,6 +87,12 @@ idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), 
 - Attack animation framerate is dynamic: `spriteFrames / attackDuration * 1000` fps, so animations complete within the gameplay cooldown window.
 - `_prevAnimState` tracks animation to avoid re-triggering. Set to `null` on attack to force replay.
 - `hasAnims` flag checked before playing animations (falls back to static sprite for placeholder fighters).
+
+## Tests
+
+Vitest, configured in `vitest.config.js`. Tests live in `tests/` (not alongside source).
+Pure logic is extracted into small modules (`src/systems/combat-math.js`, `src/entities/combat-block.js`) to enable Phaser-free unit testing.
+CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to main.
 
 ## Online Multiplayer
 
