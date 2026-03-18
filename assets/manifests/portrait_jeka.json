@@ -1,7 +1,5 @@
 {
   "output": "public/assets/portraits/jeka.png",
-  "prompt": "Agile catwoman fighter in a sleek pink and black bodysuit with cat ears and a long tail. Glitter particles float around her clawed gloves. Sharp feline eyes with pink eyeliner, playful yet deadly stance. Sparkling trails follow her movements.",
+  "prompt": "An athletic sorceress with a determined expression, wearing a tailored black dress with cut-outs and a high-pointed witch's hat with a glowing magenta ribbon. Long blonde hair flowing under a dark cape lined with deep purple and shimmering stardust. Holds a pink star-tipped magic wand that emits trails of sparkles. Accompanied by a mystical black cat familiar that surges with cosmic energy. Confident side-profile stance, magical particles swirling around her gloved hands.",
   "width": 128,
-  "height": 128,
-  "referenceImages": ["assets/photos/jeka2.jpg"]
-}
+  "height": 128}

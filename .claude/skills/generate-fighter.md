@@ -6,12 +6,24 @@ End-to-end pipeline for generating a fighter's sprite assets: golden reference, 
 `/generate-fighter <fighter_id>` — e.g., `/generate-fighter simon`
 
 Requires:
-- `assets/manifests/fighter_{id}.json` with description, animations, referenceImages
-- `assets/manifests/reference_{id}.json` with id, description, referenceImages
-- Photo in `assets/photos/` (referenced in manifests)
+- `assets/manifests/fighter_{id}.json` with description, animations, referenceSheet
+- `assets/manifests/reference_{id}.json` with id, description
 - `GEMINI_API_KEY` environment variable set
+- Optional: `referenceImages` in manifests (photos in `assets/photos/`), but pipeline works without them
 
 ## Workflow
+
+### Phase 0: Clean Stale Cache (if regenerating)
+
+If this fighter already has generated assets, clean everything first:
+```bash
+rm -rf assets/_raw/fighters/{id}
+rm -f public/assets/fighters/{id}/*.png
+rm -f public/assets/portraits/{id}.png
+# If golden reference changed, also delete derivatives (keep {id}_ref.png):
+rm -f assets/references/{id}_ref_nobg.png assets/references/{id}_ref_cropped.png assets/references/{id}_ref_padded.png assets/references/{id}_ref_clean.png assets/references/{id}_ref_labeled.png
+```
+**This is critical** — the pipeline reuses cached frames from `assets/_raw/` and will produce stale output if old files exist.
 
 ### Phase 1: Golden Reference
 
@@ -19,14 +31,16 @@ Requires:
    ```
    node scripts/asset-pipeline/cli.js reference assets/manifests/reference_{id}.json
    ```
+   If a golden reference `{id}_ref.png` already exists and just needs reprocessing (new bg removal, etc.), use `--skip-generate` to skip the Gemini call.
 2. Read `assets/references/{id}_ref_clean.png` and show it to the user.
 3. Ask the user to confirm: "Does this reference look good? Is the character facing RIGHT?"
 4. If the user says no, re-run. If the description mentions green, confirm magenta background is being used (the pipeline auto-detects this).
 
 ### Phase 2: Generate Animation Frames
 
-1. Ensure the fighter manifest (`assets/manifests/fighter_{id}.json`) has `"referenceSheet": "assets/references/{id}_ref.png"`.
-2. Run the fighter pipeline:
+1. Ensure the fighter manifest (`assets/manifests/fighter_{id}.json`) has `"referenceSheet": "assets/references/{id}_ref_padded.png"`.
+2. Verify `referenceImages` in the manifest either points to existing files or is removed entirely. Missing files cause silent API failures.
+3. Run the fighter pipeline:
    ```
    node scripts/asset-pipeline/cli.js fighter assets/manifests/fighter_{id}.json
    ```
@@ -97,6 +111,10 @@ If this is a new fighter not yet in the game:
 
 - **Facing direction**: Gemini often ignores "face RIGHT" instructions. The prompt uses `IMPORTANT:` prefix with repeated emphasis. Even so, ~30% of frames may face the wrong way — that's why manual QA in Phase 3 is essential.
 - **Green characters**: If the description mentions "green" (flames, clothing, etc.), the pipeline auto-switches to magenta `#FF00FF` background to avoid chroma-key stripping green elements.
-- **Reference chain**: The fighter pipeline sends reference images in this order: photo -> golden reference sheet -> first idle frame (self-reference) -> previous frame of same animation (motion continuity). This significantly improves cross-frame consistency.
+- **Reference chain**: The fighter pipeline sends reference images in this order: golden reference sheet → first idle frame (self-reference) → previous frame of same animation (motion continuity). `referenceImages` (photos) are optional and prepended if present.
 - **Animation speed**: Attack animations play at a dynamic framerate calculated as `spriteFrames / attackDuration` so the full animation fits within the gameplay cooldown window.
 - **Frame counts per animation**: idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), special(5), block(2), hurt(3), knockdown(4), victory(4), defeat(3), jump(3).
+- **Stale `_raw` cache**: The pipeline caches intermediate frames in `assets/_raw/fighters/{id}/`. When regenerating, **always delete this directory first** or old frames will be reused, producing output based on the old design.
+- **Missing `referenceImages`**: If the manifest references files that don't exist (e.g., photos not checked into the repo), the Gemini API call will fail silently with "fetch failed". Either ensure the files exist or remove the `referenceImages` field.
+- **Manifest field names differ**: `reference_{id}.json` and `fighter_{id}.json` use `description` for the character prompt. `portrait_{id}.json` uses `prompt` instead.
+- **`referenceSheet` path**: Should point to `assets/references/{id}_ref_padded.png` (the post-processed version with bg removed and padded to 1:1), not the raw `.png` or old `.jpeg`.

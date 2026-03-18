@@ -67,16 +67,26 @@ node scripts/asset-pipeline/cli.js stage <config.json>       # Stage background
 Use the `/generate-fighter` skill for the full workflow. Key points:
 - **Two-phase**: generate golden reference first, then animation frames using it
 - **Adaptive background**: auto-switches to magenta `#FF00FF` when description contains "green" to avoid chroma-key conflicts
-- **Reference chain**: photo → golden reference → first idle frame → previous frame (motion continuity)
+- **Reference chain**: golden reference sheet → first idle frame → previous frame (motion continuity). `referenceImages` (photos) are optional.
 - **Facing**: sprites must face RIGHT. Gemini ignores this ~30% of the time. Manual QA + ImageMagick `-flop` to fix
 - **Frame sizes**: 128x128 per frame, assembled into horizontal strip PNGs
 - **Requires**: `GEMINI_API_KEY` environment variable
+- **Stale cache**: `assets/_raw/fighters/{id}/` caches intermediate frames. When regenerating a fighter, **always delete this directory first** or the pipeline will reuse old frames
+- **referenceSheet**: should point to `assets/references/{id}_ref_padded.png` (the bg-removed, padded version of the golden reference)
+- **Manifest field names**: `reference_{id}.json` and `fighter_{id}.json` use `description`; `portrait_{id}.json` uses `prompt`
 
 ### Adding a new fighter with sprites
-1. Add photo to `assets/photos/{id}.jpg`
+1. Add photo to `assets/photos/{id}.jpg` (optional — only needed if manifest `referenceImages` references it)
 2. Create manifests: `reference_{id}.json` and `fighter_{id}.json`
 3. Run `/generate-fighter {id}`
 4. Add fighter ID to `FIGHTERS_WITH_SPRITES` in `src/scenes/BootScene.js` and `src/scenes/InspectorScene.js`
+
+### Regenerating an existing fighter
+1. Delete stale cache: `rm -rf assets/_raw/fighters/{id}`
+2. Delete old output: `rm -f public/assets/fighters/{id}/*.png`
+3. If the golden reference changed, delete derivatives: `rm -f assets/references/{id}_ref_*.png` (keep `{id}_ref.png`)
+4. Run reference pipeline with `--skip-generate` (reprocesses existing `{id}_ref.png`)
+5. Run fighter pipeline, then portrait pipeline
 
 ### Animation frame counts
 idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), special(5), block(2), hurt(3), knockdown(4), victory(4), defeat(3), jump(3)
