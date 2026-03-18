@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
-import { GROUND_Y, GRAVITY, STAGE_LEFT, STAGE_RIGHT, MAX_HP, MAX_SPECIAL } from '../config.js';
+import {
+  GROUND_Y, GRAVITY, STAGE_LEFT, STAGE_RIGHT, MAX_HP, MAX_SPECIAL,
+  MAX_STAMINA, STAMINA_COSTS, STAMINA_REGEN,
+  WALL_SLIDE_SPEED, WALL_JUMP_X, WALL_JUMP_Y
+} from '../config.js';
 
 export class Fighter {
   constructor(scene, x, y, textureKey, fighterData, playerIndex) {
@@ -33,6 +37,14 @@ export class Fighter {
     // Double jump tracking
     this.hasDoubleJumped = false;
     this._airborneTime = 0; // ms since leaving ground
+
+    // Stamina
+    this.stamina = MAX_STAMINA;
+
+    // Wall jump tracking
+    this._isTouchingWall = false;
+    this._wallDir = 0; // -1 = left wall, 1 = right wall
+    this._hasWallJumped = false;
   }
 
   update(time, delta) {
@@ -43,11 +55,19 @@ export class Fighter {
       if (this.hurtTimer <= 0) this.state = 'idle';
     }
 
+    // Stamina regen
+    const deltaSec = delta / 1000;
+    let regenRate = STAMINA_REGEN.idle;
+    if (this.state === 'attacking') regenRate = STAMINA_REGEN.attacking;
+    else if (this.state === 'blocking') regenRate = STAMINA_REGEN.blocking;
+    this.stamina = Math.min(MAX_STAMINA, this.stamina + regenRate * deltaSec);
+
     // Ground check
     const wasAirborne = !this.isOnGround;
     this.isOnGround = this.sprite.body.blocked.down || this.sprite.y >= GROUND_Y;
     if (this.isOnGround && wasAirborne) {
       this.hasDoubleJumped = false;
+      this._hasWallJumped = false;
       this._airborneTime = 0;
     }
     if (!this.isOnGround) {
@@ -56,6 +76,23 @@ export class Fighter {
 
     // Clamp to stage bounds
     this.sprite.x = Phaser.Math.Clamp(this.sprite.x, STAGE_LEFT, STAGE_RIGHT);
+
+    // Wall detection + wall slide
+    this._isTouchingWall = false;
+    this._wallDir = 0;
+    if (!this.isOnGround) {
+      if (this.sprite.x <= STAGE_LEFT + 2) {
+        this._isTouchingWall = true;
+        this._wallDir = -1;
+      } else if (this.sprite.x >= STAGE_RIGHT - 2) {
+        this._isTouchingWall = true;
+        this._wallDir = 1;
+      }
+      // Wall slide: cap downward velocity
+      if (this._isTouchingWall && this.sprite.body.velocity.y > WALL_SLIDE_SPEED) {
+        this.sprite.body.setVelocityY(WALL_SLIDE_SPEED);
+      }
+    }
 
     // Floor collision
     if (this.sprite.y > GROUND_Y) {
@@ -141,6 +178,14 @@ export class Fighter {
       this.state = 'jumping';
       this.isOnGround = false;
       this.scene.game.audioManager.play('jump');
+    } else if (this._isTouchingWall && !this._hasWallJumped) {
+      // Wall jump: push away from wall + upward
+      this._hasWallJumped = true;
+      this.hasDoubleJumped = false; // reset double jump
+      this.sprite.body.setVelocityY(WALL_JUMP_Y);
+      this.sprite.body.setVelocityX(-this._wallDir * WALL_JUMP_X);
+      this.state = 'jumping';
+      this.scene.game.audioManager.play('jump');
     } else if (!this.hasDoubleJumped && this._airborneTime > 100) {
       // Double jump: reset Y velocity and boost upward
       this.hasDoubleJumped = true;
@@ -153,6 +198,11 @@ export class Fighter {
     // type: 'lightPunch', 'heavyPunch', 'lightKick', 'heavyKick', 'special'
     if (this.attackCooldown > 0 || this.state === 'hurt' || this.state === 'knockdown') return false;
     if (type === 'special' && this.special < 50) return false;
+
+    // Stamina gate
+    const staCost = STAMINA_COSTS[type] || 15;
+    if (this.stamina < staCost) return false;
+    this.stamina -= staCost;
 
     const moveData = this.data.moves[type];
     if (!moveData) return false;
@@ -261,6 +311,10 @@ export class Fighter {
     this.hitConnected = false;
     this.hasDoubleJumped = false;
     this._airborneTime = 0;
+    this.stamina = MAX_STAMINA;
+    this._isTouchingWall = false;
+    this._wallDir = 0;
+    this._hasWallJumped = false;
     if (this.hasAnims) {
       this.sprite.play(`${this.fighterId}_idle`);
     }

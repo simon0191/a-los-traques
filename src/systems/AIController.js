@@ -121,6 +121,13 @@ export class AIController {
     // If we are in an uncontrollable state, do nothing
     if (me.state === 'hurt' || me.state === 'knockdown') return;
 
+    // Low stamina: back off and don't attack to let it regenerate
+    if (me.stamina < 20) {
+      const dx2 = me.sprite.x - opp.sprite.x;
+      this.decision.moveDir = dx2 > 0 ? 1 : -1; // walk away
+      return;
+    }
+
     // --- Spatial awareness ---
     const dx = me.sprite.x - opp.sprite.x;       // positive = AI is to the right
     const absDist = Math.abs(dx);
@@ -280,6 +287,14 @@ export class AIController {
     if (this.decision.jump && fighter.isOnGround) {
       fighter.jump();
       this.decision.jump = false;
+    }
+
+    // Wall jump: hard always, medium 30% chance
+    if (fighter._isTouchingWall && !fighter._hasWallJumped) {
+      const wallJumpChance = this.difficulty === 'hard' ? 1.0 : this.difficulty === 'medium' ? 0.3 : 0;
+      if (Math.random() < wallJumpChance) {
+        fighter.jump();
+      }
     }
 
     // Attack (consume immediately)

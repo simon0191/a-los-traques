@@ -27,3 +27,23 @@ export const STAGE_RIGHT = 460;
 
 // Fighter body collision width (used for push-back between fighters)
 export const FIGHTER_BODY_WIDTH = 36;
+
+// Stamina system
+export const MAX_STAMINA = 100;
+export const STAMINA_COSTS = {
+  lightPunch: 15,
+  heavyPunch: 28,
+  lightKick: 15,
+  heavyKick: 28,
+  special: 35
+};
+export const STAMINA_REGEN = {
+  idle: 22,      // per second
+  attacking: 6,  // per second
+  blocking: 12   // per second
+};
+
+// Wall jump
+export const WALL_SLIDE_SPEED = 60;   // max fall speed when touching wall
+export const WALL_JUMP_X = 180;       // horizontal push-away velocity
+export const WALL_JUMP_Y = -320;      // vertical velocity
