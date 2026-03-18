@@ -473,6 +473,10 @@ export class FightScene extends Phaser.Scene {
     // Sync counter: host sends state every N frames
     this._syncInterval = 3;
 
+    // Dedup guards for guest receiving round events
+    this._lastProcessedRound = 0;
+    this._matchOverProcessed = false;
+
     nm.onDisconnect(() => {
       this.combat.roundActive = false;
       this._onlineDisconnected = true;
@@ -493,12 +497,23 @@ export class FightScene extends Phaser.Scene {
         this.p2Fighter.special = msg.p2sp;
         this.p2Fighter.stamina = msg.p2sta != null ? msg.p2sta : this.p2Fighter.stamina;
         this.combat.timer = msg.timer;
-        // Sync positions to prevent drift
-        this.p1Fighter.sprite.x = msg.p1x;
-        this.p2Fighter.sprite.x = msg.p2x;
+        // Sync positions to prevent drift (lerp for smooth movement, teleport for large diffs)
+        const p1dx = Math.abs(this.p1Fighter.sprite.x - msg.p1x);
+        this.p1Fighter.sprite.x = p1dx > 50 ? msg.p1x : this.p1Fighter.sprite.x + (msg.p1x - this.p1Fighter.sprite.x) * 0.3;
+        const p2dx = Math.abs(this.p2Fighter.sprite.x - msg.p2x);
+        this.p2Fighter.sprite.x = p2dx > 50 ? msg.p2x : this.p2Fighter.sprite.x + (msg.p2x - this.p2Fighter.sprite.x) * 0.3;
       });
 
       nm.onRoundEvent((msg) => {
+        // Dedup: skip already-processed round events
+        if (msg.matchOver) {
+          if (this._matchOverProcessed) return;
+          this._matchOverProcessed = true;
+        } else if (msg.event === 'ko' || msg.event === 'timeup') {
+          if (msg.roundNumber <= this._lastProcessedRound) return;
+          this._lastProcessedRound = msg.roundNumber;
+        }
+
         // Host tells us about round outcomes
         this.combat.stopRound();
         this.combat.p1RoundsWon = msg.p1Rounds;
@@ -594,17 +609,20 @@ export class FightScene extends Phaser.Scene {
     this._updateHUD();
   }
 
-  /** Send round event from host to guest via network */
+  /** Send round event from host to guest via network (3x with 200ms spacing for reliability) */
   _sendRoundEvent(event, winnerIndex) {
     if (this.gameMode === 'online' && this.isHost && this.networkManager) {
-      this.networkManager.sendRoundEvent({
+      const payload = {
         event,
         winnerIndex,
         p1Rounds: this.combat.p1RoundsWon,
         p2Rounds: this.combat.p2RoundsWon,
         roundNumber: this.combat.roundNumber,
         matchOver: this.combat.matchOver
-      });
+      };
+      this.networkManager.sendRoundEvent(payload);
+      setTimeout(() => this.networkManager && this.networkManager.sendRoundEvent(payload), 200);
+      setTimeout(() => this.networkManager && this.networkManager.sendRoundEvent(payload), 400);
     }
   }
 
@@ -645,8 +663,11 @@ export class FightScene extends Phaser.Scene {
       this.p2Fighter.hp = msg.p2hp;
       this.p2Fighter.special = msg.p2sp;
       this.combat.timer = msg.timer;
-      this.p1Fighter.sprite.x = msg.p1x;
-      this.p2Fighter.sprite.x = msg.p2x;
+      // Lerp positions for smooth movement, teleport for large diffs
+      const sp1dx = Math.abs(this.p1Fighter.sprite.x - msg.p1x);
+      this.p1Fighter.sprite.x = sp1dx > 50 ? msg.p1x : this.p1Fighter.sprite.x + (msg.p1x - this.p1Fighter.sprite.x) * 0.3;
+      const sp2dx = Math.abs(this.p2Fighter.sprite.x - msg.p2x);
+      this.p2Fighter.sprite.x = sp2dx > 50 ? msg.p2x : this.p2Fighter.sprite.x + (msg.p2x - this.p2Fighter.sprite.x) * 0.3;
     });
 
     nm.onRoundEvent((msg) => {

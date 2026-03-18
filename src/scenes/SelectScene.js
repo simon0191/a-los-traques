@@ -275,6 +275,22 @@ export class SelectScene extends Phaser.Scene {
           this._showOpponentSelection(fighterId);
         }
       });
+
+      this.networkManager.onDisconnect(() => {
+        this.transitioning = true;
+        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Oponente desconectado', {
+          fontSize: '14px', fontFamily: 'monospace', color: '#ff4444',
+          stroke: '#000000', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(50);
+        this.time.delayedCall(1500, () => {
+          this.networkManager.destroy();
+          this.networkManager = null;
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('TitleScene');
+          });
+        });
+      });
     }
   }
 
