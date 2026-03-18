@@ -1,0 +1,11 @@
+{
+  "colors": {
+    "head": "#222222",
+    "torso": "#222222",
+    "arm_back": "#0066FF",
+    "arm_front": "#FF0000",
+    "leg_back": "#00AA00",
+    "leg_front": "#FF8800"
+  },
+  "description": "dark gray = head + torso, blue = back arm (left, further from viewer), red = front arm (right, closer to viewer), green = back leg (left, further from viewer), orange = front leg (right, closer to viewer)"
+}

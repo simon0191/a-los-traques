@@ -9,6 +9,7 @@
 
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 import { generateImage } from "../generate.js";
 import {
   removeBackground,
@@ -18,6 +19,23 @@ import {
   appendHorizontal,
 } from "../process.js";
 import { validateAsset } from "../validate.js";
+
+// Pose template support
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const POSE_TEMPLATES_DIR = path.join(__dirname, "..", "..", "..", "assets", "pose-templates");
+const POSE_LEGEND_PATH = path.join(POSE_TEMPLATES_DIR, "legend.json");
+
+function loadPoseLegend() {
+  if (fs.existsSync(POSE_LEGEND_PATH)) {
+    return JSON.parse(fs.readFileSync(POSE_LEGEND_PATH, "utf-8"));
+  }
+  return null;
+}
+
+function getPoseTemplatePath(animName, frameIndex) {
+  const p = path.join(POSE_TEMPLATES_DIR, animName, `frame${frameIndex + 1}.png`);
+  return fs.existsSync(p) ? p : null;
+}
 
 // Green chroma-key background (default)
 const GREEN_BG = {
@@ -111,6 +129,11 @@ export async function runFighterPipeline(config) {
     fs.mkdirSync(fighterRawDir, { recursive: true });
   if (!fs.existsSync(output)) fs.mkdirSync(output, { recursive: true });
 
+  const poseLegend = loadPoseLegend();
+  if (poseLegend) {
+    console.log(`  Pose templates found: ${poseLegend.description}`);
+  }
+
   const results = {};
   let referenceImage = null;
   let overallSuccess = false;
@@ -170,8 +193,20 @@ export async function runFighterPipeline(config) {
               ? `frame ${f + 1} of ${anim.frames}, end of motion`
               : `frame ${f + 1} of ${anim.frames}, mid motion`;
 
+        // Check for pose template
+        const poseTemplatePath = getPoseTemplatePath(animName, f);
+        let posePrompt = "";
+        if (poseTemplatePath && poseLegend) {
+          posePrompt =
+            `POSE REFERENCE: Match the body pose shown in the stick figure reference image. ` +
+            `Color key: ${poseLegend.description}. ` +
+            `Position each limb to match the corresponding colored limb in the stick figure. `;
+          console.log(`      Using pose template: frame${f + 1}.png`);
+        }
+
         const prompt =
           `${description}, ${anim.label}, ${frameLabel}. ` +
+          posePrompt +
           `IMPORTANT: The character MUST face RIGHT. The character's chest, face, and front of body MUST point toward the RIGHT side of the image. The character should be in profile/three-quarter view looking RIGHT. This is a strict requirement. ` +
           `Character must look IDENTICAL to the reference image: same body proportions, clothing, hair, colors. ` +
           `Full body visible, single character centered, solid ${bg.promptColor} background. ` +
@@ -179,8 +214,12 @@ export async function runFighterPipeline(config) {
 
         let generated = false;
         for (let attempt = 1; attempt <= retries; attempt++) {
-          const allRefs = [...referenceImages];
-          // Golden reference sheet takes priority
+          const allRefs = [];
+          // Pose template goes first (most important spatial reference)
+          if (poseTemplatePath) allRefs.push(poseTemplatePath);
+          // External reference images
+          allRefs.push(...referenceImages);
+          // Golden reference sheet
           if (referenceSheet && fs.existsSync(referenceSheet)) allRefs.push(referenceSheet);
           // Then first-frame self-reference for consistency
           if (referenceImage) allRefs.push(referenceImage);
