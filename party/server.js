@@ -182,10 +182,13 @@ export default class FightRoom {
     this._sendToOther(slot, { type: 'disconnect' });
     this._broadcastToSpectators({ type: 'disconnect' });
 
-    // If both players gone, clear fight state so late spectators don't get stale data
-    if (!this.players[0] && !this.players[1]) {
-      this.started = false;
-      this.fightInfo = null;
+    // Reset room to pre-match state so reconnection can start a new match
+    this.started = false;
+    this.fightInfo = null;
+    const otherSlot = slot === 0 ? 1 : 0;
+    if (this.players[otherSlot]) {
+      this.players[otherSlot].ready = false;
+      this.players[otherSlot].fighterId = null;
     }
   }
 

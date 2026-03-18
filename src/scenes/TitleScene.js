@@ -181,6 +181,11 @@ export class TitleScene extends Phaser.Scene {
     window._suppressFixHeight = true;
     this._joinInput.focus();
 
+    this._stopKeydown = (e) => e.stopPropagation();
+    this._stopKeyup = (e) => e.stopPropagation();
+    this._joinInput.addEventListener('keydown', this._stopKeydown);
+    this._joinInput.addEventListener('keyup', this._stopKeyup);
+
     this._joinInput.addEventListener('input', () => {
       let val = this._joinInput.value.toUpperCase();
       val = val.split('').filter(c => VALID_CHARS.includes(c)).join('');
@@ -229,9 +234,13 @@ export class TitleScene extends Phaser.Scene {
 
   _hideJoinOverlay() {
     if (this._joinInput) {
+      this._joinInput.removeEventListener('keydown', this._stopKeydown);
+      this._joinInput.removeEventListener('keyup', this._stopKeyup);
       this._joinInput.blur();
       this._joinInput.remove();
       this._joinInput = null;
+      this._stopKeydown = null;
+      this._stopKeyup = null;
       // iOS keyboard dismissal is animated — keep fixHeight suppressed
       // so intermediate visualViewport resize events don't shrink the container.
       // Re-enable after the keyboard animation completes and force a refresh.

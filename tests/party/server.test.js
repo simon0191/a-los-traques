@@ -251,6 +251,24 @@ describe('FightRoom', () => {
       expect(msgs.some(m => m.type === 'disconnect')).toBe(true);
     });
 
+    it('resets room state when one player disconnects after match started', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
+      expect(room.started).toBe(true);
+
+      room.onClose(conn1);
+
+      // Room should be reset to pre-match state
+      expect(room.started).toBe(false);
+      expect(room.fightInfo).toBeNull();
+      expect(room.players[0]).toBeNull();
+      // Remaining player's ready and fighterId should be reset
+      expect(room.players[1].ready).toBe(false);
+      expect(room.players[1].fighterId).toBeNull();
+    });
+
     it('resets started and fightInfo when both players gone', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
