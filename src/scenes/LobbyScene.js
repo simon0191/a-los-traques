@@ -53,7 +53,7 @@ export class LobbyScene extends Phaser.Scene {
       strokeThickness: 4
     }).setOrigin(0.5);
 
-    this.statusText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, '', {
+    this.statusText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, '', {
       fontFamily: 'Arial',
       fontSize: '12px',
       color: '#ccccee',
@@ -61,15 +61,29 @@ export class LobbyScene extends Phaser.Scene {
       wordWrap: { width: 400 }
     }).setOrigin(0.5);
 
-    this.linkText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10, '', {
+    this.codeLabel = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 8, '', {
+      fontFamily: 'Arial',
+      fontSize: '9px',
+      color: '#888899'
+    }).setOrigin(0.5);
+
+    this.codeText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 12, '', {
       fontFamily: 'monospace',
-      fontSize: '10px',
+      fontSize: '24px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    this.linkText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 32, '', {
+      fontFamily: 'monospace',
+      fontSize: '8px',
       color: '#88ccff',
       align: 'center',
       wordWrap: { width: 400 }
     }).setOrigin(0.5);
 
-    this.subText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 35, '', {
+    this.subText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 45, '', {
       fontFamily: 'Arial',
       fontSize: '9px',
       color: '#888899'
@@ -101,21 +115,23 @@ export class LobbyScene extends Phaser.Scene {
       if (this.isCreator) {
         const link = `${window.location.origin}${window.location.pathname}?room=${this.roomId}`;
         this.statusText.setText('Esperando oponente...');
+        this.codeLabel.setText('CODIGO:');
+        this.codeText.setText(this.roomId.split('').join(' '));
         this.linkText.setText(link);
-        this.subText.setText('Comparte el enlace con tu amigo');
+        this.subText.setText('Comparte el codigo con tu amigo');
 
         // Copy to clipboard
         navigator.clipboard.writeText(link).catch(() => {});
 
         // Add copy button
-        this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 55, 'COPIAR ENLACE', () => {
+        this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60, 'COPIAR ENLACE', () => {
           navigator.clipboard.writeText(link).catch(() => {});
           this.subText.setText('Enlace copiado!');
         });
 
         // Add spectator link button
         const spectatorLink = `${window.location.origin}${window.location.pathname}?room=${this.roomId}&spectate=1`;
-        this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80, 'ENLACE ESPECTADOR', () => {
+        this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 82, 'ENLACE ESPECTADOR', () => {
           navigator.clipboard.writeText(spectatorLink).catch(() => {});
           this.subText.setText('Enlace espectador copiado!');
         });

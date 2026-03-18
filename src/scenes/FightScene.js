@@ -875,15 +875,37 @@ export class FightScene extends Phaser.Scene {
       fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
       stroke: '#000000', strokeThickness: 4
     }).setOrigin(0.5);
-    const hint = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 15, 'Toca o pulsa ESC para continuar', {
-      fontSize: '8px', fontFamily: 'monospace', color: '#aaaaaa',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5);
-    this._pauseOverlay.add([bg, title, hint]);
 
-    // Allow tap on overlay to resume
-    bg.setInteractive();
-    bg.on('pointerdown', () => this._resumeGame());
+    // CONTINUAR button
+    const contBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 110, 20, 0x222244)
+      .setStrokeStyle(1, 0x4444aa).setInteractive({ useHandCursor: true });
+    const contText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 'CONTINUAR', {
+      fontSize: '9px', fontFamily: 'Arial', color: '#ffffff'
+    }).setOrigin(0.5);
+    contBg.on('pointerover', () => { contBg.setFillStyle(0x333366); contText.setColor('#ffcc00'); });
+    contBg.on('pointerout', () => { contBg.setFillStyle(0x222244); contText.setColor('#ffffff'); });
+    contBg.on('pointerdown', () => this._resumeGame());
+
+    // SALIR button
+    const salirBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 110, 20, 0x222244)
+      .setStrokeStyle(1, 0x4444aa).setInteractive({ useHandCursor: true });
+    const salirText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 'SALIR', {
+      fontSize: '9px', fontFamily: 'Arial', color: '#ffffff'
+    }).setOrigin(0.5);
+    salirBg.on('pointerover', () => { salirBg.setFillStyle(0x333366); salirText.setColor('#ffcc00'); });
+    salirBg.on('pointerout', () => { salirBg.setFillStyle(0x222244); salirText.setColor('#ffffff'); });
+    salirBg.on('pointerdown', () => {
+      this._resumeGame();
+      if (this.gameMode === 'online' && this.networkManager) {
+        this.networkManager.destroy();
+      }
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('TitleScene');
+      });
+    });
+
+    this._pauseOverlay.add([bg, title, contBg, contText, salirBg, salirText]);
   }
 
   _resumeGame() {
