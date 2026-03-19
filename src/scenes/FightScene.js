@@ -4,8 +4,6 @@ import {
   GAME_WIDTH,
   GROUND_Y,
   MAX_HP,
-  MAX_SPECIAL,
-  MAX_STAMINA,
   ROUNDS_TO_WIN,
   STAGE_LEFT,
   STAGE_RIGHT,
@@ -15,6 +13,7 @@ import { Fighter } from '../entities/Fighter.js';
 import { AIController } from '../systems/AIController.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { DevConsole } from '../systems/DevConsole.js';
+import { FP_SCALE, MAX_SPECIAL_FP, MAX_STAMINA_FP } from '../systems/FixedPoint.js';
 import { InputManager } from '../systems/InputManager.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
 import { TouchControls } from '../systems/TouchControls.js';
@@ -165,9 +164,12 @@ export class FightScene extends Phaser.Scene {
   update(time, delta) {
     if (this.isPaused) return;
 
-    // Always update fighters (gravity, timers, ground check)
-    this.p1Fighter.update(time, delta);
-    this.p2Fighter.update(time, delta);
+    // Update fighters (frame-based FP physics).
+    // In online mode, simulateFrame() handles update() — skip here to avoid double-update.
+    if (this.gameMode !== 'online') {
+      this.p1Fighter.update();
+      this.p2Fighter.update();
+    }
 
     // Update projectiles
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
@@ -186,6 +188,8 @@ export class FightScene extends Phaser.Scene {
       if (this.combat.roundActive) {
         this._handleSpectatorUpdate();
       }
+      this.p1Fighter.syncSprite();
+      this.p2Fighter.syncSprite();
       this._updateHUD();
       return;
     }
@@ -222,6 +226,10 @@ export class FightScene extends Phaser.Scene {
       // -- Hit detection (both directions) --
       this.combat.checkHit(this.p1Fighter, this.p2Fighter);
       this.combat.checkHit(this.p2Fighter, this.p1Fighter);
+
+      // -- Sync sprites from simulation state --
+      this.p1Fighter.syncSprite();
+      this.p2Fighter.syncSprite();
 
       // -- Update HUD --
       this._updateHUD();
@@ -546,8 +554,8 @@ export class FightScene extends Phaser.Scene {
     else this.hpBarP2.setFillStyle(0xcc2200);
 
     // Special bars
-    const spRatioP1 = Phaser.Math.Clamp(this.p1Fighter.special / MAX_SPECIAL, 0, 1);
-    const spRatioP2 = Phaser.Math.Clamp(this.p2Fighter.special / MAX_SPECIAL, 0, 1);
+    const spRatioP1 = Phaser.Math.Clamp(this.p1Fighter.special / MAX_SPECIAL_FP, 0, 1);
+    const spRatioP2 = Phaser.Math.Clamp(this.p2Fighter.special / MAX_SPECIAL_FP, 0, 1);
     this.spBarP1.width = SPECIAL_BAR_W * spRatioP1;
     this.spBarP2.width = SPECIAL_BAR_W * spRatioP2;
 
@@ -558,8 +566,8 @@ export class FightScene extends Phaser.Scene {
     else this.spBarP2.setFillStyle(0xffcc00);
 
     // Stamina bars
-    const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA, 0, 1);
-    const staRatioP2 = Phaser.Math.Clamp(this.p2Fighter.stamina / MAX_STAMINA, 0, 1);
+    const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA_FP, 0, 1);
+    const staRatioP2 = Phaser.Math.Clamp(this.p2Fighter.stamina / MAX_STAMINA_FP, 0, 1);
     this.staBarP1.width = STAMINA_BAR_W * staRatioP1;
     this.staBarP2.width = STAMINA_BAR_W * staRatioP2;
 
@@ -607,7 +615,7 @@ export class FightScene extends Phaser.Scene {
 
     const input = this.inputManager;
     const fighter = this.p1Fighter;
-    const speed = 80 + fighter.data.stats.speed * 20; // speed stat: 1=100, 3=140, 5=180
+    const speed = (80 + fighter.data.stats.speed * 20) * FP_SCALE;
 
     // Movement
     if (input.left) {
@@ -676,35 +684,8 @@ export class FightScene extends Phaser.Scene {
       this.remoteFighter.stop();
     });
 
-    // Guest: suppress local KO/timeup detection — wait for P1's authoritative round events
-    if (!this.isHost) {
-      this.combat.suppressRoundEvents = true;
-
-      nm.onRoundEvent((msg) => {
-        // Dedup: skip already-processed round events (P1 sends 3x for reliability)
-        if (msg.matchOver) {
-          if (this._matchOverProcessed) return;
-          this._matchOverProcessed = true;
-        } else if (msg.event === 'ko' || msg.event === 'timeup') {
-          if (msg.roundNumber <= this._lastProcessedRound) return;
-          this._lastProcessedRound = msg.roundNumber;
-        }
-
-        this.combat.stopRound();
-        this.combat.p1RoundsWon = msg.p1Rounds;
-        this.combat.p2RoundsWon = msg.p2Rounds;
-        this.combat.roundNumber = msg.roundNumber;
-
-        if (msg.event === 'ko' || msg.event === 'timeup') {
-          if (msg.matchOver) {
-            this.combat.matchOver = true;
-            this.onMatchOver(msg.winnerIndex);
-          } else {
-            this.onRoundOver(msg.winnerIndex);
-          }
-        }
-      });
-    }
+    // Both peers detect KO/timeup independently (deterministic simulation guarantees agreement).
+    // P1 still sends round events for spectators only.
 
     // All online players: register shout display + potion visuals + spectator count
     nm.onShout((text) => this._displayShout(text));
@@ -719,7 +700,7 @@ export class FightScene extends Phaser.Scene {
         if (potionType === 'hp') {
           fighter.hp = Math.min(MAX_HP, fighter.hp + 10);
         } else {
-          fighter.special = Math.min(MAX_SPECIAL, fighter.special + 15);
+          fighter.special = Math.min(MAX_SPECIAL_FP, fighter.special + 15 * FP_SCALE);
         }
       });
     }
@@ -756,8 +737,8 @@ export class FightScene extends Phaser.Scene {
         p2sp: this.p2Fighter.special,
         p2sta: this.p2Fighter.stamina,
         timer: this.combat.timer,
-        p1x: this.p1Fighter.sprite.x,
-        p2x: this.p2Fighter.sprite.x,
+        p1x: this.p1Fighter.simX / FP_SCALE,
+        p2x: this.p2Fighter.simX / FP_SCALE,
       });
     }
 
@@ -782,7 +763,7 @@ export class FightScene extends Phaser.Scene {
   }
 
   _applyInputToFighter(fighter, inputState) {
-    const speed = 80 + fighter.data.stats.speed * 20;
+    const speed = (80 + fighter.data.stats.speed * 20) * FP_SCALE;
 
     if (inputState.left) {
       fighter.moveLeft(speed);
@@ -1095,7 +1076,6 @@ export class FightScene extends Phaser.Scene {
 
   _pauseGame() {
     this.isPaused = true;
-    this.physics.world.pause();
     this.time.paused = true;
     this.tweens.pauseAll();
 
@@ -1177,7 +1157,6 @@ export class FightScene extends Phaser.Scene {
 
   _resumeGame() {
     this.isPaused = false;
-    this.physics.world.resume();
     this.time.paused = false;
     this.tweens.resumeAll();
     if (this._pauseOverlay) {

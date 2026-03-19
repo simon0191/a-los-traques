@@ -1,4 +1,5 @@
 import { MAX_HP, SPECIAL_COST } from '../config.js';
+import { FP_SCALE } from './FixedPoint.js';
 
 /**
  * AI Controller for P2 fighter with three difficulty levels.
@@ -121,13 +122,13 @@ export class AIController {
 
     // Low stamina: back off and don't attack to let it regenerate
     if (me.stamina < 20) {
-      const dx2 = me.sprite.x - opp.sprite.x;
+      const dx2 = me.simX / FP_SCALE - opp.simX / FP_SCALE;
       this.decision.moveDir = dx2 > 0 ? 1 : -1; // walk away
       return;
     }
 
     // --- Spatial awareness ---
-    const dx = me.sprite.x - opp.sprite.x; // positive = AI is to the right
+    const dx = me.simX / FP_SCALE - opp.simX / FP_SCALE; // positive = AI is to the right
     const absDist = Math.abs(dx);
     const dirToOpponent = dx > 0 ? -1 : 1; // direction toward opponent
 
@@ -269,7 +270,7 @@ export class AIController {
 
   applyDecisions() {
     const fighter = this.fighter;
-    const speed = 80 + fighter.data.stats.speed * 20;
+    const speed = (80 + fighter.data.stats.speed * 20) * FP_SCALE;
 
     // Blocking is exclusive – no movement or attacks while holding block
     if (this.decision.block && fighter.isOnGround) {
