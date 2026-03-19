@@ -112,6 +112,7 @@ CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to m
 Markdown docs with Mermaid diagrams in `docs/`. When making significant changes to a documented system, update the relevant doc to stay in sync.
 
 - `docs/rollback-netcode.md` — Rollback netcode architecture (GGPO-style, peer-equal)
+- `docs/webrtc-transport.md` — WebRTC P2P transport (DataChannel, signaling, fallback)
 - `docs/multiplayer-security.md` — Trust boundaries, server protections, known gaps
 - `docs/graceful-reconnection.md` — Reconnection state machine, grace period, module responsibilities
 - `docs/room-state-machine.md` — Server room state (`roomState` transitions, `return_to_select` vs `disconnect`)

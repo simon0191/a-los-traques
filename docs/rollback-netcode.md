@@ -32,7 +32,22 @@ flowchart TB
     Server --> Spectators
 ```
 
-> **Transport:** Game inputs use WebRTC DataChannels (P2P, unreliable/unordered) when available, with automatic fallback to WebSocket relay via the PartyKit server. The rollback system handles packet loss natively.
+> **Transport:** Game inputs use WebRTC DataChannels (P2P, unreliable/unordered) when available, with automatic fallback to WebSocket relay via the PartyKit server. The rollback system handles packet loss natively. See [webrtc-transport.md](webrtc-transport.md) for full details.
+
+## Transport Layer
+
+```mermaid
+flowchart LR
+    NM["NetworkManager\nsendInput()"] --> Check{WebRTC open?}
+    Check -- Yes --> DC["DataChannel (P2P)\n→ opponent direct"]
+    Check -- Yes --> WS_S["WebSocket + spectatorOnly\n→ server → spectators"]
+    Check -- No --> WS_F["WebSocket (fallback)\n→ server → opponent + spectators"]
+```
+
+The rollback system is transport-agnostic — `RollbackManager` reads from `remoteInputBuffer` regardless of whether inputs arrived via DataChannel or WebSocket. This means:
+- **No code changes** in RollbackManager, GameState, SimulationStep, or InputBuffer
+- **Packet loss** on the unreliable DataChannel is handled the same as late TCP delivery — prediction + rollback
+- **Mid-fight transport switch** (P2P drops → WS fallback) is invisible to the simulation layer
 
 ## Peer-Equal Model
 
