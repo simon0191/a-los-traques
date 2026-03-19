@@ -190,7 +190,9 @@ export default class FightRoom {
         break;
       }
       case 'input':
-        this._sendToOther(slot, data);
+        if (!data.spectatorOnly) {
+          this._sendToOther(slot, data);
+        }
         this._broadcastToSpectators({ ...data, slot });
         break;
       case 'checksum':
@@ -200,6 +202,11 @@ export default class FightRoom {
       case 'resync':
         // Only P1 (slot 0) can send authoritative resync snapshots
         if (slot !== 0) break;
+        this._sendToOther(slot, data);
+        break;
+      case 'webrtc_offer':
+      case 'webrtc_answer':
+      case 'webrtc_ice':
         this._sendToOther(slot, data);
         break;
       case 'sync':
