@@ -48,7 +48,7 @@ Both peers run identical deterministic fixed-point simulations. FP integer math 
 - Unknown message types: silently ignored
 
 ### Grace Period
-- 5s reconnection window per player slot
+- 10s reconnection window per player slot
 - Server tracks `roomState` and `_stateBeforeGrace` to send the right message on expiry
 - See [room-state-machine.md](room-state-machine.md) for details
 

@@ -258,7 +258,7 @@ describe('FightRoom', () => {
       // Slot preserved during grace period
       expect(room.players[0]).not.toBeNull();
 
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(10000);
       expect(room.players[0]).toBeNull();
 
       const msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
@@ -274,7 +274,7 @@ describe('FightRoom', () => {
 
       conn2.send.mockClear();
       room.onClose(conn1);
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(10000);
 
       // Room should be reset to pre-match state
       expect(room.roomState).toBe('waiting');
@@ -298,7 +298,7 @@ describe('FightRoom', () => {
 
       room.onClose(conn1);
       room.onClose(conn2);
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(10000);
 
       expect(room.roomState).toBe('waiting');
       expect(room.fightInfo).toBeNull();
@@ -394,7 +394,7 @@ describe('FightRoom', () => {
       room.onClose(conn1);
       conn2.send.mockClear();
 
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(10000);
 
       expect(room.players[0]).toBeNull();
       const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
@@ -421,7 +421,7 @@ describe('FightRoom', () => {
 
       // Timer should be cancelled — advancing time should NOT send disconnect
       conn2.send.mockClear();
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(10000);
       const c2MsgsAfter = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c2MsgsAfter.some((m) => m.type === 'disconnect')).toBe(false);
     });
@@ -449,18 +449,69 @@ describe('FightRoom', () => {
       expect(c2Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(false);
     });
 
-    it('new connection during grace period: slot still reserved', () => {
+    it('new connection during grace period is not rejected as full', () => {
       room.onClose(conn1);
 
-      // conn3 tries to take a player slot
+      // conn tries to take a player slot during grace
       const connNew = makeConnection('c_new');
       party.getConnections = () => [connNew, conn2, conn3];
       room.onConnect(connNew, makeCtx());
 
-      // slot 0 should still be reserved (grace timer active), connNew gets slot 1 — but slot 1 is taken
-      // So connNew should get 'full'
+      // Should NOT get 'full' or be closed — allowed to stay for potential rejoin
       const newMsgs = connNew.send.mock.calls.map((c) => JSON.parse(c[0]));
-      expect(newMsgs.some((m) => m.type === 'full')).toBe(true);
+      expect(newMsgs.some((m) => m.type === 'full')).toBe(false);
+      expect(connNew.close).not.toHaveBeenCalled();
+    });
+
+    it('reconnecting player during grace period can rejoin', () => {
+      // Start a fight
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
+      expect(room.roomState).toBe('fighting');
+
+      // P2 disconnects — grace timer starts
+      room.onClose(conn2);
+      expect(room.roomState).toBe('reconnecting');
+      conn1.send.mockClear();
+
+      // P2 reconnects with new connection
+      const conn2b = makeConnection('c2b');
+      party.getConnections = () => [conn1, conn2b, conn3];
+      room.onConnect(conn2b, makeCtx());
+
+      // Should NOT be rejected
+      const c2bMsgs = conn2b.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2bMsgs.some((m) => m.type === 'full')).toBe(false);
+      expect(conn2b.close).not.toHaveBeenCalled();
+
+      // P2 sends rejoin
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 1 }), conn2b);
+
+      // Slot updated, room restored
+      expect(room.players[1].id).toBe('c2b');
+      expect(room.roomState).toBe('fighting');
+
+      // P1 notified
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(true);
+    });
+
+    it('third player during grace period is held, not rejected', () => {
+      room.onClose(conn1);
+
+      // Random third player connects (not the disconnected player)
+      const connRandom = makeConnection('c_random');
+      party.getConnections = () => [connRandom, conn2, conn3];
+      room.onConnect(connRandom, makeCtx());
+
+      // Should not be rejected
+      const msgs = connRandom.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(msgs.some((m) => m.type === 'full')).toBe(false);
+      expect(connRandom.close).not.toHaveBeenCalled();
+
+      // They don't send rejoin, so grace expires normally
+      vi.advanceTimersByTime(10000);
+      expect(room.players[0]).toBeNull();
     });
 
     it('leave message cancels grace period and disconnects immediately', () => {
@@ -513,7 +564,7 @@ describe('FightRoom', () => {
       expect(room.players[1].id).toBe('c2b');
 
       // Advancing time should not trigger disconnects
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(10000);
       expect(room.players[0]).not.toBeNull();
       expect(room.players[1]).not.toBeNull();
     });
@@ -549,7 +600,7 @@ describe('FightRoom', () => {
       conn3.send.mockClear();
 
       room.onClose(conn1);
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(10000);
 
       const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c3Msgs.some((m) => m.type === 'return_to_select')).toBe(true);
@@ -561,7 +612,7 @@ describe('FightRoom', () => {
       conn2.send.mockClear();
       room.onClose(conn1);
 
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(10000);
 
       const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c2Msgs.some((m) => m.type === 'disconnect')).toBe(true);

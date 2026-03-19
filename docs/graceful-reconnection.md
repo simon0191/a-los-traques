@@ -1,6 +1,6 @@
 # Graceful Reconnection
 
-5-second grace period absorbs brief network drops on mobile Safari. Covers both the client-side `ReconnectionManager` state machine and the server-side room state that determines what happens when the grace period expires.
+10-second grace period absorbs brief network drops on mobile Safari. Covers both the client-side `ReconnectionManager` state machine and the server-side room state that determines what happens when the grace period expires.
 
 ## ReconnectionManager State Machine (Client)
 
@@ -11,7 +11,7 @@ stateDiagram-v2
     [*] --> connected
     connected --> reconnecting : ws close / opponent drop
     reconnecting --> connected : rejoin + opponent_reconnected
-    reconnecting --> disconnected : grace expires (5s)
+    reconnecting --> disconnected : grace expires (10s)
 
     note right of reconnecting
         fires: onPause
@@ -24,7 +24,7 @@ stateDiagram-v2
     end note
 ```
 
-## Successful Reconnection (< 5s)
+## Successful Reconnection (< 10s)
 
 ```mermaid
 sequenceDiagram
@@ -34,7 +34,7 @@ sequenceDiagram
 
     A-xS: ws close (network drop)
     S->>B: opponent_reconnecting
-    Note over S: start 5s timer<br/>roomState = reconnecting<br/>_stateBeforeGrace saved
+    Note over S: start 10s timer<br/>roomState = reconnecting<br/>_stateBeforeGrace saved
     Note over B: Frames 0-7: rollback predicts
     Note over B: Frame 8+: PAUSED<br/>RECONECTANDO...<br/>with countdown
     Note over A: sim frozen
@@ -42,7 +42,7 @@ sequenceDiagram
     A->>S: ws open (PartySocket auto-reconnect)
     A->>S: { type: 'rejoin', slot: N }
     S->>B: opponent_reconnected
-    Note over S: cancel 5s timer<br/>roomState restored
+    Note over S: cancel 10s timer<br/>roomState restored
     Note over B: RESUME gameplay
 ```
 
@@ -53,7 +53,7 @@ When the timer runs out, the server checks what state the room was in *before* t
 ```mermaid
 flowchart TD
     A[Socket closes] --> B["Save _stateBeforeGrace\nroomState = reconnecting"]
-    B --> C{Player rejoins within 5s?}
+    B --> C{Player rejoins within 10s?}
     C -- Yes --> D["Restore roomState\nfrom _stateBeforeGrace"]
     C -- No --> E{_stateBeforeGrace?}
     E -- fighting --> F["Send return_to_select\nto remaining player"]

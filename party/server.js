@@ -1,6 +1,6 @@
 /** @typedef {{ id: string, fighterId: string|null, ready: boolean }} PlayerSlot */
 
-const GRACE_PERIOD_MS = 5000;
+const GRACE_PERIOD_MS = 10000;
 
 export default class FightRoom {
   constructor(party) {
@@ -56,6 +56,11 @@ export default class FightRoom {
     const slot = this.players[0] === null ? 0 : this.players[1] === null ? 1 : -1;
 
     if (slot === -1) {
+      // During grace period, allow connection without a slot — client will send 'rejoin'
+      const hasGrace = this._graceTimers[0] || this._graceTimers[1];
+      if (hasGrace) {
+        return;
+      }
       connection.send(JSON.stringify({ type: 'full' }));
       connection.close();
       return;
