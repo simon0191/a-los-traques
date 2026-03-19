@@ -331,8 +331,10 @@ export class Fighter {
     if (this.state !== 'attacking' || !this.currentAttack) return null;
 
     const move = this.currentAttack;
-    if (this.attackFrameElapsed < move.startup ||
-        this.attackFrameElapsed >= move.startup + move.active) {
+    if (
+      this.attackFrameElapsed < move.startup ||
+      this.attackFrameElapsed >= move.startup + move.active
+    ) {
       return null; // No hitbox during startup or recovery
     }
 
@@ -352,10 +354,21 @@ export class Fighter {
   // Returns hurtbox as plain FP object {x, y, w, h}
   // Varies by state for meaningful vertical gameplay
   getHurtbox() {
-    let w = 36, h = 60, offsetY = 60;
-    if (this.state === 'blocking') { h = 40; offsetY = 40; }          // Crouching block
-    else if (!this.isOnGround) { w = 28; h = 50; offsetY = 50; }      // Airborne (smaller)
-    else if (this.state === 'attacking') { w = 40; }                   // Extended body
+    let w = 36,
+      h = 60,
+      offsetY = 60;
+    if (this.state === 'blocking') {
+      h = 40;
+      offsetY = 40;
+    } // Crouching block
+    else if (!this.isOnGround) {
+      w = 28;
+      h = 50;
+      offsetY = 50;
+    } // Airborne (smaller)
+    else if (this.state === 'attacking') {
+      w = 40;
+    } // Extended body
     return {
       x: this.simX - Math.trunc(w / 2) * FP_SCALE,
       y: this.simY - offsetY * FP_SCALE,

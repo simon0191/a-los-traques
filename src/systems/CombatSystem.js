@@ -130,9 +130,8 @@ export class CombatSystem {
     }
 
     // Determine stun frames from move data
-    const stunFrames = defender.state === 'blocking'
-      ? (move.blockstun || undefined)
-      : (move.hitstun || undefined);
+    const stunFrames =
+      defender.state === 'blocking' ? move.blockstun || undefined : move.hitstun || undefined;
 
     // Defender takes damage (pass attacker's simX for knockback direction)
     const ko = defender.takeDamage(damage, attacker.simX, stunFrames);

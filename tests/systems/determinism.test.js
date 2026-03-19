@@ -35,11 +35,51 @@ import {
  */
 function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defense: 3 }) {
   const moves = {
-    lightPunch: { type: 'lightPunch', damage: 8, startup: 3, active: 2, recovery: 5, hitstun: 12, blockstun: 8 },
-    heavyPunch: { type: 'heavyPunch', damage: 14, startup: 5, active: 3, recovery: 8, hitstun: 20, blockstun: 14 },
-    lightKick: { type: 'lightKick', damage: 8, startup: 3, active: 2, recovery: 5, hitstun: 14, blockstun: 9 },
-    heavyKick: { type: 'heavyKick', damage: 14, startup: 5, active: 3, recovery: 8, hitstun: 22, blockstun: 15 },
-    special: { type: 'special', damage: 25, startup: 8, active: 4, recovery: 10, hitstun: 30, blockstun: 20 },
+    lightPunch: {
+      type: 'lightPunch',
+      damage: 8,
+      startup: 3,
+      active: 2,
+      recovery: 5,
+      hitstun: 12,
+      blockstun: 8,
+    },
+    heavyPunch: {
+      type: 'heavyPunch',
+      damage: 14,
+      startup: 5,
+      active: 3,
+      recovery: 8,
+      hitstun: 20,
+      blockstun: 14,
+    },
+    lightKick: {
+      type: 'lightKick',
+      damage: 8,
+      startup: 3,
+      active: 2,
+      recovery: 5,
+      hitstun: 14,
+      blockstun: 9,
+    },
+    heavyKick: {
+      type: 'heavyKick',
+      damage: 14,
+      startup: 5,
+      active: 3,
+      recovery: 8,
+      hitstun: 22,
+      blockstun: 15,
+    },
+    special: {
+      type: 'special',
+      damage: 25,
+      startup: 8,
+      active: 4,
+      recovery: 10,
+      hitstun: 30,
+      blockstun: 20,
+    },
   };
 
   return {
@@ -196,8 +236,10 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
     getAttackHitbox() {
       if (this.state !== 'attacking' || !this.currentAttack) return null;
       const move = this.currentAttack;
-      if (this.attackFrameElapsed < move.startup ||
-          this.attackFrameElapsed >= move.startup + move.active) {
+      if (
+        this.attackFrameElapsed < move.startup ||
+        this.attackFrameElapsed >= move.startup + move.active
+      ) {
         return null;
       }
       const defaultReach = this.currentAttack.type.includes('Kick') ? 55 : 45;
@@ -212,10 +254,19 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
       };
     },
     getHurtbox() {
-      let w = 36, h = 60, offsetY = 60;
-      if (this.state === 'blocking') { h = 40; offsetY = 40; }
-      else if (!this.isOnGround) { w = 28; h = 50; offsetY = 50; }
-      else if (this.state === 'attacking') { w = 40; }
+      let w = 36,
+        h = 60,
+        offsetY = 60;
+      if (this.state === 'blocking') {
+        h = 40;
+        offsetY = 40;
+      } else if (!this.isOnGround) {
+        w = 28;
+        h = 50;
+        offsetY = 50;
+      } else if (this.state === 'attacking') {
+        w = 40;
+      }
       return {
         x: this.simX - Math.trunc(w / 2) * FP_SCALE,
         y: this.simY - offsetY * FP_SCALE,
@@ -320,9 +371,8 @@ function createSimCombat() {
           defender.data.stats.defense,
         );
         attacker.special = Math.min(MAX_SPECIAL_FP, attacker.special + damage * 200);
-        const stunFrames = defender.state === 'blocking'
-          ? (move.blockstun || undefined)
-          : (move.hitstun || undefined);
+        const stunFrames =
+          defender.state === 'blocking' ? move.blockstun || undefined : move.hitstun || undefined;
         defender.takeDamage(damage, attacker.simX, stunFrames);
         attacker.hitConnected = true;
         return true;

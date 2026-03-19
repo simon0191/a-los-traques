@@ -86,8 +86,10 @@ function tick(fighter) {
 function getAttackHitbox(fighter) {
   if (fighter.state !== 'attacking' || !fighter.currentAttack) return null;
   const move = fighter.currentAttack;
-  if (fighter.attackFrameElapsed < move.startup ||
-      fighter.attackFrameElapsed >= move.startup + move.active) {
+  if (
+    fighter.attackFrameElapsed < move.startup ||
+    fighter.attackFrameElapsed >= move.startup + move.active
+  ) {
     return null;
   }
   const reach = (move.type.includes('Kick') ? 55 : 45) * FP_SCALE;
@@ -214,7 +216,10 @@ describe('attack phase tracking', () => {
     // Ticks 1-8 remain in startup (elapsed < 9)
     for (let i = 0; i < 8; i++) {
       tick(f);
-      expect(getAttackHitbox(f), `startup tick ${i + 1}, elapsed ${f.attackFrameElapsed}`).toBeNull();
+      expect(
+        getAttackHitbox(f),
+        `startup tick ${i + 1}, elapsed ${f.attackFrameElapsed}`,
+      ).toBeNull();
     }
 
     // Tick 9: elapsed = 9 = startup → first active frame

@@ -3,7 +3,6 @@ import { STAMINA_COSTS } from '../../src/config.js';
 import {
   FP_SCALE,
   GROUND_Y_FP,
-  MAX_SPECIAL_FP,
   MAX_STAMINA_FP,
   SPECIAL_COST_FP,
   SPECIAL_TINT_MAX_FRAMES,
@@ -12,11 +11,52 @@ import {
 /** Create a minimal sim fighter for cancel tests. */
 function createFighter(moves = {}) {
   const defaultMoves = {
-    lightPunch: { type: 'lightPunch', damage: 5, startup: 2, active: 2, recovery: 3, hitstun: 12, blockstun: 8 },
-    heavyPunch: { type: 'heavyPunch', damage: 13, startup: 5, active: 3, recovery: 8, hitstun: 20, blockstun: 14 },
-    lightKick: { type: 'lightKick', damage: 6, startup: 3, active: 2, recovery: 4, hitstun: 14, blockstun: 9 },
-    heavyKick: { type: 'heavyKick', damage: 15, startup: 6, active: 3, recovery: 9, hitstun: 22, blockstun: 15 },
-    special: { type: 'special', damage: 28, startup: 9, active: 5, recovery: 14, hitstun: 30, blockstun: 20, cost: 50 },
+    lightPunch: {
+      type: 'lightPunch',
+      damage: 5,
+      startup: 2,
+      active: 2,
+      recovery: 3,
+      hitstun: 12,
+      blockstun: 8,
+    },
+    heavyPunch: {
+      type: 'heavyPunch',
+      damage: 13,
+      startup: 5,
+      active: 3,
+      recovery: 8,
+      hitstun: 20,
+      blockstun: 14,
+    },
+    lightKick: {
+      type: 'lightKick',
+      damage: 6,
+      startup: 3,
+      active: 2,
+      recovery: 4,
+      hitstun: 14,
+      blockstun: 9,
+    },
+    heavyKick: {
+      type: 'heavyKick',
+      damage: 15,
+      startup: 6,
+      active: 3,
+      recovery: 9,
+      hitstun: 22,
+      blockstun: 15,
+    },
+    special: {
+      type: 'special',
+      damage: 28,
+      startup: 9,
+      active: 5,
+      recovery: 14,
+      hitstun: 30,
+      blockstun: 20,
+      cost: 50,
+    },
     ...moves,
   };
 
@@ -122,7 +162,10 @@ describe('normal-to-special cancel', () => {
     attack(f, 'lightPunch'); // startup: 2, active: 2, recovery: 3
 
     // Advance to first recovery frame (elapsed = 4 = startup + active)
-    tick(f); tick(f); tick(f); tick(f);
+    tick(f);
+    tick(f);
+    tick(f);
+    tick(f);
     expect(f.attackFrameElapsed).toBe(4);
 
     f.hitConnected = true;
@@ -137,7 +180,8 @@ describe('normal-to-special cancel', () => {
     const f = createFighter();
     attack(f, 'lightPunch');
 
-    tick(f); tick(f); // active frame
+    tick(f);
+    tick(f); // active frame
     // hitConnected remains false
 
     const result = attack(f, 'special');
@@ -191,7 +235,8 @@ describe('normal-to-special cancel', () => {
     const f = createFighter();
     attack(f, 'lightPunch');
 
-    tick(f); tick(f); // active frame
+    tick(f);
+    tick(f); // active frame
     f.hitConnected = true;
 
     // Try to cancel into another normal
@@ -204,7 +249,8 @@ describe('normal-to-special cancel', () => {
     f.special = 0; // no meter
     attack(f, 'lightPunch');
 
-    tick(f); tick(f); // active frame
+    tick(f);
+    tick(f); // active frame
     f.hitConnected = true;
 
     const result = attack(f, 'special');
@@ -216,7 +262,8 @@ describe('normal-to-special cancel', () => {
     f.stamina = 0; // no stamina
     attack(f, 'lightPunch');
 
-    tick(f); tick(f);
+    tick(f);
+    tick(f);
     f.hitConnected = true;
 
     const result = attack(f, 'special');
@@ -227,7 +274,8 @@ describe('normal-to-special cancel', () => {
     const f = createFighter();
     attack(f, 'lightPunch');
 
-    tick(f); tick(f);
+    tick(f);
+    tick(f);
     f.hitConnected = true;
 
     attack(f, 'special');

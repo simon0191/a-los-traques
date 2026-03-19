@@ -19,8 +19,10 @@ function createFighter(fighterData) {
 function getAttackHitbox(fighter) {
   if (fighter.state !== 'attacking' || !fighter.currentAttack) return null;
   const move = fighter.currentAttack;
-  if (fighter.attackFrameElapsed < move.startup ||
-      fighter.attackFrameElapsed >= move.startup + move.active) {
+  if (
+    fighter.attackFrameElapsed < move.startup ||
+    fighter.attackFrameElapsed >= move.startup + move.active
+  ) {
     return null;
   }
   const defaultReach = move.type.includes('Kick') ? 55 : 45;
@@ -37,10 +39,19 @@ function getAttackHitbox(fighter) {
 
 /** Replicate Fighter.getHurtbox (state-dependent). */
 function getHurtbox(fighter) {
-  let w = 36, h = 60, offsetY = 60;
-  if (fighter.state === 'blocking') { h = 40; offsetY = 40; }
-  else if (!fighter.isOnGround) { w = 28; h = 50; offsetY = 50; }
-  else if (fighter.state === 'attacking') { w = 40; }
+  let w = 36,
+    h = 60,
+    offsetY = 60;
+  if (fighter.state === 'blocking') {
+    h = 40;
+    offsetY = 40;
+  } else if (!fighter.isOnGround) {
+    w = 28;
+    h = 50;
+    offsetY = 50;
+  } else if (fighter.state === 'attacking') {
+    w = 40;
+  }
   return {
     x: fighter.simX - Math.trunc(w / 2) * FP_SCALE,
     y: fighter.simY - offsetY * FP_SCALE,
@@ -51,8 +62,8 @@ function getHurtbox(fighter) {
 
 describe('per-character hitbox data', () => {
   it('fighters with custom reach have different hitbox width', () => {
-    const jeka = fighters.find(f => f.id === 'jeka');
-    const simon = fighters.find(f => f.id === 'simon');
+    const jeka = fighters.find((f) => f.id === 'jeka');
+    const simon = fighters.find((f) => f.id === 'simon');
 
     // Jeka's lightPunch has reach: 40, Simon's uses default 45
     expect(jeka.moves.lightPunch.reach).toBe(40);
@@ -75,7 +86,7 @@ describe('per-character hitbox data', () => {
   });
 
   it('lini (zoner) has longer reach than default', () => {
-    const lini = fighters.find(f => f.id === 'lini');
+    const lini = fighters.find((f) => f.id === 'lini');
 
     expect(lini.moves.lightPunch.reach).toBe(55);
     expect(lini.moves.lightKick.reach).toBe(70);
@@ -90,7 +101,7 @@ describe('per-character hitbox data', () => {
   });
 
   it('richi (grappler) has taller hitbox', () => {
-    const richi = fighters.find(f => f.id === 'richi');
+    const richi = fighters.find((f) => f.id === 'richi');
 
     expect(richi.moves.lightPunch.height).toBe(55);
     expect(richi.moves.lightPunch.reach).toBe(35);
@@ -105,14 +116,14 @@ describe('per-character hitbox data', () => {
   });
 
   it('bozzi (elastic) has extended reach', () => {
-    const bozzi = fighters.find(f => f.id === 'bozzi');
+    const bozzi = fighters.find((f) => f.id === 'bozzi');
 
     expect(bozzi.moves.lightPunch.reach).toBe(55);
     expect(bozzi.moves.lightKick.reach).toBe(65);
   });
 
   it('defaults work when no custom reach/height provided', () => {
-    const simon = fighters.find(f => f.id === 'simon');
+    const simon = fighters.find((f) => f.id === 'simon');
 
     const f = createFighter(simon);
 
