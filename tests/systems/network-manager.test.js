@@ -283,6 +283,42 @@ describe('NetworkManager', () => {
     });
   });
 
+  // ---- return_to_select message ----
+
+  describe('return_to_select message handling', () => {
+    it('fires onReturnToSelect callback when message received', () => {
+      const nm = makeManager();
+      const received = [];
+      nm.onReturnToSelect(() => received.push(true));
+
+      nm._handleMessage({ type: 'return_to_select' });
+
+      expect(received.length).toBe(1);
+    });
+
+    it('does not throw when no callback is registered', () => {
+      const nm = makeManager();
+      expect(() => nm._handleMessage({ type: 'return_to_select' })).not.toThrow();
+    });
+
+    it('clears callback on resetForReselect', () => {
+      const nm = makeManager();
+      nm.onReturnToSelect(() => {});
+      expect(nm._onReturnToSelect).not.toBeNull();
+
+      nm.resetForReselect();
+      expect(nm._onReturnToSelect).toBeNull();
+    });
+
+    it('clears callback on destroy', () => {
+      const nm = makeManager();
+      nm.onReturnToSelect(() => {});
+
+      nm.destroy();
+      expect(nm._onReturnToSelect).toBeNull();
+    });
+  });
+
   // ---- B5: Callback buffering ----
 
   describe('B5: buffers messages for unregistered callbacks', () => {

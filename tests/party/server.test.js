@@ -541,6 +541,21 @@ describe('FightRoom', () => {
       expect(c3Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(true);
     });
 
+    it('broadcasts return_to_select to spectators when grace expires during fight', () => {
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
+
+      room.onConnect(conn3, makeCtx({ spectate: '1' }));
+      conn3.send.mockClear();
+
+      room.onClose(conn1);
+      vi.advanceTimersByTime(5000);
+
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'return_to_select')).toBe(true);
+      expect(c3Msgs.some((m) => m.type === 'disconnect')).toBe(false);
+    });
+
     it('sends disconnect (not return_to_select) when grace expires during selecting', () => {
       // Both connected but NOT ready — still in selecting state
       conn2.send.mockClear();
