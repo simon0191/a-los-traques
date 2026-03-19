@@ -900,6 +900,80 @@ describe('NetworkManager', () => {
       expect(received.length).toBe(1);
     });
 
+    it('processes input history from P2P messages to fill gaps', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateOpen();
+
+      const hist1 = encodeInput({
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
+
+      // Simulate P2P message with history (frame 1 was lost, arrives as history in frame 3)
+      nm._webrtc._simulateMessage(
+        JSON.stringify({
+          type: 'input',
+          frame: 3,
+          state: { left: true },
+          history: [[1, hist1]],
+        }),
+      );
+
+      // Primary input stored
+      expect(nm.remoteInputBuffer[3]).toMatchObject({ left: true });
+      // History entry decoded and filled gap
+      expect(nm.remoteInputBuffer[1]).toBeDefined();
+      expect(nm.remoteInputBuffer[1].right).toBe(true);
+    });
+
+    it('P2P history does not overwrite existing confirmed inputs', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateOpen();
+
+      // Frame 1 already confirmed
+      nm.remoteInputBuffer[1] = { left: true, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+
+      const hist1 = encodeInput({
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
+
+      nm._webrtc._simulateMessage(
+        JSON.stringify({
+          type: 'input',
+          frame: 3,
+          state: { down: true },
+          history: [[1, hist1]],
+        }),
+      );
+
+      // Frame 1 should retain original data, not be overwritten by history
+      expect(nm.remoteInputBuffer[1].left).toBe(true);
+      expect(nm.remoteInputBuffer[1].right).toBe(false);
+    });
+
     it('resetForReselect preserves WebRTC connection', () => {
       globalThis.RTCPeerConnection = class {};
       const nm = makeManager();

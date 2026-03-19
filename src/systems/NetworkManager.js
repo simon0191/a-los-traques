@@ -704,6 +704,14 @@ export class NetworkManager {
           if (msg.type === 'input') {
             this.remoteInputBuffer[msg.frame] = msg.state;
             this.lastRemoteInput = msg.state;
+            // Process redundant input history — fill gaps from P2P packet loss
+            if (msg.history) {
+              for (const [hFrame, encodedInput] of msg.history) {
+                if (!(hFrame in this.remoteInputBuffer)) {
+                  this.remoteInputBuffer[hFrame] = decodeInput(encodedInput);
+                }
+              }
+            }
             if (this._onRemoteInput) this._onRemoteInput(msg.frame, msg.state);
           }
         } catch (_) {
