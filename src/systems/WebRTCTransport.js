@@ -62,9 +62,15 @@ export class WebRTCTransport {
     });
     this._setupDataChannel(this._dc);
 
-    const offer = await this._pc.createOffer();
-    await this._pc.setLocalDescription(offer);
-    this._onSignal({ type: 'webrtc_offer', sdp: offer.sdp });
+    try {
+      const offer = await this._pc.createOffer();
+      await this._pc.setLocalDescription(offer);
+      this._log('offer created');
+      this._onSignal({ type: 'webrtc_offer', sdp: offer.sdp });
+    } catch (err) {
+      this._log('startOffer error', err);
+      this._fail();
+    }
   }
 
   /**
@@ -72,38 +78,45 @@ export class WebRTCTransport {
    * @param {object} msg
    */
   async handleSignal(msg) {
-    switch (msg.type) {
-      case 'webrtc_offer': {
-        if (this._isOfferer) return; // offerer shouldn't receive offers
-        if (this.state !== 'idle') return;
-        this.state = 'signaling';
+    try {
+      switch (msg.type) {
+        case 'webrtc_offer': {
+          if (this._isOfferer) return; // offerer shouldn't receive offers
+          if (this.state !== 'idle') return;
+          this.state = 'signaling';
 
-        this._startTimeout();
-        this._createPeerConnection();
+          this._startTimeout();
+          this._createPeerConnection();
 
-        await this._pc.setRemoteDescription(
-          new RTCSessionDescription({ type: 'offer', sdp: msg.sdp }),
-        );
-        const answer = await this._pc.createAnswer();
-        await this._pc.setLocalDescription(answer);
-        this._onSignal({ type: 'webrtc_answer', sdp: answer.sdp });
-        break;
-      }
-      case 'webrtc_answer': {
-        if (!this._isOfferer) return; // answerer shouldn't receive answers
-        if (!this._pc) return;
-        await this._pc.setRemoteDescription(
-          new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }),
-        );
-        break;
-      }
-      case 'webrtc_ice': {
-        if (!this._pc) return;
-        if (msg.candidate) {
-          await this._pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          await this._pc.setRemoteDescription(
+            new RTCSessionDescription({ type: 'offer', sdp: msg.sdp }),
+          );
+          const answer = await this._pc.createAnswer();
+          await this._pc.setLocalDescription(answer);
+          this._log('answer created');
+          this._onSignal({ type: 'webrtc_answer', sdp: answer.sdp });
+          break;
         }
-        break;
+        case 'webrtc_answer': {
+          if (!this._isOfferer) return; // answerer shouldn't receive answers
+          if (!this._pc) return;
+          await this._pc.setRemoteDescription(
+            new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }),
+          );
+          this._log('answer received');
+          break;
+        }
+        case 'webrtc_ice': {
+          if (!this._pc) return;
+          if (msg.candidate) {
+            await this._pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          }
+          break;
+        }
       }
+    } catch (err) {
+      this._log('handleSignal error', err);
+      this._fail();
     }
   }
 
@@ -168,12 +181,14 @@ export class WebRTCTransport {
 
     // Answerer receives the DataChannel here
     this._pc.ondatachannel = (event) => {
+      this._log('remote DataChannel received');
       this._dc = event.channel;
       this._setupDataChannel(this._dc);
     };
 
     this._pc.onconnectionstatechange = () => {
       const connState = this._pc?.connectionState;
+      this._log('PC state:', connState);
       if (connState === 'failed' || connState === 'disconnected') {
         if (this.state === 'open') {
           this.state = 'closed';
@@ -188,12 +203,14 @@ export class WebRTCTransport {
 
   _setupDataChannel(dc) {
     dc.onopen = () => {
+      this._log('DataChannel open');
       this.state = 'open';
       this._clearTimeout();
       this._onOpen();
     };
 
     dc.onclose = () => {
+      this._log('DataChannel closed');
       if (this.state === 'open') {
         this.state = 'closed';
         this._onClose();
@@ -226,9 +243,14 @@ export class WebRTCTransport {
   }
 
   _fail() {
+    this._log(`failed (was ${this.state})`);
     this.state = 'failed';
     this._clearTimeout();
     this.destroy();
     this._onFailed();
+  }
+
+  _log(...args) {
+    console.log(`[WebRTC ${this._isOfferer ? 'P1' : 'P2'}]`, ...args);
   }
 }

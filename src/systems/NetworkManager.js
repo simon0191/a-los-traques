@@ -682,12 +682,16 @@ export class NetworkManager {
   _initWebRTC() {
     // Don't init for spectators or if WebRTC APIs aren't available
     if (this.isSpectator) return;
-    if (typeof RTCPeerConnection === 'undefined') return;
+    if (typeof RTCPeerConnection === 'undefined') {
+      console.log('[NM] WebRTC unavailable (no RTCPeerConnection)');
+      return;
+    }
 
     // Clean up any existing WebRTC connection
     this._destroyWebRTC();
 
     const isOfferer = this.playerSlot === 0;
+    console.log(`[NM] _initWebRTC slot=${this.playerSlot} offerer=${isOfferer}`);
 
     this._webrtc = new WebRTCTransport({
       isOfferer,
