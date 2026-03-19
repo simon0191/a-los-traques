@@ -56,6 +56,7 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
     hitConnected: false,
     attackFrameElapsed: 0,
     comboCount: 0,
+    blockTimer: 0,
     currentAttack: null,
     isOnGround: true,
     _airborneTime: 0,
@@ -82,6 +83,7 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
         this.currentAttack = null;
       }
       if (this._specialTintTimer > 0) this._specialTintTimer--;
+      if (this.blockTimer > 0) this.blockTimer--;
       if (this.hurtTimer > 0) {
         this.hurtTimer--;
         if (this.hurtTimer <= 0) this.state = 'idle';
@@ -128,16 +130,19 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
 
     moveLeft(speed) {
       if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+      if (this.state === 'blocking' && this.blockTimer > 0) return;
       this.simVX = -speed;
       this.state = 'walking';
     },
     moveRight(speed) {
       if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+      if (this.state === 'blocking' && this.blockTimer > 0) return;
       this.simVX = speed;
       this.state = 'walking';
     },
     stop() {
       if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+      if (this.state === 'blocking' && this.blockTimer > 0) return;
       this.simVX = 0;
       if (this.isOnGround) this.state = 'idle';
     },
@@ -160,6 +165,7 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
     },
     block() {
       if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+      if (this.state !== 'blocking') this.blockTimer = 3;
       this.state = 'blocking';
       this.simVX = 0;
     },
@@ -257,6 +263,7 @@ function extractState(fighter) {
     attackCooldown: fighter.attackCooldown,
     attackFrameElapsed: fighter.attackFrameElapsed,
     comboCount: fighter.comboCount,
+    blockTimer: fighter.blockTimer,
     hurtTimer: fighter.hurtTimer,
     hitConnected: fighter.hitConnected,
     currentAttack: fighter.currentAttack,

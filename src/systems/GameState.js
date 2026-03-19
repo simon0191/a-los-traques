@@ -22,6 +22,7 @@ export function captureFighterState(fighter) {
     attackCooldown: fighter.attackCooldown,
     attackFrameElapsed: fighter.attackFrameElapsed || 0,
     comboCount: fighter.comboCount || 0,
+    blockTimer: fighter.blockTimer || 0,
     hurtTimer: fighter.hurtTimer,
     hitConnected: fighter.hitConnected,
     currentAttack: fighter.currentAttack ? { ...fighter.currentAttack } : null,
@@ -54,6 +55,7 @@ export function restoreFighterState(fighter, state) {
   fighter.attackCooldown = state.attackCooldown;
   fighter.attackFrameElapsed = state.attackFrameElapsed || 0;
   fighter.comboCount = state.comboCount || 0;
+  fighter.blockTimer = state.blockTimer || 0;
   fighter.hurtTimer = state.hurtTimer;
   fighter.hitConnected = state.hitConnected;
   fighter.currentAttack = state.currentAttack ? { ...state.currentAttack } : null;

@@ -88,6 +88,9 @@ export class Fighter {
 
     // Combo counter (incremented on hit while defender in hitstun)
     this.comboCount = 0;
+
+    // Block commitment timer (minimum frames in block state)
+    this.blockTimer = 0;
   }
 
   update() {
@@ -105,6 +108,9 @@ export class Fighter {
       this.state = 'idle';
       this.currentAttack = null;
     }
+
+    // Block commitment timer
+    if (this.blockTimer > 0) this.blockTimer--;
 
     // Special tint timer (frame-based)
     if (this._specialTintTimer > 0) {
@@ -219,6 +225,7 @@ export class Fighter {
 
   moveLeft(speed) {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
     if (this.state === 'blocking') this.sprite.clearTint();
     this.simVX = -speed;
     this.state = 'walking';
@@ -226,6 +233,7 @@ export class Fighter {
 
   moveRight(speed) {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
     if (this.state === 'blocking') this.sprite.clearTint();
     this.simVX = speed;
     this.state = 'walking';
@@ -233,6 +241,7 @@ export class Fighter {
 
   stop() {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
     if (this.state === 'blocking') this.sprite.clearTint();
     this.simVX = 0;
     if (this.isOnGround) this.state = 'idle';
@@ -386,6 +395,9 @@ export class Fighter {
 
   block() {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+    if (this.state !== 'blocking') {
+      this.blockTimer = 3; // 3-frame minimum block commitment
+    }
     this.state = 'blocking';
     this.simVX = 0;
     this.sprite.setTint(0x6688ff);
@@ -411,6 +423,7 @@ export class Fighter {
     this.attackCooldown = 0;
     this.attackFrameElapsed = 0;
     this.comboCount = 0;
+    this.blockTimer = 0;
     this.hurtTimer = 0;
     this.currentAttack = null;
     this.hitConnected = false;
