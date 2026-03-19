@@ -44,6 +44,9 @@ export const SPECIAL_TINT_MAX_FRAMES = 24; // ~400ms at 60fps
 // Wall detection threshold
 export const WALL_DETECT_THRESHOLD_FP = 2 * FP_SCALE;
 
+// Online input delay (frames) — shared constant for NetworkManager + RollbackManager
+export const ONLINE_INPUT_DELAY = 3;
+
 /** Convert fixed-point value to pixel value. */
 export function fpToPixels(fp) {
   return fp / FP_SCALE;

@@ -13,7 +13,7 @@ import { Fighter } from '../entities/Fighter.js';
 import { AIController } from '../systems/AIController.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { DevConsole } from '../systems/DevConsole.js';
-import { FP_SCALE, MAX_SPECIAL_FP, MAX_STAMINA_FP } from '../systems/FixedPoint.js';
+import { FP_SCALE, MAX_SPECIAL_FP, MAX_STAMINA_FP, ONLINE_INPUT_DELAY } from '../systems/FixedPoint.js';
 import { InputManager } from '../systems/InputManager.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
 import { TouchControls } from '../systems/TouchControls.js';
@@ -664,7 +664,7 @@ export class FightScene extends Phaser.Scene {
 
     // Create RollbackManager
     this.rollbackManager = new RollbackManager(nm, slot, {
-      inputDelay: 2,
+      inputDelay: ONLINE_INPUT_DELAY,
       maxRollbackFrames: 7,
     });
 

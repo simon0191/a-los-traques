@@ -35,11 +35,11 @@ import {
  */
 function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defense: 3 }) {
   const moves = {
-    lightPunch: { type: 'lightPunch', damage: 8, startup: 3, active: 2, recovery: 5 },
-    heavyPunch: { type: 'heavyPunch', damage: 14, startup: 5, active: 3, recovery: 8 },
-    lightKick: { type: 'lightKick', damage: 8, startup: 3, active: 2, recovery: 5 },
-    heavyKick: { type: 'heavyKick', damage: 14, startup: 5, active: 3, recovery: 8 },
-    special: { type: 'special', damage: 25, startup: 8, active: 4, recovery: 10 },
+    lightPunch: { type: 'lightPunch', damage: 8, startup: 3, active: 2, recovery: 5, hitstun: 12, blockstun: 8 },
+    heavyPunch: { type: 'heavyPunch', damage: 14, startup: 5, active: 3, recovery: 8, hitstun: 20, blockstun: 14 },
+    lightKick: { type: 'lightKick', damage: 8, startup: 3, active: 2, recovery: 5, hitstun: 14, blockstun: 9 },
+    heavyKick: { type: 'heavyKick', damage: 14, startup: 5, active: 3, recovery: 8, hitstun: 22, blockstun: 15 },
+    special: { type: 'special', damage: 25, startup: 8, active: 4, recovery: 10, hitstun: 30, blockstun: 20 },
   };
 
   return {
@@ -210,13 +210,22 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
         h: 60 * FP_SCALE,
       };
     },
-    takeDamage(amount, attackerSimX) {
+    takeDamage(amount, attackerSimX, stunFrames) {
       if (this.state === 'blocking') amount = calculateBlockDamage(amount);
       this.hp = Math.max(0, this.hp - amount);
       this.special = Math.min(MAX_SPECIAL_FP, this.special + amount * 800);
       const knockDir = this.simX > attackerSimX ? 1 : -1;
       this.simVX = knockDir * KNOCKBACK_VX_FP;
-      if (amount >= 15) {
+      if (stunFrames != null) {
+        if (amount >= 15) {
+          this.state = 'knockdown';
+          this.hurtTimer = stunFrames;
+          this.simVY = KNOCKBACK_VY_FP;
+        } else {
+          this.state = 'hurt';
+          this.hurtTimer = stunFrames;
+        }
+      } else if (amount >= 15) {
         this.state = 'knockdown';
         this.hurtTimer = HURT_TIMER_KNOCKDOWN;
         this.simVY = KNOCKBACK_VY_FP;
@@ -289,13 +298,17 @@ function createSimCombat() {
       const hx = hitbox.w < 0 ? hitbox.x + hitbox.w : hitbox.x;
       const hw = Math.abs(hitbox.w);
       if (fpRectsOverlap(hx, hitbox.y, hw, hitbox.h, hurtbox.x, hurtbox.y, hurtbox.w, hurtbox.h)) {
+        const move = attacker.currentAttack;
         const damage = calculateDamage(
-          attacker.currentAttack.damage,
+          move.damage,
           attacker.data.stats.power,
           defender.data.stats.defense,
         );
         attacker.special = Math.min(MAX_SPECIAL_FP, attacker.special + damage * 200);
-        defender.takeDamage(damage, attacker.simX);
+        const stunFrames = defender.state === 'blocking'
+          ? (move.blockstun || undefined)
+          : (move.hitstun || undefined);
+        defender.takeDamage(damage, attacker.simX, stunFrames);
         attacker.hitConnected = true;
         return true;
       }

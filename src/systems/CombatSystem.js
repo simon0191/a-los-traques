@@ -120,8 +120,13 @@ export class CombatSystem {
       }
     }
 
+    // Determine stun frames from move data
+    const stunFrames = defender.state === 'blocking'
+      ? (move.blockstun || undefined)
+      : (move.hitstun || undefined);
+
     // Defender takes damage (pass attacker's simX for knockback direction)
-    const ko = defender.takeDamage(damage, attacker.simX);
+    const ko = defender.takeDamage(damage, attacker.simX, stunFrames);
 
     if (!muteEffects) {
       // Hit spark at pixel position (convert from FP for display)

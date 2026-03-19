@@ -7,11 +7,11 @@
     "color": "0x00CC00",
     "stats": { "hp": 100, "speed": 4, "power": 4, "defense": 2, "special": 3 },
     "moves": {
-      "lightPunch": { "damage": 5, "startup": 2, "active": 2, "recovery": 3 },
-      "heavyPunch": { "damage": 13, "startup": 5, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 6, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyKick": { "damage": 15, "startup": 6, "active": 3, "recovery": 9 },
-      "special": { "damage": 28, "startup": 9, "active": 5, "recovery": 14, "cost": 50 }
+      "lightPunch": { "damage": 5, "startup": 2, "active": 2, "recovery": 3, "hitstun": 12, "blockstun": 8 },
+      "heavyPunch": { "damage": 13, "startup": 5, "active": 3, "recovery": 8, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 6, "startup": 3, "active": 2, "recovery": 4, "hitstun": 14, "blockstun": 9 },
+      "heavyKick": { "damage": 15, "startup": 6, "active": 3, "recovery": 9, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 28, "startup": 9, "active": 5, "recovery": 14, "hitstun": 30, "blockstun": 20, "cost": 50 }
     },
     "dialogs": {
       "intro": "Prende la pista que voy a perrear sobre tu derrota.",
@@ -27,11 +27,11 @@
     "color": "0xFF69B4",
     "stats": { "hp": 100, "speed": 5, "power": 2, "defense": 2, "special": 3 },
     "moves": {
-      "lightPunch": { "damage": 4, "startup": 1, "active": 2, "recovery": 2 },
-      "heavyPunch": { "damage": 9, "startup": 4, "active": 2, "recovery": 6 },
-      "lightKick": { "damage": 5, "startup": 2, "active": 2, "recovery": 3 },
-      "heavyKick": { "damage": 11, "startup": 5, "active": 2, "recovery": 7 },
-      "special": { "damage": 24, "startup": 7, "active": 5, "recovery": 12, "cost": 50 }
+      "lightPunch": { "damage": 4, "startup": 1, "active": 2, "recovery": 2, "hitstun": 11, "blockstun": 7 },
+      "heavyPunch": { "damage": 9, "startup": 4, "active": 2, "recovery": 6, "hitstun": 18, "blockstun": 12 },
+      "lightKick": { "damage": 5, "startup": 2, "active": 2, "recovery": 3, "hitstun": 12, "blockstun": 8 },
+      "heavyKick": { "damage": 11, "startup": 5, "active": 2, "recovery": 7, "hitstun": 20, "blockstun": 13 },
+      "special": { "damage": 24, "startup": 7, "active": 5, "recovery": 12, "hitstun": 28, "blockstun": 18, "cost": 50 }
     },
     "dialogs": {
       "intro": "Miau... prepara tus ultimas palabras, mi amor.",
@@ -47,11 +47,11 @@
     "color": "0xCC0000",
     "stats": { "hp": 100, "speed": 2, "power": 2, "defense": 3, "special": 5 },
     "moves": {
-      "lightPunch": { "damage": 4, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyPunch": { "damage": 10, "startup": 6, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 5, "startup": 4, "active": 2, "recovery": 5 },
-      "heavyKick": { "damage": 11, "startup": 7, "active": 3, "recovery": 9 },
-      "special": { "damage": 35, "startup": 8, "active": 7, "recovery": 12, "cost": 50 }
+      "lightPunch": { "damage": 4, "startup": 3, "active": 2, "recovery": 4, "hitstun": 14, "blockstun": 9 },
+      "heavyPunch": { "damage": 10, "startup": 6, "active": 3, "recovery": 8, "hitstun": 22, "blockstun": 16 },
+      "lightKick": { "damage": 5, "startup": 4, "active": 2, "recovery": 5, "hitstun": 16, "blockstun": 10 },
+      "heavyKick": { "damage": 11, "startup": 7, "active": 3, "recovery": 9, "hitstun": 24, "blockstun": 17 },
+      "special": { "damage": 35, "startup": 8, "active": 7, "recovery": 12, "hitstun": 32, "blockstun": 22, "cost": 50 }
     },
     "dialogs": {
       "intro": "Los espiritus me piden sangre... y yo obedezco.",
@@ -67,11 +67,11 @@
     "color": "0xFF69B4",
     "stats": { "hp": 100, "speed": 3, "power": 3, "defense": 5, "special": 3 },
     "moves": {
-      "lightPunch": { "damage": 5, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyPunch": { "damage": 12, "startup": 6, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 6, "startup": 4, "active": 2, "recovery": 5 },
-      "heavyKick": { "damage": 13, "startup": 7, "active": 3, "recovery": 9 },
-      "special": { "damage": 25, "startup": 10, "active": 5, "recovery": 14, "cost": 50 }
+      "lightPunch": { "damage": 5, "startup": 3, "active": 2, "recovery": 4, "hitstun": 13, "blockstun": 9 },
+      "heavyPunch": { "damage": 12, "startup": 6, "active": 3, "recovery": 8, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 6, "startup": 4, "active": 2, "recovery": 5, "hitstun": 15, "blockstun": 10 },
+      "heavyKick": { "damage": 13, "startup": 7, "active": 3, "recovery": 9, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 25, "startup": 10, "active": 5, "recovery": 14, "hitstun": 30, "blockstun": 20, "cost": 50 }
     },
     "dialogs": {
       "intro": "Estoy aqui... o estoy alla? Nunca lo sabras.",
@@ -87,11 +87,11 @@
     "color": "0x9933CC",
     "stats": { "hp": 100, "speed": 3, "power": 2, "defense": 2, "special": 5 },
     "moves": {
-      "lightPunch": { "damage": 4, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyPunch": { "damage": 10, "startup": 6, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 5, "startup": 4, "active": 2, "recovery": 5 },
-      "heavyKick": { "damage": 11, "startup": 7, "active": 3, "recovery": 9 },
-      "special": { "damage": 33, "startup": 8, "active": 6, "recovery": 13, "cost": 50 }
+      "lightPunch": { "damage": 4, "startup": 3, "active": 2, "recovery": 4, "hitstun": 13, "blockstun": 9 },
+      "heavyPunch": { "damage": 10, "startup": 6, "active": 3, "recovery": 8, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 5, "startup": 4, "active": 2, "recovery": 5, "hitstun": 15, "blockstun": 10 },
+      "heavyKick": { "damage": 11, "startup": 7, "active": 3, "recovery": 9, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 33, "startup": 8, "active": 6, "recovery": 13, "hitstun": 32, "blockstun": 22, "cost": 50 }
     },
     "dialogs": {
       "intro": "Un traguito de guaro y te hechizo para siempre!",
@@ -107,11 +107,11 @@
     "color": "0xFF69B4",
     "stats": { "hp": 100, "speed": 3, "power": 4, "defense": 2, "special": 3 },
     "moves": {
-      "lightPunch": { "damage": 5, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyPunch": { "damage": 13, "startup": 6, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 6, "startup": 4, "active": 2, "recovery": 5 },
-      "heavyKick": { "damage": 14, "startup": 7, "active": 3, "recovery": 9 },
-      "special": { "damage": 27, "startup": 9, "active": 5, "recovery": 14, "cost": 50 }
+      "lightPunch": { "damage": 5, "startup": 3, "active": 2, "recovery": 4, "hitstun": 12, "blockstun": 8 },
+      "heavyPunch": { "damage": 13, "startup": 6, "active": 3, "recovery": 8, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 6, "startup": 4, "active": 2, "recovery": 5, "hitstun": 14, "blockstun": 9 },
+      "heavyKick": { "damage": 14, "startup": 7, "active": 3, "recovery": 9, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 27, "startup": 9, "active": 5, "recovery": 14, "hitstun": 30, "blockstun": 20, "cost": 50 }
     },
     "dialogs": {
       "intro": "Estas en la mira. No te muevas... ah, da igual.",
@@ -127,11 +127,11 @@
     "color": "0x3366FF",
     "stats": { "hp": 100, "speed": 2, "power": 2, "defense": 3, "special": 5 },
     "moves": {
-      "lightPunch": { "damage": 4, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyPunch": { "damage": 10, "startup": 6, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 5, "startup": 4, "active": 2, "recovery": 5 },
-      "heavyKick": { "damage": 11, "startup": 7, "active": 3, "recovery": 9 },
-      "special": { "damage": 34, "startup": 8, "active": 7, "recovery": 12, "cost": 50 }
+      "lightPunch": { "damage": 4, "startup": 3, "active": 2, "recovery": 4, "hitstun": 14, "blockstun": 9 },
+      "heavyPunch": { "damage": 10, "startup": 6, "active": 3, "recovery": 8, "hitstun": 22, "blockstun": 16 },
+      "lightKick": { "damage": 5, "startup": 4, "active": 2, "recovery": 5, "hitstun": 16, "blockstun": 10 },
+      "heavyKick": { "damage": 11, "startup": 7, "active": 3, "recovery": 9, "hitstun": 24, "blockstun": 17 },
+      "special": { "damage": 34, "startup": 8, "active": 7, "recovery": 12, "hitstun": 32, "blockstun": 22, "cost": 50 }
     },
     "dialogs": {
       "intro": "Ya se como termina esto. Y no te va a gustar.",
@@ -147,11 +147,11 @@
     "color": "0x000080",
     "stats": { "hp": 100, "speed": 4, "power": 2, "defense": 2, "special": 4 },
     "moves": {
-      "lightPunch": { "damage": 3, "startup": 1, "active": 2, "recovery": 2 },
-      "heavyPunch": { "damage": 8, "startup": 4, "active": 2, "recovery": 6 },
-      "lightKick": { "damage": 4, "startup": 2, "active": 2, "recovery": 3 },
-      "heavyKick": { "damage": 10, "startup": 5, "active": 2, "recovery": 7 },
-      "special": { "damage": 22, "startup": 7, "active": 5, "recovery": 12, "cost": 50 }
+      "lightPunch": { "damage": 3, "startup": 1, "active": 2, "recovery": 2, "hitstun": 11, "blockstun": 7 },
+      "heavyPunch": { "damage": 8, "startup": 4, "active": 2, "recovery": 6, "hitstun": 18, "blockstun": 12 },
+      "lightKick": { "damage": 4, "startup": 2, "active": 2, "recovery": 3, "hitstun": 12, "blockstun": 8 },
+      "heavyKick": { "damage": 10, "startup": 5, "active": 2, "recovery": 7, "hitstun": 20, "blockstun": 13 },
+      "special": { "damage": 22, "startup": 7, "active": 5, "recovery": 12, "hitstun": 28, "blockstun": 18, "cost": 50 }
     },
     "dialogs": {
       "intro": "Los elfos no perdemos. Es cuestion de elegancia.",
@@ -167,11 +167,11 @@
     "color": "0xFF8C00",
     "stats": { "hp": 100, "speed": 4, "power": 4, "defense": 1, "special": 3 },
     "moves": {
-      "lightPunch": { "damage": 5, "startup": 2, "active": 2, "recovery": 3 },
-      "heavyPunch": { "damage": 13, "startup": 5, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 6, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyKick": { "damage": 15, "startup": 6, "active": 3, "recovery": 9 },
-      "special": { "damage": 27, "startup": 9, "active": 5, "recovery": 14, "cost": 50 }
+      "lightPunch": { "damage": 5, "startup": 2, "active": 2, "recovery": 3, "hitstun": 12, "blockstun": 8 },
+      "heavyPunch": { "damage": 13, "startup": 5, "active": 3, "recovery": 8, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 6, "startup": 3, "active": 2, "recovery": 4, "hitstun": 14, "blockstun": 9 },
+      "heavyKick": { "damage": 15, "startup": 6, "active": 3, "recovery": 9, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 27, "startup": 9, "active": 5, "recovery": 14, "hitstun": 30, "blockstun": 20, "cost": 50 }
     },
     "dialogs": {
       "intro": "GET OVER HERE! ...digo... VEN ACA!",
@@ -187,11 +187,11 @@
     "color": "0x7FFFD4",
     "stats": { "hp": 100, "speed": 5, "power": 4, "defense": 1, "special": 3 },
     "moves": {
-      "lightPunch": { "damage": 5, "startup": 2, "active": 2, "recovery": 3 },
-      "heavyPunch": { "damage": 13, "startup": 5, "active": 3, "recovery": 7 },
-      "lightKick": { "damage": 6, "startup": 2, "active": 2, "recovery": 3 },
-      "heavyKick": { "damage": 15, "startup": 6, "active": 3, "recovery": 8 },
-      "special": { "damage": 28, "startup": 8, "active": 5, "recovery": 14, "cost": 50 }
+      "lightPunch": { "damage": 5, "startup": 2, "active": 2, "recovery": 3, "hitstun": 11, "blockstun": 7 },
+      "heavyPunch": { "damage": 13, "startup": 5, "active": 3, "recovery": 7, "hitstun": 18, "blockstun": 12 },
+      "lightKick": { "damage": 6, "startup": 2, "active": 2, "recovery": 3, "hitstun": 12, "blockstun": 8 },
+      "heavyKick": { "damage": 15, "startup": 6, "active": 3, "recovery": 8, "hitstun": 20, "blockstun": 13 },
+      "special": { "damage": 28, "startup": 8, "active": 5, "recovery": 14, "hitstun": 28, "blockstun": 18, "cost": 50 }
     },
     "dialogs": {
       "intro": "Millonaria de cuna, faquera de corazon. A ver si aguantas.",
@@ -207,11 +207,11 @@
     "color": "0x3366FF",
     "stats": { "hp": 100, "speed": 5, "power": 2, "defense": 1, "special": 4 },
     "moves": {
-      "lightPunch": { "damage": 4, "startup": 1, "active": 2, "recovery": 2 },
-      "heavyPunch": { "damage": 9, "startup": 4, "active": 2, "recovery": 6 },
-      "lightKick": { "damage": 5, "startup": 2, "active": 2, "recovery": 3 },
-      "heavyKick": { "damage": 10, "startup": 5, "active": 2, "recovery": 7 },
-      "special": { "damage": 26, "startup": 7, "active": 5, "recovery": 12, "cost": 50 }
+      "lightPunch": { "damage": 4, "startup": 1, "active": 2, "recovery": 2, "hitstun": 11, "blockstun": 7 },
+      "heavyPunch": { "damage": 9, "startup": 4, "active": 2, "recovery": 6, "hitstun": 18, "blockstun": 12 },
+      "lightKick": { "damage": 5, "startup": 2, "active": 2, "recovery": 3, "hitstun": 12, "blockstun": 8 },
+      "heavyKick": { "damage": 10, "startup": 5, "active": 2, "recovery": 7, "hitstun": 20, "blockstun": 13 },
+      "special": { "damage": 26, "startup": 7, "active": 5, "recovery": 12, "hitstun": 28, "blockstun": 18, "cost": 50 }
     },
     "dialogs": {
       "intro": "No me viste llegar. No me vas a ver irme.",
@@ -227,11 +227,11 @@
     "color": "0x228B22",
     "stats": { "hp": 100, "speed": 2, "power": 5, "defense": 3, "special": 2 },
     "moves": {
-      "lightPunch": { "damage": 6, "startup": 4, "active": 3, "recovery": 5 },
-      "heavyPunch": { "damage": 15, "startup": 8, "active": 4, "recovery": 10 },
-      "lightKick": { "damage": 7, "startup": 5, "active": 2, "recovery": 6 },
-      "heavyKick": { "damage": 16, "startup": 9, "active": 3, "recovery": 11 },
-      "special": { "damage": 30, "startup": 12, "active": 5, "recovery": 16, "cost": 50 }
+      "lightPunch": { "damage": 6, "startup": 4, "active": 3, "recovery": 5, "hitstun": 14, "blockstun": 9 },
+      "heavyPunch": { "damage": 15, "startup": 8, "active": 4, "recovery": 10, "hitstun": 22, "blockstun": 16 },
+      "lightKick": { "damage": 7, "startup": 5, "active": 2, "recovery": 6, "hitstun": 16, "blockstun": 10 },
+      "heavyKick": { "damage": 16, "startup": 9, "active": 3, "recovery": 11, "hitstun": 24, "blockstun": 17 },
+      "special": { "damage": 30, "startup": 12, "active": 5, "recovery": 16, "hitstun": 32, "blockstun": 22, "cost": 50 }
     },
     "dialogs": {
       "intro": "El carnero igneo no pregunta. Embiste.",
@@ -247,11 +247,11 @@
     "color": "0x111111",
     "stats": { "hp": 100, "speed": 3, "power": 4, "defense": 2, "special": 4 },
     "moves": {
-      "lightPunch": { "damage": 5, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyPunch": { "damage": 14, "startup": 6, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 6, "startup": 3, "active": 2, "recovery": 5 },
-      "heavyKick": { "damage": 15, "startup": 7, "active": 3, "recovery": 9 },
-      "special": { "damage": 30, "startup": 9, "active": 6, "recovery": 14, "cost": 50 }
+      "lightPunch": { "damage": 5, "startup": 3, "active": 2, "recovery": 4, "hitstun": 12, "blockstun": 8 },
+      "heavyPunch": { "damage": 14, "startup": 6, "active": 3, "recovery": 8, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 6, "startup": 3, "active": 2, "recovery": 5, "hitstun": 14, "blockstun": 9 },
+      "heavyKick": { "damage": 15, "startup": 7, "active": 3, "recovery": 9, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 30, "startup": 9, "active": 6, "recovery": 14, "hitstun": 30, "blockstun": 20, "cost": 50 }
     },
     "dialogs": {
       "intro": "Arrr! Prepara tu alma, que la voy a quemar!",
@@ -267,11 +267,11 @@
     "color": "0x000080",
     "stats": { "hp": 100, "speed": 3, "power": 3, "defense": 4, "special": 3 },
     "moves": {
-      "lightPunch": { "damage": 5, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyPunch": { "damage": 12, "startup": 6, "active": 3, "recovery": 8 },
-      "lightKick": { "damage": 6, "startup": 4, "active": 2, "recovery": 5 },
-      "heavyKick": { "damage": 14, "startup": 8, "active": 3, "recovery": 10 },
-      "special": { "damage": 26, "startup": 10, "active": 5, "recovery": 15, "cost": 50 }
+      "lightPunch": { "damage": 5, "startup": 3, "active": 2, "recovery": 4, "hitstun": 13, "blockstun": 9 },
+      "heavyPunch": { "damage": 12, "startup": 6, "active": 3, "recovery": 8, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 6, "startup": 4, "active": 2, "recovery": 5, "hitstun": 15, "blockstun": 10 },
+      "heavyKick": { "damage": 14, "startup": 8, "active": 3, "recovery": 10, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 26, "startup": 10, "active": 5, "recovery": 15, "hitstun": 30, "blockstun": 20, "cost": 50 }
     },
     "dialogs": {
       "intro": "Puedo hacer esto todo el dia. En serio. Todo el dia.",
@@ -287,11 +287,11 @@
     "color": "0x4B0082",
     "stats": { "hp": 100, "speed": 4, "power": 3, "defense": 2, "special": 3 },
     "moves": {
-      "lightPunch": { "damage": 5, "startup": 2, "active": 3, "recovery": 3 },
-      "heavyPunch": { "damage": 12, "startup": 5, "active": 4, "recovery": 7 },
-      "lightKick": { "damage": 6, "startup": 3, "active": 3, "recovery": 4 },
-      "heavyKick": { "damage": 14, "startup": 6, "active": 4, "recovery": 8 },
-      "special": { "damage": 28, "startup": 8, "active": 6, "recovery": 13, "cost": 50 }
+      "lightPunch": { "damage": 5, "startup": 2, "active": 3, "recovery": 3, "hitstun": 12, "blockstun": 8 },
+      "heavyPunch": { "damage": 12, "startup": 5, "active": 4, "recovery": 7, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 6, "startup": 3, "active": 3, "recovery": 4, "hitstun": 14, "blockstun": 9 },
+      "heavyKick": { "damage": 14, "startup": 6, "active": 4, "recovery": 8, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 28, "startup": 8, "active": 6, "recovery": 13, "hitstun": 30, "blockstun": 20, "cost": 50 }
     },
     "dialogs": {
       "intro": "Ocho brazos y todos te van a pegar.",
@@ -307,11 +307,11 @@
     "color": "0x87CEEB",
     "stats": { "hp": 100, "speed": 4, "power": 3, "defense": 2, "special": 4 },
     "moves": {
-      "lightPunch": { "damage": 4, "startup": 2, "active": 2, "recovery": 3 },
-      "heavyPunch": { "damage": 11, "startup": 5, "active": 3, "recovery": 7 },
-      "lightKick": { "damage": 5, "startup": 3, "active": 2, "recovery": 4 },
-      "heavyKick": { "damage": 13, "startup": 6, "active": 3, "recovery": 8 },
-      "special": { "damage": 30, "startup": 9, "active": 5, "recovery": 13, "cost": 50 }
+      "lightPunch": { "damage": 4, "startup": 2, "active": 2, "recovery": 3, "hitstun": 12, "blockstun": 8 },
+      "heavyPunch": { "damage": 11, "startup": 5, "active": 3, "recovery": 7, "hitstun": 20, "blockstun": 14 },
+      "lightKick": { "damage": 5, "startup": 3, "active": 2, "recovery": 4, "hitstun": 14, "blockstun": 9 },
+      "heavyKick": { "damage": 13, "startup": 6, "active": 3, "recovery": 8, "hitstun": 22, "blockstun": 15 },
+      "special": { "damage": 30, "startup": 9, "active": 5, "recovery": 13, "hitstun": 30, "blockstun": 20, "cost": 50 }
     },
     "dialogs": {
       "intro": "Mi arco no falla. Vos si.",

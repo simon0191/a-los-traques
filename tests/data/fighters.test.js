@@ -5,7 +5,7 @@ import fighters from '../../src/data/fighters.json';
 const REQUIRED_FIELDS = ['id', 'name', 'stats', 'moves'];
 const _STAT_KEYS = ['hp', 'speed', 'power', 'defense', 'special'];
 const MOVE_TYPES = ['lightPunch', 'heavyPunch', 'lightKick', 'heavyKick', 'special'];
-const MOVE_FIELDS = ['damage', 'startup', 'active', 'recovery'];
+const MOVE_FIELDS = ['damage', 'startup', 'active', 'recovery', 'hitstun', 'blockstun'];
 
 describe('fighters.json data validation', () => {
   it('has 16 fighters', () => {
@@ -51,6 +51,30 @@ describe('fighters.json data validation', () => {
             true,
           );
         }
+      }
+    }
+  });
+
+  it('hitstun >= blockstun for every move', () => {
+    for (const f of fighters) {
+      for (const moveType of MOVE_TYPES) {
+        const move = f.moves[moveType];
+        expect(
+          move.hitstun,
+          `${f.id}.${moveType}: hitstun (${move.hitstun}) should be >= blockstun (${move.blockstun})`,
+        ).toBeGreaterThanOrEqual(move.blockstun);
+      }
+    }
+  });
+
+  it('hitstun and blockstun are within sane ranges (5-50 frames)', () => {
+    for (const f of fighters) {
+      for (const moveType of MOVE_TYPES) {
+        const move = f.moves[moveType];
+        expect(move.hitstun, `${f.id}.${moveType}.hitstun`).toBeGreaterThanOrEqual(5);
+        expect(move.hitstun, `${f.id}.${moveType}.hitstun`).toBeLessThanOrEqual(50);
+        expect(move.blockstun, `${f.id}.${moveType}.blockstun`).toBeGreaterThanOrEqual(5);
+        expect(move.blockstun, `${f.id}.${moveType}.blockstun`).toBeLessThanOrEqual(50);
       }
     }
   });

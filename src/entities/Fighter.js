@@ -327,7 +327,7 @@ export class Fighter {
     };
   }
 
-  takeDamage(amount, attackerSimX) {
+  takeDamage(amount, attackerSimX, stunFrames) {
     if (this.state === 'blocking') {
       amount = calculateBlockDamage(amount);
       this.sprite.clearTint();
@@ -341,7 +341,17 @@ export class Fighter {
     const knockDir = this.simX > attackerSimX ? 1 : -1;
     this.simVX = knockDir * KNOCKBACK_VX_FP;
 
-    if (amount >= 15) {
+    // Use per-move stun if provided, else fall back to legacy constants
+    if (stunFrames != null) {
+      if (amount >= 15) {
+        this.state = 'knockdown';
+        this.hurtTimer = stunFrames;
+        this.simVY = KNOCKBACK_VY_FP;
+      } else {
+        this.state = 'hurt';
+        this.hurtTimer = stunFrames;
+      }
+    } else if (amount >= 15) {
       this.state = 'knockdown';
       this.hurtTimer = HURT_TIMER_KNOCKDOWN;
       this.simVY = KNOCKBACK_VY_FP;
