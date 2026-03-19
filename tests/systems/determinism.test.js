@@ -28,6 +28,12 @@ import {
   WALL_JUMP_Y_FP,
   WALL_SLIDE_SPEED_FP,
 } from '../../src/systems/FixedPoint.js';
+import {
+  captureCombatState,
+  captureFighterState,
+  restoreCombatState,
+  restoreFighterState,
+} from '../../src/systems/GameState.js';
 
 /**
  * Create a pure simulation fighter (no Phaser dependency).
@@ -497,6 +503,54 @@ function runSimulation(inputSequence) {
   };
 }
 
+/**
+ * Run simulation for a range of frames, mutating fighters/combat in place.
+ * Returns nothing — state is modified on the passed-in objects.
+ */
+function runFrames(p1, p2, combat, inputSequence, startFrame, endFrame) {
+  const speed1 = (80 + p1.data.stats.speed * 20) * FP_SCALE;
+  const speed2 = (80 + p2.data.stats.speed * 20) * FP_SCALE;
+
+  for (let f = startFrame; f < endFrame; f++) {
+    const { p1: p1In, p2: p2In } = inputSequence[f];
+    p1.update();
+    p2.update();
+
+    if (p1In.left) p1.moveLeft(speed1);
+    else if (p1In.right) p1.moveRight(speed1);
+    else p1.stop();
+    if (p1In.up) p1.jump();
+    if (p1In.down && p1.isOnGround) p1.block();
+    if (p1In.lp) p1.attack('lightPunch');
+    else if (p1In.hp) p1.attack('heavyPunch');
+    else if (p1In.lk) p1.attack('lightKick');
+    else if (p1In.hk) p1.attack('heavyKick');
+    else if (p1In.sp) p1.attack('special');
+
+    if (p2In.left) p2.moveLeft(speed2);
+    else if (p2In.right) p2.moveRight(speed2);
+    else p2.stop();
+    if (p2In.up) p2.jump();
+    if (p2In.down && p2.isOnGround) p2.block();
+    if (p2In.lp) p2.attack('lightPunch');
+    else if (p2In.hp) p2.attack('heavyPunch');
+    else if (p2In.lk) p2.attack('lightKick');
+    else if (p2In.hk) p2.attack('heavyKick');
+    else if (p2In.sp) p2.attack('special');
+
+    combat.resolveBodyCollision(p1, p2);
+    p1.faceOpponent(p2);
+    p2.faceOpponent(p1);
+    if (combat.roundActive) {
+      combat.checkHit(p1, p2);
+      combat.checkHit(p2, p1);
+      combat.tickTimer();
+    }
+    p1.syncSprite();
+    p2.syncSprite();
+  }
+}
+
 describe('determinism', () => {
   it('two independent simulations with identical inputs produce bit-for-bit identical state', () => {
     const inputs = getInputSequence();
@@ -537,5 +591,180 @@ describe('determinism', () => {
       result1.p2.stamina === result2.p2.stamina;
 
     expect(p1Same && p2Same).toBe(false);
+  });
+});
+
+describe('rollback with new fields', () => {
+  it('snapshot at frame 50, rollback from frame 80, re-simulate matches straight-through', () => {
+    const inputs = getInputSequence();
+
+    // --- Straight-through (reference) ---
+    const refP1 = createSimFighter(144, 0);
+    const refP2 = createSimFighter(336, 1);
+    const refCombat = createSimCombat();
+    runFrames(refP1, refP2, refCombat, inputs, 0, 300);
+    const reference = {
+      p1: extractState(refP1),
+      p2: extractState(refP2),
+      timer: refCombat.timer,
+    };
+
+    // --- Rollback path ---
+    const p1 = createSimFighter(144, 0);
+    const p2 = createSimFighter(336, 1);
+    const combat = createSimCombat();
+
+    // Run to frame 50 and snapshot
+    runFrames(p1, p2, combat, inputs, 0, 50);
+    const snap = {
+      p1: captureFighterState(p1),
+      p2: captureFighterState(p2),
+      combat: captureCombatState(combat),
+    };
+
+    // Run to frame 80 with WRONG inputs (simulate misprediction)
+    const wrongInputs = getInputSequence();
+    for (let f = 50; f < 80; f++) {
+      wrongInputs[f].p1.hk = true; // P1 mashes heavy kick (wrong)
+      wrongInputs[f].p2.left = true; // P2 walks left (wrong)
+    }
+    runFrames(p1, p2, combat, wrongInputs, 50, 80);
+
+    // Rollback: restore to frame 50
+    restoreFighterState(p1, snap.p1);
+    restoreFighterState(p2, snap.p2);
+    restoreCombatState(combat, snap.combat);
+
+    // Re-simulate from 50 to 300 with CORRECT inputs
+    runFrames(p1, p2, combat, inputs, 50, 300);
+    const rollbackResult = {
+      p1: extractState(p1),
+      p2: extractState(p2),
+      timer: combat.timer,
+    };
+
+    expect(rollbackResult).toEqual(reference);
+  });
+
+  it('new fields survive rollback during active attack', () => {
+    const inputs = getInputSequence();
+    const p1 = createSimFighter(144, 0);
+    const p2 = createSimFighter(336, 1);
+    const combat = createSimCombat();
+
+    // Run to frame 53 (P1 attacks at frame 50, then 3 update ticks advance attackFrameElapsed)
+    runFrames(p1, p2, combat, inputs, 0, 53);
+
+    // P1 should be mid-attack with elapsed > 0
+    expect(p1.state).toBe('attacking');
+    expect(p1.attackFrameElapsed).toBeGreaterThan(0);
+
+    // Snapshot mid-attack
+    const snap = captureFighterState(p1);
+    expect(snap.attackFrameElapsed).toBe(p1.attackFrameElapsed);
+    expect(snap.attackCooldown).toBe(p1.attackCooldown);
+
+    // Mutate state
+    p1.attackFrameElapsed = 999;
+    p1.attackCooldown = 999;
+    p1.comboCount = 99;
+    p1.blockTimer = 99;
+
+    // Restore
+    restoreFighterState(p1, snap);
+
+    expect(p1.attackFrameElapsed).toBe(snap.attackFrameElapsed);
+    expect(p1.attackCooldown).toBe(snap.attackCooldown);
+    expect(p1.comboCount).toBe(snap.comboCount);
+    expect(p1.blockTimer).toBe(snap.blockTimer);
+  });
+
+  it('new fields survive rollback during block', () => {
+    const inputs = getInputSequence();
+    const p1 = createSimFighter(144, 0);
+    const p2 = createSimFighter(336, 1);
+    const combat = createSimCombat();
+
+    // Run to frame 49 (P2 blocks at frame 48)
+    runFrames(p1, p2, combat, inputs, 0, 49);
+
+    // P2 should be blocking with blockTimer active
+    expect(p2.state).toBe('blocking');
+    expect(p2.blockTimer).toBeGreaterThan(0);
+
+    const snap = captureFighterState(p2);
+    const savedBlockTimer = snap.blockTimer;
+
+    // Mutate
+    p2.blockTimer = 0;
+    p2.state = 'idle';
+
+    // Restore
+    restoreFighterState(p2, snap);
+    expect(p2.blockTimer).toBe(savedBlockTimer);
+    expect(p2.state).toBe('blocking');
+  });
+
+  it('multiple rollbacks produce identical final state', () => {
+    const inputs = getInputSequence();
+
+    // Reference: straight-through
+    const refP1 = createSimFighter(144, 0);
+    const refP2 = createSimFighter(336, 1);
+    const refCombat = createSimCombat();
+    runFrames(refP1, refP2, refCombat, inputs, 0, 300);
+    const reference = {
+      p1: extractState(refP1),
+      p2: extractState(refP2),
+      timer: refCombat.timer,
+    };
+
+    // Rollback path: snapshot and rollback at multiple points
+    const p1 = createSimFighter(144, 0);
+    const p2 = createSimFighter(336, 1);
+    const combat = createSimCombat();
+
+    // Run to 30, snapshot
+    runFrames(p1, p2, combat, inputs, 0, 30);
+    const snap30 = {
+      p1: captureFighterState(p1),
+      p2: captureFighterState(p2),
+      combat: captureCombatState(combat),
+    };
+
+    // Run to 60 with wrong inputs, rollback to 30
+    const wrong1 = getInputSequence();
+    for (let f = 30; f < 60; f++) wrong1[f].p1.lp = true;
+    runFrames(p1, p2, combat, wrong1, 30, 60);
+    restoreFighterState(p1, snap30.p1);
+    restoreFighterState(p2, snap30.p2);
+    restoreCombatState(combat, snap30.combat);
+
+    // Re-simulate 30-100 correctly, snapshot at 100
+    runFrames(p1, p2, combat, inputs, 30, 100);
+    const snap100 = {
+      p1: captureFighterState(p1),
+      p2: captureFighterState(p2),
+      combat: captureCombatState(combat),
+    };
+
+    // Run to 150 with wrong inputs, rollback to 100
+    const wrong2 = getInputSequence();
+    for (let f = 100; f < 150; f++) wrong2[f].p2.hk = true;
+    runFrames(p1, p2, combat, wrong2, 100, 150);
+    restoreFighterState(p1, snap100.p1);
+    restoreFighterState(p2, snap100.p2);
+    restoreCombatState(combat, snap100.combat);
+
+    // Re-simulate 100-300 correctly
+    runFrames(p1, p2, combat, inputs, 100, 300);
+
+    const result = {
+      p1: extractState(p1),
+      p2: extractState(p2),
+      timer: combat.timer,
+    };
+
+    expect(result).toEqual(reference);
   });
 });
