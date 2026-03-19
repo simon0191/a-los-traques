@@ -26,6 +26,10 @@ const config = {
     },
   },
   parent: 'game-container',
+  fps: {
+    target: 60,
+    forceSetTimeOut: false,
+  },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

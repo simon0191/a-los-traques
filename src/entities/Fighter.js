@@ -82,11 +82,23 @@ export class Fighter {
 
     // Timer for special attack tint (frames)
     this._specialTintTimer = 0;
+
+    // Attack phase tracking (frames elapsed since attack started)
+    this.attackFrameElapsed = 0;
+
+    // Combo counter (incremented on hit while defender in hitstun)
+    this.comboCount = 0;
+
+    // Block commitment timer (minimum frames in block state)
+    this.blockTimer = 0;
   }
 
   update() {
     // Update cooldowns (frame-based — decrement by 1)
-    if (this.attackCooldown > 0) this.attackCooldown--;
+    if (this.attackCooldown > 0) {
+      this.attackCooldown--;
+      this.attackFrameElapsed++;
+    }
 
     // Attack completion (deterministic)
     if (this.attackCooldown <= 0 && this.state === 'attacking') {
@@ -96,6 +108,9 @@ export class Fighter {
       this.state = 'idle';
       this.currentAttack = null;
     }
+
+    // Block commitment timer
+    if (this.blockTimer > 0) this.blockTimer--;
 
     // Special tint timer (frame-based)
     if (this._specialTintTimer > 0) {
@@ -210,6 +225,7 @@ export class Fighter {
 
   moveLeft(speed) {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
     if (this.state === 'blocking') this.sprite.clearTint();
     this.simVX = -speed;
     this.state = 'walking';
@@ -217,6 +233,7 @@ export class Fighter {
 
   moveRight(speed) {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
     if (this.state === 'blocking') this.sprite.clearTint();
     this.simVX = speed;
     this.state = 'walking';
@@ -224,6 +241,7 @@ export class Fighter {
 
   stop() {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
     if (this.state === 'blocking') this.sprite.clearTint();
     this.simVX = 0;
     if (this.isOnGround) this.state = 'idle';
@@ -252,6 +270,24 @@ export class Fighter {
   }
 
   attack(type) {
+    // Normal-to-special cancel: allow cancelling a normal into special on hit
+    if (this.attackCooldown > 0 && this.state === 'attacking') {
+      if (type === 'special' && this.hitConnected && this.currentAttack?.type !== 'special') {
+        const move = this.currentAttack;
+        const cancelEnd = move.startup + move.active + 4; // 4 recovery frames cancel window
+        if (this.attackFrameElapsed >= move.startup && this.attackFrameElapsed < cancelEnd) {
+          // Cancel granted — reset attack state and fall through to execute special
+          this.attackCooldown = 0;
+          this.attackFrameElapsed = 0;
+          this.hitConnected = false;
+        } else {
+          return false; // Outside cancel window
+        }
+      } else {
+        return false; // Can't cancel non-special or on whiff
+      }
+    }
+
     if (this.attackCooldown > 0 || this.state === 'hurt' || this.state === 'knockdown') {
       return false;
     }
@@ -268,6 +304,7 @@ export class Fighter {
     this.state = 'attacking';
     this._prevAnimState = null;
     this.hitConnected = false;
+    this.attackFrameElapsed = 0;
     this.currentAttack = { type, ...moveData };
 
     // Total attack duration in frames
@@ -289,31 +326,58 @@ export class Fighter {
   }
 
   // Returns hitbox as plain FP object {x, y, w, h}
+  // Only active during the 'active' phase (after startup, before recovery)
   getAttackHitbox() {
     if (this.state !== 'attacking' || !this.currentAttack) return null;
 
-    const reach = (this.currentAttack.type.includes('Kick') ? 55 : 45) * FP_SCALE;
+    const move = this.currentAttack;
+    if (
+      this.attackFrameElapsed < move.startup ||
+      this.attackFrameElapsed >= move.startup + move.active
+    ) {
+      return null; // No hitbox during startup or recovery
+    }
+
+    const defaultReach = move.type.includes('Kick') ? 55 : 45;
+    const reach = (move.reach || defaultReach) * FP_SCALE;
+    const h = (move.height || 40) * FP_SCALE;
     const dir = this.facingRight ? 1 : -1;
 
     return {
       x: this.simX + dir * 10 * FP_SCALE,
       y: this.simY - 50 * FP_SCALE,
       w: reach * dir,
-      h: 40 * FP_SCALE,
+      h,
     };
   }
 
   // Returns hurtbox as plain FP object {x, y, w, h}
+  // Varies by state for meaningful vertical gameplay
   getHurtbox() {
+    let w = 36,
+      h = 60,
+      offsetY = 60;
+    if (this.state === 'blocking') {
+      h = 40;
+      offsetY = 40;
+    } // Crouching block
+    else if (!this.isOnGround) {
+      w = 28;
+      h = 50;
+      offsetY = 50;
+    } // Airborne (smaller)
+    else if (this.state === 'attacking') {
+      w = 40;
+    } // Extended body
     return {
-      x: this.simX - 18 * FP_SCALE,
-      y: this.simY - 60 * FP_SCALE,
-      w: 36 * FP_SCALE,
-      h: 60 * FP_SCALE,
+      x: this.simX - Math.trunc(w / 2) * FP_SCALE,
+      y: this.simY - offsetY * FP_SCALE,
+      w: w * FP_SCALE,
+      h: h * FP_SCALE,
     };
   }
 
-  takeDamage(amount, attackerSimX) {
+  takeDamage(amount, attackerSimX, stunFrames) {
     if (this.state === 'blocking') {
       amount = calculateBlockDamage(amount);
       this.sprite.clearTint();
@@ -327,7 +391,17 @@ export class Fighter {
     const knockDir = this.simX > attackerSimX ? 1 : -1;
     this.simVX = knockDir * KNOCKBACK_VX_FP;
 
-    if (amount >= 15) {
+    // Use per-move stun if provided, else fall back to legacy constants
+    if (stunFrames != null) {
+      if (amount >= 15) {
+        this.state = 'knockdown';
+        this.hurtTimer = stunFrames;
+        this.simVY = KNOCKBACK_VY_FP;
+      } else {
+        this.state = 'hurt';
+        this.hurtTimer = stunFrames;
+      }
+    } else if (amount >= 15) {
       this.state = 'knockdown';
       this.hurtTimer = HURT_TIMER_KNOCKDOWN;
       this.simVY = KNOCKBACK_VY_FP;
@@ -341,6 +415,9 @@ export class Fighter {
 
   block() {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
+    if (this.state !== 'blocking') {
+      this.blockTimer = 3; // 3-frame minimum block commitment
+    }
     this.state = 'blocking';
     this.simVX = 0;
     this.sprite.setTint(0x6688ff);
@@ -364,6 +441,9 @@ export class Fighter {
     this.state = 'idle';
     this._prevAnimState = null;
     this.attackCooldown = 0;
+    this.attackFrameElapsed = 0;
+    this.comboCount = 0;
+    this.blockTimer = 0;
     this.hurtTimer = 0;
     this.currentAttack = null;
     this.hitConnected = false;
