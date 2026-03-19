@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { encodeInput } from '../../src/systems/InputBuffer.js';
 
 // Mock PartySocket before importing NetworkManager
 vi.mock('partysocket', () => {
@@ -437,10 +438,34 @@ describe('NetworkManager', () => {
   // ---- Input redundancy (receive side) ----
 
   describe('input history processing', () => {
-    it('fills gaps in remoteInputBuffer from history entries', () => {
+    it('fills gaps in remoteInputBuffer from history entries (encoded integers)', () => {
       const nm = makeManager();
 
-      // Simulate receiving frame 3 with history for frames 1 and 2
+      // History arrives as encoded integers (from RollbackManager.localInputHistory)
+      const hist1 = encodeInput({
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: true,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
+      const hist2 = encodeInput({
+        left: false,
+        right: false,
+        up: true,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
+
+      // Simulate receiving frame 3 with encoded history for frames 1 and 2
       nm._handleMessage({
         type: 'input',
         frame: 3,
@@ -456,46 +481,22 @@ describe('NetworkManager', () => {
           sp: false,
         },
         history: [
-          [
-            1,
-            {
-              left: false,
-              right: true,
-              up: false,
-              down: false,
-              lp: true,
-              hp: false,
-              lk: false,
-              hk: false,
-              sp: false,
-            },
-          ],
-          [
-            2,
-            {
-              left: false,
-              right: false,
-              up: true,
-              down: false,
-              lp: false,
-              hp: false,
-              lk: false,
-              hk: false,
-              sp: false,
-            },
-          ],
+          [1, hist1],
+          [2, hist2],
         ],
       });
 
-      // Primary input stored
+      // Primary input stored as object
       expect(nm.remoteInputBuffer[3]).toBeDefined();
       expect(nm.remoteInputBuffer[3].left).toBe(true);
 
-      // History entries filled gaps
+      // History entries decoded from integers to objects
       expect(nm.remoteInputBuffer[1]).toBeDefined();
+      expect(typeof nm.remoteInputBuffer[1]).toBe('object');
       expect(nm.remoteInputBuffer[1].right).toBe(true);
       expect(nm.remoteInputBuffer[1].lp).toBe(true);
       expect(nm.remoteInputBuffer[2]).toBeDefined();
+      expect(typeof nm.remoteInputBuffer[2]).toBe('object');
       expect(nm.remoteInputBuffer[2].up).toBe(true);
     });
 
@@ -515,7 +516,18 @@ describe('NetworkManager', () => {
         sp: false,
       };
 
-      // Receive frame 3 with history that includes frame 2 with different data
+      // Receive frame 3 with encoded history that includes frame 2 with different data
+      const hist2 = encodeInput({
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
       nm._handleMessage({
         type: 'input',
         frame: 3,
@@ -530,22 +542,7 @@ describe('NetworkManager', () => {
           hk: false,
           sp: false,
         },
-        history: [
-          [
-            2,
-            {
-              left: true,
-              right: false,
-              up: false,
-              down: false,
-              lp: false,
-              hp: false,
-              lk: false,
-              hk: false,
-              sp: false,
-            },
-          ],
-        ],
+        history: [[2, hist2]],
       });
 
       // Frame 2 should retain its original data (hp: true), not be overwritten
@@ -582,6 +579,17 @@ describe('NetworkManager', () => {
       const nm = makeManager();
       nm.isSpectator = true;
 
+      const hist1 = encodeInput({
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
       nm._handleMessage({
         type: 'input',
         frame: 3,
@@ -597,22 +605,7 @@ describe('NetworkManager', () => {
           hk: false,
           sp: false,
         },
-        history: [
-          [
-            1,
-            {
-              left: false,
-              right: true,
-              up: false,
-              down: false,
-              lp: false,
-              hp: false,
-              lk: false,
-              hk: false,
-              sp: false,
-            },
-          ],
-        ],
+        history: [[1, hist1]],
       });
 
       // Spectator buffer gets the primary input

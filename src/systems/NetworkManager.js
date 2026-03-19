@@ -1,4 +1,5 @@
 import PartySocket from 'partysocket';
+import { decodeInput } from './InputBuffer.js';
 
 const PONG_TIMEOUT_MS = 6000;
 
@@ -213,7 +214,7 @@ export class NetworkManager {
           if (msg.history) {
             for (const [hFrame, encodedInput] of msg.history) {
               if (!(hFrame in this.remoteInputBuffer)) {
-                this.remoteInputBuffer[hFrame] = encodedInput;
+                this.remoteInputBuffer[hFrame] = decodeInput(encodedInput);
               }
             }
           }
