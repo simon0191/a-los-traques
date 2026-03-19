@@ -258,6 +258,24 @@ export class Fighter {
   }
 
   attack(type) {
+    // Normal-to-special cancel: allow cancelling a normal into special on hit
+    if (this.attackCooldown > 0 && this.state === 'attacking') {
+      if (type === 'special' && this.hitConnected && this.currentAttack?.type !== 'special') {
+        const move = this.currentAttack;
+        const cancelEnd = move.startup + move.active + 4; // 4 recovery frames cancel window
+        if (this.attackFrameElapsed >= move.startup && this.attackFrameElapsed < cancelEnd) {
+          // Cancel granted — reset attack state and fall through to execute special
+          this.attackCooldown = 0;
+          this.attackFrameElapsed = 0;
+          this.hitConnected = false;
+        } else {
+          return false; // Outside cancel window
+        }
+      } else {
+        return false; // Can't cancel non-special or on whiff
+      }
+    }
+
     if (this.attackCooldown > 0 || this.state === 'hurt' || this.state === 'knockdown') {
       return false;
     }
