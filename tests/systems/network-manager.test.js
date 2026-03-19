@@ -946,7 +946,17 @@ describe('NetworkManager', () => {
       nm._webrtc._simulateOpen();
 
       // Frame 1 already confirmed
-      nm.remoteInputBuffer[1] = { left: true, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+      nm.remoteInputBuffer[1] = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
 
       const hist1 = encodeInput({
         left: false,
