@@ -601,7 +601,9 @@ export class NetworkManager {
   }
 
   resetForReselect() {
-    this._destroyWebRTC();
+    // Note: WebRTC is intentionally preserved across reselect — the P2P
+    // connection established during selection should persist into the fight.
+    // Only destroy/leave/reconnection should tear it down.
     this.remoteInputBuffer = {};
     this.lastRemoteInput = null;
     this.remoteInputBufferP1 = {};

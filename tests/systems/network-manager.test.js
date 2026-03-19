@@ -900,7 +900,7 @@ describe('NetworkManager', () => {
       expect(received.length).toBe(1);
     });
 
-    it('resetForReselect destroys WebRTC and resets state', () => {
+    it('resetForReselect preserves WebRTC connection', () => {
       globalThis.RTCPeerConnection = class {};
       const nm = makeManager();
       nm.playerSlot = 0;
@@ -909,9 +909,10 @@ describe('NetworkManager', () => {
       nm._webrtc._simulateOpen();
 
       nm.resetForReselect();
-      expect(nm._webrtc).toBeNull();
-      expect(nm._webrtcReady).toBe(false);
-      expect(nm._transportMode).toBe('websocket');
+      // WebRTC should survive reselect — it persists across scene transitions
+      expect(nm._webrtc).not.toBeNull();
+      expect(nm._webrtcReady).toBe(true);
+      expect(nm._transportMode).toBe('webrtc');
     });
 
     it('destroy() cleans up WebRTC', () => {
