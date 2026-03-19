@@ -351,3 +351,141 @@ describe('RollbackManager adaptive input delay', () => {
     expect(rm.maxRollbackFrames).toBe(9);
   });
 });
+
+describe('RollbackManager resync', () => {
+  let nm, scene, p1, p2, combat;
+
+  beforeEach(() => {
+    nm = mockNM();
+    scene = mockScene();
+    p1 = mockFighter(144);
+    p2 = mockFighter(336);
+    combat = mockCombat();
+  });
+
+  it('applyResync restores state and resets frame counter', () => {
+    const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
+
+    // Advance a few frames
+    for (let i = 0; i < 10; i++) {
+      rm.advance(noInput, scene, p1, p2, combat);
+    }
+    expect(rm.currentFrame).toBe(10);
+
+    // Create a snapshot as if from P1 at frame 8
+    const snapshot = makeSnapshot({ p1: { hp: 75 }, combat: { timer: 55 } });
+    snapshot.frame = 8;
+
+    rm.applyResync(snapshot, p1, p2, combat);
+
+    expect(rm.currentFrame).toBe(8);
+    expect(p1.hp).toBe(75);
+    expect(combat.timer).toBe(55);
+  });
+
+  it('applyResync clears all histories', () => {
+    const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
+
+    for (let i = 0; i < 5; i++) {
+      rm.advance(noInput, scene, p1, p2, combat);
+    }
+
+    expect(rm.stateSnapshots.size).toBeGreaterThan(0);
+    expect(rm.localInputHistory.size).toBeGreaterThan(0);
+    expect(rm.predictedRemoteInputs.size).toBeGreaterThan(0);
+
+    const snapshot = makeSnapshot();
+    snapshot.frame = 4;
+    rm.applyResync(snapshot, p1, p2, combat);
+
+    // Only the baseline snapshot should remain
+    expect(rm.stateSnapshots.size).toBe(1);
+    expect(rm.stateSnapshots.has(4)).toBe(true);
+    expect(rm.localInputHistory.size).toBe(0);
+    expect(rm.predictedRemoteInputs.size).toBe(0);
+    expect(rm._localChecksums.size).toBe(0);
+  });
+
+  it('applyResync resets resync pending flag', () => {
+    const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
+    rm._resyncPending = true;
+
+    const snapshot = makeSnapshot();
+    snapshot.frame = 0;
+    rm.applyResync(snapshot, p1, p2, combat);
+
+    expect(rm._resyncPending).toBe(false);
+  });
+
+  it('applyResync ignores very stale snapshots', () => {
+    const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
+
+    for (let i = 0; i < 20; i++) {
+      rm.advance(noInput, scene, p1, p2, combat);
+    }
+
+    // Snapshot from frame 5 is too old (currentFrame=20, maxRollback=7, threshold=13)
+    const snapshot = makeSnapshot({ p1: { hp: 50 } });
+    snapshot.frame = 5;
+    rm.applyResync(snapshot, p1, p2, combat);
+
+    // Should be ignored — frame counter unchanged
+    expect(rm.currentFrame).toBe(20);
+    expect(p1.hp).toBe(100); // not changed to 50
+  });
+
+  it('captureResyncSnapshot returns latest snapshot', () => {
+    const rm = new RollbackManager(nm, 0, { inputDelay: 2, maxRollbackFrames: 7 });
+
+    for (let i = 0; i < 5; i++) {
+      rm.advance(noInput, scene, p1, p2, combat);
+    }
+
+    const snapshot = rm.captureResyncSnapshot(p1, p2, combat);
+    expect(snapshot).toBeDefined();
+    expect(snapshot.frame).toBe(4); // currentFrame - 1
+  });
+
+  it('shouldRequestResync respects cooldown', () => {
+    const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
+
+    expect(rm.shouldRequestResync()).toBe(true);
+
+    // Simulate a resync at frame 10
+    rm._lastResyncFrame = 10;
+    rm.currentFrame = 30; // only 20 frames later, cooldown is 60
+
+    expect(rm.shouldRequestResync()).toBe(false);
+
+    rm.currentFrame = 71; // 61 frames later, past cooldown
+
+    expect(rm.shouldRequestResync()).toBe(true);
+  });
+
+  it('shouldRequestResync returns false when pending', () => {
+    const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
+    rm._resyncPending = true;
+
+    expect(rm.shouldRequestResync()).toBe(false);
+  });
+
+  it('applyResync is idempotent for same frame', () => {
+    const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
+
+    for (let i = 0; i < 5; i++) {
+      rm.advance(noInput, scene, p1, p2, combat);
+    }
+
+    const snapshot = makeSnapshot({ p1: { hp: 80 } });
+    snapshot.frame = 4;
+
+    rm.applyResync(snapshot, p1, p2, combat);
+    expect(rm.currentFrame).toBe(4);
+    expect(p1.hp).toBe(80);
+
+    // Apply again — should succeed without error
+    rm.applyResync(snapshot, p1, p2, combat);
+    expect(rm.currentFrame).toBe(4);
+    expect(p1.hp).toBe(80);
+  });
+});

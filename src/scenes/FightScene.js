@@ -670,12 +670,48 @@ export class FightScene extends Phaser.Scene {
       maxRollbackFrames: 7,
     });
 
-    // Wire desync detection
+    // Wire desync detection + resync
     nm.onChecksum((frame, hash) => this.rollbackManager.handleRemoteChecksum(frame, hash));
     this.rollbackManager._onDesync = (frame, localHash, remoteHash) => {
       console.warn(`[DESYNC] frame=${frame} local=${localHash} remote=${remoteHash}`);
       this._showDesyncWarning();
+
+      if (this.isHost) {
+        // P1 proactively sends authoritative state
+        const snapshot = this.rollbackManager.captureResyncSnapshot(
+          this.p1Fighter,
+          this.p2Fighter,
+          this.combat,
+        );
+        nm.sendResync(snapshot);
+      } else if (this.rollbackManager.shouldRequestResync()) {
+        // P2 requests resync from P1
+        this.rollbackManager._resyncPending = true;
+        nm.sendResyncRequest(frame);
+      }
     };
+
+    // P1 responds to resync requests from P2
+    nm.onResyncRequest(() => {
+      if (!this.isHost) return;
+      const snapshot = this.rollbackManager.captureResyncSnapshot(
+        this.p1Fighter,
+        this.p2Fighter,
+        this.combat,
+      );
+      nm.sendResync(snapshot);
+    });
+
+    // P2 applies resync snapshots from P1
+    nm.onResync((msg) => {
+      if (this.isHost) return;
+      console.warn(`[RESYNC] Applying P1 snapshot at frame ${msg.snapshot.frame}`);
+      this.rollbackManager.applyResync(msg.snapshot, this.p1Fighter, this.p2Fighter, this.combat);
+      if (this._desyncWarning) {
+        this._desyncWarning.destroy();
+        this._desyncWarning = null;
+      }
+    });
 
     // Sync counter for spectator snapshots: P1 sends state every N frames
     this._syncInterval = 3;

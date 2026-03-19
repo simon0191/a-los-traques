@@ -194,6 +194,12 @@ export default class FightRoom {
         this._broadcastToSpectators({ ...data, slot });
         break;
       case 'checksum':
+      case 'resync_request':
+        this._sendToOther(slot, data);
+        break;
+      case 'resync':
+        // Only P1 (slot 0) can send authoritative resync snapshots
+        if (slot !== 0) break;
         this._sendToOther(slot, data);
         break;
       case 'sync':

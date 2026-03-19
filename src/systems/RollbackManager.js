@@ -59,6 +59,11 @@ export class RollbackManager {
 
     // Adaptive delay state
     this._adaptiveDelayEnabled = true;
+
+    // Resync state
+    this._resyncPending = false;
+    this._lastResyncFrame = -1;
+    this._resyncCooldown = 60; // min frames between resync attempts
   }
 
   /**
@@ -189,6 +194,69 @@ export class RollbackManager {
         this._onDesync(frame, localHash, remoteHash);
       }
     }
+  }
+
+  /**
+   * Apply an authoritative state snapshot from P1 to resync after desync.
+   * Resets all rollback state and continues simulation from the snapshot's frame.
+   * @param {object} snapshot - Full game state snapshot from captureGameState()
+   * @param {import('../entities/Fighter.js').Fighter} p1
+   * @param {import('../entities/Fighter.js').Fighter} p2
+   * @param {import('./CombatSystem.js').CombatSystem} combat
+   */
+  applyResync(snapshot, p1, p2, combat) {
+    // Ignore stale resync snapshots
+    if (snapshot.frame <= this.currentFrame - this.maxRollbackFrames) return;
+
+    restoreGameState(snapshot, p1, p2, combat);
+    this.currentFrame = snapshot.frame;
+
+    // Clear all stale histories
+    this.stateSnapshots.clear();
+    this.localInputHistory.clear();
+    this.remoteInputHistory.clear();
+    this.predictedRemoteInputs.clear();
+    this._localChecksums.clear();
+
+    // Save restored state as new baseline
+    this.stateSnapshots.set(this.currentFrame, captureGameState(this.currentFrame, p1, p2, combat));
+
+    // Reset prediction state
+    this.lastConfirmedRemoteInput = EMPTY_INPUT;
+    this.lastConfirmedRemoteFrame = this.currentFrame - 1;
+
+    this._resyncPending = false;
+    this._lastResyncFrame = this.currentFrame;
+  }
+
+  /**
+   * Capture the latest available snapshot for resync.
+   * Called by P1 when it needs to send authoritative state.
+   * @param {import('../entities/Fighter.js').Fighter} p1
+   * @param {import('../entities/Fighter.js').Fighter} p2
+   * @param {import('./CombatSystem.js').CombatSystem} combat
+   * @returns {object} game state snapshot
+   */
+  captureResyncSnapshot(p1, p2, combat) {
+    const latestFrame = this.currentFrame - 1;
+    const existing = this.stateSnapshots.get(latestFrame);
+    if (existing) return existing;
+    return captureGameState(this.currentFrame, p1, p2, combat);
+  }
+
+  /**
+   * Whether a resync request should be sent (cooldown check).
+   * @returns {boolean}
+   */
+  shouldRequestResync() {
+    if (this._resyncPending) return false;
+    if (
+      this._lastResyncFrame >= 0 &&
+      this.currentFrame - this._lastResyncFrame < this._resyncCooldown
+    ) {
+      return false;
+    }
+    return true;
   }
 
   /**

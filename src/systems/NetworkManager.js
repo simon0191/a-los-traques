@@ -53,6 +53,8 @@ export class NetworkManager {
     this._onSocketOpen = null;
     this._onRejoinAvailable = null;
     this._onChecksum = null;
+    this._onResyncRequest = null;
+    this._onResync = null;
 
     // B5: Pending callback messages queue
     this._pendingCallbackMessages = {
@@ -221,6 +223,12 @@ export class NetworkManager {
       case 'checksum':
         if (this._onChecksum) this._onChecksum(msg.frame, msg.hash);
         break;
+      case 'resync_request':
+        if (this._onResyncRequest) this._onResyncRequest(msg);
+        break;
+      case 'resync':
+        if (this._onResync) this._onResync(msg);
+        break;
       case 'disconnect':
         if (this._onDisconnect) this._onDisconnect();
         break;
@@ -358,6 +366,12 @@ export class NetworkManager {
   onChecksum(cb) {
     this._onChecksum = cb;
   }
+  onResyncRequest(cb) {
+    this._onResyncRequest = cb;
+  }
+  onResync(cb) {
+    this._onResync = cb;
+  }
 
   // --- Public API: send messages ---
   sendReady(fighterId) {
@@ -374,6 +388,14 @@ export class NetworkManager {
 
   sendChecksum(frame, hash) {
     this._send({ type: 'checksum', frame, hash });
+  }
+
+  sendResyncRequest(frame) {
+    this._send({ type: 'resync_request', frame });
+  }
+
+  sendResync(snapshot) {
+    this._send({ type: 'resync', snapshot });
   }
 
   sendRematch() {
@@ -576,6 +598,8 @@ export class NetworkManager {
     this._onSocketOpen = null;
     this._onRejoinAvailable = null;
     this._onChecksum = null;
+    this._onResyncRequest = null;
+    this._onResync = null;
   }
 
   destroy() {
@@ -619,6 +643,8 @@ export class NetworkManager {
     this._onSocketOpen = null;
     this._onRejoinAvailable = null;
     this._onChecksum = null;
+    this._onResyncRequest = null;
+    this._onResync = null;
 
     // Clear bound handler references
     this._boundOnMessage = null;

@@ -867,5 +867,33 @@ describe('FightRoom', () => {
 
       expect(conn3.send).not.toHaveBeenCalled();
     });
+
+    it('resync_request relayed to other player', () => {
+      room.onMessage(JSON.stringify({ type: 'resync_request', frame: 30 }), conn2);
+
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'resync_request' && m.frame === 30)).toBe(true);
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('resync from slot 0 (P1) relayed to slot 1', () => {
+      const snapshot = { frame: 30, p1: {}, p2: {}, combat: {} };
+      room.onMessage(JSON.stringify({ type: 'resync', snapshot }), conn1);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'resync')).toBe(true);
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('resync from slot 1 (non-P1) is dropped', () => {
+      const snapshot = { frame: 30, p1: {}, p2: {}, combat: {} };
+      room.onMessage(JSON.stringify({ type: 'resync', snapshot }), conn2);
+
+      // P1 should NOT receive it
+      expect(conn1.send).not.toHaveBeenCalled();
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
   });
 });

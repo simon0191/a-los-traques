@@ -356,6 +356,84 @@ describe('NetworkManager', () => {
     });
   });
 
+  // ---- Resync message handling ----
+
+  describe('resync message handling', () => {
+    it('fires onResyncRequest callback', () => {
+      const nm = makeManager();
+      const received = [];
+      nm.onResyncRequest((msg) => received.push(msg));
+
+      nm._handleMessage({ type: 'resync_request', frame: 30 });
+
+      expect(received).toEqual([{ type: 'resync_request', frame: 30 }]);
+    });
+
+    it('fires onResync callback with snapshot', () => {
+      const nm = makeManager();
+      const received = [];
+      nm.onResync((msg) => received.push(msg));
+
+      const snapshot = { frame: 30, p1: { hp: 100 }, p2: { hp: 80 }, combat: { timer: 55 } };
+      nm._handleMessage({ type: 'resync', snapshot });
+
+      expect(received.length).toBe(1);
+      expect(received[0].snapshot.frame).toBe(30);
+    });
+
+    it('does not throw without callbacks registered', () => {
+      const nm = makeManager();
+      expect(() => nm._handleMessage({ type: 'resync_request', frame: 30 })).not.toThrow();
+      expect(() => nm._handleMessage({ type: 'resync', snapshot: {} })).not.toThrow();
+    });
+
+    it('clears resync callbacks on destroy', () => {
+      const nm = makeManager();
+      nm.onResyncRequest(() => {});
+      nm.onResync(() => {});
+
+      nm.destroy();
+
+      expect(nm._onResyncRequest).toBeNull();
+      expect(nm._onResync).toBeNull();
+    });
+
+    it('clears resync callbacks on resetForReselect', () => {
+      const nm = makeManager();
+      nm.onResyncRequest(() => {});
+      nm.onResync(() => {});
+
+      nm.resetForReselect();
+
+      expect(nm._onResyncRequest).toBeNull();
+      expect(nm._onResync).toBeNull();
+    });
+
+    it('sendResyncRequest sends correct message', () => {
+      const nm = makeManager();
+      nm.connected = true;
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+
+      nm.sendResyncRequest(42);
+
+      const sent = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(sent).toEqual({ type: 'resync_request', frame: 42 });
+    });
+
+    it('sendResync sends snapshot message', () => {
+      const nm = makeManager();
+      nm.connected = true;
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+
+      const snapshot = { frame: 30, p1: {}, p2: {}, combat: {} };
+      nm.sendResync(snapshot);
+
+      const sent = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(sent.type).toBe('resync');
+      expect(sent.snapshot.frame).toBe(30);
+    });
+  });
+
   // ---- Input redundancy (receive side) ----
 
   describe('input history processing', () => {
