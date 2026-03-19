@@ -40,17 +40,17 @@ jobs:
           script: |
             const marker = '<!-- party-deploy-preview -->';
             const partyHost = '${{ steps.party.outputs.host }}';
-            const vercelUrl = `https://a-los-traques-git-${context.payload.pull_request.head.ref}-simon0191s-projects.vercel.app`;
-            const previewUrl = `${vercelUrl}?partyHost=${encodeURIComponent(partyHost)}`;
 
             const body = [
               marker,
               '## Party Server Preview',
               '',
               `**Party Server:** ${{ steps.party.outputs.url }}`,
-              `**Webapp + Preview Server:** [Open preview](${previewUrl})`,
               '',
-              '_The webapp link points to the Vercel preview with `?partyHost=` set to the preview party server._',
+              'Append this to your Vercel preview URL to use the preview server:',
+              '```',
+              `?partyHost=${partyHost}`,
+              '```',
             ].join('\n');
 
             const { data: comments } = await github.rest.issues.listComments({
