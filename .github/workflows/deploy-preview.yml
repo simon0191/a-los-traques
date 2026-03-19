@@ -2,11 +2,11 @@ name: Deploy Party Server Preview
 
 on:
   pull_request:
-    types: [labeled]
+    types: [labeled, synchronize]
 
 jobs:
   deploy-preview:
-    if: github.event.label.name == 'party:deploy-preview'
+    if: contains(github.event.pull_request.labels.*.name, 'party:deploy-preview')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
