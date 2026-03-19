@@ -46,6 +46,10 @@ export class NetworkManager {
     this._onFightState = null;
     this._onPotionApplied = null;
     this._onPotion = null;
+    this._onOpponentReconnecting = null;
+    this._onOpponentReconnected = null;
+    this._onSocketClose = null;
+    this._onSocketOpen = null;
 
     // B5: Pending callback messages queue
     this._pendingCallbackMessages = {
@@ -139,9 +143,11 @@ export class NetworkManager {
           this._send({ type: 'ping', t: Date.now() });
         }, 3000);
       }
+      if (this._onSocketOpen) this._onSocketOpen();
     };
     this._boundOnClose = () => {
       this.connected = false;
+      if (this._onSocketClose) this._onSocketClose();
     };
     this._boundOnError = () => {
       if (this._onError) this._onError();
@@ -230,6 +236,12 @@ export class NetworkManager {
       case 'potion':
         if (this._onPotion) this._onPotion(msg.target, msg.potionType);
         break;
+      case 'opponent_reconnecting':
+        if (this._onOpponentReconnecting) this._onOpponentReconnecting();
+        break;
+      case 'opponent_reconnected':
+        if (this._onOpponentReconnected) this._onOpponentReconnected();
+        break;
       case 'pong':
         if (msg.t) {
           this.latency = Date.now() - msg.t;
@@ -294,6 +306,12 @@ export class NetworkManager {
   onPotion(cb) {
     this._onPotion = cb;
   }
+  onOpponentReconnecting(cb) {
+    this._onOpponentReconnecting = cb;
+  }
+  onOpponentReconnected(cb) {
+    this._onOpponentReconnected = cb;
+  }
 
   // --- Public API: send messages ---
   sendReady(fighterId) {
@@ -326,6 +344,10 @@ export class NetworkManager {
 
   sendPotion(target, potionType) {
     this._send({ type: 'potion', target, potionType });
+  }
+
+  sendRejoin(slot) {
+    this._send({ type: 'rejoin', slot });
   }
 
   sendPing() {
@@ -494,6 +516,10 @@ export class NetworkManager {
     this._onLeave = null;
     this._onSync = null;
     this._onRoundEvent = null;
+    this._onOpponentReconnecting = null;
+    this._onOpponentReconnected = null;
+    this._onSocketClose = null;
+    this._onSocketOpen = null;
   }
 
   destroy() {
@@ -530,6 +556,10 @@ export class NetworkManager {
     this._onFightState = null;
     this._onPotionApplied = null;
     this._onPotion = null;
+    this._onOpponentReconnecting = null;
+    this._onOpponentReconnected = null;
+    this._onSocketClose = null;
+    this._onSocketOpen = null;
 
     // Clear bound handler references
     this._boundOnMessage = null;
