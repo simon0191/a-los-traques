@@ -1,6 +1,6 @@
 /** @typedef {{ id: string, fighterId: string|null, ready: boolean }} PlayerSlot */
 
-const GRACE_PERIOD_MS = 10000;
+const GRACE_PERIOD_MS = 20000;
 
 export default class FightRoom {
   constructor(party) {

@@ -258,7 +258,7 @@ describe('FightRoom', () => {
       // Slot preserved during grace period
       expect(room.players[0]).not.toBeNull();
 
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
       expect(room.players[0]).toBeNull();
 
       const msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
@@ -274,7 +274,7 @@ describe('FightRoom', () => {
 
       conn2.send.mockClear();
       room.onClose(conn1);
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
 
       // Room should be reset to pre-match state
       expect(room.roomState).toBe('waiting');
@@ -298,7 +298,7 @@ describe('FightRoom', () => {
 
       room.onClose(conn1);
       room.onClose(conn2);
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
 
       expect(room.roomState).toBe('waiting');
       expect(room.fightInfo).toBeNull();
@@ -394,7 +394,7 @@ describe('FightRoom', () => {
       room.onClose(conn1);
       conn2.send.mockClear();
 
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
 
       expect(room.players[0]).toBeNull();
       const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
@@ -421,7 +421,7 @@ describe('FightRoom', () => {
 
       // Timer should be cancelled — advancing time should NOT send disconnect
       conn2.send.mockClear();
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
       const c2MsgsAfter = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c2MsgsAfter.some((m) => m.type === 'disconnect')).toBe(false);
     });
@@ -510,7 +510,7 @@ describe('FightRoom', () => {
       expect(connRandom.close).not.toHaveBeenCalled();
 
       // They don't send rejoin, so grace expires normally
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
       expect(room.players[0]).toBeNull();
     });
 
@@ -564,7 +564,7 @@ describe('FightRoom', () => {
       expect(room.players[1].id).toBe('c2b');
 
       // Advancing time should not trigger disconnects
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
       expect(room.players[0]).not.toBeNull();
       expect(room.players[1]).not.toBeNull();
     });
@@ -600,7 +600,7 @@ describe('FightRoom', () => {
       conn3.send.mockClear();
 
       room.onClose(conn1);
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
 
       const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c3Msgs.some((m) => m.type === 'return_to_select')).toBe(true);
@@ -612,7 +612,7 @@ describe('FightRoom', () => {
       conn2.send.mockClear();
       room.onClose(conn1);
 
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
 
       const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c2Msgs.some((m) => m.type === 'disconnect')).toBe(true);

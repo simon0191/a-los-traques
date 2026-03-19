@@ -1,6 +1,7 @@
 import PartySocket from 'partysocket';
 
 const INPUT_DELAY = 3;
+const PONG_TIMEOUT_MS = 6000;
 
 // Message types that support callback buffering (B5)
 const BUFFERABLE_TYPES = ['sync', 'round_event', 'start'];
@@ -129,8 +130,13 @@ export class NetworkManager {
         return;
       }
     };
+    this._lastPongTime = 0;
+    this._pongTimeoutFired = false;
+
     this._boundOnOpen = () => {
       this.connected = true;
+      this._lastPongTime = Date.now();
+      this._pongTimeoutFired = false;
       // B4: Flush pending messages on reconnect
       if (this._pendingMessages.length > 0) {
         const pending = this._pendingMessages.splice(0);
@@ -141,6 +147,17 @@ export class NetworkManager {
       // Start ping measurement
       if (!this._pingInterval) {
         this._pingInterval = setInterval(() => {
+          if (
+            !this._pongTimeoutFired &&
+            this._lastPongTime > 0 &&
+            Date.now() - this._lastPongTime > PONG_TIMEOUT_MS
+          ) {
+            this._pongTimeoutFired = true;
+            clearInterval(this._pingInterval);
+            this._pingInterval = null;
+            if (this._onSocketClose) this._onSocketClose();
+            return;
+          }
           this._send({ type: 'ping', t: Date.now() });
         }, 3000);
       }
@@ -247,6 +264,7 @@ export class NetworkManager {
         if (this._onReturnToSelect) this._onReturnToSelect();
         break;
       case 'pong':
+        this._lastPongTime = Date.now();
         if (msg.t) {
           this.latency = Date.now() - msg.t;
           this.rtt = this.latency;
