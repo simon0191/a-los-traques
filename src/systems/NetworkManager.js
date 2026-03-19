@@ -48,6 +48,7 @@ export class NetworkManager {
     this._onPotion = null;
     this._onOpponentReconnecting = null;
     this._onOpponentReconnected = null;
+    this._onReturnToSelect = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
 
@@ -242,6 +243,9 @@ export class NetworkManager {
       case 'opponent_reconnected':
         if (this._onOpponentReconnected) this._onOpponentReconnected();
         break;
+      case 'return_to_select':
+        if (this._onReturnToSelect) this._onReturnToSelect();
+        break;
       case 'pong':
         if (msg.t) {
           this.latency = Date.now() - msg.t;
@@ -311,6 +315,9 @@ export class NetworkManager {
   }
   onOpponentReconnected(cb) {
     this._onOpponentReconnected = cb;
+  }
+  onReturnToSelect(cb) {
+    this._onReturnToSelect = cb;
   }
 
   // --- Public API: send messages ---
@@ -518,6 +525,7 @@ export class NetworkManager {
     this._onRoundEvent = null;
     this._onOpponentReconnecting = null;
     this._onOpponentReconnected = null;
+    this._onReturnToSelect = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
   }
@@ -558,6 +566,7 @@ export class NetworkManager {
     this._onPotion = null;
     this._onOpponentReconnecting = null;
     this._onOpponentReconnected = null;
+    this._onReturnToSelect = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
 

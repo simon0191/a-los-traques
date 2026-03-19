@@ -125,7 +125,7 @@ describe('FightRoom', () => {
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
 
-      expect(room.started).toBe(true);
+      expect(room.roomState).toBe('fighting');
 
       // Both players should get start message
       const allMessages = [
@@ -265,23 +265,28 @@ describe('FightRoom', () => {
       expect(msgs.some((m) => m.type === 'disconnect')).toBe(true);
     });
 
-    it('resets room state when grace period expires after match started', () => {
+    it('sends return_to_select (not disconnect) when grace expires during fight', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      expect(room.started).toBe(true);
+      expect(room.roomState).toBe('fighting');
 
+      conn2.send.mockClear();
       room.onClose(conn1);
       vi.advanceTimersByTime(5000);
 
       // Room should be reset to pre-match state
-      expect(room.started).toBe(false);
+      expect(room.roomState).toBe('waiting');
       expect(room.fightInfo).toBeNull();
       expect(room.players[0]).toBeNull();
-      // Remaining player's ready and fighterId should be reset
       expect(room.players[1].ready).toBe(false);
       expect(room.players[1].fighterId).toBeNull();
+
+      // Should receive return_to_select, NOT disconnect
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'return_to_select')).toBe(true);
+      expect(c2Msgs.some((m) => m.type === 'disconnect')).toBe(false);
     });
 
     it('resets started and fightInfo when both players grace periods expire', () => {
@@ -289,13 +294,13 @@ describe('FightRoom', () => {
       room.onConnect(conn2, makeCtx());
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      expect(room.started).toBe(true);
+      expect(room.roomState).toBe('fighting');
 
       room.onClose(conn1);
       room.onClose(conn2);
       vi.advanceTimersByTime(5000);
 
-      expect(room.started).toBe(false);
+      expect(room.roomState).toBe('waiting');
       expect(room.fightInfo).toBeNull();
     });
   });
@@ -315,7 +320,7 @@ describe('FightRoom', () => {
       expect(room.players[0].fighterId).toBeNull();
       expect(room.players[1].ready).toBe(false);
       expect(room.players[1].fighterId).toBeNull();
-      expect(room.started).toBe(false);
+      expect(room.roomState).toBe('selecting');
       expect(room.fightInfo).toBeNull();
     });
   });
@@ -535,6 +540,41 @@ describe('FightRoom', () => {
       const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c3Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(true);
     });
+
+    it('sends disconnect (not return_to_select) when grace expires during selecting', () => {
+      // Both connected but NOT ready — still in selecting state
+      conn2.send.mockClear();
+      room.onClose(conn1);
+
+      vi.advanceTimersByTime(5000);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'disconnect')).toBe(true);
+      expect(c2Msgs.some((m) => m.type === 'return_to_select')).toBe(false);
+    });
+
+    it('roomState transitions through full lifecycle', () => {
+      expect(room.roomState).toBe('selecting');
+
+      // Both ready → fighting
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
+      expect(room.roomState).toBe('fighting');
+
+      // Disconnect → reconnecting
+      room.onClose(conn1);
+      expect(room.roomState).toBe('reconnecting');
+
+      // Rejoin → back to fighting
+      const conn1b = makeConnection('c1b');
+      party.getConnections = () => [conn1b, conn2, conn3];
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+      expect(room.roomState).toBe('fighting');
+
+      // Leave → selecting
+      room.onMessage(JSON.stringify({ type: 'leave' }), conn1b);
+      expect(room.roomState).toBe('selecting');
+    });
   });
 
   // ---- Malformed input ----
@@ -577,16 +617,16 @@ describe('FightRoom', () => {
     it('ignores ready after game has started', () => {
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      expect(room.started).toBe(true);
+      expect(room.roomState).toBe('fighting');
 
-      // Use leave to reset ready flags but keep started via direct manipulation
+      // Reset ready flags but keep roomState as 'fighting' via direct manipulation
       room.players[0].ready = false;
       room.players[0].fighterId = null;
-      // started is still true
+      // roomState is still 'fighting'
 
       conn2.send.mockClear();
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'hacked' }), conn1);
-      // Should be ignored because started is true
+      // Should be ignored because roomState is 'fighting'
       expect(room.players[0].fighterId).toBeNull();
       expect(conn2.send).not.toHaveBeenCalled();
     });

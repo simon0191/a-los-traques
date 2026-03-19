@@ -722,6 +722,26 @@ export class FightScene extends Phaser.Scene {
     nm.onOpponentReconnected(() => this.reconnectionManager.handleOpponentReconnected());
     nm.onDisconnect(() => this.reconnectionManager.handleOpponentDisconnected());
 
+    // Grace expired during fight — return to fighter select
+    nm.onReturnToSelect(() => {
+      this._reconnecting = false;
+      this._hideReconnectingOverlay();
+      this.combat.roundActive = false;
+      this.centerText.setText('DESCONECTADO');
+      this.subtitleText.setText('Oponente abandono la pelea');
+      this.localFighter.stop();
+      this.remoteFighter.stop();
+      this.time.delayedCall(2000, () => {
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('SelectScene', {
+            gameMode: 'online',
+            networkManager: this.networkManager,
+          });
+        });
+      });
+    });
+
     // Both peers detect KO/timeup independently (deterministic simulation guarantees agreement).
     // P1 still sends round events for spectators only.
 
