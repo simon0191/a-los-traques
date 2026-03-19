@@ -102,15 +102,14 @@ gantt
     Startup (2f)      :active, a_s, 2025-01-01, 2d
     Activo (2f)       :crit, a_a, after a_s, 2d
     Recuperacion (3f) :a_r, after a_a, 3d
-    LIBRE             :done, a_f, after a_r, 3d
+    Ventaja! (5f)     :crit, a_v, after a_r, 5d
 
     section Defensor
     Esperando (4f)    :d_w, 2025-01-01, 4d
     Blockstun (8f)    :active, d_b, after d_w, 8d
-    LIBRE             :done, d_f, after d_b, 3d
 ```
 
-En este ejemplo, el atacante se libera en el frame 7 pero el defensor recien en el frame 12. El atacante tiene **+5 frames de ventaja** — suficiente para tirar otro golpe antes de que el oponente pueda reaccionar.
+El atacante se recupera en el frame 7 pero el defensor sigue en blockstun hasta el frame 12. Esa ventana de **5 frames** es tu oportunidad para atacar de nuevo antes de que el oponente pueda reaccionar.
 
 - **Golpes livianos bloqueados**: vos te recuperas primero (ventaja para el atacante). Podes seguir presionando.
 - **Golpes pesados bloqueados**: tu oponente se recupera primero (desventaja para el atacante). Cuidado.
