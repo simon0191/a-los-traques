@@ -37,15 +37,25 @@ describe('calculateDamage', () => {
 });
 
 describe('calculateBlockDamage', () => {
-  it('reduces damage to 20% (floored)', () => {
+  it('reduces damage to 20% (truncated)', () => {
     expect(calculateBlockDamage(10)).toBe(2);
-    expect(calculateBlockDamage(13)).toBe(2); // floor(2.6) = 2
+    expect(calculateBlockDamage(13)).toBe(2); // trunc(13/5) = 2
     expect(calculateBlockDamage(25)).toBe(5);
   });
 
-  it('floors fractional results', () => {
-    expect(calculateBlockDamage(7)).toBe(1); // floor(1.4) = 1
-    expect(calculateBlockDamage(3)).toBe(0); // floor(0.6) = 0
+  it('truncates fractional results', () => {
+    expect(calculateBlockDamage(7)).toBe(1); // trunc(7/5) = 1
+    expect(calculateBlockDamage(3)).toBe(0); // trunc(3/5) = 0
+  });
+
+  it('uses pure integer math (no floating point)', () => {
+    // Verify determinism: integer division produces identical results
+    // across all platforms, unlike Math.floor(damage * 0.2)
+    for (let d = 0; d <= 100; d++) {
+      const result = calculateBlockDamage(d);
+      expect(Number.isInteger(result)).toBe(true);
+      expect(result).toBe(Math.trunc(d / 5));
+    }
   });
 });
 

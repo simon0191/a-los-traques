@@ -131,7 +131,8 @@ describe('RollbackManager', () => {
 
     it('sends local input to network with inputDelay offset', () => {
       rm.advance(noInput, scene, p1, p2, combat);
-      expect(nm.sendInput).toHaveBeenCalledWith(2, noInput);
+      // 3rd arg is redundant history (empty on first frame)
+      expect(nm.sendInput).toHaveBeenCalledWith(2, noInput, []);
     });
 
     it('stores local input at delayed frame', () => {

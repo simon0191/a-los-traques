@@ -1,8 +1,9 @@
 /**
- * Calculate reduced damage when blocking (20% of original, floored).
+ * Calculate reduced damage when blocking (20% of original, truncated).
+ * Uses integer division for deterministic cross-platform results.
  * @param {number} damage
  * @returns {number}
  */
 export function calculateBlockDamage(damage) {
-  return Math.floor(damage * 0.2);
+  return Math.trunc(damage / 5);
 }

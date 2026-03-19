@@ -845,5 +845,55 @@ describe('FightRoom', () => {
 
       expect(conn3.send).not.toHaveBeenCalled();
     });
+
+    it('checksum relayed to opponent only, not spectators', () => {
+      room.onMessage(JSON.stringify({ type: 'checksum', frame: 30, hash: 12345 }), conn1);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'checksum' && m.frame === 30 && m.hash === 12345)).toBe(
+        true,
+      );
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('checksum from slot 1 relayed to slot 0', () => {
+      room.onMessage(JSON.stringify({ type: 'checksum', frame: 60, hash: 99999 }), conn2);
+
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'checksum' && m.frame === 60 && m.hash === 99999)).toBe(
+        true,
+      );
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('resync_request relayed to other player', () => {
+      room.onMessage(JSON.stringify({ type: 'resync_request', frame: 30 }), conn2);
+
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'resync_request' && m.frame === 30)).toBe(true);
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('resync from slot 0 (P1) relayed to slot 1', () => {
+      const snapshot = { frame: 30, p1: {}, p2: {}, combat: {} };
+      room.onMessage(JSON.stringify({ type: 'resync', snapshot }), conn1);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'resync')).toBe(true);
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('resync from slot 1 (non-P1) is dropped', () => {
+      const snapshot = { frame: 30, p1: {}, p2: {}, combat: {} };
+      room.onMessage(JSON.stringify({ type: 'resync', snapshot }), conn2);
+
+      // P1 should NOT receive it
+      expect(conn1.send).not.toHaveBeenCalled();
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
   });
 });

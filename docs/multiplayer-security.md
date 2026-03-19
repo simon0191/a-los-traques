@@ -27,7 +27,7 @@ flowchart LR
     S <-- "shout, potion" --> Spec
 ```
 
-Both peers run identical deterministic fixed-point simulations. FP integer math ensures bit-for-bit agreement — both independently detect KO, timeup, and round transitions. P1's only special role is sending sync snapshots and round events for spectators.
+Both peers run identical deterministic fixed-point simulations. FP integer math ensures bit-for-bit agreement — both independently detect KO, timeup, and round transitions. P1's additional roles: sending sync snapshots and round events for spectators, and sending authoritative resync snapshots on desync detection.
 
 ## Server-Side Protections (`party/server.js`)
 
@@ -62,6 +62,20 @@ Both peers run identical deterministic fixed-point simulations. FP integer math 
 | `_broadcast()` | Everyone |
 
 Spectator slot check: `if (slot === -1) return;` blocks all player message types from spectators.
+
+### Authority Enforcement
+
+```mermaid
+flowchart TD
+    subgraph "Server enforces sender authority"
+        sync["sync, round_event"] -->|"slot !== 0 → drop"| D1[Dropped]
+        resync["resync"] -->|"slot !== 0 → drop"| D2[Dropped]
+        checksum["checksum,\nresync_request"] -->|"any peer"| R1[Relayed]
+        input["input"] -->|"any peer"| R2[Relayed + spectators]
+    end
+```
+
+Only P1 (slot 0) can send authoritative state messages (`sync`, `round_event`, `resync`). The server drops these from slot 1, preventing P2 from injecting false game state.
 
 ## Client-Side Guards
 

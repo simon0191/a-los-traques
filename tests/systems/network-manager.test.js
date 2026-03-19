@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { encodeInput } from '../../src/systems/InputBuffer.js';
 
 // Mock PartySocket before importing NetworkManager
 vi.mock('partysocket', () => {
@@ -316,6 +317,377 @@ describe('NetworkManager', () => {
 
       nm.destroy();
       expect(nm._onReturnToSelect).toBeNull();
+    });
+  });
+
+  // ---- Checksum callback ----
+
+  describe('checksum message handling', () => {
+    it('fires onChecksum callback with frame and hash', () => {
+      const nm = makeManager();
+      const received = [];
+      nm.onChecksum((frame, hash) => received.push({ frame, hash }));
+
+      nm._handleMessage({ type: 'checksum', frame: 30, hash: 12345 });
+
+      expect(received).toEqual([{ frame: 30, hash: 12345 }]);
+    });
+
+    it('does not throw when no checksum callback is registered', () => {
+      const nm = makeManager();
+      expect(() => nm._handleMessage({ type: 'checksum', frame: 30, hash: 12345 })).not.toThrow();
+    });
+
+    it('clears checksum callback on destroy', () => {
+      const nm = makeManager();
+      nm.onChecksum(() => {});
+      expect(nm._onChecksum).not.toBeNull();
+
+      nm.destroy();
+      expect(nm._onChecksum).toBeNull();
+    });
+
+    it('clears checksum callback on resetForReselect', () => {
+      const nm = makeManager();
+      nm.onChecksum(() => {});
+      expect(nm._onChecksum).not.toBeNull();
+
+      nm.resetForReselect();
+      expect(nm._onChecksum).toBeNull();
+    });
+  });
+
+  // ---- Resync message handling ----
+
+  describe('resync message handling', () => {
+    it('fires onResyncRequest callback', () => {
+      const nm = makeManager();
+      const received = [];
+      nm.onResyncRequest((msg) => received.push(msg));
+
+      nm._handleMessage({ type: 'resync_request', frame: 30 });
+
+      expect(received).toEqual([{ type: 'resync_request', frame: 30 }]);
+    });
+
+    it('fires onResync callback with snapshot', () => {
+      const nm = makeManager();
+      const received = [];
+      nm.onResync((msg) => received.push(msg));
+
+      const snapshot = { frame: 30, p1: { hp: 100 }, p2: { hp: 80 }, combat: { timer: 55 } };
+      nm._handleMessage({ type: 'resync', snapshot });
+
+      expect(received.length).toBe(1);
+      expect(received[0].snapshot.frame).toBe(30);
+    });
+
+    it('does not throw without callbacks registered', () => {
+      const nm = makeManager();
+      expect(() => nm._handleMessage({ type: 'resync_request', frame: 30 })).not.toThrow();
+      expect(() => nm._handleMessage({ type: 'resync', snapshot: {} })).not.toThrow();
+    });
+
+    it('clears resync callbacks on destroy', () => {
+      const nm = makeManager();
+      nm.onResyncRequest(() => {});
+      nm.onResync(() => {});
+
+      nm.destroy();
+
+      expect(nm._onResyncRequest).toBeNull();
+      expect(nm._onResync).toBeNull();
+    });
+
+    it('clears resync callbacks on resetForReselect', () => {
+      const nm = makeManager();
+      nm.onResyncRequest(() => {});
+      nm.onResync(() => {});
+
+      nm.resetForReselect();
+
+      expect(nm._onResyncRequest).toBeNull();
+      expect(nm._onResync).toBeNull();
+    });
+
+    it('sendResyncRequest sends correct message', () => {
+      const nm = makeManager();
+      nm.connected = true;
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+
+      nm.sendResyncRequest(42);
+
+      const sent = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(sent).toEqual({ type: 'resync_request', frame: 42 });
+    });
+
+    it('sendResync sends snapshot message', () => {
+      const nm = makeManager();
+      nm.connected = true;
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+
+      const snapshot = { frame: 30, p1: {}, p2: {}, combat: {} };
+      nm.sendResync(snapshot);
+
+      const sent = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(sent.type).toBe('resync');
+      expect(sent.snapshot.frame).toBe(30);
+    });
+  });
+
+  // ---- Input redundancy (receive side) ----
+
+  describe('input history processing', () => {
+    it('fills gaps in remoteInputBuffer from history entries (encoded integers)', () => {
+      const nm = makeManager();
+
+      // History arrives as encoded integers (from RollbackManager.localInputHistory)
+      const hist1 = encodeInput({
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: true,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
+      const hist2 = encodeInput({
+        left: false,
+        right: false,
+        up: true,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
+
+      // Simulate receiving frame 3 with encoded history for frames 1 and 2
+      nm._handleMessage({
+        type: 'input',
+        frame: 3,
+        state: {
+          left: true,
+          right: false,
+          up: false,
+          down: false,
+          lp: false,
+          hp: false,
+          lk: false,
+          hk: false,
+          sp: false,
+        },
+        history: [
+          [1, hist1],
+          [2, hist2],
+        ],
+      });
+
+      // Primary input stored as object
+      expect(nm.remoteInputBuffer[3]).toBeDefined();
+      expect(nm.remoteInputBuffer[3].left).toBe(true);
+
+      // History entries decoded from integers to objects
+      expect(nm.remoteInputBuffer[1]).toBeDefined();
+      expect(typeof nm.remoteInputBuffer[1]).toBe('object');
+      expect(nm.remoteInputBuffer[1].right).toBe(true);
+      expect(nm.remoteInputBuffer[1].lp).toBe(true);
+      expect(nm.remoteInputBuffer[2]).toBeDefined();
+      expect(typeof nm.remoteInputBuffer[2]).toBe('object');
+      expect(nm.remoteInputBuffer[2].up).toBe(true);
+    });
+
+    it('does not overwrite existing confirmed inputs with history', () => {
+      const nm = makeManager();
+
+      // Frame 2 already confirmed
+      nm.remoteInputBuffer[2] = {
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: true,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+
+      // Receive frame 3 with encoded history that includes frame 2 with different data
+      const hist2 = encodeInput({
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
+      nm._handleMessage({
+        type: 'input',
+        frame: 3,
+        state: {
+          left: false,
+          right: false,
+          up: false,
+          down: false,
+          lp: false,
+          hp: false,
+          lk: false,
+          hk: false,
+          sp: false,
+        },
+        history: [[2, hist2]],
+      });
+
+      // Frame 2 should retain its original data (hp: true), not be overwritten
+      expect(nm.remoteInputBuffer[2].hp).toBe(true);
+      expect(nm.remoteInputBuffer[2].left).toBe(false);
+    });
+
+    it('works when history is absent (backwards compatible)', () => {
+      const nm = makeManager();
+
+      nm._handleMessage({
+        type: 'input',
+        frame: 5,
+        state: {
+          left: false,
+          right: false,
+          up: false,
+          down: false,
+          lp: true,
+          hp: false,
+          lk: false,
+          hk: false,
+          sp: false,
+        },
+      });
+
+      expect(nm.remoteInputBuffer[5]).toBeDefined();
+      expect(nm.remoteInputBuffer[5].lp).toBe(true);
+      // No other frames should exist
+      expect(Object.keys(nm.remoteInputBuffer)).toEqual(['5']);
+    });
+
+    it('does not process history for spectator inputs', () => {
+      const nm = makeManager();
+      nm.isSpectator = true;
+
+      const hist1 = encodeInput({
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      });
+      nm._handleMessage({
+        type: 'input',
+        frame: 3,
+        slot: 0,
+        state: {
+          left: true,
+          right: false,
+          up: false,
+          down: false,
+          lp: false,
+          hp: false,
+          lk: false,
+          hk: false,
+          sp: false,
+        },
+        history: [[1, hist1]],
+      });
+
+      // Spectator buffer gets the primary input
+      expect(nm.remoteInputBufferP1[3]).toBeDefined();
+      // History should NOT be processed for spectators
+      expect(nm.remoteInputBuffer[1]).toBeUndefined();
+      expect(nm.remoteInputBufferP1[1]).toBeUndefined();
+    });
+  });
+
+  // ---- sendChecksum ----
+
+  describe('sendChecksum', () => {
+    it('sends checksum message with frame and hash', () => {
+      const nm = makeManager();
+      nm.connected = true;
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+
+      nm.sendChecksum(30, 12345);
+
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+      const sent = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(sent).toEqual({ type: 'checksum', frame: 30, hash: 12345 });
+    });
+  });
+
+  // ---- sendInput with history ----
+
+  describe('sendInput with history', () => {
+    it('includes history in message when provided', () => {
+      const nm = makeManager();
+      nm.connected = true;
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+
+      const input = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+      const history = [
+        [1, 5],
+        [2, 3],
+      ];
+
+      nm.sendInput(3, input, history);
+
+      const sent = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(sent.type).toBe('input');
+      expect(sent.frame).toBe(3);
+      expect(sent.history).toEqual([
+        [1, 5],
+        [2, 3],
+      ]);
+    });
+
+    it('omits history key when history is empty', () => {
+      const nm = makeManager();
+      nm.connected = true;
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+
+      const input = {
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+
+      nm.sendInput(1, input, []);
+
+      const sent = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(sent.history).toBeUndefined();
     });
   });
 

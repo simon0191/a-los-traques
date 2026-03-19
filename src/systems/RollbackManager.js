@@ -5,9 +5,19 @@
  * a snapshot and re-simulates forward.
  */
 
-import { captureGameState, restoreGameState } from './GameState.js';
+import { ONLINE_INPUT_DELAY } from './FixedPoint.js';
+import { captureGameState, hashGameState, restoreGameState } from './GameState.js';
 import { EMPTY_INPUT, encodeInput, inputsEqual, predictInput } from './InputBuffer.js';
 import { simulateFrame } from './SimulationStep.js';
+
+/** How many past inputs to include in each packet for redundancy */
+const INPUT_REDUNDANCY = 2;
+
+/** How often (in frames) to send/check checksums */
+const CHECKSUM_INTERVAL = 30;
+
+/** How often (in frames) to recalculate adaptive input delay */
+const ADAPTIVE_DELAY_INTERVAL = 180;
 
 export class RollbackManager {
   /**
@@ -15,7 +25,11 @@ export class RollbackManager {
    * @param {number} localSlot - 0 for P1, 1 for P2
    * @param {{ inputDelay?: number, maxRollbackFrames?: number }} [options]
    */
-  constructor(networkManager, localSlot, { inputDelay = 2, maxRollbackFrames = 7 } = {}) {
+  constructor(
+    networkManager,
+    localSlot,
+    { inputDelay = ONLINE_INPUT_DELAY, maxRollbackFrames = 7 } = {},
+  ) {
     this.nm = networkManager;
     this.localSlot = localSlot;
     this.inputDelay = inputDelay;
@@ -37,6 +51,19 @@ export class RollbackManager {
 
     // Stats
     this.rollbackCount = 0;
+
+    // Desync detection
+    this._localChecksums = new Map(); // frame → hash
+    this.desyncCount = 0;
+    this._onDesync = null;
+
+    // Adaptive delay state
+    this._adaptiveDelayEnabled = true;
+
+    // Resync state
+    this._resyncPending = false;
+    this._lastResyncFrame = -1;
+    this._resyncCooldown = 60; // min frames between resync attempts
   }
 
   /**
@@ -54,8 +81,15 @@ export class RollbackManager {
     const targetFrame = this.currentFrame + this.inputDelay;
     this.localInputHistory.set(targetFrame, encodedLocal);
 
-    // 2. Send local input to network with frame number
-    this.nm.sendInput(targetFrame, rawLocalInput);
+    // 2. Send local input to network with frame number + redundant history
+    const history = [];
+    for (let i = 1; i <= INPUT_REDUNDANCY; i++) {
+      const hf = targetFrame - i;
+      if (this.localInputHistory.has(hf)) {
+        history.push([hf, this.localInputHistory.get(hf)]);
+      }
+    }
+    this.nm.sendInput(targetFrame, rawLocalInput, history);
 
     // 3. Drain confirmed remote inputs from NetworkManager
     const confirmed = this.nm.drainConfirmedInputs();
@@ -124,6 +158,105 @@ export class RollbackManager {
 
     // 10. Prune old data beyond rollback window
     this._pruneOldData();
+
+    // 11. Periodic checksum exchange for desync detection
+    if (this.currentFrame > 0 && this.currentFrame % CHECKSUM_INTERVAL === 0) {
+      const snapshot = this.stateSnapshots.get(this.currentFrame - 1);
+      if (snapshot) {
+        const hash = hashGameState(snapshot);
+        const checksumFrame = this.currentFrame - 1;
+        this._localChecksums.set(checksumFrame, hash);
+        this.nm.sendChecksum(checksumFrame, hash);
+      }
+    }
+
+    // 12. Adaptive input delay recalculation
+    if (
+      this._adaptiveDelayEnabled &&
+      this.currentFrame > 0 &&
+      this.currentFrame % ADAPTIVE_DELAY_INTERVAL === 0
+    ) {
+      this._recalculateInputDelay();
+    }
+  }
+
+  /**
+   * Handle a remote checksum message. Compare against local hash for that frame.
+   * @param {number} frame
+   * @param {number} remoteHash
+   */
+  handleRemoteChecksum(frame, remoteHash) {
+    const localHash = this._localChecksums.get(frame);
+    if (localHash === undefined) return; // We don't have this frame's hash yet
+    if (localHash !== remoteHash) {
+      this.desyncCount++;
+      if (this._onDesync) {
+        this._onDesync(frame, localHash, remoteHash);
+      }
+    }
+  }
+
+  /**
+   * Apply an authoritative state snapshot from P1 to resync after desync.
+   * Resets all rollback state and continues simulation from the snapshot's frame.
+   * @param {object} snapshot - Full game state snapshot from captureGameState()
+   * @param {import('../entities/Fighter.js').Fighter} p1
+   * @param {import('../entities/Fighter.js').Fighter} p2
+   * @param {import('./CombatSystem.js').CombatSystem} combat
+   */
+  applyResync(snapshot, p1, p2, combat) {
+    // Ignore stale resync snapshots
+    if (snapshot.frame <= this.currentFrame - this.maxRollbackFrames) return;
+
+    restoreGameState(snapshot, p1, p2, combat);
+    this.currentFrame = snapshot.frame;
+
+    // Clear all stale histories
+    this.stateSnapshots.clear();
+    this.localInputHistory.clear();
+    this.remoteInputHistory.clear();
+    this.predictedRemoteInputs.clear();
+    this._localChecksums.clear();
+
+    // Save restored state as new baseline
+    this.stateSnapshots.set(this.currentFrame, captureGameState(this.currentFrame, p1, p2, combat));
+
+    // Reset prediction state
+    this.lastConfirmedRemoteInput = EMPTY_INPUT;
+    this.lastConfirmedRemoteFrame = this.currentFrame - 1;
+
+    this._resyncPending = false;
+    this._lastResyncFrame = this.currentFrame;
+  }
+
+  /**
+   * Capture the latest available snapshot for resync.
+   * Called by P1 when it needs to send authoritative state.
+   * @param {import('../entities/Fighter.js').Fighter} p1
+   * @param {import('../entities/Fighter.js').Fighter} p2
+   * @param {import('./CombatSystem.js').CombatSystem} combat
+   * @returns {object} game state snapshot
+   */
+  captureResyncSnapshot(p1, p2, combat) {
+    const latestFrame = this.currentFrame - 1;
+    const existing = this.stateSnapshots.get(latestFrame);
+    if (existing) return existing;
+    return captureGameState(this.currentFrame, p1, p2, combat);
+  }
+
+  /**
+   * Whether a resync request should be sent (cooldown check).
+   * @returns {boolean}
+   */
+  shouldRequestResync() {
+    if (this._resyncPending) return false;
+    if (
+      this._lastResyncFrame >= 0 &&
+      this.currentFrame - this._lastResyncFrame < this._resyncCooldown
+    ) {
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -150,6 +283,24 @@ export class RollbackManager {
   }
 
   /**
+   * Recalculate input delay based on smoothed RTT.
+   * Adjusts gradually to avoid jarring jumps.
+   */
+  _recalculateInputDelay() {
+    const rtt = this.nm.rtt || 0;
+    const oneWayFrames = Math.ceil(rtt / 2 / 16.667);
+    const optimal = Math.max(1, Math.min(5, oneWayFrames + 1));
+    // Only increase by 1 per check to avoid jarring jumps
+    if (optimal > this.inputDelay) {
+      this.inputDelay = Math.min(this.inputDelay + 1, optimal);
+    } else {
+      this.inputDelay = optimal;
+    }
+    // Scale rollback window with delay
+    this.maxRollbackFrames = Math.max(7, this.inputDelay * 2 + 1);
+  }
+
+  /**
    * Prune old snapshots, inputs, and predictions beyond the rollback window.
    */
   _pruneOldData() {
@@ -161,6 +312,7 @@ export class RollbackManager {
       this.localInputHistory,
       this.remoteInputHistory,
       this.predictedRemoteInputs,
+      this._localChecksums,
     ]) {
       for (const key of map.keys()) {
         if (key < minFrame) {

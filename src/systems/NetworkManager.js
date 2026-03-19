@@ -1,6 +1,6 @@
 import PartySocket from 'partysocket';
+import { decodeInput } from './InputBuffer.js';
 
-const INPUT_DELAY = 3;
 const PONG_TIMEOUT_MS = 6000;
 
 // Message types that support callback buffering (B5)
@@ -53,6 +53,9 @@ export class NetworkManager {
     this._onSocketClose = null;
     this._onSocketOpen = null;
     this._onRejoinAvailable = null;
+    this._onChecksum = null;
+    this._onResyncRequest = null;
+    this._onResync = null;
 
     // B5: Pending callback messages queue
     this._pendingCallbackMessages = {
@@ -207,8 +210,25 @@ export class NetworkManager {
         } else {
           this.remoteInputBuffer[msg.frame] = msg.state;
           this.lastRemoteInput = msg.state;
+          // Process redundant input history — fill gaps without overwriting confirmed data
+          if (msg.history) {
+            for (const [hFrame, encodedInput] of msg.history) {
+              if (!(hFrame in this.remoteInputBuffer)) {
+                this.remoteInputBuffer[hFrame] = decodeInput(encodedInput);
+              }
+            }
+          }
         }
         if (this._onRemoteInput) this._onRemoteInput(msg.frame, msg.state, msg.slot);
+        break;
+      case 'checksum':
+        if (this._onChecksum) this._onChecksum(msg.frame, msg.hash);
+        break;
+      case 'resync_request':
+        if (this._onResyncRequest) this._onResyncRequest(msg);
+        break;
+      case 'resync':
+        if (this._onResync) this._onResync(msg);
         break;
       case 'disconnect':
         if (this._onDisconnect) this._onDisconnect();
@@ -344,14 +364,39 @@ export class NetworkManager {
   onRejoinAvailable(cb) {
     this._onRejoinAvailable = cb;
   }
+  onChecksum(cb) {
+    this._onChecksum = cb;
+  }
+  onResyncRequest(cb) {
+    this._onResyncRequest = cb;
+  }
+  onResync(cb) {
+    this._onResync = cb;
+  }
 
   // --- Public API: send messages ---
   sendReady(fighterId) {
     this._send({ type: 'ready', fighterId });
   }
 
-  sendInput(frame, inputState) {
-    this._send({ type: 'input', frame, state: inputState });
+  sendInput(frame, inputState, history) {
+    const msg = { type: 'input', frame, state: inputState };
+    if (history && history.length > 0) {
+      msg.history = history;
+    }
+    this._send(msg);
+  }
+
+  sendChecksum(frame, hash) {
+    this._send({ type: 'checksum', frame, hash });
+  }
+
+  sendResyncRequest(frame) {
+    this._send({ type: 'resync_request', frame });
+  }
+
+  sendResync(snapshot) {
+    this._send({ type: 'resync', snapshot });
   }
 
   sendRematch() {
@@ -531,9 +576,6 @@ export class NetworkManager {
   getPlayerSlot() {
     return this.playerSlot;
   }
-  getInputDelay() {
-    return INPUT_DELAY;
-  }
 
   resetForReselect() {
     this.remoteInputBuffer = {};
@@ -556,6 +598,9 @@ export class NetworkManager {
     this._onSocketClose = null;
     this._onSocketOpen = null;
     this._onRejoinAvailable = null;
+    this._onChecksum = null;
+    this._onResyncRequest = null;
+    this._onResync = null;
   }
 
   destroy() {
@@ -598,6 +643,9 @@ export class NetworkManager {
     this._onSocketClose = null;
     this._onSocketOpen = null;
     this._onRejoinAvailable = null;
+    this._onChecksum = null;
+    this._onResyncRequest = null;
+    this._onResync = null;
 
     // Clear bound handler references
     this._boundOnMessage = null;
