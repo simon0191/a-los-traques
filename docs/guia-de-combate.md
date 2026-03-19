@@ -31,16 +31,50 @@
 
 Cada ataque tiene tres fases:
 
-```
-[STARTUP] → [ACTIVO] → [RECUPERACION]
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Startup: Apreta boton
+    Startup --> Activo: Frames de preparacion
+    Activo --> Recuperacion: Frames de golpe
+    Recuperacion --> [*]: Vuelve a idle
+
+    state Startup {
+        direction LR
+        [*] --> [*]: No hay hitbox\nNo podes cancelar
+    }
+    state Activo {
+        direction LR
+        [*] --> [*]: Hitbox activa\nPuede conectar
+    }
+    state Recuperacion {
+        direction LR
+        [*] --> [*]: No hay hitbox\nEstas vulnerable
+    }
 ```
 
 - **Startup**: preparacion del golpe. No podes golpear durante estos frames.
 - **Activo**: el golpe puede conectar. Si el oponente esta en rango, recibe dano.
 - **Recuperacion**: tu personaje se recupera. Estas vulnerable y no podes actuar.
 
-Un golpe liviano (PL) tiene startup corto (~2 frames) y sale rapido pero hace poco dano.
-Un golpe pesado (PP/PaP) tiene startup largo (~5-8 frames) pero hace mucho mas dano.
+Comparacion de golpe liviano vs pesado:
+
+```mermaid
+gantt
+    title Fases de ataque (en frames a 60fps)
+    dateFormat X
+    axisFormat %s
+
+    section Golpe Liviano (PL)
+    Startup (2f)    :active, lp_s, 0, 2
+    Activo (2f)     :crit, lp_a, 2, 4
+    Recuperacion (3f) :lp_r, 4, 7
+
+    section Patada Pesada (PaP)
+    Startup (6f)    :active, hk_s, 0, 6
+    Activo (3f)     :crit, hk_a, 6, 9
+    Recuperacion (9f) :hk_r, 9, 18
+```
 
 **Ejemplo**: Si tiras una patada pesada (6f startup) y tu oponente tira un golpe liviano (2f startup), el golpe liviano conecta primero.
 
@@ -55,6 +89,25 @@ Cuando bloqueas, tu personaje se agacha, haciendo que tu hitbox sea mas chica y 
 ### Ventaja de Frames (Frame Advantage)
 
 Despues de que tu ataque es bloqueado, tanto vos como tu oponente quedan en un estado de recuperacion. Quien se recupera primero tiene la **ventaja de frames**.
+
+```mermaid
+gantt
+    title Frame Advantage: PL bloqueado (Simo)
+    dateFormat X
+    axisFormat %s
+
+    section Atacante
+    Startup (2f)     :active, a_s, 0, 2
+    Activo (2f)      :crit, a_a, 2, 4
+    Recuperacion (3f):a_r, 4, 7
+    LIBRE            :done, a_f, 7, 10
+
+    section Defensor
+    Blockstun (8f)   :active, d_b, 4, 12
+    LIBRE            :done, d_f, 12, 15
+```
+
+En este ejemplo, el atacante se libera en el frame 7 pero el defensor recien en el frame 12. El atacante tiene **+5 frames de ventaja** — suficiente para tirar otro golpe antes de que el oponente pueda reaccionar.
 
 - **Golpes livianos bloqueados**: vos te recuperas primero (ventaja para el atacante). Podes seguir presionando.
 - **Golpes pesados bloqueados**: tu oponente se recupera primero (desventaja para el atacante). Cuidado.
@@ -72,8 +125,18 @@ Esta es la mecanica mas importante para subir de nivel.
 
 Si tu golpe normal **conecta** (no es bloqueado), podes cancelar la animacion tirando un especial (D) durante los frames activos o los primeros 4 frames de recuperacion.
 
-```
-Golpe liviano CONECTA → apreta D → Especial sale inmediatamente
+```mermaid
+flowchart LR
+    A["Golpe normal"] --> B{Conecto?}
+    B -->|Si| C{Ventana\nde cancel?}
+    B -->|No / Bloqueado| D["No cancel\nAtaque sigue normal"]
+    C -->|Activo o\nrecup. temprana| E{Meter ESP\n+ Stamina?}
+    C -->|Fuera de ventana| D
+    E -->|Si| F["CANCEL!\nEspecial sale"]
+    E -->|No| D
+
+    style F fill:#2a2,color:#fff
+    style D fill:#a22,color:#fff
 ```
 
 **Reglas del cancel**:
@@ -103,6 +166,37 @@ Esto evita que un solo combo mate al oponente. Un combo de 2 golpes (normal → 
 - **Wall slide**: tocando una pared, tu velocidad de caida se reduce
 
 Tu hitbox en el aire es mas chica (mas angosta y corta), haciendo que seas mas dificil de golpear.
+
+```mermaid
+block-beta
+    columns 4
+
+    block:idle:1
+        columns 1
+        id1["Idle"]
+        id2["36 x 60"]
+    end
+    block:atk:1
+        columns 1
+        id3["Atacando"]
+        id4["40 x 60"]
+    end
+    block:blk:1
+        columns 1
+        id5["Bloqueando"]
+        id6["36 x 40"]
+    end
+    block:air:1
+        columns 1
+        id7["En el aire"]
+        id8["28 x 50"]
+    end
+
+    style idle fill:#555,color:#fff
+    style atk fill:#a33,color:#fff
+    style blk fill:#36a,color:#fff
+    style air fill:#3a3,color:#fff
+```
 
 ---
 
