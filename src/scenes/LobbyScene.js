@@ -125,7 +125,10 @@ export class LobbyScene extends Phaser.Scene {
 
     this.network.onAssign((_slot) => {
       if (this.isCreator) {
-        const link = `${window.location.origin}${window.location.pathname}?room=${this.roomId}`;
+        const params = new URLSearchParams(window.location.search);
+        const partyHost = params.get('partyHost');
+        const partyHostParam = partyHost ? `&partyHost=${encodeURIComponent(partyHost)}` : '';
+        const link = `${window.location.origin}${window.location.pathname}?room=${this.roomId}${partyHostParam}`;
         this.statusText.setText('Esperando oponente...');
         this.codeLabel.setText('CODIGO:');
         this.codeText.setText(this.roomId.split('').join(' '));
@@ -142,7 +145,7 @@ export class LobbyScene extends Phaser.Scene {
         });
 
         // Add spectator link button
-        const spectatorLink = `${window.location.origin}${window.location.pathname}?room=${this.roomId}&spectate=1`;
+        const spectatorLink = `${window.location.origin}${window.location.pathname}?room=${this.roomId}&spectate=1${partyHostParam}`;
         this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 82, 'ENLACE ESPECTADOR', () => {
           navigator.clipboard.writeText(spectatorLink).catch(() => {});
           this.subText.setText('Enlace espectador copiado!');
