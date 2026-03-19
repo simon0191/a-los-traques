@@ -1,6 +1,7 @@
 /**
  * State snapshot/restore for rollback netcode.
  * Captures all mutable game state into plain JS objects.
+ * Uses FP simulation fields (simX/simY/simVX/simVY) instead of sprite/body.
  */
 
 /**
@@ -10,10 +11,10 @@
  */
 export function captureFighterState(fighter) {
   return {
-    x: fighter.sprite.x,
-    y: fighter.sprite.y,
-    vx: fighter.sprite.body.velocity.x,
-    vy: fighter.sprite.body.velocity.y,
+    simX: fighter.simX,
+    simY: fighter.simY,
+    simVX: fighter.simVX,
+    simVY: fighter.simVY,
     hp: fighter.hp,
     special: fighter.special,
     stamina: fighter.stamina,
@@ -40,10 +41,10 @@ export function captureFighterState(fighter) {
  * @param {object} state
  */
 export function restoreFighterState(fighter, state) {
-  fighter.sprite.x = state.x;
-  fighter.sprite.y = state.y;
-  fighter.sprite.body.velocity.x = state.vx;
-  fighter.sprite.body.velocity.y = state.vy;
+  fighter.simX = state.simX;
+  fighter.simY = state.simY;
+  fighter.simVX = state.simVX;
+  fighter.simVY = state.simVY;
   fighter.hp = state.hp;
   fighter.special = state.special;
   fighter.stamina = state.stamina;
@@ -61,6 +62,8 @@ export function restoreFighterState(fighter, state) {
   fighter._hasWallJumped = state._hasWallJumped;
   fighter._prevAnimState = state._prevAnimState;
   fighter._specialTintTimer = state._specialTintTimer || 0;
+  // Sync sprite after restoring simulation state
+  if (fighter.syncSprite) fighter.syncSprite();
 }
 
 /**
@@ -97,11 +100,6 @@ export function restoreCombatState(combat, state) {
 
 /**
  * Capture full game state snapshot.
- * @param {number} frame
- * @param {import('../entities/Fighter.js').Fighter} p1
- * @param {import('../entities/Fighter.js').Fighter} p2
- * @param {import('./CombatSystem.js').CombatSystem} combat
- * @returns {object}
  */
 export function captureGameState(frame, p1, p2, combat) {
   return {
@@ -114,10 +112,6 @@ export function captureGameState(frame, p1, p2, combat) {
 
 /**
  * Restore full game state from snapshot.
- * @param {object} snapshot
- * @param {import('../entities/Fighter.js').Fighter} p1
- * @param {import('../entities/Fighter.js').Fighter} p2
- * @param {import('./CombatSystem.js').CombatSystem} combat
  */
 export function restoreGameState(snapshot, p1, p2, combat) {
   restoreFighterState(p1, snapshot.p1);

@@ -1,17 +1,30 @@
-import Phaser from 'phaser';
+import { MAX_HP, STAMINA_COSTS } from '../config.js';
 import {
-  GRAVITY,
-  GROUND_Y,
-  MAX_HP,
-  MAX_STAMINA,
-  STAGE_LEFT,
-  STAGE_RIGHT,
-  STAMINA_COSTS,
-  STAMINA_REGEN,
-  WALL_JUMP_X,
-  WALL_JUMP_Y,
-  WALL_SLIDE_SPEED,
-} from '../config.js';
+  DOUBLE_JUMP_AIRBORNE_THRESHOLD,
+  DOUBLE_JUMP_VY_FP,
+  FP_SCALE,
+  fpClamp,
+  GRAVITY_PER_FRAME_FP,
+  GROUND_Y_FP,
+  HURT_TIMER_KNOCKDOWN,
+  HURT_TIMER_LIGHT,
+  JUMP_VY_FP,
+  KNOCKBACK_VX_FP,
+  KNOCKBACK_VY_FP,
+  MAX_SPECIAL_FP,
+  MAX_STAMINA_FP,
+  SPECIAL_COST_FP,
+  SPECIAL_TINT_MAX_FRAMES,
+  STAGE_LEFT_FP,
+  STAGE_RIGHT_FP,
+  STAMINA_REGEN_ATTACKING_PER_FRAME_FP,
+  STAMINA_REGEN_BLOCKING_PER_FRAME_FP,
+  STAMINA_REGEN_IDLE_PER_FRAME_FP,
+  WALL_DETECT_THRESHOLD_FP,
+  WALL_JUMP_X_FP,
+  WALL_JUMP_Y_FP,
+  WALL_SLIDE_SPEED_FP,
+} from '../systems/FixedPoint.js';
 
 export { calculateBlockDamage } from './combat-block.js';
 
@@ -23,15 +36,13 @@ export class Fighter {
     this.data = fighterData;
     this.playerIndex = playerIndex; // 0 or 1
 
-    // Create sprite
+    // Create sprite — physics body kept for compatibility but disabled
     this.sprite = scene.physics.add.sprite(x, y, textureKey);
-    this.sprite.setOrigin(0.5, 1); // Bottom center origin
-    this.sprite.body.setGravityY(GRAVITY);
+    this.sprite.setOrigin(0.5, 1);
+    this.sprite.body.moves = false;
+    this.sprite.body.setAllowGravity(false);
 
     // Check if this fighter has real sprite animations
-    // We verify the texture has more than 1 frame, because Phaser registers
-    // animations even when the spritesheet PNG 404s (falling back to a
-    // single-frame placeholder texture), which causes a crash on play().
     this.fighterId = fighterData.id;
     const idleTexKey = `fighter_${this.fighterId}_idle`;
     const idleTex = scene.textures.exists(idleTexKey) && scene.textures.get(idleTexKey);
@@ -40,38 +51,44 @@ export class Fighter {
       this.sprite.play(`${this.fighterId}_idle`);
     }
 
+    // Fixed-point simulation state
+    this.simX = Math.trunc(x * FP_SCALE);
+    this.simY = Math.trunc(y * FP_SCALE);
+    this.simVX = 0;
+    this.simVY = 0;
+
     // State
     this.hp = MAX_HP;
-    this.special = 0;
-    this.state = 'idle'; // idle, walking, jumping, attacking, hurt, knockdown, blocking, victory, defeat
+    this.special = 0; // FP (0 is same scaled or not)
+    this.state = 'idle';
     this._prevAnimState = null;
     this.facingRight = playerIndex === 0;
-    this.attackCooldown = 0;
-    this.hurtTimer = 0;
+    this.attackCooldown = 0; // frames
+    this.hurtTimer = 0; // frames
     this.isOnGround = true;
-    this.hitConnected = false; // Set true by CombatSystem when attack lands
+    this.hitConnected = false;
 
     // Double jump tracking
     this.hasDoubleJumped = false;
-    this._airborneTime = 0; // ms since leaving ground
+    this._airborneTime = 0; // frames
 
-    // Stamina
-    this.stamina = MAX_STAMINA;
+    // Stamina (FP for fractional regen)
+    this.stamina = MAX_STAMINA_FP;
 
     // Wall jump tracking
     this._isTouchingWall = false;
-    this._wallDir = 0; // -1 = left wall, 1 = right wall
+    this._wallDir = 0;
     this._hasWallJumped = false;
 
-    // Timer for special attack tint (replaces delayedCall for determinism)
+    // Timer for special attack tint (frames)
     this._specialTintTimer = 0;
   }
 
-  update(_time, delta) {
-    // Update cooldowns
-    if (this.attackCooldown > 0) this.attackCooldown -= delta;
+  update() {
+    // Update cooldowns (frame-based — decrement by 1)
+    if (this.attackCooldown > 0) this.attackCooldown--;
 
-    // Attack completion (deterministic — replaces delayedCall)
+    // Attack completion (deterministic)
     if (this.attackCooldown <= 0 && this.state === 'attacking') {
       if (!this.hitConnected && !this.scene._muteEffects) {
         this.scene.game.audioManager.play('whiff');
@@ -80,9 +97,9 @@ export class Fighter {
       this.currentAttack = null;
     }
 
-    // Special tint timer (deterministic — replaces delayedCall)
+    // Special tint timer (frame-based)
     if (this._specialTintTimer > 0) {
-      this._specialTintTimer -= delta;
+      this._specialTintTimer--;
       if (this._specialTintTimer <= 0) {
         this._specialTintTimer = 0;
         if (this.sprite?.clearTint) this.sprite.clearTint();
@@ -90,53 +107,59 @@ export class Fighter {
     }
 
     if (this.hurtTimer > 0) {
-      this.hurtTimer -= delta;
+      this.hurtTimer--;
       if (this.hurtTimer <= 0) this.state = 'idle';
     }
 
-    // Stamina regen
-    const deltaSec = delta / 1000;
-    let regenRate = STAMINA_REGEN.idle;
-    if (this.state === 'attacking') regenRate = STAMINA_REGEN.attacking;
-    else if (this.state === 'blocking') regenRate = STAMINA_REGEN.blocking;
-    this.stamina = Math.min(MAX_STAMINA, this.stamina + regenRate * deltaSec);
+    // Stamina regen (FP integer add)
+    let regenRate = STAMINA_REGEN_IDLE_PER_FRAME_FP;
+    if (this.state === 'attacking') regenRate = STAMINA_REGEN_ATTACKING_PER_FRAME_FP;
+    else if (this.state === 'blocking') regenRate = STAMINA_REGEN_BLOCKING_PER_FRAME_FP;
+    this.stamina = Math.min(MAX_STAMINA_FP, this.stamina + regenRate);
+
+    // Gravity
+    this.simVY += GRAVITY_PER_FRAME_FP;
+
+    // Position integration (integer division, truncate toward zero)
+    this.simY += Math.trunc(this.simVY / 60);
+    this.simX += Math.trunc(this.simVX / 60);
 
     // Ground check
     const wasAirborne = !this.isOnGround;
-    this.isOnGround = this.sprite.body.blocked.down || this.sprite.y >= GROUND_Y;
+    this.isOnGround = this.simY >= GROUND_Y_FP;
     if (this.isOnGround && wasAirborne) {
       this.hasDoubleJumped = false;
       this._hasWallJumped = false;
       this._airborneTime = 0;
     }
     if (!this.isOnGround) {
-      this._airborneTime += delta;
+      this._airborneTime++;
     }
 
     // Clamp to stage bounds
-    this.sprite.x = Phaser.Math.Clamp(this.sprite.x, STAGE_LEFT, STAGE_RIGHT);
+    this.simX = fpClamp(this.simX, STAGE_LEFT_FP, STAGE_RIGHT_FP);
 
     // Wall detection + wall slide
     this._isTouchingWall = false;
     this._wallDir = 0;
     if (!this.isOnGround) {
-      if (this.sprite.x <= STAGE_LEFT + 2) {
+      if (this.simX <= STAGE_LEFT_FP + WALL_DETECT_THRESHOLD_FP) {
         this._isTouchingWall = true;
         this._wallDir = -1;
-      } else if (this.sprite.x >= STAGE_RIGHT - 2) {
+      } else if (this.simX >= STAGE_RIGHT_FP - WALL_DETECT_THRESHOLD_FP) {
         this._isTouchingWall = true;
         this._wallDir = 1;
       }
       // Wall slide: cap downward velocity
-      if (this._isTouchingWall && this.sprite.body.velocity.y > WALL_SLIDE_SPEED) {
-        this.sprite.body.setVelocityY(WALL_SLIDE_SPEED);
+      if (this._isTouchingWall && this.simVY > WALL_SLIDE_SPEED_FP) {
+        this.simVY = WALL_SLIDE_SPEED_FP;
       }
     }
 
     // Floor collision
-    if (this.sprite.y > GROUND_Y) {
-      this.sprite.y = GROUND_Y;
-      this.sprite.body.setVelocityY(0);
+    if (this.simY > GROUND_Y_FP) {
+      this.simY = GROUND_Y_FP;
+      this.simVY = 0;
     }
 
     // Update animation based on state
@@ -146,10 +169,8 @@ export class Fighter {
   }
 
   _updateAnimation() {
-    // Map state to animation key
     let animState = this.state;
     if (animState === 'attacking' && this.currentAttack) {
-      // Map attack types to animation names
       const attackMap = {
         lightPunch: 'light_punch',
         heavyPunch: 'heavy_punch',
@@ -169,10 +190,10 @@ export class Fighter {
     if (animState !== this._prevAnimState) {
       const key = `${this.fighterId}_${animState}`;
       if (this.scene.anims.exists(key)) {
-        // For attack animations, match framerate to attack duration
+        // For attack animations, match framerate to attack duration (in frames → fps)
         if (this.state === 'attacking' && this.currentAttack && this.attackCooldown > 0) {
           const anim = this.scene.anims.get(key);
-          const fps = (anim.frames.length / this.attackCooldown) * 1000;
+          const fps = (anim.frames.length / this.attackCooldown) * 60;
           this.sprite.play({ key, frameRate: fps });
         } else {
           this.sprite.play(key);
@@ -183,28 +204,28 @@ export class Fighter {
   }
 
   faceOpponent(opponent) {
-    this.facingRight = this.sprite.x < opponent.sprite.x;
+    this.facingRight = this.simX < opponent.simX;
     this.sprite.setFlipX(!this.facingRight);
   }
 
   moveLeft(speed) {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
     if (this.state === 'blocking') this.sprite.clearTint();
-    this.sprite.body.setVelocityX(-speed);
+    this.simVX = -speed;
     this.state = 'walking';
   }
 
   moveRight(speed) {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
     if (this.state === 'blocking') this.sprite.clearTint();
-    this.sprite.body.setVelocityX(speed);
+    this.simVX = speed;
     this.state = 'walking';
   }
 
   stop() {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
     if (this.state === 'blocking') this.sprite.clearTint();
-    this.sprite.body.setVelocityX(0);
+    this.simVX = 0;
     if (this.isOnGround) this.state = 'idle';
   }
 
@@ -212,35 +233,32 @@ export class Fighter {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
 
     if (this.isOnGround) {
-      // Normal jump
-      this.sprite.body.setVelocityY(-350);
+      this.simVY = JUMP_VY_FP;
       this.state = 'jumping';
       this.isOnGround = false;
       if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
     } else if (this._isTouchingWall && !this._hasWallJumped) {
-      // Wall jump: push away from wall + upward
       this._hasWallJumped = true;
-      this.hasDoubleJumped = false; // reset double jump
-      this.sprite.body.setVelocityY(WALL_JUMP_Y);
-      this.sprite.body.setVelocityX(-this._wallDir * WALL_JUMP_X);
+      this.hasDoubleJumped = false;
+      this.simVY = WALL_JUMP_Y_FP;
+      this.simVX = -this._wallDir * WALL_JUMP_X_FP;
       this.state = 'jumping';
       if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
-    } else if (!this.hasDoubleJumped && this._airborneTime > 100) {
-      // Double jump: reset Y velocity and boost upward
+    } else if (!this.hasDoubleJumped && this._airborneTime > DOUBLE_JUMP_AIRBORNE_THRESHOLD) {
       this.hasDoubleJumped = true;
-      this.sprite.body.setVelocityY(-380);
+      this.simVY = DOUBLE_JUMP_VY_FP;
       if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
     }
   }
 
   attack(type) {
-    // type: 'lightPunch', 'heavyPunch', 'lightKick', 'heavyKick', 'special'
-    if (this.attackCooldown > 0 || this.state === 'hurt' || this.state === 'knockdown')
+    if (this.attackCooldown > 0 || this.state === 'hurt' || this.state === 'knockdown') {
       return false;
-    if (type === 'special' && this.special < 50) return false;
+    }
+    if (type === 'special' && this.special < SPECIAL_COST_FP) return false;
 
-    // Stamina gate
-    const staCost = STAMINA_COSTS[type] || 15;
+    // Stamina gate (FP)
+    const staCost = (STAMINA_COSTS[type] || 15) * FP_SCALE;
     if (this.stamina < staCost) return false;
     this.stamina -= staCost;
 
@@ -252,61 +270,70 @@ export class Fighter {
     this.hitConnected = false;
     this.currentAttack = { type, ...moveData };
 
-    // Total attack duration in ms (frames at 60fps)
+    // Total attack duration in frames
     const totalFrames = moveData.startup + moveData.active + moveData.recovery;
-    this.attackCooldown = (totalFrames / 60) * 1000;
+    this.attackCooldown = totalFrames;
 
     if (type === 'special') {
-      this.special -= 50;
+      this.special -= SPECIAL_COST_FP;
       if (!this.scene._muteEffects) {
         this.scene.game.audioManager.play('special_charge');
       }
-      // Yellow glow for special attacks (deterministic timer)
       if (!this.scene._muteEffects) {
         this.sprite.setTint(0xffcc00);
       }
-      this._specialTintTimer = Math.min(this.attackCooldown, 400);
+      this._specialTintTimer = Math.min(this.attackCooldown, SPECIAL_TINT_MAX_FRAMES);
     }
-
-    // Attack completion is now handled deterministically in update()
 
     return true;
   }
 
-  // Returns the hitbox rect for the current attack (if in active frames)
+  // Returns hitbox as plain FP object {x, y, w, h}
   getAttackHitbox() {
     if (this.state !== 'attacking' || !this.currentAttack) return null;
 
-    const reach = this.currentAttack.type.includes('Kick') ? 55 : 45;
+    const reach = (this.currentAttack.type.includes('Kick') ? 55 : 45) * FP_SCALE;
     const dir = this.facingRight ? 1 : -1;
 
-    return new Phaser.Geom.Rectangle(this.sprite.x + dir * 10, this.sprite.y - 50, reach * dir, 40);
+    return {
+      x: this.simX + dir * 10 * FP_SCALE,
+      y: this.simY - 50 * FP_SCALE,
+      w: reach * dir,
+      h: 40 * FP_SCALE,
+    };
   }
 
+  // Returns hurtbox as plain FP object {x, y, w, h}
   getHurtbox() {
-    return new Phaser.Geom.Rectangle(this.sprite.x - 18, this.sprite.y - 60, 36, 60);
+    return {
+      x: this.simX - 18 * FP_SCALE,
+      y: this.simY - 60 * FP_SCALE,
+      w: 36 * FP_SCALE,
+      h: 60 * FP_SCALE,
+    };
   }
 
-  takeDamage(amount, attackerX) {
+  takeDamage(amount, attackerSimX) {
     if (this.state === 'blocking') {
       amount = calculateBlockDamage(amount);
-      this.sprite.clearTint(); // Clear block tint
+      this.sprite.clearTint();
     }
 
     this.hp = Math.max(0, this.hp - amount);
-    this.special = Math.min(100, this.special + amount * 0.8); // Gain special from taking damage
+    // Gain special from damage: 0.8 * FP_SCALE = 800
+    this.special = Math.min(MAX_SPECIAL_FP, this.special + amount * 800);
 
-    // Knockback
-    const knockDir = this.sprite.x > attackerX ? 1 : -1;
-    this.sprite.body.setVelocityX(knockDir * 150);
+    // Knockback direction based on FP positions
+    const knockDir = this.simX > attackerSimX ? 1 : -1;
+    this.simVX = knockDir * KNOCKBACK_VX_FP;
 
     if (amount >= 15) {
       this.state = 'knockdown';
-      this.hurtTimer = 800;
-      this.sprite.body.setVelocityY(-200);
+      this.hurtTimer = HURT_TIMER_KNOCKDOWN;
+      this.simVY = KNOCKBACK_VY_FP;
     } else {
       this.state = 'hurt';
-      this.hurtTimer = 300;
+      this.hurtTimer = HURT_TIMER_LIGHT;
     }
 
     return this.hp <= 0;
@@ -315,14 +342,22 @@ export class Fighter {
   block() {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
     this.state = 'blocking';
-    this.sprite.body.setVelocityX(0);
-    // Blue tint while blocking
+    this.simVX = 0;
     this.sprite.setTint(0x6688ff);
   }
 
+  /** Sync sprite position from simulation state. Call after simulation frame. */
+  syncSprite() {
+    this.sprite.x = this.simX / FP_SCALE;
+    this.sprite.y = this.simY / FP_SCALE;
+  }
+
   reset(x) {
-    this.sprite.setPosition(x, GROUND_Y);
-    this.sprite.body.setVelocity(0, 0);
+    this.simX = Math.trunc(x * FP_SCALE);
+    this.simY = GROUND_Y_FP;
+    this.simVX = 0;
+    this.simVY = 0;
+    this.syncSprite();
     this.sprite.clearTint();
     this.hp = MAX_HP;
     this.special = 0;
@@ -334,7 +369,7 @@ export class Fighter {
     this.hitConnected = false;
     this.hasDoubleJumped = false;
     this._airborneTime = 0;
-    this.stamina = MAX_STAMINA;
+    this.stamina = MAX_STAMINA_FP;
     this._isTouchingWall = false;
     this._wallDir = 0;
     this._hasWallJumped = false;

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { FP_SCALE } from '../../src/systems/FixedPoint.js';
 import { EMPTY_INPUT, encodeInput } from '../../src/systems/InputBuffer.js';
-import { FIXED_DELTA } from '../../src/systems/SimulationStep.js';
 
-describe('FIXED_DELTA', () => {
-  it('equals 1000/60 for 60fps', () => {
-    expect(FIXED_DELTA).toBeCloseTo(16.6667, 3);
+describe('FP_SCALE', () => {
+  it('equals 1000 for 1000x scaling', () => {
+    expect(FP_SCALE).toBe(1000);
   });
 });
 

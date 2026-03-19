@@ -7,7 +7,7 @@
 
 import { captureGameState, restoreGameState } from './GameState.js';
 import { EMPTY_INPUT, encodeInput, inputsEqual, predictInput } from './InputBuffer.js';
-import { FIXED_DELTA, simulateFrame } from './SimulationStep.js';
+import { simulateFrame } from './SimulationStep.js';
 
 export class RollbackManager {
   /**
@@ -96,7 +96,7 @@ export class RollbackManager {
         for (let f = rollbackFrame; f < this.currentFrame; f++) {
           const p1Input = this._getInputForFrame(f, true);
           const p2Input = this._getInputForFrame(f, false);
-          simulateFrame(p1, p2, combat, p1Input, p2Input, FIXED_DELTA, { muteEffects: true });
+          simulateFrame(p1, p2, combat, p1Input, p2Input, { muteEffects: true });
 
           // Save corrected snapshot
           this.stateSnapshots.set(f + 1, captureGameState(f + 1, p1, p2, combat));
@@ -114,10 +114,10 @@ export class RollbackManager {
     // 7. Save snapshot for currentFrame (before simulating)
     this.stateSnapshots.set(this.currentFrame, captureGameState(this.currentFrame, p1, p2, combat));
 
-    // 8. Simulate currentFrame with FIXED_DELTA
+    // 8. Simulate currentFrame
     const p1Input = this._getInputForFrame(this.currentFrame, true);
     const p2Input = this._getInputForFrame(this.currentFrame, false);
-    simulateFrame(p1, p2, combat, p1Input, p2Input, FIXED_DELTA);
+    simulateFrame(p1, p2, combat, p1Input, p2Input);
 
     // 9. Advance frame
     this.currentFrame++;

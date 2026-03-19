@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { FP_SCALE, GROUND_Y_FP } from '../../src/systems/FixedPoint.js';
 import {
   captureCombatState,
   captureFighterState,
@@ -10,14 +11,13 @@ import {
 
 function makeFighter(overrides = {}) {
   return {
-    sprite: {
-      x: 100,
-      y: 200,
-      body: { velocity: { x: 50, y: -100 } },
-    },
+    simX: 100 * FP_SCALE,
+    simY: GROUND_Y_FP,
+    simVX: 50 * FP_SCALE,
+    simVY: -100 * FP_SCALE,
     hp: 80,
-    special: 30,
-    stamina: 70,
+    special: 30 * FP_SCALE,
+    stamina: 70 * FP_SCALE,
     state: 'idle',
     attackCooldown: 0,
     hurtTimer: 0,
@@ -32,6 +32,7 @@ function makeFighter(overrides = {}) {
     _hasWallJumped: false,
     _prevAnimState: null,
     _specialTintTimer: 0,
+    syncSprite: vi.fn(),
     ...overrides,
   };
 }
@@ -53,43 +54,42 @@ describe('captureFighterState / restoreFighterState', () => {
   it('roundtrips all fields correctly', () => {
     const fighter = makeFighter({
       hp: 42,
-      special: 75,
-      stamina: 55,
+      special: 75 * FP_SCALE,
+      stamina: 55 * FP_SCALE,
       state: 'attacking',
-      attackCooldown: 150,
+      attackCooldown: 10,
       hurtTimer: 0,
       hitConnected: true,
       currentAttack: { type: 'lightPunch', damage: 8, startup: 3, active: 2, recovery: 5 },
       isOnGround: false,
-      _airborneTime: 200,
+      _airborneTime: 12,
       hasDoubleJumped: true,
       facingRight: false,
       _isTouchingWall: true,
       _wallDir: -1,
       _hasWallJumped: true,
       _prevAnimState: 'light_punch',
-      _specialTintTimer: 100,
+      _specialTintTimer: 6,
     });
-    fighter.sprite.x = 250;
-    fighter.sprite.y = 180;
-    fighter.sprite.body.velocity.x = -80;
-    fighter.sprite.body.velocity.y = 200;
+    fighter.simX = 250 * FP_SCALE;
+    fighter.simY = 180 * FP_SCALE;
+    fighter.simVX = -80 * FP_SCALE;
+    fighter.simVY = 200 * FP_SCALE;
 
     const snapshot = captureFighterState(fighter);
 
-    // Mutate the fighter
     const target = makeFighter();
     restoreFighterState(target, snapshot);
 
-    expect(target.sprite.x).toBe(250);
-    expect(target.sprite.y).toBe(180);
-    expect(target.sprite.body.velocity.x).toBe(-80);
-    expect(target.sprite.body.velocity.y).toBe(200);
+    expect(target.simX).toBe(250 * FP_SCALE);
+    expect(target.simY).toBe(180 * FP_SCALE);
+    expect(target.simVX).toBe(-80 * FP_SCALE);
+    expect(target.simVY).toBe(200 * FP_SCALE);
     expect(target.hp).toBe(42);
-    expect(target.special).toBe(75);
-    expect(target.stamina).toBe(55);
+    expect(target.special).toBe(75 * FP_SCALE);
+    expect(target.stamina).toBe(55 * FP_SCALE);
     expect(target.state).toBe('attacking');
-    expect(target.attackCooldown).toBe(150);
+    expect(target.attackCooldown).toBe(10);
     expect(target.hitConnected).toBe(true);
     expect(target.currentAttack).toEqual({
       type: 'lightPunch',
@@ -99,14 +99,15 @@ describe('captureFighterState / restoreFighterState', () => {
       recovery: 5,
     });
     expect(target.isOnGround).toBe(false);
-    expect(target._airborneTime).toBe(200);
+    expect(target._airborneTime).toBe(12);
     expect(target.hasDoubleJumped).toBe(true);
     expect(target.facingRight).toBe(false);
     expect(target._isTouchingWall).toBe(true);
     expect(target._wallDir).toBe(-1);
     expect(target._hasWallJumped).toBe(true);
     expect(target._prevAnimState).toBe('light_punch');
-    expect(target._specialTintTimer).toBe(100);
+    expect(target._specialTintTimer).toBe(6);
+    expect(target.syncSprite).toHaveBeenCalled();
   });
 
   it('deep copies currentAttack (no shared references)', () => {
@@ -164,7 +165,6 @@ describe('captureGameState / restoreGameState', () => {
     const snapshot = captureGameState(10, p1, p2, combat);
     expect(snapshot.frame).toBe(10);
 
-    // Mutate everything
     p1.hp = 0;
     p2.hp = 0;
     combat.timer = 0;

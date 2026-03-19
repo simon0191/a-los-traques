@@ -1,12 +1,11 @@
 /**
  * Deterministic frame advance for rollback netcode.
  * Extracts a pure simulation step from FightScene.
+ * Frame-based — no delta time needed.
  */
 
+import { FP_SCALE } from './FixedPoint.js';
 import { decodeInput } from './InputBuffer.js';
-
-/** Fixed delta for online simulation (60fps) */
-export const FIXED_DELTA = 1000 / 60;
 
 /**
  * Apply decoded input to a fighter.
@@ -14,7 +13,7 @@ export const FIXED_DELTA = 1000 / 60;
  * @param {object} inputState - { left, right, up, down, lp, hp, lk, hk, sp }
  */
 export function applyInputToFighter(fighter, inputState) {
-  const speed = 80 + fighter.data.stats.speed * 20;
+  const speed = (80 + fighter.data.stats.speed * 20) * FP_SCALE;
 
   if (inputState.left) {
     fighter.moveLeft(speed);
@@ -39,12 +38,12 @@ export function applyInputToFighter(fighter, inputState) {
 
 /**
  * Run one deterministic simulation frame.
+ * No delta parameter — all physics is frame-based integer math.
  * @param {import('../entities/Fighter.js').Fighter} p1Fighter
  * @param {import('../entities/Fighter.js').Fighter} p2Fighter
  * @param {import('./CombatSystem.js').CombatSystem} combat
  * @param {number} p1Input - Encoded input for P1
  * @param {number} p2Input - Encoded input for P2
- * @param {number} delta - Frame delta in ms (should be FIXED_DELTA for online)
  * @param {{ muteEffects?: boolean }} [options]
  */
 export function simulateFrame(
@@ -53,12 +52,11 @@ export function simulateFrame(
   combat,
   p1Input,
   p2Input,
-  delta,
   { muteEffects = false } = {},
 ) {
   // 1. Update fighters (gravity, cooldowns, timers, ground check)
-  p1Fighter.update(null, delta);
-  p2Fighter.update(null, delta);
+  p1Fighter.update();
+  p2Fighter.update();
 
   // 2. Apply inputs
   const p1State = decodeInput(p1Input);
@@ -81,4 +79,8 @@ export function simulateFrame(
     // 6. Tick timer
     combat.tickTimer();
   }
+
+  // 7. Sync sprites (rendering only)
+  p1Fighter.syncSprite();
+  p2Fighter.syncSprite();
 }
