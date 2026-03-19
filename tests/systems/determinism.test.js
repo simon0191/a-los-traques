@@ -200,13 +200,15 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
           this.attackFrameElapsed >= move.startup + move.active) {
         return null;
       }
-      const reach = (this.currentAttack.type.includes('Kick') ? 55 : 45) * FP_SCALE;
+      const defaultReach = this.currentAttack.type.includes('Kick') ? 55 : 45;
+      const reach = (this.currentAttack.reach || defaultReach) * FP_SCALE;
+      const h = (this.currentAttack.height || 40) * FP_SCALE;
       const dir = this.facingRight ? 1 : -1;
       return {
         x: this.simX + dir * 10 * FP_SCALE,
         y: this.simY - 50 * FP_SCALE,
         w: reach * dir,
-        h: 40 * FP_SCALE,
+        h,
       };
     },
     getHurtbox() {

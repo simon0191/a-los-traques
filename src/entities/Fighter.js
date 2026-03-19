@@ -336,14 +336,16 @@ export class Fighter {
       return null; // No hitbox during startup or recovery
     }
 
-    const reach = (this.currentAttack.type.includes('Kick') ? 55 : 45) * FP_SCALE;
+    const defaultReach = move.type.includes('Kick') ? 55 : 45;
+    const reach = (move.reach || defaultReach) * FP_SCALE;
+    const h = (move.height || 40) * FP_SCALE;
     const dir = this.facingRight ? 1 : -1;
 
     return {
       x: this.simX + dir * 10 * FP_SCALE,
       y: this.simY - 50 * FP_SCALE,
       w: reach * dir,
-      h: 40 * FP_SCALE,
+      h,
     };
   }
 
