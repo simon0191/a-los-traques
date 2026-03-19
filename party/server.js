@@ -1,5 +1,7 @@
 /** @typedef {{ id: string, fighterId: string|null, ready: boolean }} PlayerSlot */
 
+const GRACE_PERIOD_MS = 5000;
+
 export default class FightRoom {
   constructor(party) {
     this.party = party;
@@ -12,6 +14,8 @@ export default class FightRoom {
     this._shoutCooldowns = new Map();
     /** @type {Map<string, number>} potion rate-limit: connId -> last potion timestamp */
     this._potionCooldowns = new Map();
+    /** @type {(ReturnType<typeof setTimeout>|null)[]} grace period timers per slot */
+    this._graceTimers = [null, null];
   }
 
   onConnect(connection, ctx) {
@@ -77,6 +81,19 @@ export default class FightRoom {
     } catch {
       return;
     }
+    // Handle rejoin before slot lookup (new connection doesn't have a slot yet)
+    if (data.type === 'rejoin') {
+      const rejoinSlot = data.slot;
+      if (rejoinSlot !== 0 && rejoinSlot !== 1) return;
+      if (!this._graceTimers[rejoinSlot]) return;
+      clearTimeout(this._graceTimers[rejoinSlot]);
+      this._graceTimers[rejoinSlot] = null;
+      this.players[rejoinSlot].id = connection.id;
+      this._sendToOther(rejoinSlot, { type: 'opponent_reconnected' });
+      this._broadcastToSpectators({ type: 'opponent_reconnected' });
+      return;
+    }
+
     const slot = this._slotOf(connection.id);
     const isSpectator = this._isSpectator(connection.id);
 
@@ -157,6 +174,11 @@ export default class FightRoom {
         this._sendToOther(slot, data);
         break;
       case 'leave':
+        // If grace timer active for this player, cancel it and disconnect immediately
+        if (this._graceTimers[slot]) {
+          clearTimeout(this._graceTimers[slot]);
+          this._graceTimers[slot] = null;
+        }
         // Reset both players' ready state so they can re-select fighters
         for (let i = 0; i < 2; i++) {
           if (this.players[i]) {
@@ -184,11 +206,23 @@ export default class FightRoom {
     const slot = this._slotOf(connection.id);
     if (slot === -1) return;
 
+    // Start grace period — keep slot reserved, notify opponent
+    this._sendToOther(slot, { type: 'opponent_reconnecting' });
+    this._broadcastToSpectators({ type: 'opponent_reconnecting' });
+
+    this._graceTimers[slot] = setTimeout(() => {
+      this._graceTimers[slot] = null;
+      this._finalizeDisconnect(slot);
+    }, GRACE_PERIOD_MS);
+  }
+
+  /** Run permanent disconnect logic for a slot (grace expired or intentional leave). */
+  _finalizeDisconnect(slot) {
     this.players[slot] = null;
     this._sendToOther(slot, { type: 'disconnect' });
     this._broadcastToSpectators({ type: 'disconnect' });
 
-    // Reset room to pre-match state so reconnection can start a new match
+    // Reset room to pre-match state
     this.started = false;
     this.fightInfo = null;
     const otherSlot = slot === 0 ? 1 : 0;
@@ -208,14 +242,14 @@ export default class FightRoom {
     return this.spectators.has(connId);
   }
 
-  /** Remove player slots whose connection is no longer alive */
+  /** Remove player slots whose connection is no longer alive (skip slots with active grace timers) */
   _cleanupStaleSlots() {
     const liveIds = new Set();
     for (const conn of this.party.getConnections()) {
       liveIds.add(conn.id);
     }
     for (let i = 0; i < 2; i++) {
-      if (this.players[i] && !liveIds.has(this.players[i].id)) {
+      if (this.players[i] && !liveIds.has(this.players[i].id) && !this._graceTimers[i]) {
         this.players[i] = null;
       }
     }

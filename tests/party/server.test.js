@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import FightRoom from '../../party/server.js';
 
 // --- Helpers ---
@@ -241,19 +241,31 @@ describe('FightRoom', () => {
   // ---- Disconnect ----
 
   describe('disconnect', () => {
-    it('clears player slot and notifies opponent', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('clears player slot and notifies opponent after grace period expires', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
       conn2.send.mockClear();
 
       room.onClose(conn1);
+      // Slot preserved during grace period
+      expect(room.players[0]).not.toBeNull();
+
+      vi.advanceTimersByTime(5000);
       expect(room.players[0]).toBeNull();
 
       const msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(msgs.some((m) => m.type === 'disconnect')).toBe(true);
     });
 
-    it('resets room state when one player disconnects after match started', () => {
+    it('resets room state when grace period expires after match started', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
@@ -261,6 +273,7 @@ describe('FightRoom', () => {
       expect(room.started).toBe(true);
 
       room.onClose(conn1);
+      vi.advanceTimersByTime(5000);
 
       // Room should be reset to pre-match state
       expect(room.started).toBe(false);
@@ -271,7 +284,7 @@ describe('FightRoom', () => {
       expect(room.players[1].fighterId).toBeNull();
     });
 
-    it('resets started and fightInfo when both players gone', () => {
+    it('resets started and fightInfo when both players grace periods expire', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
@@ -280,6 +293,8 @@ describe('FightRoom', () => {
 
       room.onClose(conn1);
       room.onClose(conn2);
+      vi.advanceTimersByTime(5000);
+
       expect(room.started).toBe(false);
       expect(room.fightInfo).toBeNull();
     });
@@ -338,6 +353,187 @@ describe('FightRoom', () => {
 
       const c1MsgsAfter = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c1MsgsAfter.some((m) => m.type === 'spectator_count' && m.count === 0)).toBe(true);
+    });
+  });
+
+  // ---- Grace period ----
+
+  describe('grace period', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      conn1.send.mockClear();
+      conn2.send.mockClear();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('sends opponent_reconnecting on player disconnect (not disconnect)', () => {
+      room.onClose(conn1);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'opponent_reconnecting')).toBe(true);
+      expect(c2Msgs.some((m) => m.type === 'disconnect')).toBe(false);
+    });
+
+    it('preserves slot during grace period', () => {
+      room.onClose(conn1);
+      expect(room.players[0]).not.toBeNull();
+      expect(room.players[0].id).toBe('c1');
+    });
+
+    it('sends disconnect and clears slot when grace timer expires', () => {
+      room.onClose(conn1);
+      conn2.send.mockClear();
+
+      vi.advanceTimersByTime(5000);
+
+      expect(room.players[0]).toBeNull();
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'disconnect')).toBe(true);
+    });
+
+    it('rejoin during grace period cancels timer and sends opponent_reconnected', () => {
+      room.onClose(conn1);
+      conn2.send.mockClear();
+
+      // conn1 reconnects with new connection
+      const conn1b = makeConnection('c1b');
+      party.getConnections = () => [conn1b, conn2, conn3];
+
+      // Send rejoin from new connection
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+
+      // Slot should be reassigned to new connection
+      expect(room.players[0].id).toBe('c1b');
+
+      // Opponent should get opponent_reconnected
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(true);
+
+      // Timer should be cancelled — advancing time should NOT send disconnect
+      conn2.send.mockClear();
+      vi.advanceTimersByTime(5000);
+      const c2MsgsAfter = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2MsgsAfter.some((m) => m.type === 'disconnect')).toBe(false);
+    });
+
+    it('rejoin with wrong slot is ignored', () => {
+      room.onClose(conn1);
+      conn2.send.mockClear();
+
+      const conn1b = makeConnection('c1b');
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 1 }), conn1b);
+
+      // Should not have sent opponent_reconnected
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(false);
+    });
+
+    it('rejoin with no active timer is ignored', () => {
+      // No disconnect happened
+      const conn1b = makeConnection('c1b');
+      conn2.send.mockClear();
+
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(false);
+    });
+
+    it('new connection during grace period: slot still reserved', () => {
+      room.onClose(conn1);
+
+      // conn3 tries to take a player slot
+      const connNew = makeConnection('c_new');
+      party.getConnections = () => [connNew, conn2, conn3];
+      room.onConnect(connNew, makeCtx());
+
+      // slot 0 should still be reserved (grace timer active), connNew gets slot 1 — but slot 1 is taken
+      // So connNew should get 'full'
+      const newMsgs = connNew.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(newMsgs.some((m) => m.type === 'full')).toBe(true);
+    });
+
+    it('leave message cancels grace period and disconnects immediately', () => {
+      room.onClose(conn1);
+      conn2.send.mockClear();
+
+      // conn1 reconnects and sends leave (intentional quit)
+      const conn1b = makeConnection('c1b');
+      party.getConnections = () => [conn1b, conn2, conn3];
+
+      // First rejoin to reclaim slot, then leave
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+      conn2.send.mockClear();
+      room.onMessage(JSON.stringify({ type: 'leave' }), conn1b);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'leave')).toBe(true);
+    });
+
+    it('spectator disconnect is immediate, no grace period', () => {
+      room.onConnect(conn3, makeCtx({ spectate: '1' }));
+      conn1.send.mockClear();
+      conn2.send.mockClear();
+
+      room.onClose(conn3);
+
+      // Should get spectator_count, not opponent_reconnecting
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'spectator_count')).toBe(true);
+      expect(c1Msgs.some((m) => m.type === 'opponent_reconnecting')).toBe(false);
+    });
+
+    it('both players disconnect simultaneously: independent grace timers', () => {
+      room.onClose(conn1);
+      room.onClose(conn2);
+
+      // Both slots preserved
+      expect(room.players[0]).not.toBeNull();
+      expect(room.players[1]).not.toBeNull();
+
+      // Both reconnect
+      const conn1b = makeConnection('c1b');
+      const conn2b = makeConnection('c2b');
+      party.getConnections = () => [conn1b, conn2b, conn3];
+
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 1 }), conn2b);
+
+      expect(room.players[0].id).toBe('c1b');
+      expect(room.players[1].id).toBe('c2b');
+
+      // Advancing time should not trigger disconnects
+      vi.advanceTimersByTime(5000);
+      expect(room.players[0]).not.toBeNull();
+      expect(room.players[1]).not.toBeNull();
+    });
+
+    it('sends opponent_reconnecting to spectators', () => {
+      room.onConnect(conn3, makeCtx({ spectate: '1' }));
+      conn3.send.mockClear();
+
+      room.onClose(conn1);
+
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'opponent_reconnecting')).toBe(true);
+    });
+
+    it('sends opponent_reconnected to spectators on rejoin', () => {
+      room.onConnect(conn3, makeCtx({ spectate: '1' }));
+      room.onClose(conn1);
+      conn3.send.mockClear();
+
+      const conn1b = makeConnection('c1b');
+      party.getConnections = () => [conn1b, conn2, conn3];
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(true);
     });
   });
 
