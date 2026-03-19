@@ -29,13 +29,13 @@ stateDiagram-v2
 
 ## Grace Period Behavior
 
-When a player's WebSocket closes, the server saves `_stateBeforeGrace` (the state before the drop) and enters `reconnecting`. A 5-second grace timer starts.
+When a player's WebSocket closes, the server saves `_stateBeforeGrace` (the state before the drop) and enters `reconnecting`. A 20-second grace timer starts.
 
 ```mermaid
 flowchart TD
     A[Socket closes] --> B[Save _stateBeforeGrace]
     B --> C[roomState = reconnecting]
-    C --> D{Player rejoins within 5s?}
+    C --> D{Player rejoins within 20s?}
     D -- Yes --> E[Restore roomState from _stateBeforeGrace]
     D -- No --> F{_stateBeforeGrace?}
     F -- fighting --> G["Send return_to_select to remaining player"]

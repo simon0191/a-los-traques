@@ -170,6 +170,11 @@ export class LobbyScene extends Phaser.Scene {
       this.statusText.setText('Sala llena! Intenta otra.');
       this.subText.setText('');
     });
+
+    // Page refresh during fight: server offers the old slot back
+    this.network.onRejoinAvailable((slot) => {
+      this.network.sendRejoin(slot, true);
+    });
   }
 
   _goToSelect() {

@@ -8,7 +8,7 @@ export class ReconnectionManager {
   /**
    * @param {{ gracePeriodMs?: number, now?: () => number }} [options]
    */
-  constructor({ gracePeriodMs = 5000, now = Date.now } = {}) {
+  constructor({ gracePeriodMs = 20000, now = Date.now } = {}) {
     this._gracePeriodMs = gracePeriodMs;
     this._now = now;
     this._state = 'connected';

@@ -693,7 +693,7 @@ export class FightScene extends Phaser.Scene {
     this._matchOverProcessed = false;
 
     // --- Graceful reconnection ---
-    this.reconnectionManager = new ReconnectionManager({ gracePeriodMs: 5000 });
+    this.reconnectionManager = new ReconnectionManager({ gracePeriodMs: 20000 });
     this._reconnecting = false;
 
     this.reconnectionManager.onPause(() => {
@@ -1276,7 +1276,7 @@ export class FightScene extends Phaser.Scene {
 
   _updateReconnectingOverlay() {
     if (this._reconnectCountdown && this.reconnectionManager) {
-      const remaining = Math.max(0, 5000 - this.reconnectionManager.elapsed());
+      const remaining = Math.max(0, 20000 - this.reconnectionManager.elapsed());
       this._reconnectCountdown.setText(String(Math.ceil(remaining / 1000)));
     }
   }
