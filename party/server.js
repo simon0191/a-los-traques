@@ -26,16 +26,18 @@ export default class FightRoom {
       this._broadcast({ type: 'spectator_count', count });
       // Send fight state catch-up if fight already started
       if (this.fightInfo) {
-        connection.send(JSON.stringify({
-          type: 'fight_state',
-          p1Id: this.fightInfo.p1Id,
-          p2Id: this.fightInfo.p2Id,
-          stageId: this.fightInfo.stageId,
-          started: this.started,
-          p1Rounds: this.players[0]?.ready ? 0 : 0,
-          p2Rounds: this.players[1]?.ready ? 0 : 0,
-          roundNumber: 1
-        }));
+        connection.send(
+          JSON.stringify({
+            type: 'fight_state',
+            p1Id: this.fightInfo.p1Id,
+            p2Id: this.fightInfo.p2Id,
+            stageId: this.fightInfo.stageId,
+            started: this.started,
+            p1Rounds: this.players[0]?.ready ? 0 : 0,
+            p2Rounds: this.players[1]?.ready ? 0 : 0,
+            roundNumber: 1,
+          }),
+        );
       }
       return;
     }
@@ -125,13 +127,13 @@ export default class FightRoom {
           this.fightInfo = {
             p1Id: this.players[0].fighterId,
             p2Id: this.players[1].fighterId,
-            stageId
+            stageId,
           };
           this._broadcast({
             type: 'start',
             p1Id: this.players[0].fighterId,
             p2Id: this.players[1].fighterId,
-            stageId
+            stageId,
           });
         }
         break;

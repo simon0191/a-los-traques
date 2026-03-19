@@ -8,25 +8,27 @@
  * Output: assets/references/{id}_ref.png (raw) and {id}_ref_clean.png (processed)
  */
 
-import path from "path";
-import fs from "fs";
-import { generateImage } from "../generate.js";
-import { removeBackground, cropToContent, padToAspect, resizeExact } from "../process.js";
+import fs from 'node:fs';
+import path from 'node:path';
+import { generateImage } from '../generate.js';
+import { cropToContent, padToAspect, removeBackground, resizeExact } from '../process.js';
 
 const REF_SIZE = 256;
 
 // Green chroma-key background (default)
 const GREEN_BG = {
-  promptColor: "bright green #00FF00",
-  styleNote: "do not use any green colors on the character",
-  hueMin: 70, hueMax: 170,
+  promptColor: 'bright green #00FF00',
+  styleNote: 'do not use any green colors on the character',
+  hueMin: 70,
+  hueMax: 170,
 };
 
 // Magenta chroma-key background (when character uses green)
 const MAGENTA_BG = {
-  promptColor: "bright magenta #FF00FF",
-  styleNote: "do not use any magenta or pink colors on the character",
-  hueMin: 280, hueMax: 340,
+  promptColor: 'bright magenta #FF00FF',
+  styleNote: 'do not use any magenta or pink colors on the character',
+  hueMin: 280,
+  hueMax: 340,
 };
 
 function pickBackground(description) {
@@ -46,7 +48,7 @@ function pickBackground(description) {
  */
 export async function runReferencePipeline(config) {
   const {
-    output = "assets/references/",
+    output = 'assets/references/',
     id,
     description,
     referenceImages = [],

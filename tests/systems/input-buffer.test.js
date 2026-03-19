@@ -1,19 +1,44 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  encodeInput, decodeInput, inputsEqual,
-  predictInput, EMPTY_INPUT, MOVEMENT_MASK, ATTACK_MASK
+  ATTACK_MASK,
+  decodeInput,
+  EMPTY_INPUT,
+  encodeInput,
+  inputsEqual,
+  MOVEMENT_MASK,
+  predictInput,
 } from '../../src/systems/InputBuffer.js';
 
 describe('encodeInput / decodeInput', () => {
   it('empty input encodes to 0', () => {
-    const input = { left: false, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+    const input = {
+      left: false,
+      right: false,
+      up: false,
+      down: false,
+      lp: false,
+      hp: false,
+      lk: false,
+      hk: false,
+      sp: false,
+    };
     expect(encodeInput(input)).toBe(0);
   });
 
   it('roundtrips all individual buttons', () => {
     const keys = ['left', 'right', 'up', 'down', 'lp', 'hp', 'lk', 'hk', 'sp'];
     for (const key of keys) {
-      const input = { left: false, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+      const input = {
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
       input[key] = true;
       const encoded = encodeInput(input);
       expect(encoded).toBeGreaterThan(0);
@@ -35,7 +60,17 @@ describe('encodeInput / decodeInput', () => {
   });
 
   it('encodes complex combinations correctly', () => {
-    const input = { left: true, right: false, up: true, down: false, lp: true, hp: false, lk: false, hk: false, sp: true };
+    const input = {
+      left: true,
+      right: false,
+      up: true,
+      down: false,
+      lp: true,
+      hp: false,
+      lk: false,
+      hk: false,
+      sp: true,
+    };
     const encoded = encodeInput(input);
     const decoded = decodeInput(encoded);
     expect(decoded.left).toBe(true);
@@ -63,7 +98,17 @@ describe('inputsEqual', () => {
 describe('predictInput', () => {
   it('keeps movement, strips attacks', () => {
     // left + up + lightPunch
-    const input = encodeInput({ left: true, right: false, up: true, down: false, lp: true, hp: false, lk: false, hk: false, sp: false });
+    const input = encodeInput({
+      left: true,
+      right: false,
+      up: true,
+      down: false,
+      lp: true,
+      hp: false,
+      lk: false,
+      hk: false,
+      sp: false,
+    });
     const predicted = predictInput(input);
     const decoded = decodeInput(predicted);
     expect(decoded.left).toBe(true);
@@ -72,12 +117,32 @@ describe('predictInput', () => {
   });
 
   it('returns EMPTY_INPUT for all-attacks input', () => {
-    const input = encodeInput({ left: false, right: false, up: false, down: false, lp: true, hp: true, lk: true, hk: true, sp: true });
+    const input = encodeInput({
+      left: false,
+      right: false,
+      up: false,
+      down: false,
+      lp: true,
+      hp: true,
+      lk: true,
+      hk: true,
+      sp: true,
+    });
     expect(predictInput(input)).toBe(EMPTY_INPUT);
   });
 
   it('preserves all movement when no attacks', () => {
-    const input = encodeInput({ left: true, right: true, up: true, down: true, lp: false, hp: false, lk: false, hk: false, sp: false });
+    const input = encodeInput({
+      left: true,
+      right: true,
+      up: true,
+      down: true,
+      lp: false,
+      hp: false,
+      lk: false,
+      hk: false,
+      sp: false,
+    });
     expect(predictInput(input)).toBe(input);
   });
 });

@@ -7,30 +7,32 @@
  * Uses first idle frame as reference image for style consistency.
  */
 
-import path from "path";
-import fs from "fs";
-import { generateImage } from "../generate.js";
+import fs from 'node:fs';
+import path from 'node:path';
+import { generateImage } from '../generate.js';
 import {
-  removeBackground,
-  cropToContent,
-  resizeExact,
-  padToAspect,
   appendHorizontal,
-} from "../process.js";
-import { validateAsset } from "../validate.js";
+  cropToContent,
+  padToAspect,
+  removeBackground,
+  resizeExact,
+} from '../process.js';
+import { validateAsset } from '../validate.js';
 
 // Green chroma-key background (default)
 const GREEN_BG = {
-  promptColor: "bright green #00FF00",
-  styleNote: "do not use any green colors on the character",
-  hueMin: 70, hueMax: 170,
+  promptColor: 'bright green #00FF00',
+  styleNote: 'do not use any green colors on the character',
+  hueMin: 70,
+  hueMax: 170,
 };
 
 // Magenta chroma-key background (when character uses green)
 const MAGENTA_BG = {
-  promptColor: "bright magenta #FF00FF",
-  styleNote: "do not use any magenta or pink colors on the character",
-  hueMin: 280, hueMax: 340,
+  promptColor: 'bright magenta #FF00FF',
+  styleNote: 'do not use any magenta or pink colors on the character',
+  hueMin: 280,
+  hueMax: 340,
 };
 
 function pickBackground(description) {
@@ -38,31 +40,31 @@ function pickBackground(description) {
 }
 
 const ANIMATIONS = {
-  idle: { frames: 4, label: "standing idle fighting stance, side view" },
-  walk: { frames: 4, label: "walking forward, side view" },
-  light_punch: { frames: 4, label: "throwing a quick jab punch, side view" },
+  idle: { frames: 4, label: 'standing idle fighting stance, side view' },
+  walk: { frames: 4, label: 'walking forward, side view' },
+  light_punch: { frames: 4, label: 'throwing a quick jab punch, side view' },
   heavy_punch: {
     frames: 5,
-    label: "throwing a powerful straight punch, side view",
+    label: 'throwing a powerful straight punch, side view',
   },
-  light_kick: { frames: 4, label: "quick low kick, side view" },
+  light_kick: { frames: 4, label: 'quick low kick, side view' },
   heavy_kick: {
     frames: 5,
-    label: "powerful high roundhouse kick, side view",
+    label: 'powerful high roundhouse kick, side view',
   },
   special: {
     frames: 5,
-    label: "charging and releasing energy blast, side view",
+    label: 'charging and releasing energy blast, side view',
   },
-  block: { frames: 2, label: "blocking with arms raised, side view" },
+  block: { frames: 2, label: 'blocking with arms raised, side view' },
   hurt: {
     frames: 3,
-    label: "getting hit and recoiling in pain, side view",
+    label: 'getting hit and recoiling in pain, side view',
   },
-  knockdown: { frames: 4, label: "falling down knocked out, side view" },
-  victory: { frames: 4, label: "celebrating victory pose, side view" },
-  defeat: { frames: 3, label: "slumped in defeat, side view" },
-  jump: { frames: 3, label: "jumping up in the air, side view" },
+  knockdown: { frames: 4, label: 'falling down knocked out, side view' },
+  victory: { frames: 4, label: 'celebrating victory pose, side view' },
+  defeat: { frames: 3, label: 'slumped in defeat, side view' },
+  jump: { frames: 3, label: 'jumping up in the air, side view' },
 };
 
 const FRAME_SIZE = 128;
@@ -83,17 +85,10 @@ export async function runFighterPipeline(config) {
   const {
     output,
     description,
-    animations = [
-      "idle",
-      "walk",
-      "light_punch",
-      "light_kick",
-      "hurt",
-      "knockdown",
-    ],
+    animations = ['idle', 'walk', 'light_punch', 'light_kick', 'hurt', 'knockdown'],
     referenceImages = [],
     referenceSheet = null,
-    rawDir = "assets/_raw/fighters",
+    rawDir = 'assets/_raw/fighters',
     skipGenerate = false,
     retries = 3,
     delay = 3000,
@@ -102,13 +97,10 @@ export async function runFighterPipeline(config) {
   const bg = pickBackground(description);
   const STYLE_PREFIX = `Neo Geo pixel art, King of Fighters style, side-view fighting game sprite, detailed pixel art, clean edges, vibrant colors, ${bg.styleNote}`;
 
-  const fighterName = path.basename(output.replace(/\/+$/, ""));
-  const fighterRawDir = config.rawDir
-    ? config.rawDir
-    : path.join(rawDir, fighterName);
+  const fighterName = path.basename(output.replace(/\/+$/, ''));
+  const fighterRawDir = config.rawDir ? config.rawDir : path.join(rawDir, fighterName);
 
-  if (!fs.existsSync(fighterRawDir))
-    fs.mkdirSync(fighterRawDir, { recursive: true });
+  if (!fs.existsSync(fighterRawDir)) fs.mkdirSync(fighterRawDir, { recursive: true });
   if (!fs.existsSync(output)) fs.mkdirSync(output, { recursive: true });
 
   const results = {};
@@ -128,7 +120,7 @@ export async function runFighterPipeline(config) {
   let frameCounter = 0;
 
   console.log(
-    `  Generating ${totalFrames} frames across ${animations.length} animations for "${fighterName}"`
+    `  Generating ${totalFrames} frames across ${animations.length} animations for "${fighterName}"`,
   );
 
   for (const animName of animations) {
@@ -138,13 +130,10 @@ export async function runFighterPipeline(config) {
       continue;
     }
 
-    console.log(
-      `\n  Animation: ${animName} (${anim.frames} frames)`
-    );
+    console.log(`\n  Animation: ${animName} (${anim.frames} frames)`);
 
     const animRawDir = path.join(fighterRawDir, animName);
-    if (!fs.existsSync(animRawDir))
-      fs.mkdirSync(animRawDir, { recursive: true });
+    if (!fs.existsSync(animRawDir)) fs.mkdirSync(animRawDir, { recursive: true });
 
     const framePaths = [];
     let animSuccess = 0;
@@ -158,9 +147,7 @@ export async function runFighterPipeline(config) {
       const paddedPath = path.join(animRawDir, `${frameName}_padded.png`);
       const finalPath = path.join(animRawDir, `${frameName}.png`);
 
-      console.log(
-        `    [${frameCounter}/${totalFrames}] ${frameName}`
-      );
+      console.log(`    [${frameCounter}/${totalFrames}] ${frameName}`);
 
       if (!skipGenerate) {
         const frameLabel =
@@ -202,30 +189,22 @@ export async function runFighterPipeline(config) {
             // Use first idle frame as reference for consistency
             if (!referenceImage) {
               referenceImage = rawPath;
-              console.log(
-                `      Using as reference image for remaining frames`
-              );
+              console.log(`      Using as reference image for remaining frames`);
             }
             break;
           }
 
-          console.warn(
-            `      Attempt ${attempt} failed: ${result.error}`
-          );
+          console.warn(`      Attempt ${attempt} failed: ${result.error}`);
           if (attempt < retries) {
             await new Promise((r) => setTimeout(r, delay * attempt));
           }
         }
 
         if (!generated && !fs.existsSync(rawPath)) {
-          console.error(
-            `      FAILED: Could not generate frame "${frameName}"`
-          );
+          console.error(`      FAILED: Could not generate frame "${frameName}"`);
           // Create a transparent placeholder
-          const { execSync } = await import("child_process");
-          execSync(
-            `magick -size ${FRAME_SIZE}x${FRAME_SIZE} xc:transparent "${finalPath}"`
-          );
+          const { execSync } = await import('node:child_process');
+          execSync(`magick -size ${FRAME_SIZE}x${FRAME_SIZE} xc:transparent "${finalPath}"`);
           framePaths.push(finalPath);
           continue;
         }
@@ -238,10 +217,8 @@ export async function runFighterPipeline(config) {
 
       if (!fs.existsSync(rawPath)) {
         console.error(`      SKIP: No raw file for "${frameName}"`);
-        const { execSync } = await import("child_process");
-        execSync(
-          `magick -size ${FRAME_SIZE}x${FRAME_SIZE} xc:transparent "${finalPath}"`
-        );
+        const { execSync } = await import('node:child_process');
+        execSync(`magick -size ${FRAME_SIZE}x${FRAME_SIZE} xc:transparent "${finalPath}"`);
         framePaths.push(finalPath);
         continue;
       }
@@ -269,16 +246,12 @@ export async function runFighterPipeline(config) {
         });
 
         if (!validation.valid) {
-          console.warn(
-            `      Validation: ${validation.errors.join(", ")}`
-          );
+          console.warn(`      Validation: ${validation.errors.join(', ')}`);
         } else {
           animSuccess++;
         }
       } catch (err) {
-        console.warn(
-          `      Process error: ${err.message}, using resize-only fallback`
-        );
+        console.warn(`      Process error: ${err.message}, using resize-only fallback`);
         resizeExact(rawPath, finalPath, FRAME_SIZE, FRAME_SIZE);
       }
 
@@ -295,7 +268,7 @@ export async function runFighterPipeline(config) {
     if (stripSuccess) overallSuccess = true;
 
     console.log(
-      `    Strip assembled: ${stripPath} (${anim.frames} frames, ${animSuccess} validated)`
+      `    Strip assembled: ${stripPath} (${anim.frames} frames, ${animSuccess} validated)`,
     );
   }
 

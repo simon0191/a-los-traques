@@ -6,7 +6,7 @@ const INPUT_DELAY = 3;
 const BUFFERABLE_TYPES = ['sync', 'round_event', 'start'];
 
 // Map message types to their callback property names
-const TYPE_TO_CALLBACK = {
+const _TYPE_TO_CALLBACK = {
   sync: '_onSync',
   round_event: '_onRoundEvent',
   start: '_onStart',
@@ -59,10 +59,16 @@ export class NetworkManager {
       const privateProp = `__on${type.charAt(0).toUpperCase()}${type.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`;
       const publicProp = `_on${type.charAt(0).toUpperCase()}${type.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`;
       Object.defineProperty(this, publicProp, {
-        get() { return this[privateProp]; },
+        get() {
+          return this[privateProp];
+        },
         set(cb) {
           this[privateProp] = cb;
-          if (cb && this._pendingCallbackMessages[type] && this._pendingCallbackMessages[type].length > 0) {
+          if (
+            cb &&
+            this._pendingCallbackMessages[type] &&
+            this._pendingCallbackMessages[type].length > 0
+          ) {
             const pending = this._pendingCallbackMessages[type].splice(0);
             for (const msg of pending) {
               cb(msg);
@@ -99,7 +105,7 @@ export class NetworkManager {
       room: roomId,
       protocol: protocol,
       maxRetries: 3,
-      startClosed: false
+      startClosed: false,
     };
 
     if (spectator) {
@@ -113,7 +119,7 @@ export class NetworkManager {
       // B1: Wrap JSON.parse in try-catch
       try {
         this._handleMessage(JSON.parse(event.data));
-      } catch (e) {
+      } catch (_e) {
         // Silently ignore malformed messages
         return;
       }
@@ -234,24 +240,60 @@ export class NetworkManager {
   }
 
   // --- Public API: register callbacks ---
-  onAssign(cb) { this._onAssign = cb; }
-  onOpponentJoined(cb) { this._onOpponentJoined = cb; }
-  onOpponentReady(cb) { this._onOpponentReady = cb; }
-  onStart(cb) { this._onStart = cb; }
-  onRemoteInput(cb) { this._onRemoteInput = cb; }
-  onDisconnect(cb) { this._onDisconnect = cb; }
-  onRematch(cb) { this._onRematch = cb; }
-  onFull(cb) { this._onFull = cb; }
-  onError(cb) { this._onError = cb; }
-  onSync(cb) { this._onSync = cb; }
-  onRoundEvent(cb) { this._onRoundEvent = cb; }
-  onLeave(cb) { this._onLeave = cb; }
-  onAssignSpectator(cb) { this._onAssignSpectator = cb; }
-  onSpectatorCount(cb) { this._onSpectatorCount = cb; }
-  onShout(cb) { this._onShout = cb; }
-  onFightState(cb) { this._onFightState = cb; }
-  onPotionApplied(cb) { this._onPotionApplied = cb; }
-  onPotion(cb) { this._onPotion = cb; }
+  onAssign(cb) {
+    this._onAssign = cb;
+  }
+  onOpponentJoined(cb) {
+    this._onOpponentJoined = cb;
+  }
+  onOpponentReady(cb) {
+    this._onOpponentReady = cb;
+  }
+  onStart(cb) {
+    this._onStart = cb;
+  }
+  onRemoteInput(cb) {
+    this._onRemoteInput = cb;
+  }
+  onDisconnect(cb) {
+    this._onDisconnect = cb;
+  }
+  onRematch(cb) {
+    this._onRematch = cb;
+  }
+  onFull(cb) {
+    this._onFull = cb;
+  }
+  onError(cb) {
+    this._onError = cb;
+  }
+  onSync(cb) {
+    this._onSync = cb;
+  }
+  onRoundEvent(cb) {
+    this._onRoundEvent = cb;
+  }
+  onLeave(cb) {
+    this._onLeave = cb;
+  }
+  onAssignSpectator(cb) {
+    this._onAssignSpectator = cb;
+  }
+  onSpectatorCount(cb) {
+    this._onSpectatorCount = cb;
+  }
+  onShout(cb) {
+    this._onShout = cb;
+  }
+  onFightState(cb) {
+    this._onFightState = cb;
+  }
+  onPotionApplied(cb) {
+    this._onPotionApplied = cb;
+  }
+  onPotion(cb) {
+    this._onPotion = cb;
+  }
 
   // --- Public API: send messages ---
   sendReady(fighterId) {
@@ -325,7 +367,11 @@ export class NetworkManager {
       // but strip one-shot attacks so they don't repeat
       this.lastRemoteInput = {
         ...input,
-        lp: false, hp: false, lk: false, hk: false, sp: false
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
       };
       return input;
     }
@@ -333,7 +379,17 @@ export class NetworkManager {
     if (this.lastRemoteInput) {
       return { ...this.lastRemoteInput };
     }
-    return { left: false, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+    return {
+      left: false,
+      right: false,
+      up: false,
+      down: false,
+      lp: false,
+      hp: false,
+      lk: false,
+      hk: false,
+      sp: false,
+    };
   }
 
   /**
@@ -364,17 +420,41 @@ export class NetworkManager {
 
       if (slot === 0) {
         this.remoteInputBufferP1 = {};
-        this.lastRemoteInputP1 = { ...input, lp: false, hp: false, lk: false, hk: false, sp: false };
+        this.lastRemoteInputP1 = {
+          ...input,
+          lp: false,
+          hp: false,
+          lk: false,
+          hk: false,
+          sp: false,
+        };
       } else {
         this.remoteInputBufferP2 = {};
-        this.lastRemoteInputP2 = { ...input, lp: false, hp: false, lk: false, hk: false, sp: false };
+        this.lastRemoteInputP2 = {
+          ...input,
+          lp: false,
+          hp: false,
+          lk: false,
+          hk: false,
+          sp: false,
+        };
       }
       return input;
     }
     if (this[lastKey]) {
       return { ...this[lastKey] };
     }
-    return { left: false, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+    return {
+      left: false,
+      right: false,
+      up: false,
+      down: false,
+      lp: false,
+      hp: false,
+      lk: false,
+      hk: false,
+      sp: false,
+    };
   }
 
   /**
@@ -384,15 +464,20 @@ export class NetworkManager {
    * @returns {Array<[number, object]>} Array of [frame, inputState] pairs
    */
   drainConfirmedInputs() {
-    const entries = Object.entries(this.remoteInputBuffer).map(
-      ([frame, state]) => [Number(frame), state]
-    );
+    const entries = Object.entries(this.remoteInputBuffer).map(([frame, state]) => [
+      Number(frame),
+      state,
+    ]);
     this.remoteInputBuffer = {};
     return entries;
   }
 
-  getPlayerSlot() { return this.playerSlot; }
-  getInputDelay() { return INPUT_DELAY; }
+  getPlayerSlot() {
+    return this.playerSlot;
+  }
+  getInputDelay() {
+    return INPUT_DELAY;
+  }
 
   resetForReselect() {
     this.remoteInputBuffer = {};

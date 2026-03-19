@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // Import only the class to call getDifficultyConfig as a method
 // We construct with null scene/fighter/opponent since we only test config
@@ -10,9 +10,18 @@ function getConfig(difficulty) {
 }
 
 const EXPECTED_KEYS = [
-  'thinkInterval', 'missRate', 'canBlock', 'canSpecial',
-  'jumpChance', 'backOffChance', 'blockChance', 'idealRange',
-  'approachRange', 'tooCloseRange', 'punishRecovery', 'readOpponentState',
+  'thinkInterval',
+  'missRate',
+  'canBlock',
+  'canSpecial',
+  'jumpChance',
+  'backOffChance',
+  'blockChance',
+  'idealRange',
+  'approachRange',
+  'tooCloseRange',
+  'punishRecovery',
+  'readOpponentState',
 ];
 
 describe('AI difficulty config', () => {

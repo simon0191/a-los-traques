@@ -1,14 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  captureFighterState, restoreFighterState,
-  captureCombatState, restoreCombatState,
-  captureGameState, restoreGameState
+  captureCombatState,
+  captureFighterState,
+  captureGameState,
+  restoreCombatState,
+  restoreFighterState,
+  restoreGameState,
 } from '../../src/systems/GameState.js';
 
 function makeFighter(overrides = {}) {
   return {
     sprite: {
-      x: 100, y: 200,
+      x: 100,
+      y: 200,
       body: { velocity: { x: 50, y: -100 } },
     },
     hp: 80,
@@ -87,7 +91,13 @@ describe('captureFighterState / restoreFighterState', () => {
     expect(target.state).toBe('attacking');
     expect(target.attackCooldown).toBe(150);
     expect(target.hitConnected).toBe(true);
-    expect(target.currentAttack).toEqual({ type: 'lightPunch', damage: 8, startup: 3, active: 2, recovery: 5 });
+    expect(target.currentAttack).toEqual({
+      type: 'lightPunch',
+      damage: 8,
+      startup: 3,
+      active: 2,
+      recovery: 5,
+    });
     expect(target.isOnGround).toBe(false);
     expect(target._airborneTime).toBe(200);
     expect(target.hasDoubleJumped).toBe(true);

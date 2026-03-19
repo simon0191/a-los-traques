@@ -1,32 +1,47 @@
 import Phaser from 'phaser';
-import { FIGHTER_WIDTH, FIGHTER_HEIGHT, FIGHTER_COLORS } from '../config.js';
-import fightersData from '../data/fighters.json';
+import { FIGHTER_COLORS, FIGHTER_HEIGHT, FIGHTER_WIDTH } from '../config.js';
 
 // Auto-discover fight music MP3s at build time via Vite glob
-const fightMusicFiles = Object.keys(
-  import.meta.glob('/public/assets/audio/fights/*.mp3')
-).map(p => p.replace('/public', ''));
-
+const fightMusicFiles = Object.keys(import.meta.glob('/public/assets/audio/fights/*.mp3')).map(
+  (p) => p.replace('/public', ''),
+);
 
 // Animation definitions: name -> frame count
 const ANIM_DEFS = {
-  idle:         { frames: 4, repeat: -1 },
-  walk:         { frames: 4, repeat: -1 },
-  light_punch:  { frames: 4, repeat: 0 },
-  heavy_punch:  { frames: 5, repeat: 0 },
-  light_kick:   { frames: 4, repeat: 0 },
-  heavy_kick:   { frames: 5, repeat: 0 },
-  special:      { frames: 5, repeat: 0 },
-  block:        { frames: 2, repeat: 0 },
-  hurt:         { frames: 3, repeat: 0 },
-  knockdown:    { frames: 4, repeat: 0 },
-  victory:      { frames: 4, repeat: -1 },
-  defeat:       { frames: 3, repeat: 0 },
-  jump:         { frames: 3, repeat: 0 },
+  idle: { frames: 4, repeat: -1 },
+  walk: { frames: 4, repeat: -1 },
+  light_punch: { frames: 4, repeat: 0 },
+  heavy_punch: { frames: 5, repeat: 0 },
+  light_kick: { frames: 4, repeat: 0 },
+  heavy_kick: { frames: 5, repeat: 0 },
+  special: { frames: 5, repeat: 0 },
+  block: { frames: 2, repeat: 0 },
+  hurt: { frames: 3, repeat: 0 },
+  knockdown: { frames: 4, repeat: 0 },
+  victory: { frames: 4, repeat: -1 },
+  defeat: { frames: 3, repeat: 0 },
+  jump: { frames: 3, repeat: 0 },
 };
 
 // Fighters that have real sprite assets (add IDs here as they're generated)
-const FIGHTERS_WITH_SPRITES = ['simon', 'jeka', 'chicha', 'cata', 'carito', 'mao', 'peks', 'lini', 'alv', 'sun', 'gartner', 'richi', 'cami', 'migue', 'bozzi', 'angy'];
+const FIGHTERS_WITH_SPRITES = [
+  'simon',
+  'jeka',
+  'chicha',
+  'cata',
+  'carito',
+  'mao',
+  'peks',
+  'lini',
+  'alv',
+  'sun',
+  'gartner',
+  'richi',
+  'cami',
+  'migue',
+  'bozzi',
+  'angy',
+];
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -68,11 +83,11 @@ export class BootScene extends Phaser.Scene {
 
     // Load fighter sprite sheets and portraits
     for (const id of FIGHTERS_WITH_SPRITES) {
-      for (const [animName, def] of Object.entries(ANIM_DEFS)) {
+      for (const [animName, _def] of Object.entries(ANIM_DEFS)) {
         this.load.spritesheet(
           `fighter_${id}_${animName}`,
           `assets/fighters/${id}/${animName}.png`,
-          { frameWidth: FIGHTER_WIDTH, frameHeight: FIGHTER_HEIGHT }
+          { frameWidth: FIGHTER_WIDTH, frameHeight: FIGHTER_HEIGHT },
         );
       }
       this.load.image(`portrait_${id}`, `assets/portraits/${id}.png`);

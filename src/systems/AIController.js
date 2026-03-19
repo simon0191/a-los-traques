@@ -1,4 +1,4 @@
-import { MAX_HP, MAX_SPECIAL, SPECIAL_COST } from '../config.js';
+import { MAX_HP, SPECIAL_COST } from '../config.js';
 
 /**
  * AI Controller for P2 fighter with three difficulty levels.
@@ -27,10 +27,10 @@ export class AIController {
 
     /** Current decision output – read by applyDecisions() every frame. */
     this.decision = {
-      moveDir: 0,    // -1 left, 0 stop, 1 right
+      moveDir: 0, // -1 left, 0 stop, 1 right
       jump: false,
-      attack: null,  // null | attack type string
-      block: false
+      attack: null, // null | attack type string
+      block: false,
     };
   }
 
@@ -42,41 +42,39 @@ export class AIController {
     switch (difficulty) {
       case 'easy':
         return {
-          thinkInterval: 30,    // ~500 ms at 60 fps
-          missRate: 0.40,       // 40 % chance to skip an attack opportunity
+          thinkInterval: 30, // ~500 ms at 60 fps
+          missRate: 0.4, // 40 % chance to skip an attack opportunity
           canBlock: false,
           canSpecial: false,
-          jumpChance: 0.10,     // random jumps
+          jumpChance: 0.1, // random jumps
           backOffChance: 0.15,
-          blockChance: 0,       // never blocks
+          blockChance: 0, // never blocks
           idealRange: 55,
           approachRange: 70,
           tooCloseRange: 25,
           punishRecovery: false,
-          readOpponentState: false
+          readOpponentState: false,
         };
 
       case 'hard':
         return {
-          thinkInterval: 5,     // ~83 ms at 60 fps
+          thinkInterval: 5, // ~83 ms at 60 fps
           missRate: 0.05,
           canBlock: true,
           canSpecial: true,
-          jumpChance: 0.06,     // tactical jumps only
+          jumpChance: 0.06, // tactical jumps only
           backOffChance: 0.35,
-          blockChance: 0.70,    // actively blocks when opponent attacks
+          blockChance: 0.7, // actively blocks when opponent attacks
           idealRange: 52,
           approachRange: 65,
           tooCloseRange: 30,
           punishRecovery: true,
-          readOpponentState: true
+          readOpponentState: true,
         };
-
-      case 'medium':
       default:
         return {
-          thinkInterval: 15,    // ~250 ms at 60 fps
-          missRate: 0.20,
+          thinkInterval: 15, // ~250 ms at 60 fps
+          missRate: 0.2,
           canBlock: true,
           canSpecial: true,
           jumpChance: 0.08,
@@ -86,7 +84,7 @@ export class AIController {
           approachRange: 68,
           tooCloseRange: 28,
           punishRecovery: false,
-          readOpponentState: false
+          readOpponentState: false,
         };
     }
   }
@@ -129,9 +127,9 @@ export class AIController {
     }
 
     // --- Spatial awareness ---
-    const dx = me.sprite.x - opp.sprite.x;       // positive = AI is to the right
+    const dx = me.sprite.x - opp.sprite.x; // positive = AI is to the right
     const absDist = Math.abs(dx);
-    const dirToOpponent = dx > 0 ? -1 : 1;        // direction toward opponent
+    const dirToOpponent = dx > 0 ? -1 : 1; // direction toward opponent
 
     const oppAttacking = opp.state === 'attacking';
     const oppRecovering = opp.state === 'hurt' || opp.state === 'knockdown';
@@ -170,7 +168,12 @@ export class AIController {
     // ------------------------------------------------------------------
     // 3. Blocking when low HP (medium can do this sometimes)
     // ------------------------------------------------------------------
-    if (cfg.canBlock && lowHp && absDist < cfg.approachRange && Math.random() < cfg.blockChance * 0.5) {
+    if (
+      cfg.canBlock &&
+      lowHp &&
+      absDist < cfg.approachRange &&
+      Math.random() < cfg.blockChance * 0.5
+    ) {
       this.decision.block = true;
       return;
     }
@@ -229,7 +232,7 @@ export class AIController {
     // Special attack when meter is full and in range
     if (cfg.canSpecial && me.special >= SPECIAL_COST && absDist < cfg.idealRange + 10) {
       // Hard: always use when available and close. Medium: 40 % chance.
-      const specialChance = this.difficulty === 'hard' ? 0.65 : 0.40;
+      const specialChance = this.difficulty === 'hard' ? 0.65 : 0.4;
       if (Math.random() < specialChance) {
         return 'special';
       }
@@ -247,15 +250,15 @@ export class AIController {
     }
 
     if (this.difficulty === 'medium') {
-      if (roll < 0.30) return 'lightPunch';
-      if (roll < 0.50) return 'lightKick';
-      if (roll < 0.70) return 'heavyPunch';
+      if (roll < 0.3) return 'lightPunch';
+      if (roll < 0.5) return 'lightKick';
+      if (roll < 0.7) return 'heavyPunch';
       return 'heavyKick';
     }
 
     // Easy – mostly lights
-    if (roll < 0.40) return 'lightPunch';
-    if (roll < 0.70) return 'lightKick';
+    if (roll < 0.4) return 'lightPunch';
+    if (roll < 0.7) return 'lightKick';
     if (roll < 0.85) return 'heavyPunch';
     return 'heavyKick';
   }
@@ -266,7 +269,7 @@ export class AIController {
 
   applyDecisions() {
     const fighter = this.fighter;
-    const speed = 80 + (fighter.data.stats.speed * 20);
+    const speed = 80 + fighter.data.stats.speed * 20;
 
     // Blocking is exclusive – no movement or attacks while holding block
     if (this.decision.block && fighter.isOnGround) {
@@ -291,7 +294,8 @@ export class AIController {
 
     // Wall jump: hard always, medium 30% chance
     if (fighter._isTouchingWall && !fighter._hasWallJumped) {
-      const wallJumpChance = this.difficulty === 'hard' ? 1.0 : this.difficulty === 'medium' ? 0.3 : 0;
+      const wallJumpChance =
+        this.difficulty === 'hard' ? 1.0 : this.difficulty === 'medium' ? 0.3 : 0;
       if (Math.random() < wallJumpChance) {
         fighter.jump();
       }

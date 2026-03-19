@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import fighters from '../../src/data/fighters.json';
+import { describe, expect, it } from 'vitest';
 import { MAX_STAMINA } from '../../src/config.js';
+import fighters from '../../src/data/fighters.json';
 
 const REQUIRED_FIELDS = ['id', 'name', 'stats', 'moves'];
-const STAT_KEYS = ['hp', 'speed', 'power', 'defense', 'special'];
+const _STAT_KEYS = ['hp', 'speed', 'power', 'defense', 'special'];
 const MOVE_TYPES = ['lightPunch', 'heavyPunch', 'lightKick', 'heavyKick', 'special'];
 const MOVE_FIELDS = ['damage', 'startup', 'active', 'recovery'];
 
@@ -47,7 +47,9 @@ describe('fighters.json data validation', () => {
         for (const field of MOVE_FIELDS) {
           const val = move[field];
           expect(val, `${f.id}.moves.${moveType}.${field}`).toBeGreaterThan(0);
-          expect(Number.isFinite(val), `${f.id}.moves.${moveType}.${field} not a number`).toBe(true);
+          expect(Number.isFinite(val), `${f.id}.moves.${moveType}.${field} not a number`).toBe(
+            true,
+          );
         }
       }
     }
@@ -63,7 +65,7 @@ describe('fighters.json data validation', () => {
   });
 
   it('no duplicate fighter IDs', () => {
-    const ids = fighters.map(f => f.id);
+    const ids = fighters.map((f) => f.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 });

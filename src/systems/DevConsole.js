@@ -1,4 +1,4 @@
-import { GAME_WIDTH, GAME_HEIGHT, MAX_HP, MAX_SPECIAL } from '../config.js';
+import { GAME_WIDTH, MAX_HP, MAX_SPECIAL } from '../config.js';
 
 const COMMANDS = {
   help: 'help | noai | ai | god | mortal | kill | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps',
@@ -18,25 +18,31 @@ export class DevConsole {
     this.container = scene.add.container(0, 0).setDepth(200).setVisible(false);
 
     // Background
-    this.bg = scene.add.rectangle(0, 0, GAME_WIDTH, 100, 0x000000, 0.85)
-      .setOrigin(0, 0);
+    this.bg = scene.add.rectangle(0, 0, GAME_WIDTH, 100, 0x000000, 0.85).setOrigin(0, 0);
     this.container.add(this.bg);
 
     // Log text
-    this.logText = scene.add.text(6, 4, '', {
-      fontFamily: 'monospace', fontSize: '8px', color: '#00ff00',
-      wordWrap: { width: GAME_WIDTH - 12 }
-    }).setOrigin(0, 0);
+    this.logText = scene.add
+      .text(6, 4, '', {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#00ff00',
+        wordWrap: { width: GAME_WIDTH - 12 },
+      })
+      .setOrigin(0, 0);
     this.container.add(this.logText);
 
     // Input line
-    this.inputBg = scene.add.rectangle(0, 88, GAME_WIDTH, 12, 0x111111)
-      .setOrigin(0, 0);
+    this.inputBg = scene.add.rectangle(0, 88, GAME_WIDTH, 12, 0x111111).setOrigin(0, 0);
     this.container.add(this.inputBg);
 
-    this.inputDisplay = scene.add.text(6, 89, '> ', {
-      fontFamily: 'monospace', fontSize: '9px', color: '#ffcc00'
-    }).setOrigin(0, 0);
+    this.inputDisplay = scene.add
+      .text(6, 89, '> ', {
+        fontFamily: 'monospace',
+        fontSize: '9px',
+        color: '#ffcc00',
+      })
+      .setOrigin(0, 0);
     this.container.add(this.inputDisplay);
 
     // Toggle with backtick key
@@ -69,7 +75,7 @@ export class DevConsole {
         this.inputText += e.key;
       }
 
-      this.inputDisplay.setText('> ' + this.inputText + '_');
+      this.inputDisplay.setText(`> ${this.inputText}_`);
     });
 
     this.print('Dev console ready. Type "help" for commands.');
@@ -144,8 +150,8 @@ export class DevConsole {
         break;
 
       case 'hp': {
-        const val = parseInt(arg);
-        if (!isNaN(val)) {
+        const val = parseInt(arg, 10);
+        if (!Number.isNaN(val)) {
           scene.p1Fighter.hp = Phaser.Math.Clamp(val, 0, MAX_HP);
           scene.p2Fighter.hp = Phaser.Math.Clamp(val, 0, MAX_HP);
           this.print(`Both HP set to ${val}.`);
@@ -156,8 +162,8 @@ export class DevConsole {
       }
 
       case 'sp': {
-        const val = parseInt(arg);
-        if (!isNaN(val)) {
+        const val = parseInt(arg, 10);
+        if (!Number.isNaN(val)) {
           scene.p1Fighter.special = Phaser.Math.Clamp(val, 0, MAX_SPECIAL);
           this.print(`P1 special set to ${val}.`);
         } else {
@@ -167,8 +173,8 @@ export class DevConsole {
       }
 
       case 'timer': {
-        const val = parseInt(arg);
-        if (!isNaN(val)) {
+        const val = parseInt(arg, 10);
+        if (!Number.isNaN(val)) {
           scene.combat.timer = val;
           this.print(`Timer set to ${val}.`);
         } else {
@@ -178,8 +184,8 @@ export class DevConsole {
       }
 
       case 'speed': {
-        const val = parseInt(arg);
-        if (!isNaN(val)) {
+        const val = parseInt(arg, 10);
+        if (!Number.isNaN(val)) {
           scene.p1Fighter.data.stats.speed = Phaser.Math.Clamp(val, 1, 10);
           this.print(`P1 speed stat set to ${val}.`);
         } else {
@@ -189,7 +195,9 @@ export class DevConsole {
       }
 
       case 'pos':
-        this.print(`P1: (${Math.round(scene.p1Fighter.sprite.x)}, ${Math.round(scene.p1Fighter.sprite.y)}) | P2: (${Math.round(scene.p2Fighter.sprite.x)}, ${Math.round(scene.p2Fighter.sprite.y)})`);
+        this.print(
+          `P1: (${Math.round(scene.p1Fighter.sprite.x)}, ${Math.round(scene.p1Fighter.sprite.y)}) | P2: (${Math.round(scene.p2Fighter.sprite.x)}, ${Math.round(scene.p2Fighter.sprite.y)})`,
+        );
         break;
 
       case 'reset':
@@ -211,7 +219,7 @@ export class DevConsole {
 }
 
 // Lazy import for AIController to avoid circular deps
-function require(path) {
+function require(_path) {
   return { AIController: DevConsole._AIController };
 }
 DevConsole._AIController = null;

@@ -14,7 +14,7 @@ export const FIXED_DELTA = 1000 / 60;
  * @param {object} inputState - { left, right, up, down, lp, hp, lk, hk, sp }
  */
 export function applyInputToFighter(fighter, inputState) {
-  const speed = 80 + (fighter.data.stats.speed * 20);
+  const speed = 80 + fighter.data.stats.speed * 20;
 
   if (inputState.left) {
     fighter.moveLeft(speed);
@@ -47,7 +47,15 @@ export function applyInputToFighter(fighter, inputState) {
  * @param {number} delta - Frame delta in ms (should be FIXED_DELTA for online)
  * @param {{ muteEffects?: boolean }} [options]
  */
-export function simulateFrame(p1Fighter, p2Fighter, combat, p1Input, p2Input, delta, { muteEffects = false } = {}) {
+export function simulateFrame(
+  p1Fighter,
+  p2Fighter,
+  combat,
+  p1Input,
+  p2Input,
+  delta,
+  { muteEffects = false } = {},
+) {
   // 1. Update fighters (gravity, cooldowns, timers, ground check)
   p1Fighter.update(null, delta);
   p2Fighter.update(null, delta);

@@ -2,7 +2,7 @@
  * assemble.js — Combine individual frames/tiles into sheets
  */
 
-import { appendHorizontal, assembleGrid } from "./process.js";
+import { appendHorizontal, assembleGrid } from './process.js';
 
 /**
  * Assemble tiles into a horizontal row (tileset).

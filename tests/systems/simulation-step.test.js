@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { encodeInput, EMPTY_INPUT } from '../../src/systems/InputBuffer.js';
+import { describe, expect, it } from 'vitest';
+import { EMPTY_INPUT, encodeInput } from '../../src/systems/InputBuffer.js';
 import { FIXED_DELTA } from '../../src/systems/SimulationStep.js';
 
 describe('FIXED_DELTA', () => {
@@ -15,8 +15,15 @@ describe('encodeInput for simulation', () => {
 
   it('left + right produces correct encoding', () => {
     const encoded = encodeInput({
-      left: true, right: true, up: false, down: false,
-      lp: false, hp: false, lk: false, hk: false, sp: false
+      left: true,
+      right: true,
+      up: false,
+      down: false,
+      lp: false,
+      hp: false,
+      lk: false,
+      hk: false,
+      sp: false,
     });
     expect(encoded).toBe(0b11); // bits 0 and 1
   });
@@ -25,8 +32,15 @@ describe('encodeInput for simulation', () => {
 describe('determinism', () => {
   it('same inputs produce same encoded values', () => {
     const input = {
-      left: true, right: false, up: true, down: false,
-      lp: true, hp: false, lk: false, hk: false, sp: false
+      left: true,
+      right: false,
+      up: true,
+      down: false,
+      lp: true,
+      hp: false,
+      lk: false,
+      hk: false,
+      sp: false,
     };
     const a = encodeInput(input);
     const b = encodeInput(input);

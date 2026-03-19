@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 
 /**
  * Virtual gamepad overlay for touch devices.
@@ -23,14 +23,14 @@ export class TouchControls {
 
     // Joystick state
     this.joystickActive = false;
-    this.joystickPointerId = null;   // which pointer owns the joystick
+    this.joystickPointerId = null; // which pointer owns the joystick
     this.joystickOrigin = { x: 0, y: 0 };
     this.deadZone = 10;
 
     // Visual elements
     this.joystickBase = null;
     this.joystickThumb = null;
-    this.buttons = [];              // { graphic, hitArea, label, key }[]
+    this.buttons = []; // { graphic, hitArea, label, key }[]
     this.activeButtonPointers = {}; // pointerId -> button key
 
     this.createJoystick();
@@ -46,29 +46,23 @@ export class TouchControls {
     const scene = this.scene;
 
     // Invisible hit zone covering left third of screen
-    this.joystickZone = scene.add.rectangle(
-      0, 0,
-      GAME_WIDTH / 3, GAME_HEIGHT,
-      0x000000, 0
-    )
+    this.joystickZone = scene.add
+      .rectangle(0, 0, GAME_WIDTH / 3, GAME_HEIGHT, 0x000000, 0)
       .setOrigin(0, 0)
       .setDepth(100)
       .setInteractive();
 
     // Base ring (shown when touching)
-    this.joystickBase = scene.add.circle(0, 0, 30, 0xffffff, 0.15)
-      .setDepth(101)
-      .setVisible(false);
+    this.joystickBase = scene.add.circle(0, 0, 30, 0xffffff, 0.15).setDepth(101).setVisible(false);
 
-    this.joystickBaseRing = scene.add.circle(0, 0, 30, 0xffffff, 0)
+    this.joystickBaseRing = scene.add
+      .circle(0, 0, 30, 0xffffff, 0)
       .setStrokeStyle(1.5, 0xffffff, 0.3)
       .setDepth(101)
       .setVisible(false);
 
     // Thumb indicator
-    this.joystickThumb = scene.add.circle(0, 0, 14, 0xffffff, 0.35)
-      .setDepth(102)
-      .setVisible(false);
+    this.joystickThumb = scene.add.circle(0, 0, 14, 0xffffff, 0.35).setDepth(102).setVisible(false);
   }
 
   // ---------------------------------------------------------------------------
@@ -91,11 +85,16 @@ export class TouchControls {
     //   Bottom row:  [HP] [HK]
     const defs = [
       // key in touchState, label, dx, dy
-      { key: 'special',    label: 'ES',  dx: -(btnRadius + gap / 2), dy: -(btnRadius * 2 + gap) * 1.15 },
-      { key: 'lightPunch', label: 'PL',  dx: -(btnRadius * 2 + gap), dy: 0 },
-      { key: 'lightKick',  label: 'PaL', dx: 0,                      dy: 0 },
-      { key: 'heavyPunch', label: 'PP',  dx: -(btnRadius * 2 + gap), dy: (btnRadius * 2 + gap) },
-      { key: 'heavyKick',  label: 'PaP', dx: 0,                      dy: (btnRadius * 2 + gap) },
+      {
+        key: 'special',
+        label: 'ES',
+        dx: -(btnRadius + gap / 2),
+        dy: -(btnRadius * 2 + gap) * 1.15,
+      },
+      { key: 'lightPunch', label: 'PL', dx: -(btnRadius * 2 + gap), dy: 0 },
+      { key: 'lightKick', label: 'PaL', dx: 0, dy: 0 },
+      { key: 'heavyPunch', label: 'PP', dx: -(btnRadius * 2 + gap), dy: btnRadius * 2 + gap },
+      { key: 'heavyKick', label: 'PaP', dx: 0, dy: btnRadius * 2 + gap },
     ];
 
     for (const def of defs) {
@@ -103,17 +102,19 @@ export class TouchControls {
       const cy = baseY + def.dy;
 
       // Button background circle
-      const bg = scene.add.circle(cx, cy, btnRadius, 0xffffff, 0.2)
+      const bg = scene.add
+        .circle(cx, cy, btnRadius, 0xffffff, 0.2)
         .setStrokeStyle(1.5, 0xffffff, 0.35)
         .setDepth(101);
 
       // Label
-      const txt = scene.add.text(cx, cy, def.label, {
-        fontFamily: 'monospace',
-        fontSize: '9px',
-        color: '#ffffff',
-        align: 'center',
-      })
+      const txt = scene.add
+        .text(cx, cy, def.label, {
+          fontFamily: 'monospace',
+          fontSize: '9px',
+          color: '#ffffff',
+          align: 'center',
+        })
         .setOrigin(0.5)
         .setAlpha(0.5)
         .setDepth(102);
@@ -303,7 +304,7 @@ export class TouchControls {
   releaseButtonByKey(key, pointerId) {
     delete this.activeButtonPointers[pointerId];
 
-    const btn = this.buttons.find(b => b.key === key);
+    const btn = this.buttons.find((b) => b.key === key);
     if (!btn) return;
 
     // Check if any OTHER pointer is still pressing this button
@@ -328,7 +329,7 @@ export class TouchControls {
     // missed (e.g. pointer moved outside canvas and came back).
     if (this.joystickActive) {
       const pointer = this.getPointerById(this.joystickPointerId);
-      if (pointer && pointer.isDown) {
+      if (pointer?.isDown) {
         this.updateJoystickFromPointer(pointer);
       } else {
         // Lost the pointer
@@ -343,12 +344,12 @@ export class TouchControls {
   getPointerById(id) {
     const mgr = this.scene.input.manager;
     for (let i = 1; i <= mgr.pointersTotal; i++) {
-      const p = this.scene.input['pointer' + i] || mgr.pointers[i];
+      const p = this.scene.input[`pointer${i}`] || mgr.pointers[i];
       if (p && p.id === id) return p;
     }
     // Also check pointer1..pointer5 on the input plugin
     for (let i = 1; i <= 5; i++) {
-      const p = this.scene.input['pointer' + i];
+      const p = this.scene.input[`pointer${i}`];
       if (p && p.id === id) return p;
     }
     return null;

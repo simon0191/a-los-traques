@@ -1,16 +1,23 @@
 import Phaser from 'phaser';
 import {
-  GAME_WIDTH, GAME_HEIGHT, GROUND_Y, STAGE_LEFT, STAGE_RIGHT,
-  MAX_HP, MAX_SPECIAL, MAX_STAMINA, ROUNDS_TO_WIN, FIGHTER_COLORS
+  GAME_HEIGHT,
+  GAME_WIDTH,
+  GROUND_Y,
+  MAX_HP,
+  MAX_SPECIAL,
+  MAX_STAMINA,
+  ROUNDS_TO_WIN,
+  STAGE_LEFT,
+  STAGE_RIGHT,
 } from '../config.js';
-import { Fighter } from '../entities/Fighter.js';
-import { InputManager } from '../systems/InputManager.js';
-import { CombatSystem } from '../systems/CombatSystem.js';
-import { AIController } from '../systems/AIController.js';
-import { TouchControls } from '../systems/TouchControls.js';
-import { DevConsole } from '../systems/DevConsole.js';
-import { RollbackManager } from '../systems/RollbackManager.js';
 import fightersData from '../data/fighters.json';
+import { Fighter } from '../entities/Fighter.js';
+import { AIController } from '../systems/AIController.js';
+import { CombatSystem } from '../systems/CombatSystem.js';
+import { DevConsole } from '../systems/DevConsole.js';
+import { InputManager } from '../systems/InputManager.js';
+import { RollbackManager } from '../systems/RollbackManager.js';
+import { TouchControls } from '../systems/TouchControls.js';
 
 // ---------------------------------------------------------------------------
 // HUD layout constants
@@ -43,17 +50,17 @@ export class FightScene extends Phaser.Scene {
   // =========================================================================
   init(data) {
     // Accept both string IDs (from PreFightScene) and numeric indices
-    if (data && data.p1Id) {
+    if (data?.p1Id) {
       this.p1Id = data.p1Id;
       this.p2Id = data.p2Id;
     } else {
       this.p1Id = fightersData[data && data.p1 != null ? data.p1 : 0].id;
       this.p2Id = fightersData[data && data.p2 != null ? data.p2 : 1].id;
     }
-    this.stageId = data && (data.stageId || data.stage) ? (data.stageId || data.stage) : null;
-    this.aiDifficulty = (data && data.difficulty) ? data.difficulty : 'medium';
-    this.gameMode = (data && data.gameMode) || 'local';
-    this.networkManager = (data && data.networkManager) || null;
+    this.stageId = data && (data.stageId || data.stage) ? data.stageId || data.stage : null;
+    this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
+    this.gameMode = data?.gameMode || 'local';
+    this.networkManager = data?.networkManager || null;
   }
 
   // =========================================================================
@@ -61,21 +68,21 @@ export class FightScene extends Phaser.Scene {
   // =========================================================================
   create() {
     // -- Load fighter data by ID --
-    this.p1Data = fightersData.find(f => f.id === this.p1Id) || fightersData[0];
-    this.p2Data = fightersData.find(f => f.id === this.p2Id) || fightersData[1];
+    this.p1Data = fightersData.find((f) => f.id === this.p1Id) || fightersData[0];
+    this.p2Data = fightersData.find((f) => f.id === this.p2Id) || fightersData[1];
 
     // -- Draw background --
     this._createBackground();
 
     // -- Create Fighter entities --
-    const p1Tex = this.textures.exists(`fighter_${this.p1Id}_idle`) ? `fighter_${this.p1Id}_idle` : 'fighter_p1';
-    const p2Tex = this.textures.exists(`fighter_${this.p2Id}_idle`) ? `fighter_${this.p2Id}_idle` : 'fighter_p2';
-    this.p1Fighter = new Fighter(
-      this, GAME_WIDTH * 0.3, GROUND_Y, p1Tex, this.p1Data, 0
-    );
-    this.p2Fighter = new Fighter(
-      this, GAME_WIDTH * 0.7, GROUND_Y, p2Tex, this.p2Data, 1
-    );
+    const p1Tex = this.textures.exists(`fighter_${this.p1Id}_idle`)
+      ? `fighter_${this.p1Id}_idle`
+      : 'fighter_p1';
+    const p2Tex = this.textures.exists(`fighter_${this.p2Id}_idle`)
+      ? `fighter_${this.p2Id}_idle`
+      : 'fighter_p2';
+    this.p1Fighter = new Fighter(this, GAME_WIDTH * 0.3, GROUND_Y, p1Tex, this.p1Data, 0);
+    this.p2Fighter = new Fighter(this, GAME_WIDTH * 0.7, GROUND_Y, p2Tex, this.p2Data, 1);
 
     // -- Systems --
     this.combat = new CombatSystem(this);
@@ -107,7 +114,12 @@ export class FightScene extends Phaser.Scene {
 
       // -- AI controller (local mode only) --
       if (this.gameMode !== 'online') {
-        this.aiController = new AIController(this, this.p2Fighter, this.p1Fighter, this.aiDifficulty);
+        this.aiController = new AIController(
+          this,
+          this.p2Fighter,
+          this.p1Fighter,
+          this.aiDifficulty,
+        );
       } else {
         this.aiController = null;
         this.frameCounter = 0;
@@ -221,8 +233,8 @@ export class FightScene extends Phaser.Scene {
   // =========================================================================
   _createBackground() {
     // Default background
-    let bgColor = 0x1a1a2e;
-    let groundColor = 0x2d2d44;
+    const bgColor = 0x1a1a2e;
+    const groundColor = 0x2d2d44;
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, bgColor);
     this.add.rectangle(GAME_WIDTH / 2, GROUND_Y + 25, GAME_WIDTH, 50, groundColor);
@@ -240,57 +252,112 @@ export class FightScene extends Phaser.Scene {
 
     // --- Health bars ---
     // P1 health (fills from left to right)
-    this.hpBgP1 = this.add.rectangle(BAR_P1_X, BAR_Y, BAR_W, BAR_H, 0x333333)
-      .setOrigin(0, 0).setDepth(depth);
-    this.hpBarP1 = this.add.rectangle(BAR_P1_X, BAR_Y, BAR_W, BAR_H, 0x00cc44)
-      .setOrigin(0, 0).setDepth(depth + 1);
-    this.add.rectangle(BAR_P1_X + BAR_W / 2, BAR_Y + BAR_H / 2, BAR_W + 2, BAR_H + 2)
-      .setStrokeStyle(1, 0xffffff).setFillStyle().setDepth(depth + 2);
+    this.hpBgP1 = this.add
+      .rectangle(BAR_P1_X, BAR_Y, BAR_W, BAR_H, 0x333333)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.hpBarP1 = this.add
+      .rectangle(BAR_P1_X, BAR_Y, BAR_W, BAR_H, 0x00cc44)
+      .setOrigin(0, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(BAR_P1_X + BAR_W / 2, BAR_Y + BAR_H / 2, BAR_W + 2, BAR_H + 2)
+      .setStrokeStyle(1, 0xffffff)
+      .setFillStyle()
+      .setDepth(depth + 2);
 
     // P2 health (fills from right to left)
-    this.hpBgP2 = this.add.rectangle(BAR_P2_X, BAR_Y, BAR_W, BAR_H, 0x333333)
-      .setOrigin(0, 0).setDepth(depth);
-    this.hpBarP2 = this.add.rectangle(BAR_P2_X + BAR_W, BAR_Y, BAR_W, BAR_H, 0xcc2200)
-      .setOrigin(1, 0).setDepth(depth + 1);
-    this.add.rectangle(BAR_P2_X + BAR_W / 2, BAR_Y + BAR_H / 2, BAR_W + 2, BAR_H + 2)
-      .setStrokeStyle(1, 0xffffff).setFillStyle().setDepth(depth + 2);
+    this.hpBgP2 = this.add
+      .rectangle(BAR_P2_X, BAR_Y, BAR_W, BAR_H, 0x333333)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.hpBarP2 = this.add
+      .rectangle(BAR_P2_X + BAR_W, BAR_Y, BAR_W, BAR_H, 0xcc2200)
+      .setOrigin(1, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(BAR_P2_X + BAR_W / 2, BAR_Y + BAR_H / 2, BAR_W + 2, BAR_H + 2)
+      .setStrokeStyle(1, 0xffffff)
+      .setFillStyle()
+      .setDepth(depth + 2);
 
     // --- Special meter bars ---
     // P1 special
-    this.spBgP1 = this.add.rectangle(SPECIAL_P1_X, SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H, 0x222222)
-      .setOrigin(0, 0).setDepth(depth);
-    this.spBarP1 = this.add.rectangle(SPECIAL_P1_X, SPECIAL_BAR_Y, 0, SPECIAL_BAR_H, 0xffcc00)
-      .setOrigin(0, 0).setDepth(depth + 1);
-    this.add.rectangle(SPECIAL_P1_X + SPECIAL_BAR_W / 2, SPECIAL_BAR_Y + SPECIAL_BAR_H / 2, SPECIAL_BAR_W + 2, SPECIAL_BAR_H + 2)
-      .setStrokeStyle(1, 0x666666).setFillStyle().setDepth(depth + 2);
+    this.spBgP1 = this.add
+      .rectangle(SPECIAL_P1_X, SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H, 0x222222)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.spBarP1 = this.add
+      .rectangle(SPECIAL_P1_X, SPECIAL_BAR_Y, 0, SPECIAL_BAR_H, 0xffcc00)
+      .setOrigin(0, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(
+        SPECIAL_P1_X + SPECIAL_BAR_W / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+        SPECIAL_BAR_W + 2,
+        SPECIAL_BAR_H + 2,
+      )
+      .setStrokeStyle(1, 0x666666)
+      .setFillStyle()
+      .setDepth(depth + 2);
 
     // P2 special
-    this.spBgP2 = this.add.rectangle(SPECIAL_P2_X, SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H, 0x222222)
-      .setOrigin(0, 0).setDepth(depth);
-    this.spBarP2 = this.add.rectangle(SPECIAL_P2_X + SPECIAL_BAR_W, SPECIAL_BAR_Y, 0, SPECIAL_BAR_H, 0xffcc00)
-      .setOrigin(1, 0).setDepth(depth + 1);
-    this.add.rectangle(SPECIAL_P2_X + SPECIAL_BAR_W / 2, SPECIAL_BAR_Y + SPECIAL_BAR_H / 2, SPECIAL_BAR_W + 2, SPECIAL_BAR_H + 2)
-      .setStrokeStyle(1, 0x666666).setFillStyle().setDepth(depth + 2);
+    this.spBgP2 = this.add
+      .rectangle(SPECIAL_P2_X, SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H, 0x222222)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.spBarP2 = this.add
+      .rectangle(SPECIAL_P2_X + SPECIAL_BAR_W, SPECIAL_BAR_Y, 0, SPECIAL_BAR_H, 0xffcc00)
+      .setOrigin(1, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(
+        SPECIAL_P2_X + SPECIAL_BAR_W / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+        SPECIAL_BAR_W + 2,
+        SPECIAL_BAR_H + 2,
+      )
+      .setStrokeStyle(1, 0x666666)
+      .setFillStyle()
+      .setDepth(depth + 2);
 
     // --- Player name labels ---
     const p1Color = this.p1Data.color.replace('0x', '#');
     const p2Color = this.p2Data.color.replace('0x', '#');
 
-    this.add.text(BAR_P1_X, BAR_Y - 11, this.p1Data.name, {
-      fontSize: '9px', fontFamily: 'monospace', color: p1Color,
-      stroke: '#000000', strokeThickness: 2
-    }).setDepth(depth + 3);
+    this.add
+      .text(BAR_P1_X, BAR_Y - 11, this.p1Data.name, {
+        fontSize: '9px',
+        fontFamily: 'monospace',
+        color: p1Color,
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setDepth(depth + 3);
 
-    this.add.text(BAR_P2_X + BAR_W, BAR_Y - 11, this.p2Data.name, {
-      fontSize: '9px', fontFamily: 'monospace', color: p2Color,
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(1, 0).setDepth(depth + 3);
+    this.add
+      .text(BAR_P2_X + BAR_W, BAR_Y - 11, this.p2Data.name, {
+        fontSize: '9px',
+        fontFamily: 'monospace',
+        color: p2Color,
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(1, 0)
+      .setDepth(depth + 3);
 
     // --- Timer display (center top) ---
-    this.timerText = this.add.text(GAME_WIDTH / 2, BAR_Y + 2, '60', {
-      fontSize: '18px', fontFamily: 'monospace', color: '#ffffff',
-      stroke: '#000000', strokeThickness: 3
-    }).setOrigin(0.5, 0).setDepth(depth + 3);
+    this.timerText = this.add
+      .text(GAME_WIDTH / 2, BAR_Y + 2, '60', {
+        fontSize: '18px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(depth + 3);
 
     // --- Round indicators (dots below timer) ---
     this.roundDotsP1 = [];
@@ -298,85 +365,167 @@ export class FightScene extends Phaser.Scene {
     const dotY = BAR_Y + 24;
     const dotSpacing = 10;
     for (let i = 0; i < ROUNDS_TO_WIN; i++) {
-      const p1Dot = this.add.circle(
-        GAME_WIDTH / 2 - 20 - (i * dotSpacing), dotY, 3, 0x333333
-      ).setDepth(depth + 3).setStrokeStyle(1, 0x666666);
+      const p1Dot = this.add
+        .circle(GAME_WIDTH / 2 - 20 - i * dotSpacing, dotY, 3, 0x333333)
+        .setDepth(depth + 3)
+        .setStrokeStyle(1, 0x666666);
       this.roundDotsP1.push(p1Dot);
 
-      const p2Dot = this.add.circle(
-        GAME_WIDTH / 2 + 20 + (i * dotSpacing), dotY, 3, 0x333333
-      ).setDepth(depth + 3).setStrokeStyle(1, 0x666666);
+      const p2Dot = this.add
+        .circle(GAME_WIDTH / 2 + 20 + i * dotSpacing, dotY, 3, 0x333333)
+        .setDepth(depth + 3)
+        .setStrokeStyle(1, 0x666666);
       this.roundDotsP2.push(p2Dot);
     }
 
     // --- Stamina bars ---
     // P1 stamina
-    this.staBgP1 = this.add.rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
-      .setOrigin(0, 0).setDepth(depth);
-    this.staBarP1 = this.add.rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x00cccc)
-      .setOrigin(0, 0).setDepth(depth + 1);
-    this.add.rectangle(STAMINA_P1_X + STAMINA_BAR_W / 2, STAMINA_BAR_Y + STAMINA_BAR_H / 2, STAMINA_BAR_W + 2, STAMINA_BAR_H + 2)
-      .setStrokeStyle(1, 0x444444).setFillStyle().setDepth(depth + 2);
+    this.staBgP1 = this.add
+      .rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.staBarP1 = this.add
+      .rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x00cccc)
+      .setOrigin(0, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(
+        STAMINA_P1_X + STAMINA_BAR_W / 2,
+        STAMINA_BAR_Y + STAMINA_BAR_H / 2,
+        STAMINA_BAR_W + 2,
+        STAMINA_BAR_H + 2,
+      )
+      .setStrokeStyle(1, 0x444444)
+      .setFillStyle()
+      .setDepth(depth + 2);
 
     // P2 stamina
-    this.staBgP2 = this.add.rectangle(STAMINA_P2_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
-      .setOrigin(0, 0).setDepth(depth);
-    this.staBarP2 = this.add.rectangle(STAMINA_P2_X + STAMINA_BAR_W, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x00cccc)
-      .setOrigin(1, 0).setDepth(depth + 1);
-    this.add.rectangle(STAMINA_P2_X + STAMINA_BAR_W / 2, STAMINA_BAR_Y + STAMINA_BAR_H / 2, STAMINA_BAR_W + 2, STAMINA_BAR_H + 2)
-      .setStrokeStyle(1, 0x444444).setFillStyle().setDepth(depth + 2);
+    this.staBgP2 = this.add
+      .rectangle(STAMINA_P2_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.staBarP2 = this.add
+      .rectangle(
+        STAMINA_P2_X + STAMINA_BAR_W,
+        STAMINA_BAR_Y,
+        STAMINA_BAR_W,
+        STAMINA_BAR_H,
+        0x00cccc,
+      )
+      .setOrigin(1, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(
+        STAMINA_P2_X + STAMINA_BAR_W / 2,
+        STAMINA_BAR_Y + STAMINA_BAR_H / 2,
+        STAMINA_BAR_W + 2,
+        STAMINA_BAR_H + 2,
+      )
+      .setStrokeStyle(1, 0x444444)
+      .setFillStyle()
+      .setDepth(depth + 2);
 
     // --- Bar labels ---
-    const labelStyle = { fontSize: '5px', fontFamily: 'monospace', stroke: '#000000', strokeThickness: 1 };
+    const labelStyle = {
+      fontSize: '5px',
+      fontFamily: 'monospace',
+      stroke: '#000000',
+      strokeThickness: 1,
+    };
 
     // ESP labels (special)
-    this.add.text(SPECIAL_P1_X + SPECIAL_BAR_W + 3, SPECIAL_BAR_Y, 'ESP', { ...labelStyle, color: '#ffcc00' })
-      .setOrigin(0, 0).setDepth(depth + 3);
-    this.add.text(SPECIAL_P2_X - 3, SPECIAL_BAR_Y, 'ESP', { ...labelStyle, color: '#ffcc00' })
-      .setOrigin(1, 0).setDepth(depth + 3);
+    this.add
+      .text(SPECIAL_P1_X + SPECIAL_BAR_W + 3, SPECIAL_BAR_Y, 'ESP', {
+        ...labelStyle,
+        color: '#ffcc00',
+      })
+      .setOrigin(0, 0)
+      .setDepth(depth + 3);
+    this.add
+      .text(SPECIAL_P2_X - 3, SPECIAL_BAR_Y, 'ESP', { ...labelStyle, color: '#ffcc00' })
+      .setOrigin(1, 0)
+      .setDepth(depth + 3);
 
     // STA labels (stamina)
-    this.add.text(STAMINA_P1_X + STAMINA_BAR_W + 3, STAMINA_BAR_Y, 'STA', { ...labelStyle, color: '#00cccc' })
-      .setOrigin(0, 0).setDepth(depth + 3);
-    this.add.text(STAMINA_P2_X - 3, STAMINA_BAR_Y, 'STA', { ...labelStyle, color: '#00cccc' })
-      .setOrigin(1, 0).setDepth(depth + 3);
+    this.add
+      .text(STAMINA_P1_X + STAMINA_BAR_W + 3, STAMINA_BAR_Y, 'STA', {
+        ...labelStyle,
+        color: '#00cccc',
+      })
+      .setOrigin(0, 0)
+      .setDepth(depth + 3);
+    this.add
+      .text(STAMINA_P2_X - 3, STAMINA_BAR_Y, 'STA', { ...labelStyle, color: '#00cccc' })
+      .setOrigin(1, 0)
+      .setDepth(depth + 3);
 
     // --- Pause button (below timer, local mode only) ---
     if (this.gameMode !== 'online') {
-      this.pauseBtn = this.add.text(GAME_WIDTH / 2, BAR_Y + 34, '||', {
-        fontSize: '10px', fontFamily: 'monospace', color: '#888888',
-        stroke: '#000000', strokeThickness: 2
-      }).setOrigin(0.5, 0).setDepth(depth + 3).setInteractive({ useHandCursor: true });
+      this.pauseBtn = this.add
+        .text(GAME_WIDTH / 2, BAR_Y + 34, '||', {
+          fontSize: '10px',
+          fontFamily: 'monospace',
+          color: '#888888',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(depth + 3)
+        .setInteractive({ useHandCursor: true });
       this.pauseBtn.on('pointerdown', () => this._togglePause());
     }
 
     // --- Ping + room code (online/spectator, bottom center) ---
     if ((this.gameMode === 'online' || this.gameMode === 'spectator') && this.networkManager) {
       const infoY = GAME_HEIGHT - 8;
-      this._roomCodeText = this.add.text(GAME_WIDTH / 2, infoY, `SALA: ${this.networkManager.roomId}`, {
-        fontSize: '7px', fontFamily: 'monospace', color: '#aaaacc',
-        stroke: '#000000', strokeThickness: 2
-      }).setOrigin(0.5, 1).setDepth(depth + 3);
+      this._roomCodeText = this.add
+        .text(GAME_WIDTH / 2, infoY, `SALA: ${this.networkManager.roomId}`, {
+          fontSize: '7px',
+          fontFamily: 'monospace',
+          color: '#aaaacc',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(depth + 3);
 
       if (this.gameMode === 'online') {
-        this._pingText = this.add.text(GAME_WIDTH / 2, infoY - 10, '', {
-          fontSize: '7px', fontFamily: 'monospace', color: '#44ff44',
-          stroke: '#000000', strokeThickness: 2
-        }).setOrigin(0.5, 1).setDepth(depth + 3);
+        this._pingText = this.add
+          .text(GAME_WIDTH / 2, infoY - 10, '', {
+            fontSize: '7px',
+            fontFamily: 'monospace',
+            color: '#44ff44',
+            stroke: '#000000',
+            strokeThickness: 2,
+          })
+          .setOrigin(0.5, 1)
+          .setDepth(depth + 3);
         this._pingUpdateCounter = 0;
       }
     }
 
     // --- Center text (for announcements) ---
-    this.centerText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '', {
-      fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
-      stroke: '#000000', strokeThickness: 4
-    }).setOrigin(0.5).setDepth(30);
+    this.centerText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '', {
+        fontSize: '28px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(30);
 
-    this.subtitleText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, '', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#ffcc00',
-      stroke: '#000000', strokeThickness: 3
-    }).setOrigin(0.5).setDepth(30);
+    this.subtitleText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, '', {
+        fontSize: '14px',
+        fontFamily: 'monospace',
+        color: '#ffcc00',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(30);
   }
 
   _updateHUD() {
@@ -451,14 +600,14 @@ export class FightScene extends Phaser.Scene {
   // =========================================================================
   _handleP1Input() {
     // Skip keyboard input when dev console is open
-    if (this.devConsole && this.devConsole.visible) {
+    if (this.devConsole?.visible) {
       this.p1Fighter.stop();
       return;
     }
 
     const input = this.inputManager;
     const fighter = this.p1Fighter;
-    const speed = 80 + (fighter.data.stats.speed * 20); // speed stat: 1=100, 3=140, 5=180
+    const speed = 80 + fighter.data.stats.speed * 20; // speed stat: 1=100, 3=140, 5=180
 
     // Movement
     if (input.left) {
@@ -576,7 +725,7 @@ export class FightScene extends Phaser.Scene {
     }
   }
 
-  _handleOnlineUpdate(time, delta) {
+  _handleOnlineUpdate(_time, _delta) {
     this.frameCounter++;
     const input = this.inputManager;
 
@@ -590,7 +739,7 @@ export class FightScene extends Phaser.Scene {
       hp: input.heavyPunch,
       lk: input.lightKick,
       hk: input.heavyKick,
-      sp: input.special
+      sp: input.special,
     };
     input.consumeTouch();
 
@@ -608,7 +757,7 @@ export class FightScene extends Phaser.Scene {
         p2sta: this.p2Fighter.stamina,
         timer: this.combat.timer,
         p1x: this.p1Fighter.sprite.x,
-        p2x: this.p2Fighter.sprite.x
+        p2x: this.p2Fighter.sprite.x,
       });
     }
 
@@ -624,16 +773,16 @@ export class FightScene extends Phaser.Scene {
         p1Rounds: this.combat.p1RoundsWon,
         p2Rounds: this.combat.p2RoundsWon,
         roundNumber: this.combat.roundNumber,
-        matchOver: this.combat.matchOver
+        matchOver: this.combat.matchOver,
       };
       this.networkManager.sendRoundEvent(payload);
-      setTimeout(() => this.networkManager && this.networkManager.sendRoundEvent(payload), 200);
-      setTimeout(() => this.networkManager && this.networkManager.sendRoundEvent(payload), 400);
+      setTimeout(() => this.networkManager?.sendRoundEvent(payload), 200);
+      setTimeout(() => this.networkManager?.sendRoundEvent(payload), 400);
     }
   }
 
   _applyInputToFighter(fighter, inputState) {
-    const speed = 80 + (fighter.data.stats.speed * 20);
+    const speed = 80 + fighter.data.stats.speed * 20;
 
     if (inputState.left) {
       fighter.moveLeft(speed);
@@ -671,9 +820,11 @@ export class FightScene extends Phaser.Scene {
       this.combat.timer = msg.timer;
       // Lerp positions for smooth movement, teleport for large diffs
       const sp1dx = Math.abs(this.p1Fighter.sprite.x - msg.p1x);
-      this.p1Fighter.sprite.x = sp1dx > 50 ? msg.p1x : this.p1Fighter.sprite.x + (msg.p1x - this.p1Fighter.sprite.x) * 0.3;
+      this.p1Fighter.sprite.x =
+        sp1dx > 50 ? msg.p1x : this.p1Fighter.sprite.x + (msg.p1x - this.p1Fighter.sprite.x) * 0.3;
       const sp2dx = Math.abs(this.p2Fighter.sprite.x - msg.p2x);
-      this.p2Fighter.sprite.x = sp2dx > 50 ? msg.p2x : this.p2Fighter.sprite.x + (msg.p2x - this.p2Fighter.sprite.x) * 0.3;
+      this.p2Fighter.sprite.x =
+        sp2dx > 50 ? msg.p2x : this.p2Fighter.sprite.x + (msg.p2x - this.p2Fighter.sprite.x) * 0.3;
     });
 
     nm.onRoundEvent((msg) => {
@@ -705,16 +856,28 @@ export class FightScene extends Phaser.Scene {
     });
 
     // Spectator badge
-    this.add.text(GAME_WIDTH - 8, 40, 'ESPECTADOR', {
-      fontSize: '7px', fontFamily: 'Arial', color: '#88ccff',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(1, 0).setDepth(25);
+    this.add
+      .text(GAME_WIDTH - 8, 40, 'ESPECTADOR', {
+        fontSize: '7px',
+        fontFamily: 'Arial',
+        color: '#88ccff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(1, 0)
+      .setDepth(25);
 
     // Spectator count display
-    this._spectatorCountText = this.add.text(GAME_WIDTH - 8, 49, '', {
-      fontSize: '7px', fontFamily: 'Arial', color: '#aaaacc',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(1, 0).setDepth(25);
+    this._spectatorCountText = this.add
+      .text(GAME_WIDTH - 8, 49, '', {
+        fontSize: '7px',
+        fontFamily: 'Arial',
+        color: '#aaaacc',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(1, 0)
+      .setDepth(25);
 
     // Build spectator UI overlay
     this._createSpectatorOverlay();
@@ -739,8 +902,10 @@ export class FightScene extends Phaser.Scene {
   _createSpectatorOverlay() {
     const barY = GAME_HEIGHT - 25;
     // Semi-transparent dark bar
-    this.add.rectangle(GAME_WIDTH / 2, barY + 12, GAME_WIDTH, 25, 0x000000)
-      .setAlpha(0.6).setDepth(25);
+    this.add
+      .rectangle(GAME_WIDTH / 2, barY + 12, GAME_WIDTH, 25, 0x000000)
+      .setAlpha(0.6)
+      .setDepth(25);
 
     const shouts = ['DALE!', 'NOOO!', 'VAMOS!', 'OLE!'];
     const shoutCooldowns = {};
@@ -763,7 +928,7 @@ export class FightScene extends Phaser.Scene {
       { label: 'vida J1', target: 0, potionType: 'hp' },
       { label: 'esp J1', target: 0, potionType: 'special' },
       { label: 'vida J2', target: 1, potionType: 'hp' },
-      { label: 'esp J2', target: 1, potionType: 'special' }
+      { label: 'esp J2', target: 1, potionType: 'special' },
     ];
     const potionStartX = GAME_WIDTH - 30 - (potions.length - 1) * (btnW + 4);
     this._potionButtons = [];
@@ -777,9 +942,13 @@ export class FightScene extends Phaser.Scene {
         potionCooldown = now;
         this.networkManager.sendPotion(p.target, p.potionType);
         // Gray out all potion buttons during cooldown
-        this._potionButtons.forEach(b => b.bg.setFillStyle(0x333333));
+        this._potionButtons.forEach((b) => {
+          b.bg.setFillStyle(0x333333);
+        });
         this.time.delayedCall(15000, () => {
-          this._potionButtons.forEach(b => b.bg.setFillStyle(0x446622));
+          this._potionButtons.forEach((b) => {
+            b.bg.setFillStyle(0x446622);
+          });
         });
       });
       this._potionButtons.push(btn);
@@ -787,13 +956,19 @@ export class FightScene extends Phaser.Scene {
   }
 
   _createSpectatorButton(x, y, w, h, label, color, callback) {
-    const bg = this.add.rectangle(x, y, w, h, color)
+    const bg = this.add
+      .rectangle(x, y, w, h, color)
       .setStrokeStyle(1, 0x666688)
       .setInteractive({ useHandCursor: true })
       .setDepth(26);
-    const text = this.add.text(x, y, label, {
-      fontSize: '7px', fontFamily: 'Arial', color: '#ffffff'
-    }).setOrigin(0.5).setDepth(27);
+    const text = this.add
+      .text(x, y, label, {
+        fontSize: '7px',
+        fontFamily: 'Arial',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(27);
 
     bg.on('pointerover', () => text.setColor('#ffcc00'));
     bg.on('pointerout', () => text.setColor('#ffffff'));
@@ -811,10 +986,16 @@ export class FightScene extends Phaser.Scene {
 
     const x = Phaser.Math.Between(120, 360);
     const startY = 195;
-    const shoutText = this.add.text(x, startY, text, {
-      fontSize: '12px', fontFamily: 'Arial Black, Arial', color: '#ffcc00',
-      stroke: '#000000', strokeThickness: 3
-    }).setOrigin(0.5).setDepth(25);
+    const shoutText = this.add
+      .text(x, startY, text, {
+        fontSize: '12px',
+        fontFamily: 'Arial Black, Arial',
+        color: '#ffcc00',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(25);
 
     this._activeShouts.push(shoutText);
 
@@ -828,7 +1009,7 @@ export class FightScene extends Phaser.Scene {
         const idx = this._activeShouts.indexOf(shoutText);
         if (idx !== -1) this._activeShouts.splice(idx, 1);
         shoutText.destroy();
-      }
+      },
     });
   }
 
@@ -842,27 +1023,39 @@ export class FightScene extends Phaser.Scene {
     this.time.delayedCall(300, () => fighter.sprite.clearTint());
 
     // Floating text
-    const floatText = this.add.text(fighter.sprite.x, fighter.sprite.y - 40, label, {
-      fontSize: '10px', fontFamily: 'Arial', color: potionType === 'hp' ? '#00ff66' : '#ffff00',
-      stroke: '#000000', strokeThickness: 2
-    }).setOrigin(0.5).setDepth(25);
+    const floatText = this.add
+      .text(fighter.sprite.x, fighter.sprite.y - 40, label, {
+        fontSize: '10px',
+        fontFamily: 'Arial',
+        color: potionType === 'hp' ? '#00ff66' : '#ffff00',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5)
+      .setDepth(25);
 
     this.tweens.add({
       targets: floatText,
       y: floatText.y - 20,
       alpha: 0,
       duration: 1200,
-      onComplete: () => floatText.destroy()
+      onComplete: () => floatText.destroy(),
     });
   }
 
   _updateSpectatorCount(count) {
     if (!this._spectatorCountText) {
       // Create spectator count text for online players too
-      this._spectatorCountText = this.add.text(GAME_WIDTH - 8, 40, '', {
-        fontSize: '7px', fontFamily: 'Arial', color: '#aaaacc',
-        stroke: '#000000', strokeThickness: 2
-      }).setOrigin(1, 0).setDepth(25);
+      this._spectatorCountText = this.add
+        .text(GAME_WIDTH - 8, 40, '', {
+          fontSize: '7px',
+          fontFamily: 'Arial',
+          color: '#aaaacc',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(1, 0)
+        .setDepth(25);
     }
     if (count > 0) {
       this._spectatorCountText.setText(`${count} espectador${count !== 1 ? 'es' : ''}`);
@@ -878,12 +1071,21 @@ export class FightScene extends Phaser.Scene {
     if (this.gameMode === 'online') {
       // Show brief "no pause online" message
       if (this._noPauseMsg) return;
-      this._noPauseMsg = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'NO PAUSA EN LINEA', {
-        fontSize: '12px', fontFamily: 'monospace', color: '#ff4444',
-        stroke: '#000000', strokeThickness: 3
-      }).setOrigin(0.5).setDepth(50);
+      this._noPauseMsg = this.add
+        .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'NO PAUSA EN LINEA', {
+          fontSize: '12px',
+          fontFamily: 'monospace',
+          color: '#ff4444',
+          stroke: '#000000',
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5)
+        .setDepth(50);
       this.time.delayedCall(1200, () => {
-        if (this._noPauseMsg) { this._noPauseMsg.destroy(); this._noPauseMsg = null; }
+        if (this._noPauseMsg) {
+          this._noPauseMsg.destroy();
+          this._noPauseMsg = null;
+        }
       });
       return;
     }
@@ -899,30 +1101,66 @@ export class FightScene extends Phaser.Scene {
 
     // Dark overlay + text
     this._pauseOverlay = this.add.container(0, 0).setDepth(60);
-    const bg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.6);
-    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 'PAUSA', {
-      fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
-      stroke: '#000000', strokeThickness: 4
-    }).setOrigin(0.5);
+    const bg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+      0x000000,
+      0.6,
+    );
+    const title = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 'PAUSA', {
+        fontSize: '28px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
 
     // CONTINUAR button
-    const contBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 110, 20, 0x222244)
-      .setStrokeStyle(1, 0x4444aa).setInteractive({ useHandCursor: true });
-    const contText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 'CONTINUAR', {
-      fontSize: '9px', fontFamily: 'Arial', color: '#ffffff'
-    }).setOrigin(0.5);
-    contBg.on('pointerover', () => { contBg.setFillStyle(0x333366); contText.setColor('#ffcc00'); });
-    contBg.on('pointerout', () => { contBg.setFillStyle(0x222244); contText.setColor('#ffffff'); });
+    const contBg = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 110, 20, 0x222244)
+      .setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor: true });
+    const contText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 'CONTINUAR', {
+        fontSize: '9px',
+        fontFamily: 'Arial',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    contBg.on('pointerover', () => {
+      contBg.setFillStyle(0x333366);
+      contText.setColor('#ffcc00');
+    });
+    contBg.on('pointerout', () => {
+      contBg.setFillStyle(0x222244);
+      contText.setColor('#ffffff');
+    });
     contBg.on('pointerdown', () => this._resumeGame());
 
     // SALIR button
-    const salirBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 110, 20, 0x222244)
-      .setStrokeStyle(1, 0x4444aa).setInteractive({ useHandCursor: true });
-    const salirText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 'SALIR', {
-      fontSize: '9px', fontFamily: 'Arial', color: '#ffffff'
-    }).setOrigin(0.5);
-    salirBg.on('pointerover', () => { salirBg.setFillStyle(0x333366); salirText.setColor('#ffcc00'); });
-    salirBg.on('pointerout', () => { salirBg.setFillStyle(0x222244); salirText.setColor('#ffffff'); });
+    const salirBg = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 110, 20, 0x222244)
+      .setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor: true });
+    const salirText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 'SALIR', {
+        fontSize: '9px',
+        fontFamily: 'Arial',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    salirBg.on('pointerover', () => {
+      salirBg.setFillStyle(0x333366);
+      salirText.setColor('#ffcc00');
+    });
+    salirBg.on('pointerout', () => {
+      salirBg.setFillStyle(0x222244);
+      salirText.setColor('#ffffff');
+    });
     salirBg.on('pointerdown', () => {
       this._resumeGame();
       if (this.gameMode === 'online' && this.networkManager) {
@@ -966,7 +1204,7 @@ export class FightScene extends Phaser.Scene {
       scaleY: 1,
       alpha: 1,
       duration: 400,
-      ease: 'Back.easeOut'
+      ease: 'Back.easeOut',
     });
 
     this.time.delayedCall(1500, () => {
@@ -979,7 +1217,7 @@ export class FightScene extends Phaser.Scene {
         scaleY: 1,
         alpha: 1,
         duration: 300,
-        ease: 'Back.easeOut'
+        ease: 'Back.easeOut',
       });
       this.time.delayedCall(800, () => {
         this.centerText.setText('');
@@ -1011,7 +1249,7 @@ export class FightScene extends Phaser.Scene {
       scaleY: 1,
       alpha: 1,
       duration: 350,
-      ease: 'Back.easeOut'
+      ease: 'Back.easeOut',
     });
 
     // Stop AI movement
@@ -1021,9 +1259,7 @@ export class FightScene extends Phaser.Scene {
     this.time.delayedCall(1500, () => {
       this.centerText.setText(`${winnerName} GANA EL ROUND!`);
       this.centerText.setScale(1).setAlpha(1);
-      this.subtitleText.setText(
-        `RONDAS: ${this.combat.p1RoundsWon} - ${this.combat.p2RoundsWon}`
-      );
+      this.subtitleText.setText(`RONDAS: ${this.combat.p1RoundsWon} - ${this.combat.p2RoundsWon}`);
 
       this.time.delayedCall(2000, () => {
         // Reset fighters for next round (keep round score, reset HP/position)
@@ -1067,7 +1303,7 @@ export class FightScene extends Phaser.Scene {
       scaleY: 1,
       alpha: 1,
       duration: 350,
-      ease: 'Back.easeOut'
+      ease: 'Back.easeOut',
     });
 
     this.time.delayedCall(2000, () => {
@@ -1080,7 +1316,7 @@ export class FightScene extends Phaser.Scene {
           p2Id: this.p2Id,
           stageId: this.stageId,
           gameMode: this.gameMode,
-          networkManager: this.networkManager
+          networkManager: this.networkManager,
         });
       });
     });
@@ -1098,18 +1334,19 @@ export class FightScene extends Phaser.Scene {
    */
   spawnHitSpark(x, y, intensity) {
     const count = intensity === 'special' ? 12 : intensity === 'heavy' ? 8 : 5;
-    const colors = intensity === 'special'
-      ? [0xffcc00, 0xff6600, 0xffffff]
-      : [0xffffff, 0xffccaa];
+    const colors = intensity === 'special' ? [0xffcc00, 0xff6600, 0xffffff] : [0xffffff, 0xffccaa];
     const spread = intensity === 'special' ? 40 : intensity === 'heavy' ? 30 : 20;
 
     for (let i = 0; i < count; i++) {
-      const spark = this.add.rectangle(
-        x, y,
-        Phaser.Math.Between(2, 5),
-        Phaser.Math.Between(2, 5),
-        Phaser.Utils.Array.GetRandom(colors)
-      ).setDepth(15);
+      const spark = this.add
+        .rectangle(
+          x,
+          y,
+          Phaser.Math.Between(2, 5),
+          Phaser.Math.Between(2, 5),
+          Phaser.Utils.Array.GetRandom(colors),
+        )
+        .setDepth(15);
 
       this.tweens.add({
         targets: spark,
@@ -1119,7 +1356,7 @@ export class FightScene extends Phaser.Scene {
         scaleX: 0,
         scaleY: 0,
         duration: Phaser.Math.Between(150, 300),
-        onComplete: () => spark.destroy()
+        onComplete: () => spark.destroy(),
       });
     }
   }
@@ -1128,17 +1365,16 @@ export class FightScene extends Phaser.Scene {
    * Flash a white overlay across the screen (used for KO moments).
    */
   flashScreen() {
-    const flash = this.add.rectangle(
-      GAME_WIDTH / 2, GAME_HEIGHT / 2,
-      GAME_WIDTH, GAME_HEIGHT,
-      0xffffff
-    ).setDepth(50).setAlpha(0.6);
+    const flash = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0xffffff)
+      .setDepth(50)
+      .setAlpha(0.6);
 
     this.tweens.add({
       targets: flash,
       alpha: 0,
       duration: 300,
-      onComplete: () => flash.destroy()
+      onComplete: () => flash.destroy(),
     });
   }
 

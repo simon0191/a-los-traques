@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FightRoom from '../../party/server.js';
 
 // --- Helpers ---
@@ -56,10 +56,10 @@ describe('FightRoom', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
       // Both should receive opponent_joined broadcast
-      const c1Messages = conn1.send.mock.calls.map(c => JSON.parse(c[0]));
-      const c2Messages = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c1Messages.some(m => m.type === 'opponent_joined')).toBe(true);
-      expect(c2Messages.some(m => m.type === 'opponent_joined')).toBe(true);
+      const c1Messages = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      const c2Messages = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Messages.some((m) => m.type === 'opponent_joined')).toBe(true);
+      expect(c2Messages.some((m) => m.type === 'opponent_joined')).toBe(true);
     });
   });
 
@@ -70,8 +70,8 @@ describe('FightRoom', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
       room.onConnect(conn3, makeCtx());
-      const c3Msgs = conn3.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c3Msgs.some(m => m.type === 'full')).toBe(true);
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'full')).toBe(true);
       expect(conn3.close).toHaveBeenCalled();
     });
   });
@@ -129,10 +129,10 @@ describe('FightRoom', () => {
 
       // Both players should get start message
       const allMessages = [
-        ...conn1.send.mock.calls.map(c => JSON.parse(c[0])),
-        ...conn2.send.mock.calls.map(c => JSON.parse(c[0])),
+        ...conn1.send.mock.calls.map((c) => JSON.parse(c[0])),
+        ...conn2.send.mock.calls.map((c) => JSON.parse(c[0])),
       ];
-      const startMsg = allMessages.find(m => m.type === 'start');
+      const startMsg = allMessages.find((m) => m.type === 'start');
       expect(startMsg).toBeDefined();
       expect(startMsg.p1Id).toBe('simon');
       expect(startMsg.p2Id).toBe('jeka');
@@ -185,11 +185,11 @@ describe('FightRoom', () => {
       room.onMessage(JSON.stringify({ type: 'shout', text: 'again' }), conn3);
 
       const allSends = [
-        ...conn1.send.mock.calls.map(c => JSON.parse(c[0])),
-        ...conn2.send.mock.calls.map(c => JSON.parse(c[0])),
-        ...conn3.send.mock.calls.map(c => JSON.parse(c[0])),
+        ...conn1.send.mock.calls.map((c) => JSON.parse(c[0])),
+        ...conn2.send.mock.calls.map((c) => JSON.parse(c[0])),
+        ...conn3.send.mock.calls.map((c) => JSON.parse(c[0])),
       ];
-      expect(allSends.some(m => m.type === 'shout' && m.text === 'again')).toBe(true);
+      expect(allSends.some((m) => m.type === 'shout' && m.text === 'again')).toBe(true);
 
       vi.restoreAllMocks();
     });
@@ -210,11 +210,13 @@ describe('FightRoom', () => {
       room.onMessage(JSON.stringify({ type: 'potion', target: 0, potionType: 'hp' }), conn3);
 
       const allSends = [
-        ...conn1.send.mock.calls.map(c => JSON.parse(c[0])),
-        ...conn2.send.mock.calls.map(c => JSON.parse(c[0])),
-        ...conn3.send.mock.calls.map(c => JSON.parse(c[0])),
+        ...conn1.send.mock.calls.map((c) => JSON.parse(c[0])),
+        ...conn2.send.mock.calls.map((c) => JSON.parse(c[0])),
+        ...conn3.send.mock.calls.map((c) => JSON.parse(c[0])),
       ];
-      expect(allSends.filter(m => m.type === 'potion_applied' || m.type === 'potion').length).toBe(0);
+      expect(
+        allSends.filter((m) => m.type === 'potion_applied' || m.type === 'potion').length,
+      ).toBe(0);
 
       vi.restoreAllMocks();
     });
@@ -229,8 +231,8 @@ describe('FightRoom', () => {
       Date.now.mockReturnValue(now + 15001);
       room.onMessage(JSON.stringify({ type: 'potion', target: 1, potionType: 'special' }), conn3);
 
-      const c1Msgs = conn1.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c1Msgs.some(m => m.type === 'potion' || m.type === 'potion_applied')).toBe(true);
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'potion' || m.type === 'potion_applied')).toBe(true);
 
       vi.restoreAllMocks();
     });
@@ -247,8 +249,8 @@ describe('FightRoom', () => {
       room.onClose(conn1);
       expect(room.players[0]).toBeNull();
 
-      const msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(msgs.some(m => m.type === 'disconnect')).toBe(true);
+      const msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(msgs.some((m) => m.type === 'disconnect')).toBe(true);
     });
 
     it('resets room state when one player disconnects after match started', () => {
@@ -328,14 +330,14 @@ describe('FightRoom', () => {
       room.onConnect(conn3, makeCtx({ spectate: '1' }));
 
       // All connections get spectator_count broadcast
-      const c1Msgs = conn1.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c1Msgs.some(m => m.type === 'spectator_count' && m.count === 1)).toBe(true);
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'spectator_count' && m.count === 1)).toBe(true);
 
       conn1.send.mockClear();
       room.onClose(conn3);
 
-      const c1MsgsAfter = conn1.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c1MsgsAfter.some(m => m.type === 'spectator_count' && m.count === 0)).toBe(true);
+      const c1MsgsAfter = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1MsgsAfter.some((m) => m.type === 'spectator_count' && m.count === 0)).toBe(true);
     });
   });
 
@@ -372,8 +374,8 @@ describe('FightRoom', () => {
       // fighterId should not change
       expect(room.players[0].fighterId).toBe('simon');
       // No second opponent_ready sent
-      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c2Msgs.filter(m => m.type === 'opponent_ready').length).toBe(0);
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.filter((m) => m.type === 'opponent_ready').length).toBe(0);
     });
 
     it('ignores ready after game has started', () => {
@@ -416,14 +418,14 @@ describe('FightRoom', () => {
 
     it('allows sync from host (slot 0)', () => {
       room.onMessage(JSON.stringify({ type: 'sync', frame: 1 }), conn1);
-      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c2Msgs.some(m => m.type === 'sync')).toBe(true);
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'sync')).toBe(true);
     });
 
     it('allows round_event from host (slot 0)', () => {
       room.onMessage(JSON.stringify({ type: 'round_event', event: 'ko' }), conn1);
-      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c2Msgs.some(m => m.type === 'round_event')).toBe(true);
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'round_event')).toBe(true);
     });
   });
 
@@ -436,7 +438,7 @@ describe('FightRoom', () => {
 
       room.onMessage(JSON.stringify({ type: 'ping', t: 1234567890 }), conn1);
 
-      const msgs = conn1.send.mock.calls.map(c => JSON.parse(c[0]));
+      const msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(msgs).toEqual([{ type: 'pong', t: 1234567890 }]);
     });
 
@@ -466,38 +468,38 @@ describe('FightRoom', () => {
     it('input relayed to opponent and spectators', () => {
       room.onMessage(JSON.stringify({ type: 'input', keys: 'left' }), conn1);
 
-      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c2Msgs.some(m => m.type === 'input')).toBe(true);
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'input')).toBe(true);
 
-      const c3Msgs = conn3.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c3Msgs.some(m => m.type === 'input')).toBe(true);
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'input')).toBe(true);
     });
 
     it('sync relayed to opponent and spectators', () => {
       room.onMessage(JSON.stringify({ type: 'sync', frame: 1 }), conn1);
 
-      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c2Msgs.some(m => m.type === 'sync')).toBe(true);
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'sync')).toBe(true);
 
-      const c3Msgs = conn3.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c3Msgs.some(m => m.type === 'sync')).toBe(true);
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'sync')).toBe(true);
     });
 
     it('round_event relayed to opponent and spectators', () => {
       room.onMessage(JSON.stringify({ type: 'round_event', event: 'ko' }), conn1);
 
-      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c2Msgs.some(m => m.type === 'round_event')).toBe(true);
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'round_event')).toBe(true);
 
-      const c3Msgs = conn3.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c3Msgs.some(m => m.type === 'round_event')).toBe(true);
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'round_event')).toBe(true);
     });
 
     it('rematch relayed only to opponent, not spectators', () => {
       room.onMessage(JSON.stringify({ type: 'rematch' }), conn1);
 
-      const c2Msgs = conn2.send.mock.calls.map(c => JSON.parse(c[0]));
-      expect(c2Msgs.some(m => m.type === 'rematch')).toBe(true);
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'rematch')).toBe(true);
 
       expect(conn3.send).not.toHaveBeenCalled();
     });

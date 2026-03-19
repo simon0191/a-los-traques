@@ -18,7 +18,7 @@ export const SPECIAL_COST = 50;
 // Placeholder colors for fighters (before real sprites exist)
 export const FIGHTER_COLORS = {
   p1: 0x3366ff,
-  p2: 0xff3333
+  p2: 0xff3333,
 };
 
 // Stage bounds
@@ -35,15 +35,15 @@ export const STAMINA_COSTS = {
   heavyPunch: 28,
   lightKick: 15,
   heavyKick: 28,
-  special: 35
+  special: 35,
 };
 export const STAMINA_REGEN = {
-  idle: 22,      // per second
-  attacking: 6,  // per second
-  blocking: 12   // per second
+  idle: 22, // per second
+  attacking: 6, // per second
+  blocking: 12, // per second
 };
 
 // Wall jump
-export const WALL_SLIDE_SPEED = 60;   // max fall speed when touching wall
-export const WALL_JUMP_X = 180;       // horizontal push-away velocity
-export const WALL_JUMP_Y = -320;      // vertical velocity
+export const WALL_SLIDE_SPEED = 60; // max fall speed when touching wall
+export const WALL_JUMP_X = 180; // horizontal push-away velocity
+export const WALL_JUMP_Y = -320; // vertical velocity

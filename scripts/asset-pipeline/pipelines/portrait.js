@@ -2,14 +2,14 @@
  * portrait.js — Generate a single character portrait and resize
  */
 
-import path from "path";
-import fs from "fs";
-import { generateImage } from "../generate.js";
-import { resizeExact } from "../process.js";
-import { validateAsset } from "../validate.js";
+import fs from 'node:fs';
+import path from 'node:path';
+import { generateImage } from '../generate.js';
+import { resizeExact } from '../process.js';
+import { validateAsset } from '../validate.js';
 
 const STYLE_PREFIX =
-  "Neo Geo pixel art, King of Fighters style, detailed pixel art portrait, clean edges, vibrant colors";
+  'Neo Geo pixel art, King of Fighters style, detailed pixel art portrait, clean edges, vibrant colors';
 
 /**
  * @param {object} config
@@ -29,14 +29,14 @@ export async function runPortraitPipeline(config) {
     prompt,
     width = 128,
     height = 128,
-    rawDir = "assets/_raw/portraits",
+    rawDir = 'assets/_raw/portraits',
     skipGenerate = false,
     referenceImages = [],
     retries = 3,
     delay = 3000,
   } = config;
 
-  const name = path.basename(output, ".png");
+  const name = path.basename(output, '.png');
   const rawPath = path.join(rawDir, `${name}_raw.png`);
 
   if (!fs.existsSync(rawDir)) fs.mkdirSync(rawDir, { recursive: true });
@@ -70,12 +70,12 @@ export async function runPortraitPipeline(config) {
 
     if (!generated && !fs.existsSync(rawPath)) {
       console.error(`  FAILED: Could not generate portrait "${name}"`);
-      return { success: false, error: "Generation failed" };
+      return { success: false, error: 'Generation failed' };
     }
   }
 
   if (!fs.existsSync(rawPath)) {
-    return { success: false, error: "Raw file missing" };
+    return { success: false, error: 'Raw file missing' };
   }
 
   // Resize to target dimensions
@@ -83,7 +83,7 @@ export async function runPortraitPipeline(config) {
 
   const validation = validateAsset(output, { width, height, minColors: 2 });
   if (!validation.valid) {
-    console.warn(`  Validation: ${validation.errors.join(", ")}`);
+    console.warn(`  Validation: ${validation.errors.join(', ')}`);
   }
 
   console.log(`  OK: ${output} (${width}x${height})`);

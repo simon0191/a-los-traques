@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // Mock PartySocket before importing NetworkManager
 vi.mock('partysocket', () => {
@@ -12,9 +12,9 @@ vi.mock('partysocket', () => {
     }
     removeEventListener(event, handler) {
       if (!this._listeners[event]) return;
-      this._listeners[event] = this._listeners[event].filter(h => h !== handler);
+      this._listeners[event] = this._listeners[event].filter((h) => h !== handler);
     }
-    send(data) {}
+    send(_data) {}
     close() {}
     // Test helper: emit an event
     _emit(event, data) {
@@ -66,18 +66,18 @@ describe('NetworkManager', () => {
       const socket = nm.socket;
 
       // Verify listeners are registered
-      expect(socket._listeners['message'].length).toBe(1);
-      expect(socket._listeners['open'].length).toBe(1);
-      expect(socket._listeners['close'].length).toBe(1);
-      expect(socket._listeners['error'].length).toBe(1);
+      expect(socket._listeners.message.length).toBe(1);
+      expect(socket._listeners.open.length).toBe(1);
+      expect(socket._listeners.close.length).toBe(1);
+      expect(socket._listeners.error.length).toBe(1);
 
       nm.destroy();
 
       // All listeners should be removed
-      expect(socket._listeners['message'].length).toBe(0);
-      expect(socket._listeners['open'].length).toBe(0);
-      expect(socket._listeners['close'].length).toBe(0);
-      expect(socket._listeners['error'].length).toBe(0);
+      expect(socket._listeners.message.length).toBe(0);
+      expect(socket._listeners.open.length).toBe(0);
+      expect(socket._listeners.close.length).toBe(0);
+      expect(socket._listeners.error.length).toBe(0);
     });
 
     it('nulls out all callback properties on destroy', () => {
@@ -97,11 +97,24 @@ describe('NetworkManager', () => {
 
       // All callback properties should be null
       const callbackNames = [
-        '_onAssign', '_onOpponentJoined', '_onOpponentReady', '_onStart',
-        '_onRemoteInput', '_onDisconnect', '_onRematch', '_onFull',
-        '_onError', '_onSync', '_onRoundEvent', '_onLeave',
-        '_onAssignSpectator', '_onSpectatorCount', '_onShout',
-        '_onFightState', '_onPotionApplied', '_onPotion',
+        '_onAssign',
+        '_onOpponentJoined',
+        '_onOpponentReady',
+        '_onStart',
+        '_onRemoteInput',
+        '_onDisconnect',
+        '_onRematch',
+        '_onFull',
+        '_onError',
+        '_onSync',
+        '_onRoundEvent',
+        '_onLeave',
+        '_onAssignSpectator',
+        '_onSpectatorCount',
+        '_onShout',
+        '_onFightState',
+        '_onPotionApplied',
+        '_onPotion',
       ];
       for (const name of callbackNames) {
         expect(nm[name]).toBeNull();
@@ -123,18 +136,39 @@ describe('NetworkManager', () => {
 
       // Frame 1: light punch
       nm.remoteInputBuffer[1] = {
-        left: false, right: true, up: false, down: false,
-        lp: true, hp: false, lk: false, hk: false, sp: false,
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: true,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
       };
       // Frame 2: heavy kick (lp is false here)
       nm.remoteInputBuffer[2] = {
-        left: false, right: true, up: false, down: false,
-        lp: false, hp: false, lk: false, hk: true, sp: false,
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: true,
+        sp: false,
       };
       // Frame 3: no attacks, just movement
       nm.remoteInputBuffer[3] = {
-        left: true, right: false, up: false, down: false,
-        lp: false, hp: false, lk: false, hk: false, sp: false,
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
       };
 
       const result = nm.getRemoteInput();
@@ -155,12 +189,26 @@ describe('NetworkManager', () => {
       const nm = makeManager();
 
       nm.remoteInputBufferP1[1] = {
-        left: false, right: false, up: false, down: false,
-        lp: false, hp: true, lk: false, hk: false, sp: false,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: true,
+        lk: false,
+        hk: false,
+        sp: false,
       };
       nm.remoteInputBufferP1[2] = {
-        left: false, right: false, up: false, down: false,
-        lp: false, hp: false, lk: false, hk: false, sp: true,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: true,
       };
 
       const result = nm.getRemoteInputForSlot(0);
@@ -173,8 +221,15 @@ describe('NetworkManager', () => {
     it('strips attacks from lastRemoteInput after consume', () => {
       const nm = makeManager();
       nm.remoteInputBuffer[1] = {
-        left: false, right: true, up: false, down: false,
-        lp: true, hp: false, lk: false, hk: false, sp: false,
+        left: false,
+        right: true,
+        up: false,
+        down: false,
+        lp: true,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
       };
 
       nm.getRemoteInput();
@@ -222,7 +277,7 @@ describe('NetworkManager', () => {
       expect(nm._pendingMessages.length).toBe(0);
 
       // Verify message contents
-      const sent = sendSpy.mock.calls.map(c => JSON.parse(c[0]));
+      const sent = sendSpy.mock.calls.map((c) => JSON.parse(c[0]));
       expect(sent[0]).toMatchObject({ type: 'ready', fighterId: 'simon' });
       expect(sent[1]).toMatchObject({ type: 'shout', text: 'hola' });
     });

@@ -11,6 +11,9 @@ bun run party:dev    # PartyKit dev server (port 1999)
 bunx vite build      # Production build (Phaser chunk size warning is expected)
 bun test             # Run tests in watch mode (Vitest)
 bun run test:run     # Run tests once (CI)
+bun run lint         # Lint + format check (Biome)
+bun run lint:fix     # Auto-fix lint + format issues
+bun run format       # Format only (auto-fix)
 ```
 
 ## Project Structure
@@ -102,7 +105,7 @@ idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), 
 
 Vitest, configured in `vitest.config.js`. Tests live in `tests/` (not alongside source).
 Pure logic is extracted into small modules (`src/systems/combat-math.js`, `src/entities/combat-block.js`) to enable Phaser-free unit testing.
-CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to main.
+CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to main — runs lint (Biome) then tests.
 
 ## Documentation Diagrams
 

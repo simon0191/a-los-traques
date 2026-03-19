@@ -4,8 +4,8 @@
  * Checks dimensions, alpha, content, and color count.
  */
 
-import fs from "fs";
-import { getImageDimensions, getColorCount, hasAlpha, getTransparentPercent } from "./process.js";
+import fs from 'node:fs';
+import { getColorCount, getImageDimensions, getTransparentPercent, hasAlpha } from './process.js';
 
 /**
  * Validate an image asset against requirements.
@@ -29,7 +29,7 @@ export function validateAsset(imagePath, opts = {}) {
 
   const stats = fs.statSync(imagePath);
   if (stats.size === 0) {
-    return { valid: false, errors: ["File is empty (0 bytes)"] };
+    return { valid: false, errors: ['File is empty (0 bytes)'] };
   }
 
   // Check dimensions
@@ -46,7 +46,7 @@ export function validateAsset(imagePath, opts = {}) {
   // Check alpha
   if (opts.requireAlpha) {
     if (!hasAlpha(imagePath)) {
-      errors.push("Missing alpha channel");
+      errors.push('Missing alpha channel');
     }
   }
 

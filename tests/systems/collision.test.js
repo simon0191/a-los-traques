@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { STAGE_LEFT, STAGE_RIGHT, FIGHTER_BODY_WIDTH, GROUND_Y } from '../../src/config.js';
+import { describe, expect, it } from 'vitest';
+import { FIGHTER_BODY_WIDTH, GROUND_Y, STAGE_LEFT, STAGE_RIGHT } from '../../src/config.js';
 
 // Inline the collision resolution logic to test without Phaser dependency
 function clamp(v, min, max) {
@@ -14,7 +14,7 @@ function resolveBodyCollision(f1, f2) {
   const f1x = f1.sprite.x;
   const f2x = f2.sprite.x;
 
-  const overlap = (halfW + halfW) - Math.abs(f1x - f2x);
+  const overlap = halfW + halfW - Math.abs(f1x - f2x);
   if (overlap <= 0) return;
 
   const pushEach = overlap / 2;
@@ -26,7 +26,7 @@ function resolveBodyCollision(f1, f2) {
   newF1x = clamp(newF1x, STAGE_LEFT, STAGE_RIGHT);
   newF2x = clamp(newF2x, STAGE_LEFT, STAGE_RIGHT);
 
-  const remainingOverlap = (halfW + halfW) - Math.abs(newF1x - newF2x);
+  const remainingOverlap = halfW + halfW - Math.abs(newF1x - newF2x);
   if (remainingOverlap > 0) {
     if (newF1x <= STAGE_LEFT + 1) {
       newF2x = newF1x + FIGHTER_BODY_WIDTH;

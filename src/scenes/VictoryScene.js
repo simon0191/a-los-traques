@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 
 export class VictoryScene extends Phaser.Scene {
@@ -26,11 +26,11 @@ export class VictoryScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(500, 255, 255, 255);
 
-    const winner = fightersData.find(f => f.id === this.winnerId);
-    const loser = fightersData.find(f => f.id === this.loserId);
+    const winner = fightersData.find((f) => f.id === this.winnerId);
+    const loser = fightersData.find((f) => f.id === this.loserId);
 
     const winnerColor = parseInt(winner.color, 16);
-    const loserColor = parseInt(loser.color, 16);
+    const _loserColor = parseInt(loser.color, 16);
 
     // Background
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1a);
@@ -39,14 +39,16 @@ export class VictoryScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, GAME_WIDTH, 160, winnerColor, 0.12);
 
     // VICTORIA header
-    const headerText = this.add.text(GAME_WIDTH / 2, 25, 'VICTORIA!', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '28px',
-      color: '#ffcc00',
-      stroke: '#000000',
-      strokeThickness: 5,
-      shadow: { offsetX: 2, offsetY: 2, color: '#664400', blur: 6, fill: true }
-    }).setOrigin(0.5);
+    const headerText = this.add
+      .text(GAME_WIDTH / 2, 25, 'VICTORIA!', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '28px',
+        color: '#ffcc00',
+        stroke: '#000000',
+        strokeThickness: 5,
+        shadow: { offsetX: 2, offsetY: 2, color: '#664400', blur: 6, fill: true },
+      })
+      .setOrigin(0.5);
 
     // Animate header
     this.tweens.add({
@@ -56,66 +58,76 @@ export class VictoryScene extends Phaser.Scene {
       duration: 800,
       yoyo: true,
       repeat: -1,
-      ease: 'Sine.easeInOut'
+      ease: 'Sine.easeInOut',
     });
 
     // Winner portrait (large, centered)
     if (this.textures.exists(`portrait_${this.winnerId}`)) {
-      this.add.image(GAME_WIDTH / 2, 100, `portrait_${this.winnerId}`)
-        .setDisplaySize(80, 80);
+      this.add.image(GAME_WIDTH / 2, 100, `portrait_${this.winnerId}`).setDisplaySize(80, 80);
     } else {
       this.add.rectangle(GAME_WIDTH / 2, 100, 80, 80, winnerColor);
     }
-    this.add.rectangle(GAME_WIDTH / 2, 100, 80, 80, 0x000000, 0)
-      .setStrokeStyle(3, 0xffcc00);
+    this.add.rectangle(GAME_WIDTH / 2, 100, 80, 80, 0x000000, 0).setStrokeStyle(3, 0xffcc00);
 
     // Winner name
-    this.add.text(GAME_WIDTH / 2, 150, winner.name, {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '18px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, 150, winner.name, {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '18px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
 
     // Winner subtitle
-    this.add.text(GAME_WIDTH / 2, 168, winner.subtitle, {
-      fontFamily: 'Arial',
-      fontSize: '10px',
-      color: '#ccccee',
-      fontStyle: 'italic'
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, 168, winner.subtitle, {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: '#ccccee',
+        fontStyle: 'italic',
+      })
+      .setOrigin(0.5);
 
     // Winner victory dialog
-    this.add.text(GAME_WIDTH / 2, 188, `"${winner.dialogs.victory}"`, {
-      fontFamily: 'Arial',
-      fontSize: '9px',
-      color: '#ffeeaa',
-      fontStyle: 'italic',
-      wordWrap: { width: 300 },
-      align: 'center'
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, 188, `"${winner.dialogs.victory}"`, {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#ffeeaa',
+        fontStyle: 'italic',
+        wordWrap: { width: 300 },
+        align: 'center',
+      })
+      .setOrigin(0.5);
 
     // Loser defeat dialog (smaller, below)
     this.add.rectangle(GAME_WIDTH / 2, 215, 280, 1, 0x333355);
 
-    this.add.text(GAME_WIDTH / 2, 225, `${loser.name}: "${loser.dialogs.defeat}"`, {
-      fontFamily: 'Arial',
-      fontSize: '7px',
-      color: '#888899',
-      fontStyle: 'italic',
-      wordWrap: { width: 260 },
-      align: 'center'
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, 225, `${loser.name}: "${loser.dialogs.defeat}"`, {
+        fontFamily: 'Arial',
+        fontSize: '7px',
+        color: '#888899',
+        fontStyle: 'italic',
+        wordWrap: { width: 260 },
+        align: 'center',
+      })
+      .setOrigin(0.5);
 
     // Buttons
     this.createButton(GAME_WIDTH / 2 - 115, 252, 'REVANCHA', () => {
       if (this.gameMode === 'online' && this.networkManager) {
         this.networkManager.sendRematch();
         this._waitingRematch = true;
-        this._rematchText = this.add.text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
-          fontFamily: 'Arial', fontSize: '8px', color: '#ffcc00'
-        }).setOrigin(0.5);
+        this._rematchText = this.add
+          .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
+            fontFamily: 'Arial',
+            fontSize: '8px',
+            color: '#ffcc00',
+          })
+          .setOrigin(0.5);
 
         // If we already received a rematch request
         if (this._rematchReceived) {
@@ -160,18 +172,26 @@ export class VictoryScene extends Phaser.Scene {
 
       this.networkManager.onLeave(() => {
         if (this._rematchText) this._rematchText.destroy();
-        const msg = this.add.text(GAME_WIDTH / 2, 235, 'Oponente quiere cambiar luchador...', {
-          fontFamily: 'Arial', fontSize: '8px', color: '#ffcc00'
-        }).setOrigin(0.5);
+        const _msg = this.add
+          .text(GAME_WIDTH / 2, 235, 'Oponente quiere cambiar luchador...', {
+            fontFamily: 'Arial',
+            fontSize: '8px',
+            color: '#ffcc00',
+          })
+          .setOrigin(0.5);
         this.time.delayedCall(800, () => {
           this._goToSelect();
         });
       });
 
       this.networkManager.onDisconnect(() => {
-        this.add.text(GAME_WIDTH / 2, 235, 'Oponente desconectado', {
-          fontFamily: 'Arial', fontSize: '8px', color: '#ff4444'
-        }).setOrigin(0.5);
+        this.add
+          .text(GAME_WIDTH / 2, 235, 'Oponente desconectado', {
+            fontFamily: 'Arial',
+            fontSize: '8px',
+            color: '#ff4444',
+          })
+          .setOrigin(0.5);
         this.time.delayedCall(1500, () => {
           this.networkManager.destroy();
           this.cameras.main.fadeOut(300, 0, 0, 0);
@@ -188,7 +208,7 @@ export class VictoryScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('SelectScene', {
         gameMode: 'online',
-        networkManager: this.networkManager
+        networkManager: this.networkManager,
       });
     });
   }
@@ -201,21 +221,24 @@ export class VictoryScene extends Phaser.Scene {
         p2Id: this.p2Id,
         stageId: this.stageId,
         gameMode: this.gameMode,
-        networkManager: this.networkManager
+        networkManager: this.networkManager,
       });
     });
   }
 
   createButton(x, y, label, callback) {
-    const bg = this.add.rectangle(x, y, 100, 22, 0x222244)
+    const bg = this.add
+      .rectangle(x, y, 100, 22, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
 
-    const text = this.add.text(x, y, label, {
-      fontFamily: 'Arial',
-      fontSize: '10px',
-      color: '#ffffff'
-    }).setOrigin(0.5);
+    const text = this.add
+      .text(x, y, label, {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
 
     bg.on('pointerover', () => {
       bg.setFillStyle(0x333366);

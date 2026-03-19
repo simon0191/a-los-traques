@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -24,7 +24,7 @@ export class TitleScene extends Phaser.Scene {
         Phaser.Math.Between(60, 160),
         Phaser.Math.Between(40, 100),
         colors[i % colors.length],
-        0.3
+        0.3,
       );
       rect.speedX = Phaser.Math.FloatBetween(-0.3, 0.3);
       rect.speedY = Phaser.Math.FloatBetween(-0.2, 0.2);
@@ -35,22 +35,26 @@ export class TitleScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.4);
 
     // Game title
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, 'A LOS TRAQUES', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '36px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 6,
-      shadow: { offsetX: 3, offsetY: 3, color: '#333333', blur: 5, fill: true }
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, 'A LOS TRAQUES', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '36px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 6,
+        shadow: { offsetX: 3, offsetY: 3, color: '#333333', blur: 5, fill: true },
+      })
+      .setOrigin(0.5);
 
     // Subtitle
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 15, 'Pelea de Amigos', {
-      fontFamily: 'Arial',
-      fontSize: '16px',
-      color: '#ccccff',
-      fontStyle: 'italic'
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 15, 'Pelea de Amigos', {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: '#ccccff',
+        fontStyle: 'italic',
+      })
+      .setOrigin(0.5);
 
     // Decorative line
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 200, 2, 0xccccff, 0.6);
@@ -125,18 +129,27 @@ export class TitleScene extends Phaser.Scene {
   }
 
   _createButton(x, y, label, callback) {
-    const bg = this.add.rectangle(x, y, 140, 24, 0x222244)
+    const bg = this.add
+      .rectangle(x, y, 140, 24, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
 
-    const text = this.add.text(x, y, label, {
-      fontFamily: 'Arial',
-      fontSize: '12px',
-      color: '#ffffff'
-    }).setOrigin(0.5);
+    const text = this.add
+      .text(x, y, label, {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
 
-    bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
-    bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
+    bg.on('pointerover', () => {
+      bg.setFillStyle(0x333366);
+      text.setColor('#ffcc00');
+    });
+    bg.on('pointerout', () => {
+      bg.setFillStyle(0x222244);
+      text.setColor('#ffffff');
+    });
     bg.on('pointerdown', () => {
       this.game.audioManager.play('ui_confirm');
       callback();
@@ -149,25 +162,36 @@ export class TitleScene extends Phaser.Scene {
 
     this._joinOverlay = this.add.container(0, 0).setDepth(50);
 
-    const bg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.85);
+    const bg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+      0x000000,
+      0.85,
+    );
     this._joinOverlay.add(bg);
 
-    const title = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, 'CODIGO DE SALA', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '16px',
-      color: '#ffcc00',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    const title = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, 'CODIGO DE SALA', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '16px',
+        color: '#ffcc00',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
     this._joinOverlay.add(title);
 
-    this._joinCodeText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 15, '_ _ _ _', {
-      fontFamily: 'monospace',
-      fontSize: '24px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this._joinCodeText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 15, '_ _ _ _', {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
     this._joinOverlay.add(this._joinCodeText);
 
     // Hidden HTML input to trigger iOS keyboard
@@ -176,7 +200,8 @@ export class TitleScene extends Phaser.Scene {
     this._joinInput.maxLength = 4;
     this._joinInput.autocapitalize = 'characters';
     this._joinInput.inputMode = 'text';
-    this._joinInput.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);opacity:0.01;font-size:16px;width:80px;z-index:1000;';
+    this._joinInput.style.cssText =
+      'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);opacity:0.01;font-size:16px;width:80px;z-index:1000;';
     document.body.appendChild(this._joinInput);
     window._suppressFixHeight = true;
     this._joinInput.focus();
@@ -188,7 +213,10 @@ export class TitleScene extends Phaser.Scene {
 
     this._joinInput.addEventListener('input', () => {
       let val = this._joinInput.value.toUpperCase();
-      val = val.split('').filter(c => VALID_CHARS.includes(c)).join('');
+      val = val
+        .split('')
+        .filter((c) => VALID_CHARS.includes(c))
+        .join('');
       if (val.length > 4) val = val.slice(0, 4);
       this._joinInput.value = val;
       const display = val.padEnd(4, '_').split('').join(' ');
@@ -196,15 +224,31 @@ export class TitleScene extends Phaser.Scene {
     });
 
     // ENTRAR button
-    const entrarBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 140, 24, 0x222244)
-      .setStrokeStyle(1, 0x4444aa).setInteractive({ useHandCursor: true });
-    const entrarText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'ENTRAR', {
-      fontFamily: 'Arial', fontSize: '12px', color: '#ffffff'
-    }).setOrigin(0.5);
-    entrarBg.on('pointerover', () => { entrarBg.setFillStyle(0x333366); entrarText.setColor('#ffcc00'); });
-    entrarBg.on('pointerout', () => { entrarBg.setFillStyle(0x222244); entrarText.setColor('#ffffff'); });
+    const entrarBg = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 140, 24, 0x222244)
+      .setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor: true });
+    const entrarText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'ENTRAR', {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    entrarBg.on('pointerover', () => {
+      entrarBg.setFillStyle(0x333366);
+      entrarText.setColor('#ffcc00');
+    });
+    entrarBg.on('pointerout', () => {
+      entrarBg.setFillStyle(0x222244);
+      entrarText.setColor('#ffffff');
+    });
     entrarBg.on('pointerdown', () => {
-      const code = this._joinInput.value.toUpperCase().split('').filter(c => VALID_CHARS.includes(c)).join('');
+      const code = this._joinInput.value
+        .toUpperCase()
+        .split('')
+        .filter((c) => VALID_CHARS.includes(c))
+        .join('');
       if (code.length !== 4) return;
       this.game.audioManager.play('ui_confirm');
       this._hideJoinOverlay();
@@ -218,13 +262,25 @@ export class TitleScene extends Phaser.Scene {
     this._joinOverlay.add([entrarBg, entrarText]);
 
     // CANCELAR button
-    const cancelBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 48, 140, 24, 0x222244)
-      .setStrokeStyle(1, 0x4444aa).setInteractive({ useHandCursor: true });
-    const cancelText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 48, 'CANCELAR', {
-      fontFamily: 'Arial', fontSize: '12px', color: '#ffffff'
-    }).setOrigin(0.5);
-    cancelBg.on('pointerover', () => { cancelBg.setFillStyle(0x333366); cancelText.setColor('#ffcc00'); });
-    cancelBg.on('pointerout', () => { cancelBg.setFillStyle(0x222244); cancelText.setColor('#ffffff'); });
+    const cancelBg = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 48, 140, 24, 0x222244)
+      .setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor: true });
+    const cancelText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 48, 'CANCELAR', {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    cancelBg.on('pointerover', () => {
+      cancelBg.setFillStyle(0x333366);
+      cancelText.setColor('#ffcc00');
+    });
+    cancelBg.on('pointerout', () => {
+      cancelBg.setFillStyle(0x222244);
+      cancelText.setColor('#ffffff');
+    });
     cancelBg.on('pointerdown', () => {
       this.game.audioManager.play('ui_cancel');
       this._hideJoinOverlay();
