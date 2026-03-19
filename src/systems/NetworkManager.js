@@ -1,5 +1,6 @@
 import PartySocket from 'partysocket';
 import { decodeInput } from './InputBuffer.js';
+import { WebRTCTransport } from './WebRTCTransport.js';
 
 const PONG_TIMEOUT_MS = 6000;
 
@@ -56,6 +57,11 @@ export class NetworkManager {
     this._onChecksum = null;
     this._onResyncRequest = null;
     this._onResync = null;
+
+    // WebRTC P2P transport state
+    this._webrtc = null;
+    this._transportMode = 'websocket'; // 'websocket' | 'webrtc'
+    this._webrtcReady = false;
 
     // B5: Pending callback messages queue
     this._pendingCallbackMessages = {
@@ -188,6 +194,7 @@ export class NetworkManager {
         if (this._onAssign) this._onAssign(msg.player);
         break;
       case 'opponent_joined':
+        this._initWebRTC();
         if (this._onOpponentJoined) this._onOpponentJoined();
         break;
       case 'opponent_ready':
@@ -200,7 +207,14 @@ export class NetworkManager {
           this._pendingCallbackMessages.start.push(msg);
         }
         break;
+      case 'webrtc_offer':
+      case 'webrtc_answer':
+      case 'webrtc_ice':
+        if (this._webrtc) this._webrtc.handleSignal(msg);
+        break;
       case 'input':
+        // When WebRTC is active, ignore WS inputs for non-spectators (inputs arrive via DataChannel)
+        if (this._webrtcReady && !this.isSpectator) break;
         if (this.isSpectator && msg.slot != null) {
           // Spectator: route input to correct player buffer
           const buf = msg.slot === 0 ? 'remoteInputBufferP1' : 'remoteInputBufferP2';
@@ -279,6 +293,7 @@ export class NetworkManager {
         if (this._onOpponentReconnecting) this._onOpponentReconnecting();
         break;
       case 'opponent_reconnected':
+        this._initWebRTC();
         if (this._onOpponentReconnected) this._onOpponentReconnected();
         break;
       case 'return_to_select':
@@ -384,7 +399,15 @@ export class NetworkManager {
     if (history && history.length > 0) {
       msg.history = history;
     }
-    this._send(msg);
+    if (this._webrtcReady) {
+      // P2P: fast path for opponent (includes history for unreliable channel)
+      this._webrtc.send(JSON.stringify(msg));
+      // Server: spectator relay only (server won't forward to opponent)
+      this._send({ ...msg, spectatorOnly: true });
+    } else {
+      // Fallback: server relays to opponent + spectators
+      this._send(msg);
+    }
   }
 
   sendChecksum(frame, hash) {
@@ -578,6 +601,7 @@ export class NetworkManager {
   }
 
   resetForReselect() {
+    this._destroyWebRTC();
     this.remoteInputBuffer = {};
     this.lastRemoteInput = null;
     this.remoteInputBufferP1 = {};
@@ -604,6 +628,7 @@ export class NetworkManager {
   }
 
   destroy() {
+    this._destroyWebRTC();
     if (this._pingInterval) {
       clearInterval(this._pingInterval);
       this._pingInterval = null;
@@ -652,6 +677,61 @@ export class NetworkManager {
     this._boundOnOpen = null;
     this._boundOnClose = null;
     this._boundOnError = null;
+  }
+
+  _initWebRTC() {
+    // Don't init for spectators or if WebRTC APIs aren't available
+    if (this.isSpectator) return;
+    if (typeof RTCPeerConnection === 'undefined') return;
+
+    // Clean up any existing WebRTC connection
+    this._destroyWebRTC();
+
+    const isOfferer = this.playerSlot === 0;
+
+    this._webrtc = new WebRTCTransport({
+      isOfferer,
+      onSignal: (msg) => this._send(msg),
+      onMessage: (data) => {
+        try {
+          const msg = JSON.parse(data);
+          if (msg.type === 'input') {
+            this.remoteInputBuffer[msg.frame] = msg.state;
+            this.lastRemoteInput = msg.state;
+            if (this._onRemoteInput) this._onRemoteInput(msg.frame, msg.state);
+          }
+        } catch (_) {
+          // ignore malformed P2P messages
+        }
+      },
+      onOpen: () => {
+        this._transportMode = 'webrtc';
+        this._webrtcReady = true;
+      },
+      onClose: () => {
+        this._transportMode = 'websocket';
+        this._webrtcReady = false;
+      },
+      onFailed: () => {
+        // Silent fallback — stay on WebSocket
+        this._transportMode = 'websocket';
+        this._webrtcReady = false;
+        this._webrtc = null;
+      },
+    });
+
+    if (isOfferer) {
+      this._webrtc.startOffer();
+    }
+  }
+
+  _destroyWebRTC() {
+    if (this._webrtc) {
+      this._webrtc.destroy();
+      this._webrtc = null;
+    }
+    this._transportMode = 'websocket';
+    this._webrtcReady = false;
   }
 
   _send(msg) {

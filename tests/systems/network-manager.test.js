@@ -1,6 +1,48 @@
 import { describe, expect, it, vi } from 'vitest';
 import { encodeInput } from '../../src/systems/InputBuffer.js';
 
+// Mock WebRTCTransport before importing NetworkManager
+vi.mock('../../src/systems/WebRTCTransport.js', () => {
+  class MockWebRTCTransport {
+    constructor(opts) {
+      this._opts = opts;
+      this._sent = [];
+      this.state = 'idle';
+    }
+    async startOffer() {
+      this.state = 'signaling';
+    }
+    async handleSignal(_msg) {}
+    send(data) {
+      this._sent.push(data);
+      return true;
+    }
+    isOpen() {
+      return this.state === 'open';
+    }
+    destroy() {
+      this.state = 'closed';
+    }
+    // Test helper: simulate open
+    _simulateOpen() {
+      this.state = 'open';
+      if (this._opts.onOpen) this._opts.onOpen();
+    }
+    _simulateClose() {
+      this.state = 'closed';
+      if (this._opts.onClose) this._opts.onClose();
+    }
+    _simulateFailed() {
+      this.state = 'failed';
+      if (this._opts.onFailed) this._opts.onFailed();
+    }
+    _simulateMessage(data) {
+      if (this._opts.onMessage) this._opts.onMessage(data);
+    }
+  }
+  return { WebRTCTransport: MockWebRTCTransport };
+});
+
 // Mock PartySocket before importing NetworkManager
 vi.mock('partysocket', () => {
   class MockPartySocket {
@@ -688,6 +730,229 @@ describe('NetworkManager', () => {
 
       const sent = JSON.parse(sendSpy.mock.calls[0][0]);
       expect(sent.history).toBeUndefined();
+    });
+  });
+
+  // ---- WebRTC integration ----
+
+  describe('WebRTC P2P transport', () => {
+    it('inits WebRTC on opponent_joined (P1 as offerer)', () => {
+      const nm = makeManager();
+      nm.playerSlot = 0;
+      // Ensure RTCPeerConnection is available
+      globalThis.RTCPeerConnection = class {};
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      expect(nm._webrtc).not.toBeNull();
+    });
+
+    it('does not init WebRTC for spectators', () => {
+      const nm = makeManager();
+      nm.isSpectator = true;
+      globalThis.RTCPeerConnection = class {};
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      expect(nm._webrtc).toBeNull();
+    });
+
+    it('P1 (slot 0) calls startOffer, P2 does not', () => {
+      globalThis.RTCPeerConnection = class {};
+
+      const nm1 = makeManager();
+      nm1.playerSlot = 0;
+      nm1._handleMessage({ type: 'opponent_joined' });
+      expect(nm1._webrtc.state).toBe('signaling'); // mock startOffer sets signaling
+
+      const nm2 = makeManager();
+      nm2.playerSlot = 1;
+      nm2._handleMessage({ type: 'opponent_joined' });
+      expect(nm2._webrtc.state).toBe('idle'); // waiting for offer
+    });
+
+    it('sets _webrtcReady on open, sends inputs via WebRTC', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+      nm.connected = true;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateOpen();
+
+      expect(nm._webrtcReady).toBe(true);
+      expect(nm._transportMode).toBe('webrtc');
+
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+      nm.sendInput(5, { left: true });
+
+      // WebRTC should have received the input
+      expect(nm._webrtc._sent.length).toBe(1);
+      const p2pMsg = JSON.parse(nm._webrtc._sent[0]);
+      expect(p2pMsg).toMatchObject({ type: 'input', frame: 5, state: { left: true } });
+
+      // WebSocket should also have received input with spectatorOnly flag
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+      const wsMsg = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(wsMsg.spectatorOnly).toBe(true);
+    });
+
+    it('falls back to WebSocket when WebRTC not ready', () => {
+      const nm = makeManager();
+      nm.connected = true;
+
+      const sendSpy = vi.spyOn(nm.socket, 'send');
+      nm.sendInput(5, { left: true });
+
+      expect(sendSpy).toHaveBeenCalledTimes(1);
+      const wsMsg = JSON.parse(sendSpy.mock.calls[0][0]);
+      expect(wsMsg.spectatorOnly).toBeUndefined();
+    });
+
+    it('ignores WS input messages when WebRTC is active (non-spectator)', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateOpen();
+
+      // WS input should be ignored
+      nm._handleMessage({ type: 'input', frame: 1, state: { left: true } });
+      expect(Object.keys(nm.remoteInputBuffer).length).toBe(0);
+    });
+
+    it('still processes WS input when spectator even with WebRTC active', () => {
+      const nm = makeManager();
+      nm.isSpectator = true;
+      nm._webrtcReady = true; // hypothetical edge case
+
+      nm._handleMessage({ type: 'input', frame: 1, state: { left: true }, slot: 0 });
+      expect(nm.remoteInputBufferP1[1]).toMatchObject({ left: true });
+    });
+
+    it('falls back to WS on DataChannel close', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateOpen();
+      expect(nm._webrtcReady).toBe(true);
+
+      nm._webrtc._simulateClose();
+      expect(nm._webrtcReady).toBe(false);
+      expect(nm._transportMode).toBe('websocket');
+    });
+
+    it('stays on WS when WebRTC fails silently', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateFailed();
+
+      expect(nm._webrtcReady).toBe(false);
+      expect(nm._webrtc).toBeNull();
+    });
+
+    it('forwards signaling messages to WebRTC transport', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 1;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      const handleSpy = vi.spyOn(nm._webrtc, 'handleSignal');
+
+      nm._handleMessage({ type: 'webrtc_offer', sdp: 'test-sdp' });
+      expect(handleSpy).toHaveBeenCalledWith({ type: 'webrtc_offer', sdp: 'test-sdp' });
+
+      nm._handleMessage({ type: 'webrtc_ice', candidate: { candidate: 'test' } });
+      expect(handleSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it('ignores signaling messages when no WebRTC transport', () => {
+      const nm = makeManager();
+      // No WebRTC initialized
+      expect(() => {
+        nm._handleMessage({ type: 'webrtc_offer', sdp: 'test' });
+        nm._handleMessage({ type: 'webrtc_answer', sdp: 'test' });
+        nm._handleMessage({ type: 'webrtc_ice', candidate: {} });
+      }).not.toThrow();
+    });
+
+    it('receives P2P input messages via DataChannel', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+      const received = [];
+      nm.onRemoteInput((frame, state) => received.push({ frame, state }));
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateOpen();
+
+      // Simulate P2P message
+      nm._webrtc._simulateMessage(
+        JSON.stringify({ type: 'input', frame: 10, state: { right: true } }),
+      );
+
+      expect(nm.remoteInputBuffer[10]).toMatchObject({ right: true });
+      expect(nm.lastRemoteInput).toMatchObject({ right: true });
+      expect(received.length).toBe(1);
+    });
+
+    it('resetForReselect destroys WebRTC and resets state', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateOpen();
+
+      nm.resetForReselect();
+      expect(nm._webrtc).toBeNull();
+      expect(nm._webrtcReady).toBe(false);
+      expect(nm._transportMode).toBe('websocket');
+    });
+
+    it('destroy() cleans up WebRTC', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      const webrtc = nm._webrtc;
+      const destroySpy = vi.spyOn(webrtc, 'destroy');
+
+      nm.destroy();
+      expect(destroySpy).toHaveBeenCalled();
+      expect(nm._webrtc).toBeNull();
+    });
+
+    it('re-inits WebRTC on opponent_reconnected', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      const firstWebrtc = nm._webrtc;
+
+      nm._handleMessage({ type: 'opponent_reconnected' });
+      // Should have destroyed old and created new
+      expect(firstWebrtc.state).toBe('closed');
+      expect(nm._webrtc).not.toBe(firstWebrtc);
+    });
+
+    it('handles malformed P2P messages gracefully', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nm = makeManager();
+      nm.playerSlot = 0;
+
+      nm._handleMessage({ type: 'opponent_joined' });
+      nm._webrtc._simulateOpen();
+
+      expect(() => {
+        nm._webrtc._simulateMessage('not json{{{');
+      }).not.toThrow();
     });
   });
 
