@@ -1,14 +1,15 @@
-import Phaser from 'phaser';
-import {
-  FIGHTER_BODY_WIDTH,
-  GROUND_Y,
-  MAX_SPECIAL,
-  ROUND_TIME,
-  ROUNDS_TO_WIN,
-  STAGE_LEFT,
-  STAGE_RIGHT,
-} from '../config.js';
+import { ROUND_TIME, ROUNDS_TO_WIN } from '../config.js';
 import { calculateDamage } from './combat-math.js';
+import {
+  FIGHTER_BODY_WIDTH_FP,
+  FP_SCALE,
+  fpClamp,
+  fpRectsOverlap,
+  GROUND_Y_FP,
+  MAX_SPECIAL_FP,
+  STAGE_LEFT_FP,
+  STAGE_RIGHT_FP,
+} from './FixedPoint.js';
 
 export { calculateDamage } from './combat-math.js';
 
@@ -22,11 +23,7 @@ export class CombatSystem {
     this.roundActive = false;
     this.matchOver = false;
     this.timerEvent = null;
-    this._timerAccumulator = 0; // Frame counter for deterministic timer (0→59)
-    // When true, KO/timeup detection still runs (HP goes to 0) but scene
-    // transitions (handleKO/timeUp) are suppressed. Used for:
-    // - rollback re-simulation (muteEffects)
-    // - online guest (P2 defers round events to P1)
+    this._timerAccumulator = 0;
     this.suppressRoundEvents = false;
   }
 
@@ -35,11 +32,8 @@ export class CombatSystem {
     this._timerAccumulator = 0;
     this.roundActive = true;
 
-    // Online mode uses deterministic frame-counted timer via tickTimer(),
-    // so skip the Phaser timer event to avoid double-counting.
     if (this.scene.gameMode === 'online') return;
 
-    // Local/spectator: use Phaser timer for countdown
     const isSpectator = this.scene.gameMode === 'spectator';
     this.timerEvent = this.scene.time.addEvent({
       delay: 1000,
@@ -76,18 +70,17 @@ export class CombatSystem {
 
   checkHit(attacker, defender, { muteEffects = false } = {}) {
     if (!attacker.currentAttack || attacker.state !== 'attacking') return false;
-    if (attacker.hitConnected) return false; // Already hit this attack
+    if (attacker.hitConnected) return false;
 
     const hitbox = attacker.getAttackHitbox();
     const hurtbox = defender.getHurtbox();
     if (!hitbox || !hurtbox) return false;
 
-    // Normalize hitbox (width could be negative if facing left)
-    const hx = hitbox.width < 0 ? hitbox.x + hitbox.width : hitbox.x;
-    const hw = Math.abs(hitbox.width);
-    const normalizedHitbox = new Phaser.Geom.Rectangle(hx, hitbox.y, hw, hitbox.height);
+    // Normalize hitbox (w could be negative if facing left)
+    const hx = hitbox.w < 0 ? hitbox.x + hitbox.w : hitbox.x;
+    const hw = Math.abs(hitbox.w);
 
-    if (Phaser.Geom.Rectangle.Overlaps(normalizedHitbox, hurtbox)) {
+    if (fpRectsOverlap(hx, hitbox.y, hw, hitbox.h, hurtbox.x, hurtbox.y, hurtbox.w, hurtbox.h)) {
       this.applyDamage(attacker, defender, { muteEffects });
       attacker.hitConnected = true;
       return true;
@@ -96,7 +89,6 @@ export class CombatSystem {
   }
 
   applyDamage(attacker, defender, { muteEffects = false } = {}) {
-    // Dev console god mode: P1 takes no damage
     if (this.scene.devConsole?.godMode && defender.playerIndex === 0) {
       return;
     }
@@ -108,16 +100,14 @@ export class CombatSystem {
       defender.data.stats.defense,
     );
 
-    // Attacker gains special meter from dealing damage (20% of damage dealt)
-    attacker.special = Math.min(MAX_SPECIAL, attacker.special + damage * 0.2);
+    // Attacker gains special meter (0.2 * FP_SCALE = 200)
+    attacker.special = Math.min(MAX_SPECIAL_FP, attacker.special + damage * 200);
 
-    // Determine hit intensity for visual effects
     const isSpecial = move.type === 'special';
     const isHeavy = move.type && (move.type.startsWith('heavy') || damage >= 12);
     const intensity = isSpecial ? 'special' : isHeavy ? 'heavy' : 'light';
 
     if (!muteEffects) {
-      // Play hit sound based on intensity
       const audio = this.scene.game.audioManager;
       if (defender.state === 'blocking') {
         audio.play('hit_block');
@@ -130,20 +120,17 @@ export class CombatSystem {
       }
     }
 
-    // Defender takes damage (takeDamage handles block reduction and defender meter gain)
-    const ko = defender.takeDamage(damage, attacker.sprite.x);
+    // Defender takes damage (pass attacker's simX for knockback direction)
+    const ko = defender.takeDamage(damage, attacker.simX);
 
     if (!muteEffects) {
-      // --- Visual feedback ---
-
-      // Hit spark particles at the point of impact
-      const hitX = (attacker.sprite.x + defender.sprite.x) / 2;
-      const hitY = defender.sprite.y - 35;
+      // Hit spark at pixel position (convert from FP for display)
+      const hitX = (attacker.simX + defender.simX) / 2 / FP_SCALE;
+      const hitY = defender.simY / FP_SCALE - 35;
       if (this.scene.spawnHitSpark) {
         this.scene.spawnHitSpark(hitX, hitY, intensity);
       }
 
-      // Camera shake scaled by intensity
       if (intensity === 'special') {
         this.scene.cameras.main.shake(200, 0.012);
       } else if (intensity === 'heavy') {
@@ -152,7 +139,6 @@ export class CombatSystem {
         this.scene.cameras.main.shake(50, 0.002);
       }
 
-      // Fighter tint feedback: white flash on attacker, red tint on defender
       if (attacker.sprite?.setTint) {
         attacker.sprite.setTint(0xffffff);
         this.scene.time.delayedCall(80, () => {
@@ -176,7 +162,6 @@ export class CombatSystem {
     this.stopRound();
     this.scene.game.audioManager.play('announce_timeup');
     this._lastEndReason = 'timeup';
-    // Player with more HP wins
     const p1 = this.scene.p1Fighter;
     const p2 = this.scene.p2Fighter;
     if (p1.hp > p2.hp) {
@@ -184,7 +169,6 @@ export class CombatSystem {
     } else if (p2.hp > p1.hp) {
       this.roundWin(1);
     } else {
-      // Draw - give it to P1 for simplicity
       this.roundWin(0);
     }
   }
@@ -193,9 +177,7 @@ export class CombatSystem {
     this.stopRound();
     this.scene.game.audioManager.play('ko');
     const winnerIndex = winner.playerIndex;
-    // Dramatic KO shake
     this.scene.cameras.main.shake(300, 0.015);
-    // KO screen flash
     if (this.scene.flashScreen) {
       this.scene.flashScreen();
     }
@@ -206,7 +188,6 @@ export class CombatSystem {
     if (playerIndex === 0) this.p1RoundsWon++;
     else this.p2RoundsWon++;
 
-    // Check match over
     if (this.p1RoundsWon >= ROUNDS_TO_WIN || this.p2RoundsWon >= ROUNDS_TO_WIN) {
       this.matchOver = true;
       this.scene.onMatchOver(playerIndex);
@@ -218,51 +199,45 @@ export class CombatSystem {
 
   /**
    * Resolve body collision between two fighters so they cannot overlap.
-   * Call this each frame after movement is applied and before hit detection.
+   * Uses FP simulation coordinates (simX/simY).
    */
   resolveBodyCollision(f1, f2) {
-    // Skip collision when either fighter is airborne — allows jumping over opponent
-    const airThreshold = GROUND_Y - 20;
-    if (f1.sprite.y < airThreshold || f2.sprite.y < airThreshold) return;
+    const airThreshold = GROUND_Y_FP - 20 * FP_SCALE;
+    if (f1.simY < airThreshold || f2.simY < airThreshold) return;
 
-    const halfW = FIGHTER_BODY_WIDTH / 2;
-    const f1x = f1.sprite.x;
-    const f2x = f2.sprite.x;
+    const halfW = FIGHTER_BODY_WIDTH_FP / 2;
+    const f1x = f1.simX;
+    const f2x = f2.simX;
 
     const overlap = halfW + halfW - Math.abs(f1x - f2x);
-    if (overlap <= 0) return; // No overlap
+    if (overlap <= 0) return;
 
-    // Push each fighter apart by half the overlap
-    const pushEach = overlap / 2;
-    const sign = f1x < f2x ? -1 : 1; // f1 goes left if f1 is to the left
+    const pushEach = Math.trunc(overlap / 2);
+    const sign = f1x < f2x ? -1 : 1;
 
     let newF1x = f1x + sign * pushEach;
     let newF2x = f2x - sign * pushEach;
 
-    // Clamp to stage bounds
-    newF1x = Phaser.Math.Clamp(newF1x, STAGE_LEFT, STAGE_RIGHT);
-    newF2x = Phaser.Math.Clamp(newF2x, STAGE_LEFT, STAGE_RIGHT);
+    newF1x = fpClamp(newF1x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
+    newF2x = fpClamp(newF2x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
 
-    // After clamping, one fighter may still overlap if the other was at a wall.
-    // Re-check and push the other fighter further if needed.
     const remainingOverlap = halfW + halfW - Math.abs(newF1x - newF2x);
     if (remainingOverlap > 0) {
-      if (newF1x <= STAGE_LEFT + 1) {
-        newF2x = newF1x + FIGHTER_BODY_WIDTH;
-      } else if (newF1x >= STAGE_RIGHT - 1) {
-        newF2x = newF1x - FIGHTER_BODY_WIDTH;
-      } else if (newF2x <= STAGE_LEFT + 1) {
-        newF1x = newF2x + FIGHTER_BODY_WIDTH;
-      } else if (newF2x >= STAGE_RIGHT - 1) {
-        newF1x = newF2x - FIGHTER_BODY_WIDTH;
+      if (newF1x <= STAGE_LEFT_FP + 1 * FP_SCALE) {
+        newF2x = newF1x + FIGHTER_BODY_WIDTH_FP;
+      } else if (newF1x >= STAGE_RIGHT_FP - 1 * FP_SCALE) {
+        newF2x = newF1x - FIGHTER_BODY_WIDTH_FP;
+      } else if (newF2x <= STAGE_LEFT_FP + 1 * FP_SCALE) {
+        newF1x = newF2x + FIGHTER_BODY_WIDTH_FP;
+      } else if (newF2x >= STAGE_RIGHT_FP - 1 * FP_SCALE) {
+        newF1x = newF2x - FIGHTER_BODY_WIDTH_FP;
       }
-      // Final clamp
-      newF1x = Phaser.Math.Clamp(newF1x, STAGE_LEFT, STAGE_RIGHT);
-      newF2x = Phaser.Math.Clamp(newF2x, STAGE_LEFT, STAGE_RIGHT);
+      newF1x = fpClamp(newF1x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
+      newF2x = fpClamp(newF2x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
     }
 
-    f1.sprite.x = newF1x;
-    f2.sprite.x = newF2x;
+    f1.simX = newF1x;
+    f2.simX = newF2x;
   }
 
   reset() {

@@ -1,103 +1,105 @@
 import { describe, expect, it } from 'vitest';
-import { FIGHTER_BODY_WIDTH, GROUND_Y, STAGE_LEFT, STAGE_RIGHT } from '../../src/config.js';
+import {
+  FIGHTER_BODY_WIDTH_FP,
+  FP_SCALE,
+  fpClamp,
+  GROUND_Y_FP,
+  STAGE_LEFT_FP,
+  STAGE_RIGHT_FP,
+} from '../../src/systems/FixedPoint.js';
 
-// Inline the collision resolution logic to test without Phaser dependency
-function clamp(v, min, max) {
-  return Math.min(Math.max(v, min), max);
-}
-
+// Inline the FP collision resolution logic to test without Phaser dependency
 function resolveBodyCollision(f1, f2) {
-  const airThreshold = GROUND_Y - 20;
-  if (f1.sprite.y < airThreshold || f2.sprite.y < airThreshold) return;
+  const airThreshold = GROUND_Y_FP - 20 * FP_SCALE;
+  if (f1.simY < airThreshold || f2.simY < airThreshold) return;
 
-  const halfW = FIGHTER_BODY_WIDTH / 2;
-  const f1x = f1.sprite.x;
-  const f2x = f2.sprite.x;
+  const halfW = FIGHTER_BODY_WIDTH_FP / 2;
+  const f1x = f1.simX;
+  const f2x = f2.simX;
 
   const overlap = halfW + halfW - Math.abs(f1x - f2x);
   if (overlap <= 0) return;
 
-  const pushEach = overlap / 2;
+  const pushEach = Math.trunc(overlap / 2);
   const sign = f1x < f2x ? -1 : 1;
 
   let newF1x = f1x + sign * pushEach;
   let newF2x = f2x - sign * pushEach;
 
-  newF1x = clamp(newF1x, STAGE_LEFT, STAGE_RIGHT);
-  newF2x = clamp(newF2x, STAGE_LEFT, STAGE_RIGHT);
+  newF1x = fpClamp(newF1x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
+  newF2x = fpClamp(newF2x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
 
   const remainingOverlap = halfW + halfW - Math.abs(newF1x - newF2x);
   if (remainingOverlap > 0) {
-    if (newF1x <= STAGE_LEFT + 1) {
-      newF2x = newF1x + FIGHTER_BODY_WIDTH;
-    } else if (newF1x >= STAGE_RIGHT - 1) {
-      newF2x = newF1x - FIGHTER_BODY_WIDTH;
-    } else if (newF2x <= STAGE_LEFT + 1) {
-      newF1x = newF2x + FIGHTER_BODY_WIDTH;
-    } else if (newF2x >= STAGE_RIGHT - 1) {
-      newF1x = newF2x - FIGHTER_BODY_WIDTH;
+    if (newF1x <= STAGE_LEFT_FP + 1 * FP_SCALE) {
+      newF2x = newF1x + FIGHTER_BODY_WIDTH_FP;
+    } else if (newF1x >= STAGE_RIGHT_FP - 1 * FP_SCALE) {
+      newF2x = newF1x - FIGHTER_BODY_WIDTH_FP;
+    } else if (newF2x <= STAGE_LEFT_FP + 1 * FP_SCALE) {
+      newF1x = newF2x + FIGHTER_BODY_WIDTH_FP;
+    } else if (newF2x >= STAGE_RIGHT_FP - 1 * FP_SCALE) {
+      newF1x = newF2x - FIGHTER_BODY_WIDTH_FP;
     }
-    newF1x = clamp(newF1x, STAGE_LEFT, STAGE_RIGHT);
-    newF2x = clamp(newF2x, STAGE_LEFT, STAGE_RIGHT);
+    newF1x = fpClamp(newF1x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
+    newF2x = fpClamp(newF2x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
   }
 
-  f1.sprite.x = newF1x;
-  f2.sprite.x = newF2x;
+  f1.simX = newF1x;
+  f2.simX = newF2x;
 }
 
-function makeFighter(x, y = GROUND_Y) {
-  return { sprite: { x, y } };
+function makeFighter(xPx, simY = GROUND_Y_FP) {
+  return { simX: xPx * FP_SCALE, simY };
 }
 
-describe('resolveBodyCollision', () => {
+describe('resolveBodyCollision (FP)', () => {
   it('no overlap leaves positions unchanged', () => {
     const f1 = makeFighter(100);
     const f2 = makeFighter(200);
     resolveBodyCollision(f1, f2);
-    expect(f1.sprite.x).toBe(100);
-    expect(f2.sprite.x).toBe(200);
+    expect(f1.simX).toBe(100 * FP_SCALE);
+    expect(f2.simX).toBe(200 * FP_SCALE);
   });
 
   it('symmetric overlap pushes both apart equally', () => {
     const center = 240;
     const f1 = makeFighter(center - 5);
     const f2 = makeFighter(center + 5);
-    // overlap = 36 - 10 = 26, each pushed 13
     resolveBodyCollision(f1, f2);
-    expect(f1.sprite.x).toBeLessThan(center - 5);
-    expect(f2.sprite.x).toBeGreaterThan(center + 5);
-    // They should be exactly FIGHTER_BODY_WIDTH apart
-    expect(f2.sprite.x - f1.sprite.x).toBeCloseTo(FIGHTER_BODY_WIDTH, 5);
+    expect(f1.simX).toBeLessThan((center - 5) * FP_SCALE);
+    expect(f2.simX).toBeGreaterThan((center + 5) * FP_SCALE);
+    // They should be exactly FIGHTER_BODY_WIDTH_FP apart
+    expect(f2.simX - f1.simX).toBe(FIGHTER_BODY_WIDTH_FP);
   });
 
   it('fighter at left wall: only other fighter pushed right', () => {
-    const f1 = makeFighter(STAGE_LEFT);
-    const f2 = makeFighter(STAGE_LEFT + 10);
+    const f1 = { simX: STAGE_LEFT_FP, simY: GROUND_Y_FP };
+    const f2 = { simX: STAGE_LEFT_FP + 10 * FP_SCALE, simY: GROUND_Y_FP };
     resolveBodyCollision(f1, f2);
-    expect(f1.sprite.x).toBe(STAGE_LEFT);
-    expect(f2.sprite.x).toBe(STAGE_LEFT + FIGHTER_BODY_WIDTH);
+    expect(f1.simX).toBe(STAGE_LEFT_FP);
+    expect(f2.simX).toBe(STAGE_LEFT_FP + FIGHTER_BODY_WIDTH_FP);
   });
 
   it('fighter at right wall: only other fighter pushed left', () => {
-    const f1 = makeFighter(STAGE_RIGHT);
-    const f2 = makeFighter(STAGE_RIGHT - 10);
+    const f1 = { simX: STAGE_RIGHT_FP, simY: GROUND_Y_FP };
+    const f2 = { simX: STAGE_RIGHT_FP - 10 * FP_SCALE, simY: GROUND_Y_FP };
     resolveBodyCollision(f1, f2);
-    expect(f1.sprite.x).toBe(STAGE_RIGHT);
-    expect(f2.sprite.x).toBe(STAGE_RIGHT - FIGHTER_BODY_WIDTH);
+    expect(f1.simX).toBe(STAGE_RIGHT_FP);
+    expect(f2.simX).toBe(STAGE_RIGHT_FP - FIGHTER_BODY_WIDTH_FP);
   });
 
-  it('both at same position: separated by FIGHTER_BODY_WIDTH', () => {
+  it('both at same position: separated by FIGHTER_BODY_WIDTH_FP', () => {
     const f1 = makeFighter(240);
     const f2 = makeFighter(240);
     resolveBodyCollision(f1, f2);
-    expect(Math.abs(f2.sprite.x - f1.sprite.x)).toBeCloseTo(FIGHTER_BODY_WIDTH, 5);
+    expect(Math.abs(f2.simX - f1.simX)).toBe(FIGHTER_BODY_WIDTH_FP);
   });
 
-  it('airborne fighter (y < GROUND_Y - 20): collision skipped', () => {
-    const f1 = makeFighter(240, GROUND_Y - 30); // airborne
-    const f2 = makeFighter(245, GROUND_Y);
+  it('airborne fighter: collision skipped', () => {
+    const f1 = { simX: 240 * FP_SCALE, simY: GROUND_Y_FP - 30 * FP_SCALE };
+    const f2 = { simX: 245 * FP_SCALE, simY: GROUND_Y_FP };
     resolveBodyCollision(f1, f2);
-    expect(f1.sprite.x).toBe(240);
-    expect(f2.sprite.x).toBe(245);
+    expect(f1.simX).toBe(240 * FP_SCALE);
+    expect(f2.simX).toBe(245 * FP_SCALE);
   });
 });
