@@ -21,6 +21,7 @@ function makeFighter(overrides = {}) {
     state: 'idle',
     attackCooldown: 0,
     attackFrameElapsed: 0,
+    comboCount: 0,
     hurtTimer: 0,
     hitConnected: false,
     currentAttack: null,

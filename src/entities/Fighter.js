@@ -85,6 +85,9 @@ export class Fighter {
 
     // Attack phase tracking (frames elapsed since attack started)
     this.attackFrameElapsed = 0;
+
+    // Combo counter (incremented on hit while defender in hitstun)
+    this.comboCount = 0;
   }
 
   update() {
@@ -407,6 +410,7 @@ export class Fighter {
     this._prevAnimState = null;
     this.attackCooldown = 0;
     this.attackFrameElapsed = 0;
+    this.comboCount = 0;
     this.hurtTimer = 0;
     this.currentAttack = null;
     this.hitConnected = false;

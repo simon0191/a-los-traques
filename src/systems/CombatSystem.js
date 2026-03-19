@@ -1,5 +1,5 @@
 import { ROUND_TIME, ROUNDS_TO_WIN } from '../config.js';
-import { calculateDamage } from './combat-math.js';
+import { calculateDamage, comboScaledDamage } from './combat-math.js';
 import {
   FIGHTER_BODY_WIDTH_FP,
   FP_SCALE,
@@ -94,11 +94,20 @@ export class CombatSystem {
     }
 
     const move = attacker.currentAttack;
-    const damage = calculateDamage(
+    let damage = calculateDamage(
       move.damage,
       attacker.data.stats.power,
       defender.data.stats.defense,
     );
+
+    // Combo scaling: if defender is already in hitstun/knockdown, apply scaling
+    const isComboHit = defender.state === 'hurt' || defender.state === 'knockdown';
+    if (isComboHit) {
+      attacker.comboCount++;
+      damage = comboScaledDamage(damage, attacker.comboCount);
+    } else {
+      attacker.comboCount = 0;
+    }
 
     // Attacker gains special meter (0.2 * FP_SCALE = 200)
     attacker.special = Math.min(MAX_SPECIAL_FP, attacker.special + damage * 200);

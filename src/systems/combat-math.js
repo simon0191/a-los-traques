@@ -13,3 +13,16 @@ export function calculateDamage(baseDamage, attackerPower, defenderDefense) {
   const defMod = 1100 - defenderDefense * 40;
   return Math.round((baseDamage * powerMod * defMod) / 1_000_000);
 }
+
+/**
+ * Apply combo damage scaling. Second hit deals 80%, third 65%, fourth+ 50%.
+ * Uses integer math (1000x scale) for determinism.
+ * @param {number} baseDamage - Damage before scaling
+ * @param {number} comboCount - Number of hits already in combo (0 = first hit)
+ * @returns {number} Scaled damage (integer)
+ */
+export function comboScaledDamage(baseDamage, comboCount) {
+  const SCALING = [1000, 800, 650, 500]; // 1000x fixed-point
+  const scale = SCALING[Math.min(comboCount, SCALING.length - 1)];
+  return Math.trunc((baseDamage * scale) / 1000);
+}
