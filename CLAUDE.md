@@ -104,6 +104,14 @@ Vitest, configured in `vitest.config.js`. Tests live in `tests/` (not alongside 
 Pure logic is extracted into small modules (`src/systems/combat-math.js`, `src/entities/combat-block.js`) to enable Phaser-free unit testing.
 CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to main.
 
+## Documentation Diagrams
+
+Excalidraw diagrams in `docs/` document key systems. When making significant changes to a documented system, update the relevant diagram to stay in sync. When adding a major new system or feature, create a new diagram for it.
+
+- Use the `/excalidraw-diagram-skill` skill to create or update diagrams
+- Existing diagrams: `docs/multiplayer-architecture.excalidraw` (online multiplayer flow)
+- Commit both `.excalidraw` and `.png` files together
+
 ## Online Multiplayer
 
 - PartyKit server at `party/server.js`, max 2 players per room
