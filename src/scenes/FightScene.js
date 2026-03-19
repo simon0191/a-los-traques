@@ -160,6 +160,9 @@ export class FightScene extends Phaser.Scene {
     this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.escKey.on('down', () => this._togglePause());
 
+    // -- Fixed-timestep accumulator for simulation --
+    this._simAccumulator = 0;
+
     // -- Start first round intro --
     this._showRoundIntro();
   }
@@ -181,14 +184,7 @@ export class FightScene extends Phaser.Scene {
       return;
     }
 
-    // Update fighters (frame-based FP physics).
-    // In online mode, simulateFrame() handles update() — skip here to avoid double-update.
-    if (this.gameMode !== 'online') {
-      this.p1Fighter.update();
-      this.p2Fighter.update();
-    }
-
-    // Update projectiles
+    // Update projectiles (delta-based, visual rate)
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const proj = this.projectiles[i];
       proj.update(delta);
@@ -197,7 +193,7 @@ export class FightScene extends Phaser.Scene {
       }
     }
 
-    // Update touch controls each frame
+    // Update touch controls each frame (visual rate for responsive input)
     if (this.touchControls) this.touchControls.update();
 
     if (this.gameMode === 'spectator') {
@@ -219,38 +215,27 @@ export class FightScene extends Phaser.Scene {
       return;
     }
 
-    if (this.gameMode === 'online') {
-      // Online: _handleOnlineUpdate does facing, hit detection (host only),
-      // state sync, and HUD update internally
-      this._handleOnlineUpdate(time, delta);
-    } else {
-      // -- Handle P1 input --
-      this._handleP1Input();
-
-      // -- Handle P2 AI --
-      if (this.aiController) {
-        this.aiController.update(time, delta);
-        this.aiController.applyDecisions();
-      }
-
-      // -- Body collision (push-back) --
-      this.combat.resolveBodyCollision(this.p1Fighter, this.p2Fighter);
-
-      // -- Facing --
-      this.p1Fighter.faceOpponent(this.p2Fighter);
-      this.p2Fighter.faceOpponent(this.p1Fighter);
-
-      // -- Hit detection (both directions) --
-      this.combat.checkHit(this.p1Fighter, this.p2Fighter);
-      this.combat.checkHit(this.p2Fighter, this.p1Fighter);
-
-      // -- Sync sprites from simulation state --
-      this.p1Fighter.syncSprite();
-      this.p2Fighter.syncSprite();
-
-      // -- Update HUD --
-      this._updateHUD();
+    // Fixed-timestep accumulator: gate simulation to exactly 60fps
+    const FIXED_DELTA = 1000 / 60; // 16.667ms
+    this._simAccumulator += delta;
+    // Cap to prevent spiral of death (e.g. tab was backgrounded)
+    if (this._simAccumulator > FIXED_DELTA * 4) {
+      this._simAccumulator = FIXED_DELTA * 4;
     }
+
+    while (this._simAccumulator >= FIXED_DELTA) {
+      this._simAccumulator -= FIXED_DELTA;
+      if (this.gameMode === 'online') {
+        this._handleOnlineUpdate(time, delta);
+      } else {
+        this._handleLocalUpdate(time, delta);
+      }
+    }
+
+    // Sync sprites + HUD at visual rate (after all sim ticks)
+    this.p1Fighter.syncSprite();
+    this.p2Fighter.syncSprite();
+    this._updateHUD();
   }
 
   // =========================================================================
@@ -769,6 +754,26 @@ export class FightScene extends Phaser.Scene {
     }
   }
 
+  _handleLocalUpdate(time, delta) {
+    this.p1Fighter.update();
+    this.p2Fighter.update();
+
+    this._handleP1Input();
+
+    if (this.aiController) {
+      this.aiController.update(time, delta);
+      this.aiController.applyDecisions();
+    }
+
+    this.combat.resolveBodyCollision(this.p1Fighter, this.p2Fighter);
+
+    this.p1Fighter.faceOpponent(this.p2Fighter);
+    this.p2Fighter.faceOpponent(this.p1Fighter);
+
+    this.combat.checkHit(this.p1Fighter, this.p2Fighter);
+    this.combat.checkHit(this.p2Fighter, this.p1Fighter);
+  }
+
   _handleOnlineUpdate(_time, _delta) {
     this.frameCounter++;
     const input = this.inputManager;
@@ -804,8 +809,6 @@ export class FightScene extends Phaser.Scene {
         p2x: this.p2Fighter.simX / FP_SCALE,
       });
     }
-
-    this._updateHUD();
   }
 
   /** Send round event to guest + spectators (3x with 200ms spacing for reliability) */
