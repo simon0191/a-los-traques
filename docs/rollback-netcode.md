@@ -72,8 +72,8 @@ flowchart TD
 
 | Parameter | Value | Notes |
 |-----------|-------|-------|
-| `inputDelay` | 2 frames | Local input buffering |
-| `maxRollbackFrames` | 7 (~117ms) | Max frames to re-simulate on misprediction |
+| `inputDelay` | 3 frames (ONLINE_INPUT_DELAY), adaptive 1-5 | Local input buffering, adjusts to RTT |
+| `maxRollbackFrames` | 7 (~117ms), scales with inputDelay | Max frames to re-simulate on misprediction |
 | `FIXED_DELTA` | 16.667ms (60fps) | Deterministic timestep |
 | Input encoding | 9 bits | `l, r, u, d, lp, hp, lk, hk, sp` packed as integer |
 | `FP_SCALE` | 1000x | Integer math for determinism |
