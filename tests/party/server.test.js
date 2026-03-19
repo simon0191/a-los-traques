@@ -449,7 +449,7 @@ describe('FightRoom', () => {
       expect(c2Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(false);
     });
 
-    it('new connection during grace period is not rejected as full', () => {
+    it('new connection during grace period receives rejoin_available', () => {
       room.onClose(conn1);
 
       // conn tries to take a player slot during grace
@@ -457,10 +457,13 @@ describe('FightRoom', () => {
       party.getConnections = () => [connNew, conn2, conn3];
       room.onConnect(connNew, makeCtx());
 
-      // Should NOT get 'full' or be closed — allowed to stay for potential rejoin
+      // Should NOT get 'full' or be closed
       const newMsgs = connNew.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(newMsgs.some((m) => m.type === 'full')).toBe(false);
       expect(connNew.close).not.toHaveBeenCalled();
+
+      // Should receive rejoin_available with the grace slot
+      expect(newMsgs.some((m) => m.type === 'rejoin_available' && m.slot === 0)).toBe(true);
     });
 
     it('reconnecting player during grace period can rejoin', () => {
@@ -496,7 +499,7 @@ describe('FightRoom', () => {
       expect(c1Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(true);
     });
 
-    it('third player during grace period is held, not rejected', () => {
+    it('third player during grace period gets rejoin_available, not rejected', () => {
       room.onClose(conn1);
 
       // Random third player connects (not the disconnected player)
@@ -508,6 +511,7 @@ describe('FightRoom', () => {
       const msgs = connRandom.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(msgs.some((m) => m.type === 'full')).toBe(false);
       expect(connRandom.close).not.toHaveBeenCalled();
+      expect(msgs.some((m) => m.type === 'rejoin_available' && m.slot === 0)).toBe(true);
 
       // They don't send rejoin, so grace expires normally
       vi.advanceTimersByTime(20000);
@@ -605,6 +609,42 @@ describe('FightRoom', () => {
       const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c3Msgs.some((m) => m.type === 'return_to_select')).toBe(true);
       expect(c3Msgs.some((m) => m.type === 'disconnect')).toBe(false);
+    });
+
+    it('rejoin with reset resets room to selecting and notifies opponent', () => {
+      // Start a fight
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
+      expect(room.roomState).toBe('fighting');
+
+      // P2 disconnects (page refresh scenario)
+      room.onClose(conn2);
+      expect(room.roomState).toBe('reconnecting');
+      conn1.send.mockClear();
+
+      // P2 reconnects with new connection
+      const conn2b = makeConnection('c2b');
+      party.getConnections = () => [conn1, conn2b, conn3];
+      room.onConnect(conn2b, makeCtx());
+
+      // P2 sends rejoin with reset (page refresh — no fight state)
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 1, reset: true }), conn2b);
+
+      // Room should be reset to selecting
+      expect(room.roomState).toBe('selecting');
+      expect(room.fightInfo).toBeNull();
+      expect(room.players[0].ready).toBe(false);
+      expect(room.players[1].ready).toBe(false);
+      expect(room.players[1].id).toBe('c2b');
+
+      // P2 gets assign
+      const c2bMsgs = conn2b.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2bMsgs.some((m) => m.type === 'assign' && m.player === 1)).toBe(true);
+
+      // P1 gets return_to_select + opponent_joined
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'return_to_select')).toBe(true);
+      expect(c1Msgs.some((m) => m.type === 'opponent_joined')).toBe(true);
     });
 
     it('sends disconnect (not return_to_select) when grace expires during selecting', () => {

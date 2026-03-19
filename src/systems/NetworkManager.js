@@ -52,6 +52,7 @@ export class NetworkManager {
     this._onReturnToSelect = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
+    this._onRejoinAvailable = null;
 
     // B5: Pending callback messages queue
     this._pendingCallbackMessages = {
@@ -263,6 +264,9 @@ export class NetworkManager {
       case 'return_to_select':
         if (this._onReturnToSelect) this._onReturnToSelect();
         break;
+      case 'rejoin_available':
+        if (this._onRejoinAvailable) this._onRejoinAvailable(msg.slot);
+        break;
       case 'pong':
         this._lastPongTime = Date.now();
         if (msg.t) {
@@ -337,6 +341,9 @@ export class NetworkManager {
   onReturnToSelect(cb) {
     this._onReturnToSelect = cb;
   }
+  onRejoinAvailable(cb) {
+    this._onRejoinAvailable = cb;
+  }
 
   // --- Public API: send messages ---
   sendReady(fighterId) {
@@ -371,8 +378,10 @@ export class NetworkManager {
     this._send({ type: 'potion', target, potionType });
   }
 
-  sendRejoin(slot) {
-    this._send({ type: 'rejoin', slot });
+  sendRejoin(slot, reset = false) {
+    const msg = { type: 'rejoin', slot };
+    if (reset) msg.reset = true;
+    this._send(msg);
   }
 
   sendPing() {
@@ -546,6 +555,7 @@ export class NetworkManager {
     this._onReturnToSelect = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
+    this._onRejoinAvailable = null;
   }
 
   destroy() {
@@ -587,6 +597,7 @@ export class NetworkManager {
     this._onReturnToSelect = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
+    this._onRejoinAvailable = null;
 
     // Clear bound handler references
     this._boundOnMessage = null;

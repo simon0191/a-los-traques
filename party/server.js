@@ -56,9 +56,10 @@ export default class FightRoom {
     const slot = this.players[0] === null ? 0 : this.players[1] === null ? 1 : -1;
 
     if (slot === -1) {
-      // During grace period, allow connection without a slot — client will send 'rejoin'
-      const hasGrace = this._graceTimers[0] || this._graceTimers[1];
-      if (hasGrace) {
+      // During grace period, tell new connection which slot can be reclaimed
+      const graceSlot = this._graceTimers[0] ? 0 : this._graceTimers[1] ? 1 : -1;
+      if (graceSlot !== -1) {
+        connection.send(JSON.stringify({ type: 'rejoin_available', slot: graceSlot }));
         return;
       }
       connection.send(JSON.stringify({ type: 'full' }));
@@ -98,10 +99,32 @@ export default class FightRoom {
       clearTimeout(this._graceTimers[rejoinSlot]);
       this._graceTimers[rejoinSlot] = null;
       this.players[rejoinSlot].id = connection.id;
-      this.roomState = this._stateBeforeGrace || 'fighting';
-      this._stateBeforeGrace = null;
-      this._sendToOther(rejoinSlot, { type: 'opponent_reconnected' });
-      this._broadcastToSpectators({ type: 'opponent_reconnected' });
+
+      if (data.reset) {
+        // Page refresh: client lost fight state, reset room to selecting
+        this._sendToOther(rejoinSlot, { type: 'return_to_select' });
+        this._broadcastToSpectators({ type: 'return_to_select' });
+        this.roomState = 'selecting';
+        this._stateBeforeGrace = null;
+        this.fightInfo = null;
+        for (let i = 0; i < 2; i++) {
+          if (this.players[i]) {
+            this.players[i].ready = false;
+            this.players[i].fighterId = null;
+          }
+        }
+        connection.send(JSON.stringify({ type: 'assign', player: rejoinSlot }));
+        if (this.spectators.size > 0) {
+          connection.send(JSON.stringify({ type: 'spectator_count', count: this.spectators.size }));
+        }
+        this._broadcast({ type: 'opponent_joined' });
+      } else {
+        // WiFi drop: same page still loaded, resume fight
+        this.roomState = this._stateBeforeGrace || 'fighting';
+        this._stateBeforeGrace = null;
+        this._sendToOther(rejoinSlot, { type: 'opponent_reconnected' });
+        this._broadcastToSpectators({ type: 'opponent_reconnected' });
+      }
       return;
     }
 
