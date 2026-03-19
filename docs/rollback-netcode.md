@@ -20,10 +20,10 @@ flowchart TB
         P2Sim["simulateFrame()\nIdentical FP integer math"]
     end
 
-    P1Enc -- "input + frame + history" --> Server
-    Server -- "input + frame + history" --> P2Sim
-    P2Enc -- "input + frame + history" --> Server
-    Server -- "input + frame + history" --> P1Sim
+    P1Enc -. "input + history (WebRTC P2P)" .-> P2Sim
+    P2Enc -. "input + history (WebRTC P2P)" .-> P1Sim
+    P1Enc -- "spectatorOnly input + history (WS)" --> Server
+    P2Enc -- "spectatorOnly input + history (WS)" --> Server
 
     subgraph Spectators
         Spec["Receive P1 sync snapshots\nNo rollback — passive display"]
@@ -31,6 +31,23 @@ flowchart TB
 
     Server --> Spectators
 ```
+
+> **Transport:** Game inputs use WebRTC DataChannels (P2P, unreliable/unordered) when available, with automatic fallback to WebSocket relay via the PartyKit server. The rollback system handles packet loss natively. See [webrtc-transport.md](webrtc-transport.md) for full details.
+
+## Transport Layer
+
+```mermaid
+flowchart LR
+    NM["NetworkManager\nsendInput()"] --> Check{WebRTC open?}
+    Check -- Yes --> DC["DataChannel (P2P)\n→ opponent direct"]
+    Check -- Yes --> WS_S["WebSocket + spectatorOnly\n→ server → spectators"]
+    Check -- No --> WS_F["WebSocket (fallback)\n→ server → opponent + spectators"]
+```
+
+The rollback system is transport-agnostic — `RollbackManager` reads from `remoteInputBuffer` regardless of whether inputs arrived via DataChannel or WebSocket. This means:
+- **No code changes** in RollbackManager, GameState, SimulationStep, or InputBuffer
+- **Packet loss** on the unreliable DataChannel is handled the same as late TCP delivery — prediction + rollback
+- **Mid-fight transport switch** (P2P drops → WS fallback) is invisible to the simulation layer
 
 ## Peer-Equal Model
 
@@ -211,7 +228,8 @@ stateDiagram-v2
 | `InputBuffer.js` | 9-bit input encoding/decoding |
 | `SimulationStep.js` | Single-frame deterministic advance |
 | `RollbackManager.js` | Orchestration: predict, rollback, re-simulate, checksum, adaptive delay, resync |
-| `NetworkManager.js` | Network layer: send/receive input, checksum, resync messages |
+| `WebRTCTransport.js` | P2P DataChannel transport (unreliable/unordered) |
+| `NetworkManager.js` | Dual transport: WebRTC primary, WebSocket fallback; send/receive input, checksum, resync |
 | `Fighter.js` | FP physics + frame-based timers |
 | `CombatSystem.js` | FP collision + hit detection |
 | `FightScene.js` | Integration: wires rollback + desync + resync + HUD |

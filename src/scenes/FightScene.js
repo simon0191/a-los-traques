@@ -511,6 +511,18 @@ export class FightScene extends Phaser.Scene {
           .setOrigin(0.5, 1)
           .setDepth(depth + 3);
         this._pingUpdateCounter = 0;
+
+        // Transport indicator (bottom-left corner)
+        this._transportText = this.add
+          .text(4, infoY, 'WS', {
+            fontSize: '6px',
+            fontFamily: 'monospace',
+            color: '#666666',
+            stroke: '#000000',
+            strokeThickness: 2,
+          })
+          .setOrigin(0, 1)
+          .setDepth(depth + 3);
       }
     }
 
@@ -591,7 +603,7 @@ export class FightScene extends Phaser.Scene {
       this.roundDotsP2[i].setFillStyle(i < this.combat.p2RoundsWon ? 0xcc2200 : 0x333333);
     }
 
-    // Ping indicator (update ~1x per second)
+    // Ping + transport indicator (update ~1x per second)
     if (this._pingText && this.networkManager) {
       this._pingUpdateCounter = (this._pingUpdateCounter || 0) + 1;
       if (this._pingUpdateCounter >= 60) {
@@ -601,6 +613,16 @@ export class FightScene extends Phaser.Scene {
         if (ms > 150) this._pingText.setColor('#ff4444');
         else if (ms > 80) this._pingText.setColor('#ffcc00');
         else this._pingText.setColor('#44ff44');
+
+        if (this._transportText) {
+          if (this.networkManager._webrtcReady) {
+            this._transportText.setText('P2P');
+            this._transportText.setColor('#44ff44');
+          } else {
+            this._transportText.setText('WS');
+            this._transportText.setColor('#666666');
+          }
+        }
       }
     }
   }

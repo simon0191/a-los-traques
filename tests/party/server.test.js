@@ -837,6 +837,61 @@ describe('FightRoom', () => {
       expect(c3Msgs.some((m) => m.type === 'round_event')).toBe(true);
     });
 
+    it('webrtc_offer relayed to opponent only', () => {
+      room.onMessage(JSON.stringify({ type: 'webrtc_offer', sdp: 'offer-sdp' }), conn1);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'webrtc_offer' && m.sdp === 'offer-sdp')).toBe(true);
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('webrtc_answer relayed to opponent only', () => {
+      room.onMessage(JSON.stringify({ type: 'webrtc_answer', sdp: 'answer-sdp' }), conn2);
+
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'webrtc_answer' && m.sdp === 'answer-sdp')).toBe(true);
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('webrtc_ice relayed to opponent only', () => {
+      room.onMessage(
+        JSON.stringify({ type: 'webrtc_ice', candidate: { candidate: 'test' } }),
+        conn1,
+      );
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'webrtc_ice')).toBe(true);
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('input with spectatorOnly NOT relayed to opponent, IS broadcast to spectators', () => {
+      room.onMessage(
+        JSON.stringify({ type: 'input', frame: 1, state: 7, spectatorOnly: true }),
+        conn1,
+      );
+
+      // Opponent should NOT receive it
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'input')).toBe(false);
+
+      // Spectator SHOULD receive it (with slot added)
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'input' && m.slot === 0)).toBe(true);
+    });
+
+    it('input without spectatorOnly relayed to opponent AND spectators (fallback)', () => {
+      room.onMessage(JSON.stringify({ type: 'input', frame: 1, state: 7 }), conn1);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'input')).toBe(true);
+
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'input')).toBe(true);
+    });
+
     it('rematch relayed only to opponent, not spectators', () => {
       room.onMessage(JSON.stringify({ type: 'rematch' }), conn1);
 
