@@ -20,6 +20,7 @@ function makeFighter(overrides = {}) {
     stamina: 70 * FP_SCALE,
     state: 'idle',
     attackCooldown: 0,
+    attackFrameElapsed: 0,
     hurtTimer: 0,
     hitConnected: false,
     currentAttack: null,

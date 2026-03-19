@@ -20,6 +20,7 @@ export function captureFighterState(fighter) {
     stamina: fighter.stamina,
     state: fighter.state,
     attackCooldown: fighter.attackCooldown,
+    attackFrameElapsed: fighter.attackFrameElapsed || 0,
     hurtTimer: fighter.hurtTimer,
     hitConnected: fighter.hitConnected,
     currentAttack: fighter.currentAttack ? { ...fighter.currentAttack } : null,
@@ -50,6 +51,7 @@ export function restoreFighterState(fighter, state) {
   fighter.stamina = state.stamina;
   fighter.state = state.state;
   fighter.attackCooldown = state.attackCooldown;
+  fighter.attackFrameElapsed = state.attackFrameElapsed || 0;
   fighter.hurtTimer = state.hurtTimer;
   fighter.hitConnected = state.hitConnected;
   fighter.currentAttack = state.currentAttack ? { ...state.currentAttack } : null;

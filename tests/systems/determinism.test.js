@@ -54,6 +54,7 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
     attackCooldown: 0,
     hurtTimer: 0,
     hitConnected: false,
+    attackFrameElapsed: 0,
     currentAttack: null,
     isOnGround: true,
     _airborneTime: 0,
@@ -71,7 +72,10 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
     hasAnims: false,
 
     update() {
-      if (this.attackCooldown > 0) this.attackCooldown--;
+      if (this.attackCooldown > 0) {
+        this.attackCooldown--;
+        this.attackFrameElapsed++;
+      }
       if (this.attackCooldown <= 0 && this.state === 'attacking') {
         this.state = 'idle';
         this.currentAttack = null;
@@ -170,6 +174,7 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
       if (!moveData) return false;
       this.state = 'attacking';
       this.hitConnected = false;
+      this.attackFrameElapsed = 0;
       this.currentAttack = { type, ...moveData };
       this.attackCooldown = moveData.startup + moveData.active + moveData.recovery;
       if (type === 'special') {
@@ -183,6 +188,11 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
     },
     getAttackHitbox() {
       if (this.state !== 'attacking' || !this.currentAttack) return null;
+      const move = this.currentAttack;
+      if (this.attackFrameElapsed < move.startup ||
+          this.attackFrameElapsed >= move.startup + move.active) {
+        return null;
+      }
       const reach = (this.currentAttack.type.includes('Kick') ? 55 : 45) * FP_SCALE;
       const dir = this.facingRight ? 1 : -1;
       return {
@@ -235,6 +245,7 @@ function extractState(fighter) {
     stamina: fighter.stamina,
     state: fighter.state,
     attackCooldown: fighter.attackCooldown,
+    attackFrameElapsed: fighter.attackFrameElapsed,
     hurtTimer: fighter.hurtTimer,
     hitConnected: fighter.hitConnected,
     currentAttack: fighter.currentAttack,
@@ -431,8 +442,8 @@ describe('determinism', () => {
   it('different inputs produce different state', () => {
     const inputs1 = getInputSequence();
     const inputs2 = getInputSequence();
-    // Modify one input
-    inputs2[20].p1.lp = true;
+    // Modify a late input so stamina difference persists to final state
+    inputs2[290].p1.lp = true;
 
     const result1 = runSimulation(inputs1);
     const result2 = runSimulation(inputs2);

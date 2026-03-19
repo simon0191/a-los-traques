@@ -82,11 +82,17 @@ export class Fighter {
 
     // Timer for special attack tint (frames)
     this._specialTintTimer = 0;
+
+    // Attack phase tracking (frames elapsed since attack started)
+    this.attackFrameElapsed = 0;
   }
 
   update() {
     // Update cooldowns (frame-based — decrement by 1)
-    if (this.attackCooldown > 0) this.attackCooldown--;
+    if (this.attackCooldown > 0) {
+      this.attackCooldown--;
+      this.attackFrameElapsed++;
+    }
 
     // Attack completion (deterministic)
     if (this.attackCooldown <= 0 && this.state === 'attacking') {
@@ -268,6 +274,7 @@ export class Fighter {
     this.state = 'attacking';
     this._prevAnimState = null;
     this.hitConnected = false;
+    this.attackFrameElapsed = 0;
     this.currentAttack = { type, ...moveData };
 
     // Total attack duration in frames
@@ -289,8 +296,15 @@ export class Fighter {
   }
 
   // Returns hitbox as plain FP object {x, y, w, h}
+  // Only active during the 'active' phase (after startup, before recovery)
   getAttackHitbox() {
     if (this.state !== 'attacking' || !this.currentAttack) return null;
+
+    const move = this.currentAttack;
+    if (this.attackFrameElapsed < move.startup ||
+        this.attackFrameElapsed >= move.startup + move.active) {
+      return null; // No hitbox during startup or recovery
+    }
 
     const reach = (this.currentAttack.type.includes('Kick') ? 55 : 45) * FP_SCALE;
     const dir = this.facingRight ? 1 : -1;
@@ -364,6 +378,7 @@ export class Fighter {
     this.state = 'idle';
     this._prevAnimState = null;
     this.attackCooldown = 0;
+    this.attackFrameElapsed = 0;
     this.hurtTimer = 0;
     this.currentAttack = null;
     this.hitConnected = false;
