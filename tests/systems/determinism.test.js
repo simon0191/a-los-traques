@@ -212,11 +212,15 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
       };
     },
     getHurtbox() {
+      let w = 36, h = 60, offsetY = 60;
+      if (this.state === 'blocking') { h = 40; offsetY = 40; }
+      else if (!this.isOnGround) { w = 28; h = 50; offsetY = 50; }
+      else if (this.state === 'attacking') { w = 40; }
       return {
-        x: this.simX - 18 * FP_SCALE,
-        y: this.simY - 60 * FP_SCALE,
-        w: 36 * FP_SCALE,
-        h: 60 * FP_SCALE,
+        x: this.simX - Math.trunc(w / 2) * FP_SCALE,
+        y: this.simY - offsetY * FP_SCALE,
+        w: w * FP_SCALE,
+        h: h * FP_SCALE,
       };
     },
     takeDamage(amount, attackerSimX, stunFrames) {

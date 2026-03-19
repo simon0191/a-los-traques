@@ -350,12 +350,17 @@ export class Fighter {
   }
 
   // Returns hurtbox as plain FP object {x, y, w, h}
+  // Varies by state for meaningful vertical gameplay
   getHurtbox() {
+    let w = 36, h = 60, offsetY = 60;
+    if (this.state === 'blocking') { h = 40; offsetY = 40; }          // Crouching block
+    else if (!this.isOnGround) { w = 28; h = 50; offsetY = 50; }      // Airborne (smaller)
+    else if (this.state === 'attacking') { w = 40; }                   // Extended body
     return {
-      x: this.simX - 18 * FP_SCALE,
-      y: this.simY - 60 * FP_SCALE,
-      w: 36 * FP_SCALE,
-      h: 60 * FP_SCALE,
+      x: this.simX - Math.trunc(w / 2) * FP_SCALE,
+      y: this.simY - offsetY * FP_SCALE,
+      w: w * FP_SCALE,
+      h: h * FP_SCALE,
     };
   }
 

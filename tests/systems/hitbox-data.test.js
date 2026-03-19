@@ -35,13 +35,17 @@ function getAttackHitbox(fighter) {
   };
 }
 
-/** Replicate Fighter.getHurtbox (state-independent for now). */
+/** Replicate Fighter.getHurtbox (state-dependent). */
 function getHurtbox(fighter) {
+  let w = 36, h = 60, offsetY = 60;
+  if (fighter.state === 'blocking') { h = 40; offsetY = 40; }
+  else if (!fighter.isOnGround) { w = 28; h = 50; offsetY = 50; }
+  else if (fighter.state === 'attacking') { w = 40; }
   return {
-    x: fighter.simX - 18 * FP_SCALE,
-    y: fighter.simY - 60 * FP_SCALE,
-    w: 36 * FP_SCALE,
-    h: 60 * FP_SCALE,
+    x: fighter.simX - Math.trunc(w / 2) * FP_SCALE,
+    y: fighter.simY - offsetY * FP_SCALE,
+    w: w * FP_SCALE,
+    h: h * FP_SCALE,
   };
 }
 
@@ -142,10 +146,75 @@ describe('per-character hitbox data', () => {
     }
   });
 
-  it('hurtbox is consistent regardless of fighter data', () => {
+  it('idle hurtbox uses default dimensions', () => {
     const f = createFighter(fighters[0]);
+    f.state = 'idle';
+    f.isOnGround = true;
     const hurtbox = getHurtbox(f);
     expect(hurtbox.w).toBe(36 * FP_SCALE);
     expect(hurtbox.h).toBe(60 * FP_SCALE);
+  });
+});
+
+describe('state-dependent hurtboxes', () => {
+  it('blocking hurtbox is shorter (crouching)', () => {
+    const f = createFighter(fighters[0]);
+    f.state = 'blocking';
+    f.isOnGround = true;
+    const hurtbox = getHurtbox(f);
+    expect(hurtbox.h).toBe(40 * FP_SCALE);
+    expect(hurtbox.w).toBe(36 * FP_SCALE);
+    // Y offset is smaller (closer to ground)
+    expect(hurtbox.y).toBe(f.simY - 40 * FP_SCALE);
+  });
+
+  it('airborne hurtbox is narrower and shorter', () => {
+    const f = createFighter(fighters[0]);
+    f.state = 'jumping';
+    f.isOnGround = false;
+    const hurtbox = getHurtbox(f);
+    expect(hurtbox.w).toBe(28 * FP_SCALE);
+    expect(hurtbox.h).toBe(50 * FP_SCALE);
+  });
+
+  it('attacking hurtbox is wider (extended body)', () => {
+    const f = createFighter(fighters[0]);
+    f.state = 'attacking';
+    f.isOnGround = true;
+    const hurtbox = getHurtbox(f);
+    expect(hurtbox.w).toBe(40 * FP_SCALE);
+    expect(hurtbox.h).toBe(60 * FP_SCALE);
+  });
+
+  it('blocking hurtbox dodges high attacks (shorter height)', () => {
+    const f = createFighter(fighters[0]);
+
+    // Idle hurtbox top edge
+    f.state = 'idle';
+    f.isOnGround = true;
+    const idleBox = getHurtbox(f);
+    const idleTop = idleBox.y;
+
+    // Blocking hurtbox top edge
+    f.state = 'blocking';
+    const blockBox = getHurtbox(f);
+    const blockTop = blockBox.y;
+
+    // Blocking top is lower (larger Y = lower on screen)
+    expect(blockTop).toBeGreaterThan(idleTop);
+  });
+
+  it('airborne hurtbox is narrower than grounded', () => {
+    const f = createFighter(fighters[0]);
+
+    f.state = 'idle';
+    f.isOnGround = true;
+    const groundW = getHurtbox(f).w;
+
+    f.state = 'jumping';
+    f.isOnGround = false;
+    const airW = getHurtbox(f).w;
+
+    expect(airW).toBeLessThan(groundW);
   });
 });
