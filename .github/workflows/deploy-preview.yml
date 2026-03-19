@@ -16,10 +16,9 @@ jobs:
       - name: Deploy party server preview
         id: party
         run: |
-          OUTPUT=$(bun run party:deploy -- --preview pr-${{ github.event.pull_request.number }} 2>&1)
-          echo "$OUTPUT"
+          bunx partykit deploy --preview pr-${{ github.event.pull_request.number }} 2>&1 | tee /tmp/party-output.txt
           # Extract the preview URL from partykit output
-          PREVIEW_URL=$(echo "$OUTPUT" | grep -oP 'https://[^\s]+\.partykit\.dev[^\s]*' | tail -1)
+          PREVIEW_URL=$(grep -oP 'https://[^\s]+\.partykit\.dev[^\s]*' /tmp/party-output.txt | tail -1)
           if [ -z "$PREVIEW_URL" ]; then
             PREVIEW_URL="https://a-los-traques.pr-${{ github.event.pull_request.number }}.simon0191.partykit.dev"
           fi
