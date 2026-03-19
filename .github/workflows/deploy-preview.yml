@@ -1,0 +1,72 @@
+name: Deploy Party Server Preview
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  deploy-preview:
+    if: github.event.label.name == 'party:deploy-preview'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+
+      - name: Deploy party server preview
+        id: party
+        run: |
+          OUTPUT=$(bun run party:deploy -- --preview pr-${{ github.event.pull_request.number }} 2>&1)
+          echo "$OUTPUT"
+          # Extract the preview URL from partykit output
+          PREVIEW_URL=$(echo "$OUTPUT" | grep -oP 'https://[^\s]+\.partykit\.dev[^\s]*' | tail -1)
+          if [ -z "$PREVIEW_URL" ]; then
+            PREVIEW_URL="https://a-los-traques.pr-${{ github.event.pull_request.number }}.simon0191.partykit.dev"
+          fi
+          PARTY_HOST=$(echo "$PREVIEW_URL" | sed 's|https://||')
+          echo "url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+          echo "host=$PARTY_HOST" >> "$GITHUB_OUTPUT"
+        env:
+          PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
+          PARTYKIT_LOGIN: ${{ secrets.PARTYKIT_LOGIN }}
+
+      - name: Comment PR with preview URLs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- party-deploy-preview -->';
+            const partyHost = '${{ steps.party.outputs.host }}';
+            const vercelUrl = `https://a-los-traques-git-${context.payload.pull_request.head.ref}-simon0191s-projects.vercel.app`;
+            const previewUrl = `${vercelUrl}?partyHost=${encodeURIComponent(partyHost)}`;
+
+            const body = [
+              marker,
+              '## Party Server Preview',
+              '',
+              `**Party Server:** ${{ steps.party.outputs.url }}`,
+              `**Webapp + Preview Server:** [Open preview](${previewUrl})`,
+              '',
+              '_The webapp link points to the Vercel preview with `?partyHost=` set to the preview party server._',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body,
+              });
+            }
