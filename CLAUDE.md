@@ -107,13 +107,14 @@ Vitest, configured in `vitest.config.js`. Tests live in `tests/` (not alongside 
 Pure logic is extracted into small modules (`src/systems/combat-math.js`, `src/entities/combat-block.js`) to enable Phaser-free unit testing.
 CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to main — runs lint (Biome) then tests.
 
-## Documentation Diagrams
+## Documentation
 
-Excalidraw diagrams in `docs/` document key systems. When making significant changes to a documented system, update the relevant diagram to stay in sync. When adding a major new system or feature, create a new diagram for it.
+Markdown docs with Mermaid diagrams in `docs/`. When making significant changes to a documented system, update the relevant doc to stay in sync.
 
-- Use the `/excalidraw-diagram-skill` skill to create or update diagrams
-- Existing diagrams: `docs/rollback-netcode.excalidraw` (rollback netcode architecture), `docs/multiplayer-security.excalidraw` (server hardening)
-- Commit both `.excalidraw` and `.png` files together
+- `docs/rollback-netcode.md` — Rollback netcode architecture (GGPO-style, peer-equal)
+- `docs/multiplayer-security.md` — Trust boundaries, server protections, known gaps
+- `docs/graceful-reconnection.md` — Reconnection state machine, grace period, module responsibilities
+- `docs/room-state-machine.md` — Server room state (`roomState` transitions, `return_to_select` vs `disconnect`)
 
 ## Online Multiplayer
 

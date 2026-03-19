@@ -20,6 +20,7 @@ import {
   ONLINE_INPUT_DELAY,
 } from '../systems/FixedPoint.js';
 import { InputManager } from '../systems/InputManager.js';
+import { ReconnectionManager } from '../systems/ReconnectionManager.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
 import { TouchControls } from '../systems/TouchControls.js';
 
@@ -168,6 +169,17 @@ export class FightScene extends Phaser.Scene {
   // =========================================================================
   update(time, delta) {
     if (this.isPaused) return;
+
+    // Tick reconnection manager even while paused (for timeout detection)
+    if (this.reconnectionManager) {
+      this.reconnectionManager.tick();
+    }
+
+    // Skip game loop while reconnecting
+    if (this._reconnecting) {
+      this._updateReconnectingOverlay();
+      return;
+    }
 
     // Update fighters (frame-based FP physics).
     // In online mode, simulateFrame() handles update() — skip here to avoid double-update.
@@ -680,13 +692,59 @@ export class FightScene extends Phaser.Scene {
     this._lastProcessedRound = 0;
     this._matchOverProcessed = false;
 
-    nm.onDisconnect(() => {
+    // --- Graceful reconnection ---
+    this.reconnectionManager = new ReconnectionManager({ gracePeriodMs: 5000 });
+    this._reconnecting = false;
+
+    this.reconnectionManager.onPause(() => {
+      this._reconnecting = true;
+      this._showReconnectingOverlay();
+    });
+
+    this.reconnectionManager.onResume(() => {
+      this._reconnecting = false;
+      this._hideReconnectingOverlay();
+    });
+
+    this.reconnectionManager.onDisconnect(() => {
+      this._reconnecting = false;
+      this._hideReconnectingOverlay();
       this.combat.roundActive = false;
       this._onlineDisconnected = true;
       this.centerText.setText('DESCONECTADO');
       this.subtitleText.setText('Oponente abandono la pelea');
       this.localFighter.stop();
       this.remoteFighter.stop();
+    });
+
+    // Wire NetworkManager socket events → ReconnectionManager
+    nm._onSocketClose = () => this.reconnectionManager.handleConnectionLost();
+    nm._onSocketOpen = () => {
+      this.reconnectionManager.handleConnectionRestored();
+      nm.sendRejoin(nm.getPlayerSlot());
+    };
+    nm.onOpponentReconnecting(() => this.reconnectionManager.handleOpponentReconnecting());
+    nm.onOpponentReconnected(() => this.reconnectionManager.handleOpponentReconnected());
+    nm.onDisconnect(() => this.reconnectionManager.handleOpponentDisconnected());
+
+    // Grace expired during fight — return to fighter select
+    nm.onReturnToSelect(() => {
+      this._reconnecting = false;
+      this._hideReconnectingOverlay();
+      this.combat.roundActive = false;
+      this.centerText.setText('DESCONECTADO');
+      this.subtitleText.setText('Oponente abandono la pelea');
+      this.localFighter.stop();
+      this.remoteFighter.stop();
+      this.time.delayedCall(2000, () => {
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('SelectScene', {
+            gameMode: 'online',
+            networkManager: this.networkManager,
+          });
+        });
+      });
     });
 
     // Both peers detect KO/timeup independently (deterministic simulation guarantees agreement).
@@ -1171,6 +1229,59 @@ export class FightScene extends Phaser.Scene {
   }
 
   // =========================================================================
+  // RECONNECTION OVERLAY
+  // =========================================================================
+  _showReconnectingOverlay() {
+    if (this._reconnectOverlay) return;
+    this._reconnectOverlay = this.add.container(0, 0).setDepth(55);
+
+    const bg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+      0x000000,
+      0.5,
+    );
+    this._reconnectText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'RECONECTANDO...', {
+        fontSize: '18px',
+        fontFamily: 'monospace',
+        color: '#ffcc00',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
+    this._reconnectCountdown = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 15, '5', {
+        fontSize: '14px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5);
+
+    this._reconnectOverlay.add([bg, this._reconnectText, this._reconnectCountdown]);
+  }
+
+  _hideReconnectingOverlay() {
+    if (this._reconnectOverlay) {
+      this._reconnectOverlay.destroy();
+      this._reconnectOverlay = null;
+      this._reconnectText = null;
+      this._reconnectCountdown = null;
+    }
+  }
+
+  _updateReconnectingOverlay() {
+    if (this._reconnectCountdown && this.reconnectionManager) {
+      const remaining = Math.max(0, 5000 - this.reconnectionManager.elapsed());
+      this._reconnectCountdown.setText(String(Math.ceil(remaining / 1000)));
+    }
+  }
+
+  // =========================================================================
   // ROUND FLOW
   // =========================================================================
   _showRoundIntro() {
@@ -1370,6 +1481,7 @@ export class FightScene extends Phaser.Scene {
     if (this.combat) this.combat.stopRound();
     if (this.aiController) this.aiController.destroy();
     if (this.touchControls) this.touchControls.destroy();
+    if (this.reconnectionManager) this.reconnectionManager.destroy();
     // Destroy projectiles
     for (const proj of this.projectiles) {
       proj.destroy();
