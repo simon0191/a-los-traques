@@ -109,12 +109,20 @@ CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to m
 Excalidraw diagrams in `docs/` document key systems. When making significant changes to a documented system, update the relevant diagram to stay in sync. When adding a major new system or feature, create a new diagram for it.
 
 - Use the `/excalidraw-diagram-skill` skill to create or update diagrams
-- Existing diagrams: `docs/multiplayer-architecture.excalidraw` (online multiplayer flow)
+- Existing diagrams: `docs/rollback-netcode.excalidraw` (rollback netcode architecture), `docs/multiplayer-security.excalidraw` (server hardening)
 - Commit both `.excalidraw` and `.png` files together
 
 ## Online Multiplayer
 
-- PartyKit server at `party/server.js`, max 2 players per room
-- Host-authoritative: P1 (slot 0) runs hit detection + timer, sends sync every 3 frames
+- PartyKit server at `party/server.js`, max 2 players per room (pure relay, no game logic)
+- **Rollback netcode** (GGPO-style): both peers run identical simulations locally with zero perceived input lag
+- P1 authoritative for round events (KO/timeup) only — P2 sets `suppressRoundEvents=true` and receives `round_event` messages
+- Input prediction: repeat last movement, zero attack buttons. Rollback + re-simulate on misprediction (max 7 frames)
+- Fixed timestep: `FIXED_DELTA = 16.667ms` for deterministic online simulation
+- Input encoding: 9 booleans packed as single integer (bits 0-8) via `InputBuffer.js`
+- Fighter timers are deterministic (no `scene.time.delayedCall` in simulation path)
+- `CombatSystem.tickTimer()` counts frames (60 frames = 1 second) instead of Phaser timer events
+- Audio/particles/camera shake suppressed during rollback re-simulation (`muteEffects`)
+- Spectators receive P1 sync snapshots (same as old model, no rollback)
 - URL join: `?room=XXXX` skips title, goes directly to LobbyScene
 - `bun run party:dev` for local dev, `bun run party:deploy` to deploy
