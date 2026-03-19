@@ -34,9 +34,12 @@ export class TitleScene extends Phaser.Scene {
     // Dark overlay for readability
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.4);
 
+    // Layout anchor — shifted up to fit all buttons on screen
+    const cy = GAME_HEIGHT / 2 - 30;
+
     // Game title
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 50, 'A LOS TRAQUES', {
+      .text(GAME_WIDTH / 2, cy - 50, 'A LOS TRAQUES', {
         fontFamily: 'Arial Black, Arial',
         fontSize: '36px',
         color: '#ffffff',
@@ -48,7 +51,7 @@ export class TitleScene extends Phaser.Scene {
 
     // Subtitle
     this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 15, 'Pelea de Amigos', {
+      .text(GAME_WIDTH / 2, cy - 15, 'Pelea de Amigos', {
         fontFamily: 'Arial',
         fontSize: '16px',
         color: '#ccccff',
@@ -57,26 +60,30 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Decorative line
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 200, 2, 0xccccff, 0.6);
+    this.add.rectangle(GAME_WIDTH / 2, cy + 5, 200, 2, 0xccccff, 0.6);
 
     // Mode buttons
-    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 33, 'VS MAQUINA', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 33, 'VS MAQUINA', () => {
       this.goToSelect();
     });
 
-    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 57, 'EN LINEA', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 57, 'EN LINEA', () => {
       this.goToLobby();
     });
 
-    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 81, 'UNIRSE', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 81, 'UNIRSE', () => {
       this._showJoinOverlay();
     });
 
-    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 105, 'INSPECTOR', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 105, 'COMO JUGAR', () => {
+      this.goToLearning();
+    });
+
+    this._createButton(GAME_WIDTH / 2, cy + 129, 'INSPECTOR', () => {
       this.goToInspector();
     });
 
-    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 129, 'MUSICA', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 153, 'MUSICA', () => {
       this.goToMusic();
     });
 
@@ -116,6 +123,15 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('InspectorScene');
+    });
+  }
+
+  goToLearning() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('LearningScene');
     });
   }
 
