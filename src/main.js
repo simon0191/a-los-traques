@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from './config.js';
+import { GAME_HEIGHT, GAME_WIDTH } from './config.js';
 import { BootScene } from './scenes/BootScene.js';
-import { TitleScene } from './scenes/TitleScene.js';
-import { SelectScene } from './scenes/SelectScene.js';
-import { PreFightScene } from './scenes/PreFightScene.js';
 import { FightScene } from './scenes/FightScene.js';
-import { LobbyScene } from './scenes/LobbyScene.js';
-import { SpectatorLobbyScene } from './scenes/SpectatorLobbyScene.js';
-import { VictoryScene } from './scenes/VictoryScene.js';
 import { InspectorScene } from './scenes/InspectorScene.js';
+import { LobbyScene } from './scenes/LobbyScene.js';
 import { MusicScene } from './scenes/MusicScene.js';
+import { PreFightScene } from './scenes/PreFightScene.js';
+import { SelectScene } from './scenes/SelectScene.js';
+import { SpectatorLobbyScene } from './scenes/SpectatorLobbyScene.js';
+import { TitleScene } from './scenes/TitleScene.js';
+import { VictoryScene } from './scenes/VictoryScene.js';
 import { AudioManager } from './systems/AudioManager.js';
 
 const config = {
@@ -22,15 +22,26 @@ const config = {
     default: 'arcade',
     arcade: {
       gravity: { y: 0 },
-      debug: false
-    }
+      debug: false,
+    },
   },
   parent: 'game-container',
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, TitleScene, LobbyScene, SpectatorLobbyScene, SelectScene, PreFightScene, FightScene, VictoryScene, InspectorScene, MusicScene]
+  scene: [
+    BootScene,
+    TitleScene,
+    LobbyScene,
+    SpectatorLobbyScene,
+    SelectScene,
+    PreFightScene,
+    FightScene,
+    VictoryScene,
+    InspectorScene,
+    MusicScene,
+  ],
 };
 
 window.game = new Phaser.Game(config);

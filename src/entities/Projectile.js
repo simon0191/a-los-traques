@@ -1,4 +1,3 @@
-import Phaser from 'phaser';
 import { STAGE_LEFT, STAGE_RIGHT } from '../config.js';
 
 export class Projectile {

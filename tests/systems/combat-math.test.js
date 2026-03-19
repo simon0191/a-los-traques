@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { calculateDamage } from '../../src/systems/combat-math.js';
-import { calculateBlockDamage } from '../../src/entities/combat-block.js';
+import { describe, expect, it } from 'vitest';
 import { MAX_SPECIAL } from '../../src/config.js';
+import { calculateBlockDamage } from '../../src/entities/combat-block.js';
+import { calculateDamage } from '../../src/systems/combat-math.js';
 
 describe('calculateDamage', () => {
   it('neutral stats (power=3, defense=3) returns damage close to base', () => {
@@ -23,7 +23,7 @@ describe('calculateDamage', () => {
     const result = calculateDamage(10, 1, 5);
     const neutral = calculateDamage(10, 3, 3);
     expect(result).toBeLessThan(neutral);
-    expect(result).toBe(Math.round(10 * 0.8 * 0.90)); // 7
+    expect(result).toBe(Math.round(10 * 0.8 * 0.9)); // 7
   });
 
   it('always returns a rounded integer', () => {

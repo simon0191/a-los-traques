@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
 
@@ -17,8 +17,8 @@ export class SelectScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.gameMode = (data && data.gameMode) || 'local';
-    this.networkManager = (data && data.networkManager) || null;
+    this.gameMode = data?.gameMode || 'local';
+    this.networkManager = data?.networkManager || null;
   }
 
   create() {
@@ -40,20 +40,22 @@ export class SelectScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
     // Header
-    this.add.text(GAME_WIDTH / 2, 16, 'ELIGE TU LUCHADOR', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '18px',
-      color: '#ffcc00',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, 16, 'ELIGE TU LUCHADOR', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '18px',
+        color: '#ffcc00',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
 
     // Player labels (only show keyboard hint on non-touch devices)
     if (!this.sys.game.device.input.touch) {
       this.add.text(GRID_START_X, 34, 'P1: Flechas + Z', {
         fontFamily: 'Arial',
         fontSize: '8px',
-        color: '#6688ff'
+        color: '#6688ff',
       });
     }
 
@@ -71,18 +73,21 @@ export class SelectScene extends Phaser.Scene {
       // Fighter cell: use portrait if available, else colored rectangle
       let rect;
       if (this.textures.exists(`portrait_${fighter.id}`)) {
-        rect = this.add.image(x, y, `portrait_${fighter.id}`)
+        rect = this.add
+          .image(x, y, `portrait_${fighter.id}`)
           .setDisplaySize(CELL_W - 4, CELL_H - 10);
       } else {
         rect = this.add.rectangle(x, y, CELL_W - 4, CELL_H - 10, color);
       }
 
       // Fighter name below rectangle
-      const nameText = this.add.text(x, y + CELL_H / 2 - 6, fighter.name, {
-        fontFamily: 'Arial',
-        fontSize: '7px',
-        color: '#ffffff'
-      }).setOrigin(0.5);
+      const nameText = this.add
+        .text(x, y + CELL_H / 2 - 6, fighter.name, {
+          fontFamily: 'Arial',
+          fontSize: '7px',
+          color: '#ffffff',
+        })
+        .setOrigin(0.5);
 
       // Make cell tappable for touch selection
       rect.setInteractive();
@@ -98,26 +103,35 @@ export class SelectScene extends Phaser.Scene {
 
     // "LISTO" confirm button for touch devices
     const listoY = GRID_START_Y + ROWS * (CELL_H + GRID_GAP) + 10;
-    const listoBtn = this.add.rectangle(
-      GRID_START_X + (COLS * (CELL_W + GRID_GAP)) / 2 - GRID_GAP / 2,
-      listoY, 80, 22, 0x3366ff
-    ).setInteractive();
-    this.add.text(listoBtn.x, listoBtn.y, 'LISTO', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '11px',
-      color: '#ffffff'
-    }).setOrigin(0.5);
+    const listoBtn = this.add
+      .rectangle(
+        GRID_START_X + (COLS * (CELL_W + GRID_GAP)) / 2 - GRID_GAP / 2,
+        listoY,
+        80,
+        22,
+        0x3366ff,
+      )
+      .setInteractive();
+    this.add
+      .text(listoBtn.x, listoBtn.y, 'LISTO', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '11px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
     listoBtn.on('pointerdown', () => {
       if (this.transitioning || this.p1Confirmed) return;
       this.confirmP1();
     });
 
     // P1 cursor (blue border)
-    this.p1Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
+    this.p1Cursor = this.add
+      .rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
       .setStrokeStyle(2, 0x3366ff);
 
     // P2 cursor (red border) - hidden until P2 selected
-    this.p2Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
+    this.p2Cursor = this.add
+      .rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
       .setStrokeStyle(2, 0xff3333)
       .setVisible(false);
 
@@ -128,24 +142,27 @@ export class SelectScene extends Phaser.Scene {
     this.add.text(panelX, 50, 'JUGADOR 1', {
       fontFamily: 'Arial Black, Arial',
       fontSize: '10px',
-      color: '#3366ff'
+      color: '#3366ff',
     });
 
     this.p1NameText = this.add.text(panelX, 65, '', {
       fontFamily: 'Arial Black, Arial',
       fontSize: '14px',
-      color: '#ffffff'
+      color: '#ffffff',
     });
 
     this.p1SubtitleText = this.add.text(panelX, 82, '', {
       fontFamily: 'Arial',
       fontSize: '9px',
       color: '#aaaacc',
-      fontStyle: 'italic'
+      fontStyle: 'italic',
     });
 
     // P1 Portrait (image or rectangle placeholder)
-    this.p1PortraitImg = this.add.image(panelX + 130, 70, '__DEFAULT').setDisplaySize(45, 45).setVisible(false);
+    this.p1PortraitImg = this.add
+      .image(panelX + 130, 70, '__DEFAULT')
+      .setDisplaySize(45, 45)
+      .setVisible(false);
     this.p1Portrait = this.add.rectangle(panelX + 130, 70, 45, 45, 0x333333);
 
     // P1 Stats
@@ -155,12 +172,12 @@ export class SelectScene extends Phaser.Scene {
     const statNames = ['speed', 'power', 'defense', 'special'];
     const statLabels = ['VEL', 'POD', 'DEF', 'ESP'];
 
-    statNames.forEach((stat, i) => {
+    statNames.forEach((_stat, i) => {
       const sy = 100 + i * 14;
       const label = this.add.text(panelX, sy, statLabels[i], {
         fontFamily: 'Arial',
         fontSize: '8px',
-        color: '#888899'
+        color: '#888899',
       });
       const barBg = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
       const bar = this.add.rectangle(panelX + 30, sy + 4, 0, 6, 0x44cc88).setOrigin(0, 0.5);
@@ -177,35 +194,38 @@ export class SelectScene extends Phaser.Scene {
     this.add.text(panelX, 178, 'JUGADOR 2', {
       fontFamily: 'Arial Black, Arial',
       fontSize: '10px',
-      color: '#ff3333'
+      color: '#ff3333',
     });
 
     this.p2NameText = this.add.text(panelX, 193, 'Aleatorio', {
       fontFamily: 'Arial',
       fontSize: '14px',
-      color: '#888888'
+      color: '#888888',
     });
 
     this.p2SubtitleText = this.add.text(panelX, 210, '', {
       fontFamily: 'Arial',
       fontSize: '9px',
       color: '#aaaacc',
-      fontStyle: 'italic'
+      fontStyle: 'italic',
     });
 
     // P2 Portrait (image or rectangle placeholder)
-    this.p2PortraitImg = this.add.image(panelX + 130, 198, '__DEFAULT').setDisplaySize(45, 45).setVisible(false);
+    this.p2PortraitImg = this.add
+      .image(panelX + 130, 198, '__DEFAULT')
+      .setDisplaySize(45, 45)
+      .setVisible(false);
     this.p2Portrait = this.add.rectangle(panelX + 130, 198, 45, 45, 0x333333);
 
     // P2 Stats
     this.p2StatBars = [];
     this.p2StatBarBgs = [];
-    statNames.forEach((stat, i) => {
+    statNames.forEach((_stat, i) => {
       const sy = 228 + i * 14;
       this.add.text(panelX, sy, statLabels[i], {
         fontFamily: 'Arial',
         fontSize: '8px',
-        color: '#888899'
+        color: '#888899',
       });
       const barBg = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
       const bar = this.add.rectangle(panelX + 30, sy + 4, 0, 6, 0xcc4444).setOrigin(0, 0.5);
@@ -228,11 +248,13 @@ export class SelectScene extends Phaser.Scene {
     });
 
     // Confirmed overlay text
-    this.confirmedText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, '', {
-      fontFamily: 'Arial',
-      fontSize: '10px',
-      color: '#ffcc00'
-    }).setOrigin(0.5);
+    this.confirmedText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 12, '', {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: '#ffcc00',
+      })
+      .setOrigin(0.5);
 
     // Keyboard input
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -267,10 +289,16 @@ export class SelectScene extends Phaser.Scene {
 
     // Room code display (online mode, bottom center)
     if (this.gameMode === 'online' && this.networkManager) {
-      this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8, `SALA: ${this.networkManager.roomId}`, {
-        fontSize: '7px', fontFamily: 'monospace', color: '#aaaacc',
-        stroke: '#000000', strokeThickness: 2
-      }).setOrigin(0.5, 1).setDepth(10);
+      this.add
+        .text(GAME_WIDTH / 2, GAME_HEIGHT - 8, `SALA: ${this.networkManager.roomId}`, {
+          fontSize: '7px',
+          fontFamily: 'monospace',
+          color: '#aaaacc',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(10);
     }
 
     // In online mode, reset stale state and listen for opponent ready early
@@ -286,10 +314,16 @@ export class SelectScene extends Phaser.Scene {
 
       this.networkManager.onDisconnect(() => {
         this.transitioning = true;
-        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Oponente desconectado', {
-          fontSize: '14px', fontFamily: 'monospace', color: '#ff4444',
-          stroke: '#000000', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(50);
+        this.add
+          .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Oponente desconectado', {
+            fontSize: '14px',
+            fontFamily: 'monospace',
+            color: '#ff4444',
+            stroke: '#000000',
+            strokeThickness: 3,
+          })
+          .setOrigin(0.5)
+          .setDepth(50);
         this.time.delayedCall(1500, () => {
           this.networkManager.destroy();
           this.networkManager = null;
@@ -325,7 +359,10 @@ export class SelectScene extends Phaser.Scene {
     this.p1NameText.setText(fighter.name);
     this.p1SubtitleText.setText(fighter.subtitle);
     if (this.textures.exists(`portrait_${fighter.id}`)) {
-      this.p1PortraitImg.setTexture(`portrait_${fighter.id}`).setDisplaySize(45, 45).setVisible(true);
+      this.p1PortraitImg
+        .setTexture(`portrait_${fighter.id}`)
+        .setDisplaySize(45, 45)
+        .setVisible(true);
       this.p1Portrait.setVisible(false);
     } else {
       this.p1PortraitImg.setVisible(false);
@@ -345,7 +382,7 @@ export class SelectScene extends Phaser.Scene {
     this.p1Confirmed = true;
 
     // Highlight confirmed cell
-    const cell = this.gridCells[this.p1Index];
+    const _cell = this.gridCells[this.p1Index];
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
 
     if (this.gameMode === 'online') {
@@ -394,7 +431,7 @@ export class SelectScene extends Phaser.Scene {
   }
 
   _showOpponentSelection(fighterId) {
-    const idx = this.fighters.findIndex(f => f.id === fighterId);
+    const idx = this.fighters.findIndex((f) => f.id === fighterId);
     if (idx === -1) return;
     this.p2Index = idx;
     this._showP2Selection(idx);
@@ -410,7 +447,10 @@ export class SelectScene extends Phaser.Scene {
     this.p2NameText.setText(p2Fighter.name);
     this.p2SubtitleText.setText(p2Fighter.subtitle);
     if (this.textures.exists(`portrait_${p2Fighter.id}`)) {
-      this.p2PortraitImg.setTexture(`portrait_${p2Fighter.id}`).setDisplaySize(45, 45).setVisible(true);
+      this.p2PortraitImg
+        .setTexture(`portrait_${p2Fighter.id}`)
+        .setDisplaySize(45, 45)
+        .setVisible(true);
       this.p2Portrait.setVisible(false);
     } else {
       this.p2PortraitImg.setVisible(false);
@@ -426,18 +466,27 @@ export class SelectScene extends Phaser.Scene {
   }
 
   _createButton(x, y, label, callback) {
-    const bg = this.add.rectangle(x, y, 110, 20, 0x222244)
+    const bg = this.add
+      .rectangle(x, y, 110, 20, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
 
-    const text = this.add.text(x, y, label, {
-      fontFamily: 'Arial',
-      fontSize: '9px',
-      color: '#ffffff'
-    }).setOrigin(0.5);
+    const text = this.add
+      .text(x, y, label, {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
 
-    bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
-    bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
+    bg.on('pointerover', () => {
+      bg.setFillStyle(0x333366);
+      text.setColor('#ffcc00');
+    });
+    bg.on('pointerout', () => {
+      bg.setFillStyle(0x222244);
+      text.setColor('#ffffff');
+    });
     bg.on('pointerdown', () => {
       this.game.audioManager.play('ui_confirm');
       callback();
@@ -470,7 +519,7 @@ export class SelectScene extends Phaser.Scene {
         p2Id,
         stageId,
         gameMode: this.gameMode,
-        networkManager: this.networkManager
+        networkManager: this.networkManager,
       });
     });
   }

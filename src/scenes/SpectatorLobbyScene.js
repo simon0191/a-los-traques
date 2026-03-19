@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import { NetworkManager } from '../systems/NetworkManager.js';
 
 function getPartyHost() {
@@ -30,37 +30,54 @@ export class SpectatorLobbyScene extends Phaser.Scene {
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
-    this.add.text(GAME_WIDTH / 2, 30, 'ESPECTADOR', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '24px',
-      color: '#88ccff',
-      stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, 30, 'ESPECTADOR', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '24px',
+        color: '#88ccff',
+        stroke: '#000000',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
 
-    this.statusText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'Conectando...', {
-      fontFamily: 'Arial',
-      fontSize: '12px',
-      color: '#ccccee',
-      align: 'center',
-      wordWrap: { width: 400 }
-    }).setOrigin(0.5);
+    this.statusText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'Conectando...', {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#ccccee',
+        align: 'center',
+        wordWrap: { width: 400 },
+      })
+      .setOrigin(0.5);
 
-    this.subText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 15, '', {
-      fontFamily: 'Arial',
-      fontSize: '9px',
-      color: '#888899'
-    }).setOrigin(0.5);
+    this.subText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 15, '', {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#888899',
+      })
+      .setOrigin(0.5);
 
     // Back button
-    const bg = this.add.rectangle(60, GAME_HEIGHT - 20, 110, 20, 0x222244)
+    const bg = this.add
+      .rectangle(60, GAME_HEIGHT - 20, 110, 20, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
-    const text = this.add.text(60, GAME_HEIGHT - 20, 'VOLVER', {
-      fontFamily: 'Arial', fontSize: '9px', color: '#ffffff'
-    }).setOrigin(0.5);
-    bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
-    bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
+    const text = this.add
+      .text(60, GAME_HEIGHT - 20, 'VOLVER', {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    bg.on('pointerover', () => {
+      bg.setFillStyle(0x333366);
+      text.setColor('#ffcc00');
+    });
+    bg.on('pointerout', () => {
+      bg.setFillStyle(0x222244);
+      text.setColor('#ffffff');
+    });
     bg.on('pointerdown', () => {
       this.game.audioManager.play('ui_confirm');
       if (this.network) this.network.destroy();
@@ -79,11 +96,15 @@ export class SpectatorLobbyScene extends Phaser.Scene {
 
     this.network.onAssignSpectator((count) => {
       this.statusText.setText('Conectado como espectador');
-      this.subText.setText(`${count} espectador${count !== 1 ? 'es' : ''} conectado${count !== 1 ? 's' : ''}`);
+      this.subText.setText(
+        `${count} espectador${count !== 1 ? 'es' : ''} conectado${count !== 1 ? 's' : ''}`,
+      );
     });
 
     this.network.onSpectatorCount((count) => {
-      this.subText.setText(`${count} espectador${count !== 1 ? 'es' : ''} conectado${count !== 1 ? 's' : ''}`);
+      this.subText.setText(
+        `${count} espectador${count !== 1 ? 'es' : ''} conectado${count !== 1 ? 's' : ''}`,
+      );
     });
 
     this.network.onFightState((msg) => {
@@ -113,7 +134,7 @@ export class SpectatorLobbyScene extends Phaser.Scene {
         p2Id,
         stageId,
         gameMode: 'spectator',
-        networkManager: this.network
+        networkManager: this.network,
       });
     });
   }

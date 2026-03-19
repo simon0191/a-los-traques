@@ -9,12 +9,12 @@
  * Types: fighter, portrait, stage, ui, reference
  */
 
-import fs from "fs";
-import { runFighterPipeline } from "./pipelines/fighter.js";
-import { runPortraitPipeline } from "./pipelines/portrait.js";
-import { runStagePipeline } from "./pipelines/stage.js";
-import { runUIPipeline } from "./pipelines/ui.js";
-import { runReferencePipeline } from "./pipelines/reference.js";
+import fs from 'node:fs';
+import { runFighterPipeline } from './pipelines/fighter.js';
+import { runPortraitPipeline } from './pipelines/portrait.js';
+import { runReferencePipeline } from './pipelines/reference.js';
+import { runStagePipeline } from './pipelines/stage.js';
+import { runUIPipeline } from './pipelines/ui.js';
 
 const PIPELINES = {
   fighter: runFighterPipeline,
@@ -26,21 +26,28 @@ const PIPELINES = {
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const opts = { type: null, configPath: null, skipGenerate: false, delay: 3000, retries: 3, refs: [] };
+  const opts = {
+    type: null,
+    configPath: null,
+    skipGenerate: false,
+    delay: 3000,
+    retries: 3,
+    refs: [],
+  };
 
   const positional = [];
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case "--skip-generate":
+      case '--skip-generate':
         opts.skipGenerate = true;
         break;
-      case "--delay":
+      case '--delay':
         opts.delay = parseInt(args[++i], 10);
         break;
-      case "--retries":
+      case '--retries':
         opts.retries = parseInt(args[++i], 10);
         break;
-      case "--ref":
+      case '--ref':
         opts.refs.push(args[++i]);
         break;
       default:
@@ -57,14 +64,16 @@ async function main() {
   const opts = parseArgs();
 
   if (!opts.type || !opts.configPath) {
-    console.error("Usage: node cli.js <type> <config.json> [--skip-generate] [--delay N] [--retries N]");
-    console.error(`Types: ${Object.keys(PIPELINES).join(", ")}`);
+    console.error(
+      'Usage: node cli.js <type> <config.json> [--skip-generate] [--delay N] [--retries N]',
+    );
+    console.error(`Types: ${Object.keys(PIPELINES).join(', ')}`);
     process.exit(1);
   }
 
   if (!PIPELINES[opts.type]) {
     console.error(`Unknown pipeline type: "${opts.type}"`);
-    console.error(`Available: ${Object.keys(PIPELINES).join(", ")}`);
+    console.error(`Available: ${Object.keys(PIPELINES).join(', ')}`);
     process.exit(1);
   }
 
@@ -75,7 +84,7 @@ async function main() {
 
   let config;
   try {
-    config = JSON.parse(fs.readFileSync(opts.configPath, "utf-8"));
+    config = JSON.parse(fs.readFileSync(opts.configPath, 'utf-8'));
   } catch (err) {
     console.error(`Error reading config: ${err.message}`);
     process.exit(1);
@@ -97,18 +106,18 @@ async function main() {
   console.log(`Delay: ${opts.delay}ms, Retries: ${opts.retries}`);
   console.log(`Request log: assets/_raw/gemini-requests.jsonl`);
   if (config.referenceImages.length > 0) {
-    console.log(`Reference images: ${config.referenceImages.join(", ")}`);
+    console.log(`Reference images: ${config.referenceImages.join(', ')}`);
   }
   console.log();
 
   const pipeline = PIPELINES[opts.type];
   const result = await pipeline(config);
 
-  console.log("\n=== Pipeline Complete ===");
+  console.log('\n=== Pipeline Complete ===');
   if (result.success) {
     console.log(`Output: ${result.output}`);
   } else {
-    console.error("Pipeline finished with errors");
+    console.error('Pipeline finished with errors');
     if (result.errors?.length) {
       for (const err of result.errors) {
         console.error(`  - ${err.name || err.id}: ${err.error}`);
@@ -119,6 +128,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Fatal error:", err.message);
+  console.error('Fatal error:', err.message);
   process.exit(1);
 });

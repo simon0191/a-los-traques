@@ -2,13 +2,14 @@
  * ui.js — Generate a UI element, remove background, crop, and resize
  */
 
-import path from "path";
-import fs from "fs";
-import { generateImage } from "../generate.js";
-import { removeBackground, cropToContent, resizeExact } from "../process.js";
-import { validateAsset } from "../validate.js";
+import fs from 'node:fs';
+import path from 'node:path';
+import { generateImage } from '../generate.js';
+import { cropToContent, removeBackground, resizeExact } from '../process.js';
+import { validateAsset } from '../validate.js';
 
-const STYLE_PREFIX = "Neo Geo pixel art, King of Fighters style UI element, clean edges, vibrant colors, do not use any green colors in the element";
+const STYLE_PREFIX =
+  'Neo Geo pixel art, King of Fighters style UI element, clean edges, vibrant colors, do not use any green colors in the element';
 
 /**
  * @param {object} config
@@ -30,14 +31,14 @@ export async function runUIPipeline(config) {
     width,
     height,
     removeBackground: shouldRemoveBg = true,
-    rawDir = "assets/_raw/ui",
+    rawDir = 'assets/_raw/ui',
     skipGenerate = false,
     referenceImages = [],
     retries = 3,
     delay = 3000,
   } = config;
 
-  const name = path.basename(output, ".png");
+  const name = path.basename(output, '.png');
   const rawPath = path.join(rawDir, `${name}_raw.png`);
   const noBgPath = path.join(rawDir, `${name}_nobg.png`);
   const croppedPath = path.join(rawDir, `${name}_cropped.png`);
@@ -49,9 +50,7 @@ export async function runUIPipeline(config) {
   console.log(`  Generating UI element: ${name}`);
 
   if (!skipGenerate) {
-    const bgInstruction = shouldRemoveBg
-      ? "on solid bright green #00FF00 background"
-      : "";
+    const bgInstruction = shouldRemoveBg ? 'on solid bright green #00FF00 background' : '';
     const fullPrompt = `${prompt}, ${bgInstruction}, ${STYLE_PREFIX}`;
 
     let generated = false;
@@ -76,12 +75,12 @@ export async function runUIPipeline(config) {
 
     if (!generated && !fs.existsSync(rawPath)) {
       console.error(`  FAILED: Could not generate UI element "${name}"`);
-      return { success: false, error: "Generation failed" };
+      return { success: false, error: 'Generation failed' };
     }
   }
 
   if (!fs.existsSync(rawPath)) {
-    return { success: false, error: "Raw file missing" };
+    return { success: false, error: 'Raw file missing' };
   }
 
   try {
@@ -103,7 +102,7 @@ export async function runUIPipeline(config) {
 
   const validation = validateAsset(output, { width, height });
   if (!validation.valid) {
-    console.warn(`  Validation: ${validation.errors.join(", ")}`);
+    console.warn(`  Validation: ${validation.errors.join(', ')}`);
   }
 
   console.log(`  OK: ${output} (${width}x${height})`);

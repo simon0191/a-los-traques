@@ -4,12 +4,11 @@
  * All functions shell out to `magick` (ImageMagick 7).
  */
 
-import { execSync } from "child_process";
-import fs from "fs";
+import { execSync } from 'node:child_process';
 
 function run(cmd) {
   try {
-    return execSync(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+    return execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
   } catch (err) {
     throw new Error(`ImageMagick command failed: ${cmd}\n${err.stderr || err.message}`);
   }
@@ -27,7 +26,9 @@ export function resizeExact(inputPath, outputPath, width, height) {
  */
 export function cropToContent(inputPath, outputPath, padding = 0) {
   if (padding > 0) {
-    run(`magick "${inputPath}" -trim -bordercolor transparent -border ${padding} +repage "${outputPath}"`);
+    run(
+      `magick "${inputPath}" -trim -bordercolor transparent -border ${padding} +repage "${outputPath}"`,
+    );
   } else {
     run(`magick "${inputPath}" -trim +repage "${outputPath}"`);
   }
@@ -47,11 +48,15 @@ export function cropToContent(inputPath, outputPath, padding = 0) {
  * @param {number} [hueMax=170] - Maximum hue in degrees to remove
  * @param {number} [minSaturation=0.20] - Minimum saturation (0-1) to target
  */
-export function removeBackground(inputPath, outputPath, { hueMin = 70, hueMax = 170, minSaturation = 0.20 } = {}) {
+export function removeBackground(
+  inputPath,
+  outputPath,
+  { hueMin = 70, hueMax = 170, minSaturation = 0.2 } = {},
+) {
   run(
     `magick "${inputPath}" -alpha set ` +
-    `-channel A -fx "(u.hue*360>${hueMin} && u.hue*360<${hueMax} && u.saturation>${minSaturation}) ? 0 : 1" ` +
-    `"${outputPath}"`
+      `-channel A -fx "(u.hue*360>${hueMin} && u.hue*360<${hueMax} && u.saturation>${minSaturation}) ? 0 : 1" ` +
+      `"${outputPath}"`,
   );
 }
 
@@ -75,7 +80,7 @@ export function padToAspect(inputPath, outputPath, targetW, targetH) {
   }
 
   run(
-    `magick "${inputPath}" -gravity center -background transparent -extent ${newW}x${newH} "${outputPath}"`
+    `magick "${inputPath}" -gravity center -background transparent -extent ${newW}x${newH} "${outputPath}"`,
   );
 }
 
@@ -83,7 +88,7 @@ export function padToAspect(inputPath, outputPath, targetW, targetH) {
  * Horizontally append multiple images into a single row.
  */
 export function appendHorizontal(inputPaths, outputPath) {
-  const inputs = inputPaths.map((p) => `"${p}"`).join(" ");
+  const inputs = inputPaths.map((p) => `"${p}"`).join(' ');
   run(`magick ${inputs} +append "${outputPath}"`);
 }
 
@@ -119,7 +124,7 @@ export function assembleGrid(framePaths, outputPath, cols, frameWidth, frameHeig
  */
 export function getImageDimensions(inputPath) {
   const result = run(`magick identify -format "%w %h" "${inputPath}"`);
-  const [width, height] = result.split(" ").map(Number);
+  const [width, height] = result.split(' ').map(Number);
   return { width, height };
 }
 
@@ -136,16 +141,14 @@ export function getColorCount(imagePath) {
  */
 export function hasAlpha(imagePath) {
   const result = run(`magick identify -format "%A" "${imagePath}"`);
-  return result.toLowerCase() !== "undefined" && result.toLowerCase() !== "false";
+  return result.toLowerCase() !== 'undefined' && result.toLowerCase() !== 'false';
 }
 
 /**
  * Get percentage of transparent pixels.
  */
 export function getTransparentPercent(imagePath) {
-  const result = run(
-    `magick "${imagePath}" -alpha extract -format "%[fx:mean*100]" info:`
-  );
+  const result = run(`magick "${imagePath}" -alpha extract -format "%[fx:mean*100]" info:`);
   // mean of alpha channel: 1.0 = fully opaque, 0.0 = fully transparent
   // So transparent percentage = (1 - mean) * 100
   const opaquePct = parseFloat(result);

@@ -18,7 +18,7 @@ export function encodeInput(inputObj) {
   let encoded = 0;
   for (let i = 0; i < INPUT_KEYS.length; i++) {
     if (inputObj[INPUT_KEYS[i]]) {
-      encoded |= (1 << i);
+      encoded |= 1 << i;
     }
   }
   return encoded;

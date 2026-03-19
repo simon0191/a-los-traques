@@ -5,13 +5,13 @@
  * to the target dimensions (480x270).
  */
 
-import path from "path";
-import fs from "fs";
-import { generateImage } from "../generate.js";
-import { resizeExact, getImageDimensions } from "../process.js";
+import fs from 'node:fs';
+import path from 'node:path';
+import { generateImage } from '../generate.js';
+import { getImageDimensions, resizeExact } from '../process.js';
 
 const STYLE_PREFIX =
-  "Neo Geo pixel art, King of Fighters style background, detailed pixel art scene, wide landscape format, atmospheric lighting, vibrant colors";
+  'Neo Geo pixel art, King of Fighters style background, detailed pixel art scene, wide landscape format, atmospheric lighting, vibrant colors';
 
 const STAGE_WIDTH = 480;
 const STAGE_HEIGHT = 270;
@@ -30,19 +30,18 @@ export async function runStagePipeline(config) {
   const {
     output,
     prompt,
-    rawDir = "assets/_raw/stages",
+    rawDir = 'assets/_raw/stages',
     skipGenerate = false,
     retries = 3,
     delay = 3000,
   } = config;
 
-  const stageName = path.basename(output, ".png");
+  const stageName = path.basename(output, '.png');
 
   if (!fs.existsSync(rawDir)) fs.mkdirSync(rawDir, { recursive: true });
 
   const outputDir = path.dirname(output);
-  if (!fs.existsSync(outputDir))
-    fs.mkdirSync(outputDir, { recursive: true });
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
   const rawPath = path.join(rawDir, `${stageName}_raw.png`);
 
@@ -72,9 +71,7 @@ export async function runStagePipeline(config) {
     }
 
     if (!generated && !fs.existsSync(rawPath)) {
-      console.error(
-        `    FAILED: Could not generate stage "${stageName}"`
-      );
+      console.error(`    FAILED: Could not generate stage "${stageName}"`);
       return { success: false, output };
     }
   }
@@ -91,14 +88,12 @@ export async function runStagePipeline(config) {
   const dims = getImageDimensions(output);
   if (dims.width !== STAGE_WIDTH || dims.height !== STAGE_HEIGHT) {
     console.error(
-      `    Dimension mismatch: expected ${STAGE_WIDTH}x${STAGE_HEIGHT}, got ${dims.width}x${dims.height}`
+      `    Dimension mismatch: expected ${STAGE_WIDTH}x${STAGE_HEIGHT}, got ${dims.width}x${dims.height}`,
     );
     return { success: false, output };
   }
 
-  console.log(
-    `    Stage generated: ${output} (${STAGE_WIDTH}x${STAGE_HEIGHT})`
-  );
+  console.log(`    Stage generated: ${output} (${STAGE_WIDTH}x${STAGE_HEIGHT})`);
 
   return { success: true, output };
 }

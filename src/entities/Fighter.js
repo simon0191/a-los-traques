@@ -1,11 +1,20 @@
 import Phaser from 'phaser';
 import {
-  GROUND_Y, GRAVITY, STAGE_LEFT, STAGE_RIGHT, MAX_HP, MAX_SPECIAL,
-  MAX_STAMINA, STAMINA_COSTS, STAMINA_REGEN,
-  WALL_SLIDE_SPEED, WALL_JUMP_X, WALL_JUMP_Y
+  GRAVITY,
+  GROUND_Y,
+  MAX_HP,
+  MAX_STAMINA,
+  STAGE_LEFT,
+  STAGE_RIGHT,
+  STAMINA_COSTS,
+  STAMINA_REGEN,
+  WALL_JUMP_X,
+  WALL_JUMP_Y,
+  WALL_SLIDE_SPEED,
 } from '../config.js';
 
 export { calculateBlockDamage } from './combat-block.js';
+
 import { calculateBlockDamage } from './combat-block.js';
 
 export class Fighter {
@@ -58,7 +67,7 @@ export class Fighter {
     this._specialTintTimer = 0;
   }
 
-  update(time, delta) {
+  update(_time, delta) {
     // Update cooldowns
     if (this.attackCooldown > 0) this.attackCooldown -= delta;
 
@@ -76,7 +85,7 @@ export class Fighter {
       this._specialTintTimer -= delta;
       if (this._specialTintTimer <= 0) {
         this._specialTintTimer = 0;
-        if (this.sprite && this.sprite.clearTint) this.sprite.clearTint();
+        if (this.sprite?.clearTint) this.sprite.clearTint();
       }
     }
 
@@ -226,7 +235,8 @@ export class Fighter {
 
   attack(type) {
     // type: 'lightPunch', 'heavyPunch', 'lightKick', 'heavyKick', 'special'
-    if (this.attackCooldown > 0 || this.state === 'hurt' || this.state === 'knockdown') return false;
+    if (this.attackCooldown > 0 || this.state === 'hurt' || this.state === 'knockdown')
+      return false;
     if (type === 'special' && this.special < 50) return false;
 
     // Stamina gate
@@ -270,21 +280,11 @@ export class Fighter {
     const reach = this.currentAttack.type.includes('Kick') ? 55 : 45;
     const dir = this.facingRight ? 1 : -1;
 
-    return new Phaser.Geom.Rectangle(
-      this.sprite.x + (dir * 10),
-      this.sprite.y - 50,
-      reach * dir,
-      40
-    );
+    return new Phaser.Geom.Rectangle(this.sprite.x + dir * 10, this.sprite.y - 50, reach * dir, 40);
   }
 
   getHurtbox() {
-    return new Phaser.Geom.Rectangle(
-      this.sprite.x - 18,
-      this.sprite.y - 60,
-      36,
-      60
-    );
+    return new Phaser.Geom.Rectangle(this.sprite.x - 18, this.sprite.y - 60, 36, 60);
   }
 
   takeDamage(amount, attackerX) {

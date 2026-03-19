@@ -1,26 +1,43 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, FIGHTER_WIDTH, FIGHTER_HEIGHT } from '../config.js';
+import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 
 // Keep in sync with BootScene
 const ANIM_DEFS = {
-  idle:         { frames: 4, repeat: -1 },
-  walk:         { frames: 4, repeat: -1 },
-  light_punch:  { frames: 4, repeat: 0 },
-  heavy_punch:  { frames: 5, repeat: 0 },
-  light_kick:   { frames: 4, repeat: 0 },
-  heavy_kick:   { frames: 5, repeat: 0 },
-  special:      { frames: 5, repeat: 0 },
-  block:        { frames: 2, repeat: 0 },
-  hurt:         { frames: 3, repeat: 0 },
-  knockdown:    { frames: 4, repeat: 0 },
-  victory:      { frames: 4, repeat: -1 },
-  defeat:       { frames: 3, repeat: 0 },
-  jump:         { frames: 3, repeat: 0 },
+  idle: { frames: 4, repeat: -1 },
+  walk: { frames: 4, repeat: -1 },
+  light_punch: { frames: 4, repeat: 0 },
+  heavy_punch: { frames: 5, repeat: 0 },
+  light_kick: { frames: 4, repeat: 0 },
+  heavy_kick: { frames: 5, repeat: 0 },
+  special: { frames: 5, repeat: 0 },
+  block: { frames: 2, repeat: 0 },
+  hurt: { frames: 3, repeat: 0 },
+  knockdown: { frames: 4, repeat: 0 },
+  victory: { frames: 4, repeat: -1 },
+  defeat: { frames: 3, repeat: 0 },
+  jump: { frames: 3, repeat: 0 },
 };
 
 // Keep in sync with BootScene
-const FIGHTERS_WITH_SPRITES = ['simon', 'jeka', 'chicha', 'cata', 'carito', 'mao', 'peks', 'lini', 'alv', 'sun', 'gartner', 'richi', 'cami', 'migue', 'bozzi', 'angy'];
+const FIGHTERS_WITH_SPRITES = [
+  'simon',
+  'jeka',
+  'chicha',
+  'cata',
+  'carito',
+  'mao',
+  'peks',
+  'lini',
+  'alv',
+  'sun',
+  'gartner',
+  'richi',
+  'cami',
+  'migue',
+  'bozzi',
+  'angy',
+];
 
 const ANIM_NAMES = Object.keys(ANIM_DEFS);
 
@@ -49,7 +66,9 @@ export class InspectorScene extends Phaser.Scene {
     this._createButton(GAME_WIDTH - 45, 12, 'VOLVER', () => this.goBack());
 
     // Divider line
-    this.add.rectangle(LEFT_PANEL_WIDTH, GAME_HEIGHT / 2, 1, GAME_HEIGHT - 28, 0x444488, 0.6).setOrigin(0.5, 0.5);
+    this.add
+      .rectangle(LEFT_PANEL_WIDTH, GAME_HEIGHT / 2, 1, GAME_HEIGHT - 28, 0x444488, 0.6)
+      .setOrigin(0.5, 0.5);
 
     // Build fighter list
     this.selectedIndex = 0;
@@ -75,22 +94,30 @@ export class InspectorScene extends Phaser.Scene {
       this.listContainer.add(dot);
       this.listDots.push(dot);
 
-      const txt = this.add.text(20, y, f.id, {
-        fontFamily: 'Arial',
-        fontSize: '11px',
-        color: hasSprites ? '#ffffff' : '#888888',
-      }).setInteractive({ useHandCursor: true });
-
-      txt.on('pointerdown', () => this.selectFighter(i));
-      txt.on('pointerover', () => { if (i !== this.selectedIndex) txt.setColor(hasSprites ? '#ffcc00' : '#bbbb88'); });
-      txt.on('pointerout', () => { if (i !== this.selectedIndex) txt.setColor(hasSprites ? '#ffffff' : '#888888'); });
-
-      if (hasSprites) {
-        const star = this.add.text(LEFT_PANEL_WIDTH - 12, y, '*', {
+      const txt = this.add
+        .text(20, y, f.id, {
           fontFamily: 'Arial',
           fontSize: '11px',
-          color: '#ffcc00',
-        }).setOrigin(1, 0);
+          color: hasSprites ? '#ffffff' : '#888888',
+        })
+        .setInteractive({ useHandCursor: true });
+
+      txt.on('pointerdown', () => this.selectFighter(i));
+      txt.on('pointerover', () => {
+        if (i !== this.selectedIndex) txt.setColor(hasSprites ? '#ffcc00' : '#bbbb88');
+      });
+      txt.on('pointerout', () => {
+        if (i !== this.selectedIndex) txt.setColor(hasSprites ? '#ffffff' : '#888888');
+      });
+
+      if (hasSprites) {
+        const star = this.add
+          .text(LEFT_PANEL_WIDTH - 12, y, '*', {
+            fontFamily: 'Arial',
+            fontSize: '11px',
+            color: '#ffcc00',
+          })
+          .setOrigin(1, 0);
         this.listContainer.add(star);
       }
 
@@ -120,8 +147,14 @@ export class InspectorScene extends Phaser.Scene {
     });
 
     // Right panel elements
-    this.portraitImage = this.add.image(LEFT_PANEL_WIDTH + 20, 42, '__DEFAULT').setOrigin(0, 0).setDisplaySize(48, 48).setVisible(false);
-    this.portraitFallback = this.add.rectangle(LEFT_PANEL_WIDTH + 44, 66, 48, 48, 0x333333).setVisible(false);
+    this.portraitImage = this.add
+      .image(LEFT_PANEL_WIDTH + 20, 42, '__DEFAULT')
+      .setOrigin(0, 0)
+      .setDisplaySize(48, 48)
+      .setVisible(false);
+    this.portraitFallback = this.add
+      .rectangle(LEFT_PANEL_WIDTH + 44, 66, 48, 48, 0x333333)
+      .setVisible(false);
 
     this.nameText = this.add.text(LEFT_PANEL_WIDTH + 76, 38, '', {
       fontFamily: 'Arial Black, Arial',
@@ -136,21 +169,28 @@ export class InspectorScene extends Phaser.Scene {
       fontStyle: 'italic',
     });
 
-    this.noSpritesLabel = this.add.text(RIGHT_X, 170, '(sin sprites)', {
-      fontFamily: 'Arial',
-      fontSize: '12px',
-      color: '#ff6666',
-    }).setOrigin(0.5).setVisible(false);
+    this.noSpritesLabel = this.add
+      .text(RIGHT_X, 170, '(sin sprites)', {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#ff6666',
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
 
     // Preview sprite
-    this.previewSprite = this.add.sprite(RIGHT_X, 150, 'fighter_p1').setDisplaySize(FIGHTER_WIDTH, FIGHTER_HEIGHT);
+    this.previewSprite = this.add
+      .sprite(RIGHT_X, 150, 'fighter_p1')
+      .setDisplaySize(FIGHTER_WIDTH, FIGHTER_HEIGHT);
 
     // Anim info
-    this.animInfoText = this.add.text(RIGHT_X, 225, '', {
-      fontFamily: 'Arial',
-      fontSize: '10px',
-      color: '#ccccff',
-    }).setOrigin(0.5);
+    this.animInfoText = this.add
+      .text(RIGHT_X, 225, '', {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: '#ccccff',
+      })
+      .setOrigin(0.5);
 
     // Prev / Next buttons
     this._createButton(RIGHT_X - 60, 250, '< ANT', () => this.selectAnim(this.animIndex - 1));
@@ -167,7 +207,7 @@ export class InspectorScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-C', () => this.stepFrame(-1));
 
     // Select first fighter with sprites, or first fighter
-    const firstSpriteIdx = fightersData.findIndex(f => FIGHTERS_WITH_SPRITES.includes(f.id));
+    const firstSpriteIdx = fightersData.findIndex((f) => FIGHTERS_WITH_SPRITES.includes(f.id));
     this.selectFighter(firstSpriteIdx >= 0 ? firstSpriteIdx : 0);
   }
 
@@ -295,18 +335,27 @@ export class InspectorScene extends Phaser.Scene {
   }
 
   _createButton(x, y, label, callback) {
-    const bg = this.add.rectangle(x, y, 70, 18, 0x222244)
+    const bg = this.add
+      .rectangle(x, y, 70, 18, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
 
-    const text = this.add.text(x, y, label, {
-      fontFamily: 'Arial',
-      fontSize: '10px',
-      color: '#ffffff',
-    }).setOrigin(0.5);
+    const text = this.add
+      .text(x, y, label, {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
 
-    bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
-    bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
+    bg.on('pointerover', () => {
+      bg.setFillStyle(0x333366);
+      text.setColor('#ffcc00');
+    });
+    bg.on('pointerout', () => {
+      bg.setFillStyle(0x222244);
+      text.setColor('#ffffff');
+    });
     bg.on('pointerdown', () => callback());
   }
 }

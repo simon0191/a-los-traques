@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 
 // Auto-discover fight music MP3s at build time via Vite glob
-const fightMusicFiles = Object.keys(
-  import.meta.glob('/public/assets/audio/fights/*.mp3')
-).map(p => p.replace('/public', ''));
+const fightMusicFiles = Object.keys(import.meta.glob('/public/assets/audio/fights/*.mp3')).map(
+  (p) => p.replace('/public', ''),
+);
 
 function formatSongName(path) {
   const filename = path.split('/').pop().replace('.mp3', '');
@@ -28,13 +28,15 @@ export class MusicScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x1a1a2e);
 
     // Title
-    this.add.text(GAME_WIDTH / 2, 25, 'MUSICA', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '24px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, 25, 'MUSICA', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '24px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
 
     // Decorative line
     this.add.rectangle(GAME_WIDTH / 2, 45, 200, 2, 0xccccff, 0.6);
@@ -48,15 +50,18 @@ export class MusicScene extends Phaser.Scene {
       const y = startY + i * rowHeight;
       const name = formatSongName(fightMusicFiles[i]);
 
-      const bg = this.add.rectangle(GAME_WIDTH / 2, y, 300, 22, 0x222244)
+      const bg = this.add
+        .rectangle(GAME_WIDTH / 2, y, 300, 22, 0x222244)
         .setStrokeStyle(1, 0x4444aa)
         .setInteractive({ useHandCursor: true });
 
-      const text = this.add.text(GAME_WIDTH / 2, y, name, {
-        fontFamily: 'Arial',
-        fontSize: '12px',
-        color: '#ffffff'
-      }).setOrigin(0.5);
+      const text = this.add
+        .text(GAME_WIDTH / 2, y, name, {
+          fontFamily: 'Arial',
+          fontSize: '12px',
+          color: '#ffffff',
+        })
+        .setOrigin(0.5);
 
       bg.on('pointerover', () => {
         if (this.playingIndex !== i) {
@@ -121,18 +126,27 @@ export class MusicScene extends Phaser.Scene {
   }
 
   _createButton(x, y, label, callback) {
-    const bg = this.add.rectangle(x, y, 100, 22, 0x222244)
+    const bg = this.add
+      .rectangle(x, y, 100, 22, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
 
-    const text = this.add.text(x, y, label, {
-      fontFamily: 'Arial',
-      fontSize: '12px',
-      color: '#ffffff'
-    }).setOrigin(0.5);
+    const text = this.add
+      .text(x, y, label, {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
 
-    bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
-    bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
+    bg.on('pointerover', () => {
+      bg.setFillStyle(0x333366);
+      text.setColor('#ffcc00');
+    });
+    bg.on('pointerout', () => {
+      bg.setFillStyle(0x222244);
+      text.setColor('#ffffff');
+    });
     bg.on('pointerdown', () => {
       this.game.audioManager.play('ui_confirm');
       callback();

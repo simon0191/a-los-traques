@@ -6,7 +6,7 @@
  * @returns {number} Final damage (rounded integer)
  */
 export function calculateDamage(baseDamage, attackerPower, defenderDefense) {
-  const powerMod = 0.7 + (attackerPower * 0.1);
-  const defMod = 1.1 - (defenderDefense * 0.04);
+  const powerMod = 0.7 + attackerPower * 0.1;
+  const defMod = 1.1 - defenderDefense * 0.04;
   return Math.round(baseDamage * powerMod * defMod);
 }

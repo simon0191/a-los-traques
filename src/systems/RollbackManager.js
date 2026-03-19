@@ -6,8 +6,8 @@
  */
 
 import { captureGameState, restoreGameState } from './GameState.js';
-import { encodeInput, inputsEqual, predictInput, EMPTY_INPUT } from './InputBuffer.js';
-import { simulateFrame, FIXED_DELTA } from './SimulationStep.js';
+import { EMPTY_INPUT, encodeInput, inputsEqual, predictInput } from './InputBuffer.js';
+import { FIXED_DELTA, simulateFrame } from './SimulationStep.js';
 
 export class RollbackManager {
   /**
@@ -25,7 +25,7 @@ export class RollbackManager {
 
     // Input histories (frame → encoded input)
     this.localInputHistory = new Map();
-    this.remoteInputHistory = new Map();   // confirmed remote inputs
+    this.remoteInputHistory = new Map(); // confirmed remote inputs
     this.predictedRemoteInputs = new Map();
 
     // State snapshots (frame → GameStateSnapshot)
@@ -156,7 +156,12 @@ export class RollbackManager {
     const minFrame = this.currentFrame - this.maxRollbackFrames - 2;
     if (minFrame < 0) return;
 
-    for (const map of [this.stateSnapshots, this.localInputHistory, this.remoteInputHistory, this.predictedRemoteInputs]) {
+    for (const map of [
+      this.stateSnapshots,
+      this.localInputHistory,
+      this.remoteInputHistory,
+      this.predictedRemoteInputs,
+    ]) {
       for (const key of map.keys()) {
         if (key < minFrame) {
           map.delete(key);

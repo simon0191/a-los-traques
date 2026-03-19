@@ -5,12 +5,12 @@
  * Supports optional reference image input for style consistency.
  */
 
-import { GoogleGenAI } from "@google/genai";
-import fs from "fs";
-import path from "path";
+import fs from 'node:fs';
+import path from 'node:path';
+import { GoogleGenAI } from '@google/genai';
 
-const LOG_DIR = "assets/_raw";
-const LOG_FILE = path.join(LOG_DIR, "gemini-requests.jsonl");
+const LOG_DIR = 'assets/_raw';
+const LOG_FILE = path.join(LOG_DIR, 'gemini-requests.jsonl');
 
 function logRequest({ prompt, model, inputPaths, outputPath, attempt, success, error }) {
   if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
@@ -24,7 +24,7 @@ function logRequest({ prompt, model, inputPaths, outputPath, attempt, success, e
     success,
     ...(error && { error }),
   };
-  fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + "\n");
+  fs.appendFileSync(LOG_FILE, `${JSON.stringify(entry)}\n`);
 }
 
 let aiInstance = null;
@@ -33,8 +33,8 @@ function getAI() {
   if (!aiInstance) {
     if (!process.env.GEMINI_API_KEY) {
       throw new Error(
-        "GEMINI_API_KEY environment variable is not set.\n" +
-          "Get a key at https://aistudio.google.com/apikey"
+        'GEMINI_API_KEY environment variable is not set.\n' +
+          'Get a key at https://aistudio.google.com/apikey',
       );
     }
     aiInstance = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -61,7 +61,7 @@ function sleep(ms) {
 export async function generateImage({
   prompt,
   outputPath,
-  model = "gemini-2.5-flash-image",
+  model = 'gemini-2.5-flash-image',
   inputPaths = null,
   retries = 3,
   delay = 3000,
@@ -71,7 +71,9 @@ export async function generateImage({
 
   // Normalize to array
   const resolvedInputPaths = inputPaths
-    ? Array.isArray(inputPaths) ? inputPaths : [inputPaths]
+    ? Array.isArray(inputPaths)
+      ? inputPaths
+      : [inputPaths]
     : [];
   const refPaths = resolvedInputPaths;
 
@@ -79,19 +81,20 @@ export async function generateImage({
   for (const inputPath of refPaths) {
     if (inputPath && fs.existsSync(inputPath)) {
       const imageData = fs.readFileSync(inputPath);
-      const ext = path.extname(inputPath).toLowerCase().replace(".", "");
-      const mimeType = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
+      const ext = path.extname(inputPath).toLowerCase().replace('.', '');
+      const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
       contents.push({
-        inlineData: { mimeType, data: imageData.toString("base64") },
+        inlineData: { mimeType, data: imageData.toString('base64') },
       });
       addedRefs++;
     }
   }
 
   // If reference images were provided, prepend a consistency instruction
-  const refPrefix = addedRefs > 0
-    ? `The generated character must look EXACTLY like the character in the reference image${addedRefs > 1 ? "s" : ""} — same face, body type, clothing, hair, and colors. IMPORTANT: Character MUST face RIGHT — chest and face pointing toward the right side of the image. `
-    : "";
+  const refPrefix =
+    addedRefs > 0
+      ? `The generated character must look EXACTLY like the character in the reference image${addedRefs > 1 ? 's' : ''} — same face, body type, clothing, hair, and colors. IMPORTANT: Character MUST face RIGHT — chest and face pointing toward the right side of the image. `
+      : '';
   contents.push({ text: refPrefix + prompt });
 
   let lastError = null;
@@ -101,22 +104,29 @@ export async function generateImage({
       const response = await ai.models.generateContent({
         model,
         contents,
-        config: { responseModalities: ["IMAGE", "TEXT"] },
+        config: { responseModalities: ['IMAGE', 'TEXT'] },
       });
 
       if (!response.candidates?.[0]?.content?.parts) {
-        throw new Error("Empty response from API");
+        throw new Error('Empty response from API');
       }
 
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
-          const buffer = Buffer.from(part.inlineData.data, "base64");
+          const buffer = Buffer.from(part.inlineData.data, 'base64');
           const dir = path.dirname(outputPath);
           if (dir && !fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
           }
           fs.writeFileSync(outputPath, buffer);
-          logRequest({ prompt, model, inputPaths: resolvedInputPaths, outputPath, attempt, success: true });
+          logRequest({
+            prompt,
+            model,
+            inputPaths: resolvedInputPaths,
+            outputPath,
+            attempt,
+            success: true,
+          });
           return { success: true, path: outputPath, bytes: buffer.length };
         }
       }
@@ -129,23 +139,25 @@ export async function generateImage({
         await sleep(delay * attempt);
         continue;
       }
-      throw new Error("No image data in response");
+      throw new Error('No image data in response');
     } catch (err) {
       lastError = err;
 
-      if (
-        err.message?.includes("SAFETY") ||
-        err.message?.includes("blocked")
-      ) {
+      if (err.message?.includes('SAFETY') || err.message?.includes('blocked')) {
         const safetyError = `Safety filter: ${err.message}`;
-        logRequest({ prompt, model, inputPaths: resolvedInputPaths, outputPath, attempt, success: false, error: safetyError });
+        logRequest({
+          prompt,
+          model,
+          inputPaths: resolvedInputPaths,
+          outputPath,
+          attempt,
+          success: false,
+          error: safetyError,
+        });
         return { success: false, error: safetyError };
       }
 
-      if (
-        err.message?.includes("429") ||
-        err.message?.includes("RESOURCE_EXHAUSTED")
-      ) {
+      if (err.message?.includes('429') || err.message?.includes('RESOURCE_EXHAUSTED')) {
         const wait = 8000 * attempt;
         console.warn(`  [Rate limited] Waiting ${wait / 1000}s...`);
         await sleep(wait);
@@ -154,12 +166,19 @@ export async function generateImage({
 
       if (attempt < retries) {
         await sleep(delay * attempt);
-        continue;
       }
     }
   }
 
-  const finalError = lastError?.message || "Unknown error";
-  logRequest({ prompt, model, inputPaths: resolvedInputPaths, outputPath, attempt: retries, success: false, error: finalError });
+  const finalError = lastError?.message || 'Unknown error';
+  logRequest({
+    prompt,
+    model,
+    inputPaths: resolvedInputPaths,
+    outputPath,
+    attempt: retries,
+    success: false,
+    error: finalError,
+  });
   return { success: false, error: finalError };
 }

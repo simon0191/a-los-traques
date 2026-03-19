@@ -13,7 +13,7 @@ export class AudioManager {
     // then we resume the context as a backup. Keep listeners until both
     // the AudioContext is running AND Phaser reports unlocked.
     const unlock = () => {
-      const ctx = game.sound && game.sound.context;
+      const ctx = game.sound?.context;
       if (ctx && ctx.state === 'suspended') {
         ctx.resume();
       }
@@ -85,7 +85,7 @@ export class AudioManager {
       onComplete: () => {
         music.stop();
         music.destroy();
-      }
+      },
     });
     this.currentMusic = null;
     this.currentMusicKey = null;
@@ -103,13 +103,17 @@ export class AudioManager {
   createMuteButton(scene) {
     const x = 470;
     const y = 10;
-    const btn = scene.add.text(x, y, this.muted ? 'MUTE' : 'SND', {
-      fontFamily: 'Arial',
-      fontSize: '8px',
-      color: this.muted ? '#ff4444' : '#88ff88',
-      backgroundColor: '#00000088',
-      padding: { x: 3, y: 2 }
-    }).setOrigin(1, 0).setDepth(100).setInteractive({ useHandCursor: true });
+    const btn = scene.add
+      .text(x, y, this.muted ? 'MUTE' : 'SND', {
+        fontFamily: 'Arial',
+        fontSize: '8px',
+        color: this.muted ? '#ff4444' : '#88ff88',
+        backgroundColor: '#00000088',
+        padding: { x: 3, y: 2 },
+      })
+      .setOrigin(1, 0)
+      .setDepth(100)
+      .setInteractive({ useHandCursor: true });
 
     btn.on('pointerdown', () => {
       const muted = this.toggleMute();

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
+import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import { NetworkManager } from '../systems/NetworkManager.js';
 
 // PartyKit host - auto-detect localhost for dev, override via ?partyHost=
@@ -45,49 +45,61 @@ export class LobbyScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
     // Header
-    this.add.text(GAME_WIDTH / 2, 30, 'EN LINEA', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '24px',
-      color: '#ffcc00',
-      stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+    this.add
+      .text(GAME_WIDTH / 2, 30, 'EN LINEA', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '24px',
+        color: '#ffcc00',
+        stroke: '#000000',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
 
-    this.statusText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, '', {
-      fontFamily: 'Arial',
-      fontSize: '12px',
-      color: '#ccccee',
-      align: 'center',
-      wordWrap: { width: 400 }
-    }).setOrigin(0.5);
+    this.statusText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 30, '', {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#ccccee',
+        align: 'center',
+        wordWrap: { width: 400 },
+      })
+      .setOrigin(0.5);
 
-    this.codeLabel = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 8, '', {
-      fontFamily: 'Arial',
-      fontSize: '9px',
-      color: '#888899'
-    }).setOrigin(0.5);
+    this.codeLabel = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 8, '', {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#888899',
+      })
+      .setOrigin(0.5);
 
-    this.codeText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 12, '', {
-      fontFamily: 'monospace',
-      fontSize: '24px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3
-    }).setOrigin(0.5);
+    this.codeText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 12, '', {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5);
 
-    this.linkText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 32, '', {
-      fontFamily: 'monospace',
-      fontSize: '8px',
-      color: '#88ccff',
-      align: 'center',
-      wordWrap: { width: 400 }
-    }).setOrigin(0.5);
+    this.linkText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 32, '', {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#88ccff',
+        align: 'center',
+        wordWrap: { width: 400 },
+      })
+      .setOrigin(0.5);
 
-    this.subText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 45, '', {
-      fontFamily: 'Arial',
-      fontSize: '9px',
-      color: '#888899'
-    }).setOrigin(0.5);
+    this.subText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 45, '', {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#888899',
+      })
+      .setOrigin(0.5);
 
     // Back button
     this._createButton(60, GAME_HEIGHT - 20, 'VOLVER', () => {
@@ -111,7 +123,7 @@ export class LobbyScene extends Phaser.Scene {
       this.subText.setText('Asegura que el servidor este corriendo\nbun run party:dev');
     });
 
-    this.network.onAssign((slot) => {
+    this.network.onAssign((_slot) => {
       if (this.isCreator) {
         const link = `${window.location.origin}${window.location.pathname}?room=${this.roomId}`;
         this.statusText.setText('Esperando oponente...');
@@ -162,24 +174,33 @@ export class LobbyScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('SelectScene', {
         gameMode: 'online',
-        networkManager: this.network
+        networkManager: this.network,
       });
     });
   }
 
   _createButton(x, y, label, callback) {
-    const bg = this.add.rectangle(x, y, 110, 20, 0x222244)
+    const bg = this.add
+      .rectangle(x, y, 110, 20, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
 
-    const text = this.add.text(x, y, label, {
-      fontFamily: 'Arial',
-      fontSize: '9px',
-      color: '#ffffff'
-    }).setOrigin(0.5);
+    const text = this.add
+      .text(x, y, label, {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
 
-    bg.on('pointerover', () => { bg.setFillStyle(0x333366); text.setColor('#ffcc00'); });
-    bg.on('pointerout', () => { bg.setFillStyle(0x222244); text.setColor('#ffffff'); });
+    bg.on('pointerover', () => {
+      bg.setFillStyle(0x333366);
+      text.setColor('#ffcc00');
+    });
+    bg.on('pointerout', () => {
+      bg.setFillStyle(0x222244);
+      text.setColor('#ffffff');
+    });
     bg.on('pointerdown', () => {
       this.game.audioManager.play('ui_confirm');
       callback();

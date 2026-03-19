@@ -1,5 +1,13 @@
 import Phaser from 'phaser';
-import { MAX_HP, MAX_SPECIAL, SPECIAL_COST, ROUND_TIME, ROUNDS_TO_WIN, GAME_WIDTH, GROUND_Y, STAGE_LEFT, STAGE_RIGHT, FIGHTER_BODY_WIDTH } from '../config.js';
+import {
+  FIGHTER_BODY_WIDTH,
+  GROUND_Y,
+  MAX_SPECIAL,
+  ROUND_TIME,
+  ROUNDS_TO_WIN,
+  STAGE_LEFT,
+  STAGE_RIGHT,
+} from '../config.js';
 import { calculateDamage } from './combat-math.js';
 
 export { calculateDamage } from './combat-math.js';
@@ -41,7 +49,7 @@ export class CombatSystem {
           if (this.timer <= 0) this.timeUp();
         }
       },
-      loop: true
+      loop: true,
     });
   }
 
@@ -89,12 +97,16 @@ export class CombatSystem {
 
   applyDamage(attacker, defender, { muteEffects = false } = {}) {
     // Dev console god mode: P1 takes no damage
-    if (this.scene.devConsole && this.scene.devConsole.godMode && defender.playerIndex === 0) {
+    if (this.scene.devConsole?.godMode && defender.playerIndex === 0) {
       return;
     }
 
     const move = attacker.currentAttack;
-    let damage = calculateDamage(move.damage, attacker.data.stats.power, defender.data.stats.defense);
+    const damage = calculateDamage(
+      move.damage,
+      attacker.data.stats.power,
+      defender.data.stats.defense,
+    );
 
     // Attacker gains special meter from dealing damage (20% of damage dealt)
     attacker.special = Math.min(MAX_SPECIAL, attacker.special + damage * 0.2);
@@ -141,16 +153,16 @@ export class CombatSystem {
       }
 
       // Fighter tint feedback: white flash on attacker, red tint on defender
-      if (attacker.sprite && attacker.sprite.setTint) {
+      if (attacker.sprite?.setTint) {
         attacker.sprite.setTint(0xffffff);
         this.scene.time.delayedCall(80, () => {
-          if (attacker.sprite && attacker.sprite.clearTint) attacker.sprite.clearTint();
+          if (attacker.sprite?.clearTint) attacker.sprite.clearTint();
         });
       }
-      if (defender.sprite && defender.sprite.setTint) {
+      if (defender.sprite?.setTint) {
         defender.sprite.setTint(0xff4444);
         this.scene.time.delayedCall(150, () => {
-          if (defender.sprite && defender.sprite.clearTint) defender.sprite.clearTint();
+          if (defender.sprite?.clearTint) defender.sprite.clearTint();
         });
       }
     }
@@ -177,7 +189,7 @@ export class CombatSystem {
     }
   }
 
-  handleKO(winner, loser) {
+  handleKO(winner, _loser) {
     this.stopRound();
     this.scene.game.audioManager.play('ko');
     const winnerIndex = winner.playerIndex;
@@ -217,7 +229,7 @@ export class CombatSystem {
     const f1x = f1.sprite.x;
     const f2x = f2.sprite.x;
 
-    const overlap = (halfW + halfW) - Math.abs(f1x - f2x);
+    const overlap = halfW + halfW - Math.abs(f1x - f2x);
     if (overlap <= 0) return; // No overlap
 
     // Push each fighter apart by half the overlap
@@ -233,7 +245,7 @@ export class CombatSystem {
 
     // After clamping, one fighter may still overlap if the other was at a wall.
     // Re-check and push the other fighter further if needed.
-    const remainingOverlap = (halfW + halfW) - Math.abs(newF1x - newF2x);
+    const remainingOverlap = halfW + halfW - Math.abs(newF1x - newF2x);
     if (remainingOverlap > 0) {
       if (newF1x <= STAGE_LEFT + 1) {
         newF2x = newF1x + FIGHTER_BODY_WIDTH;

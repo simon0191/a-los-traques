@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RollbackManager } from '../../src/systems/RollbackManager.js';
-import { encodeInput, decodeInput, EMPTY_INPUT, predictInput } from '../../src/systems/InputBuffer.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GROUND_Y } from '../../src/config.js';
+import { decodeInput, EMPTY_INPUT } from '../../src/systems/InputBuffer.js';
+import { RollbackManager } from '../../src/systems/RollbackManager.js';
 
 // Mock NetworkManager
 function mockNM(slot = 0) {
@@ -18,12 +18,17 @@ function mockNM(slot = 0) {
 function mockFighter(x = 100, overrides = {}) {
   return {
     sprite: {
-      x, y: GROUND_Y,
+      x,
+      y: GROUND_Y,
       body: {
         velocity: { x: 0, y: 0 },
         blocked: { down: true },
-        setVelocityX: vi.fn(function(v) { this.velocity.x = v; }),
-        setVelocityY: vi.fn(function(v) { this.velocity.y = v; }),
+        setVelocityX: vi.fn(function (v) {
+          this.velocity.x = v;
+        }),
+        setVelocityY: vi.fn(function (v) {
+          this.velocity.y = v;
+        }),
         setGravityY: vi.fn(),
       },
       setFlipX: vi.fn(),
@@ -97,7 +102,17 @@ function mockCombat() {
   };
 }
 
-const noInput = { left: false, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+const noInput = {
+  left: false,
+  right: false,
+  up: false,
+  down: false,
+  lp: false,
+  hp: false,
+  lk: false,
+  hk: false,
+  sp: false,
+};
 
 describe('RollbackManager', () => {
   let nm, scene, p1, p2, combat, rm;
@@ -141,7 +156,17 @@ describe('RollbackManager', () => {
 
     it('predicts movement continuation, zero attacks', () => {
       // Simulate receiving a remote input with left+lp
-      const remoteInput = { left: true, right: false, up: false, down: false, lp: true, hp: false, lk: false, hk: false, sp: false };
+      const remoteInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: true,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, remoteInput]]);
 
       rm.advance(noInput, scene, p1, p2, combat);
@@ -164,7 +189,17 @@ describe('RollbackManager', () => {
       expect(rm.predictedRemoteInputs.get(0)).toBe(EMPTY_INPUT);
 
       // Frame 1: confirmed input for frame 0 arrives with left pressed
-      const confirmedInput = { left: true, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
 
       rm.advance(noInput, scene, p1, p2, combat);
@@ -193,7 +228,17 @@ describe('RollbackManager', () => {
       }
 
       // Confirmed input arrives for frame 0 (10 frames ago, > maxRollbackFrames=7)
-      const confirmedInput = { left: true, right: false, up: false, down: false, lp: true, hp: false, lk: false, hk: false, sp: false };
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: true,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
 
       rm.advance(noInput, scene, p1, p2, combat);
@@ -236,7 +281,17 @@ describe('RollbackManager', () => {
       rm.advance(noInput, scene, p1, p2, combat);
 
       // Frame 1: confirmed input for frame 0 arrives (different from prediction)
-      const confirmedInput = { left: true, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
       rm.advance(noInput, scene, p1, p2, combat);
 
