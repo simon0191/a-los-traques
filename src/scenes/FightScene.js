@@ -9,6 +9,7 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { AIController } from '../systems/AIController.js';
 import { TouchControls } from '../systems/TouchControls.js';
 import { DevConsole } from '../systems/DevConsole.js';
+import { RollbackManager } from '../systems/RollbackManager.js';
 import fightersData from '../data/fighters.json';
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,9 @@ export class FightScene extends Phaser.Scene {
 
     // -- Systems --
     this.combat = new CombatSystem(this);
+
+    // -- Mute effects flag (used during rollback re-simulation) --
+    this._muteEffects = false;
 
     // -- Projectiles array --
     this.projectiles = [];
@@ -493,14 +497,21 @@ export class FightScene extends Phaser.Scene {
     const nm = this.networkManager;
     const slot = nm.getPlayerSlot();
 
-    // slot 0 = host (runs authoritative combat), slot 1 = guest (receives state)
+    // Both peers are equal in rollback netcode (no host/guest distinction for gameplay)
     this.isHost = slot === 0;
+    this._muteEffects = false;
 
     // Determine which fighter is local vs remote
     this.localFighter = slot === 0 ? this.p1Fighter : this.p2Fighter;
     this.remoteFighter = slot === 0 ? this.p2Fighter : this.p1Fighter;
 
-    // Sync counter: host sends state every N frames
+    // Create RollbackManager
+    this.rollbackManager = new RollbackManager(nm, slot, {
+      inputDelay: 2,
+      maxRollbackFrames: 7,
+    });
+
+    // Sync counter for spectator snapshots: P1 sends state every N frames
     this._syncInterval = 3;
 
     // Dedup guards for guest receiving round events
@@ -516,26 +527,12 @@ export class FightScene extends Phaser.Scene {
       this.remoteFighter.stop();
     });
 
-    // Guest: receive authoritative state syncs from host
+    // Guest: suppress local KO/timeup detection — wait for P1's authoritative round events
     if (!this.isHost) {
-      nm.onSync((msg) => {
-        // Apply authoritative HP, special, timer, positions
-        this.p1Fighter.hp = msg.p1hp;
-        this.p1Fighter.special = msg.p1sp;
-        this.p1Fighter.stamina = msg.p1sta != null ? msg.p1sta : this.p1Fighter.stamina;
-        this.p2Fighter.hp = msg.p2hp;
-        this.p2Fighter.special = msg.p2sp;
-        this.p2Fighter.stamina = msg.p2sta != null ? msg.p2sta : this.p2Fighter.stamina;
-        this.combat.timer = msg.timer;
-        // Sync positions to prevent drift (lerp for smooth movement, teleport for large diffs)
-        const p1dx = Math.abs(this.p1Fighter.sprite.x - msg.p1x);
-        this.p1Fighter.sprite.x = p1dx > 50 ? msg.p1x : this.p1Fighter.sprite.x + (msg.p1x - this.p1Fighter.sprite.x) * 0.3;
-        const p2dx = Math.abs(this.p2Fighter.sprite.x - msg.p2x);
-        this.p2Fighter.sprite.x = p2dx > 50 ? msg.p2x : this.p2Fighter.sprite.x + (msg.p2x - this.p2Fighter.sprite.x) * 0.3;
-      });
+      this.combat.suppressRoundEvents = true;
 
       nm.onRoundEvent((msg) => {
-        // Dedup: skip already-processed round events
+        // Dedup: skip already-processed round events (P1 sends 3x for reliability)
         if (msg.matchOver) {
           if (this._matchOverProcessed) return;
           this._matchOverProcessed = true;
@@ -544,7 +541,6 @@ export class FightScene extends Phaser.Scene {
           this._lastProcessedRound = msg.roundNumber;
         }
 
-        // Host tells us about round outcomes
         this.combat.stopRound();
         this.combat.p1RoundsWon = msg.p1Rounds;
         this.combat.p2RoundsWon = msg.p2Rounds;
@@ -566,7 +562,7 @@ export class FightScene extends Phaser.Scene {
     nm.onPotionApplied((target, potionType) => this._showPotionEffect(target, potionType));
     nm.onSpectatorCount((count) => this._updateSpectatorCount(count));
 
-    // Host: handle potion requests from spectators
+    // P1 handles potion requests from spectators (still needs one authority for potions)
     if (this.isHost) {
       nm.onPotion((target, potionType) => {
         if (!this.combat.roundActive) return;
@@ -582,10 +578,9 @@ export class FightScene extends Phaser.Scene {
 
   _handleOnlineUpdate(time, delta) {
     this.frameCounter++;
-    const nm = this.networkManager;
-
-    // Read local input and send it
     const input = this.inputManager;
+
+    // Read local input
     const localInput = {
       left: input.left,
       right: input.right,
@@ -597,49 +592,30 @@ export class FightScene extends Phaser.Scene {
       hk: input.heavyKick,
       sp: input.special
     };
-
-    nm.sendInput(this.frameCounter, localInput);
-
-    // Apply local input to local fighter
-    this._applyInputToFighter(this.localFighter, localInput);
     input.consumeTouch();
 
-    // Apply remote input to remote fighter
-    const remoteInput = nm.getRemoteInput();
-    this._applyInputToFighter(this.remoteFighter, remoteInput);
+    // Run rollback advance (handles input sending, prediction, rollback, simulation)
+    this.rollbackManager.advance(localInput, this, this.p1Fighter, this.p2Fighter, this.combat);
 
-    // Body collision (push-back)
-    this.combat.resolveBodyCollision(this.p1Fighter, this.p2Fighter);
-
-    // Facing (both sides)
-    this.p1Fighter.faceOpponent(this.p2Fighter);
-    this.p2Fighter.faceOpponent(this.p1Fighter);
-
-    // Host: run hit detection and send state syncs
-    if (this.isHost) {
-      this.combat.checkHit(this.p1Fighter, this.p2Fighter);
-      this.combat.checkHit(this.p2Fighter, this.p1Fighter);
-
-      // Send periodic state sync
-      if (this.frameCounter % this._syncInterval === 0) {
-        nm.sendSync({
-          p1hp: this.p1Fighter.hp,
-          p1sp: this.p1Fighter.special,
-          p1sta: this.p1Fighter.stamina,
-          p2hp: this.p2Fighter.hp,
-          p2sp: this.p2Fighter.special,
-          p2sta: this.p2Fighter.stamina,
-          timer: this.combat.timer,
-          p1x: this.p1Fighter.sprite.x,
-          p2x: this.p2Fighter.sprite.x
-        });
-      }
+    // P1 sends periodic state snapshots for spectators
+    if (this.isHost && this.frameCounter % this._syncInterval === 0) {
+      this.networkManager.sendSync({
+        p1hp: this.p1Fighter.hp,
+        p1sp: this.p1Fighter.special,
+        p1sta: this.p1Fighter.stamina,
+        p2hp: this.p2Fighter.hp,
+        p2sp: this.p2Fighter.special,
+        p2sta: this.p2Fighter.stamina,
+        timer: this.combat.timer,
+        p1x: this.p1Fighter.sprite.x,
+        p2x: this.p2Fighter.sprite.x
+      });
     }
 
     this._updateHUD();
   }
 
-  /** Send round event from host to guest via network (3x with 200ms spacing for reliability) */
+  /** Send round event to guest + spectators (3x with 200ms spacing for reliability) */
   _sendRoundEvent(event, winnerIndex) {
     if (this.gameMode === 'online' && this.isHost && this.networkManager) {
       const payload = {

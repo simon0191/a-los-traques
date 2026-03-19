@@ -14,20 +14,29 @@ export class CombatSystem {
     this.roundActive = false;
     this.matchOver = false;
     this.timerEvent = null;
+    this._timerAccumulator = 0; // Frame counter for deterministic timer (0→59)
+    // When true, KO/timeup detection still runs (HP goes to 0) but scene
+    // transitions (handleKO/timeUp) are suppressed. Used for:
+    // - rollback re-simulation (muteEffects)
+    // - online guest (P2 defers round events to P1)
+    this.suppressRoundEvents = false;
   }
 
   startRound() {
     this.timer = ROUND_TIME;
+    this._timerAccumulator = 0;
     this.roundActive = true;
-    // Start timer countdown
-    // In online mode, only the host counts down and triggers timeUp.
-    // The guest's timer is overwritten by sync messages from the host.
-    const isOnlineGuest = (this.scene.gameMode === 'online' && !this.scene.isHost)
-      || this.scene.gameMode === 'spectator';
+
+    // Online mode uses deterministic frame-counted timer via tickTimer(),
+    // so skip the Phaser timer event to avoid double-counting.
+    if (this.scene.gameMode === 'online') return;
+
+    // Local/spectator: use Phaser timer for countdown
+    const isSpectator = this.scene.gameMode === 'spectator';
     this.timerEvent = this.scene.time.addEvent({
       delay: 1000,
       callback: () => {
-        if (!isOnlineGuest) {
+        if (!isSpectator) {
           this.timer--;
           if (this.timer <= 0) this.timeUp();
         }
@@ -44,7 +53,20 @@ export class CombatSystem {
     }
   }
 
-  checkHit(attacker, defender) {
+  /**
+   * Frame-counted timer tick for deterministic simulation.
+   * Called once per simulation frame. Decrements timer every 60 frames.
+   */
+  tickTimer() {
+    this._timerAccumulator++;
+    if (this._timerAccumulator >= 60) {
+      this._timerAccumulator = 0;
+      this.timer--;
+      if (this.timer <= 0 && !this.suppressRoundEvents) this.timeUp();
+    }
+  }
+
+  checkHit(attacker, defender, { muteEffects = false } = {}) {
     if (!attacker.currentAttack || attacker.state !== 'attacking') return false;
     if (attacker.hitConnected) return false; // Already hit this attack
 
@@ -58,14 +80,14 @@ export class CombatSystem {
     const normalizedHitbox = new Phaser.Geom.Rectangle(hx, hitbox.y, hw, hitbox.height);
 
     if (Phaser.Geom.Rectangle.Overlaps(normalizedHitbox, hurtbox)) {
-      this.applyDamage(attacker, defender);
+      this.applyDamage(attacker, defender, { muteEffects });
       attacker.hitConnected = true;
       return true;
     }
     return false;
   }
 
-  applyDamage(attacker, defender) {
+  applyDamage(attacker, defender, { muteEffects = false } = {}) {
     // Dev console god mode: P1 takes no damage
     if (this.scene.devConsole && this.scene.devConsole.godMode && defender.playerIndex === 0) {
       return;
@@ -82,54 +104,58 @@ export class CombatSystem {
     const isHeavy = move.type && (move.type.startsWith('heavy') || damage >= 12);
     const intensity = isSpecial ? 'special' : isHeavy ? 'heavy' : 'light';
 
-    // Play hit sound based on intensity
-    const audio = this.scene.game.audioManager;
-    if (defender.state === 'blocking') {
-      audio.play('hit_block');
-    } else if (isSpecial) {
-      audio.play('hit_special');
-    } else if (isHeavy) {
-      audio.play('hit_heavy');
-    } else {
-      audio.play('hit_light');
+    if (!muteEffects) {
+      // Play hit sound based on intensity
+      const audio = this.scene.game.audioManager;
+      if (defender.state === 'blocking') {
+        audio.play('hit_block');
+      } else if (isSpecial) {
+        audio.play('hit_special');
+      } else if (isHeavy) {
+        audio.play('hit_heavy');
+      } else {
+        audio.play('hit_light');
+      }
     }
 
     // Defender takes damage (takeDamage handles block reduction and defender meter gain)
     const ko = defender.takeDamage(damage, attacker.sprite.x);
 
-    // --- Visual feedback ---
+    if (!muteEffects) {
+      // --- Visual feedback ---
 
-    // Hit spark particles at the point of impact
-    const hitX = (attacker.sprite.x + defender.sprite.x) / 2;
-    const hitY = defender.sprite.y - 35;
-    if (this.scene.spawnHitSpark) {
-      this.scene.spawnHitSpark(hitX, hitY, intensity);
+      // Hit spark particles at the point of impact
+      const hitX = (attacker.sprite.x + defender.sprite.x) / 2;
+      const hitY = defender.sprite.y - 35;
+      if (this.scene.spawnHitSpark) {
+        this.scene.spawnHitSpark(hitX, hitY, intensity);
+      }
+
+      // Camera shake scaled by intensity
+      if (intensity === 'special') {
+        this.scene.cameras.main.shake(200, 0.012);
+      } else if (intensity === 'heavy') {
+        this.scene.cameras.main.shake(100, 0.006);
+      } else {
+        this.scene.cameras.main.shake(50, 0.002);
+      }
+
+      // Fighter tint feedback: white flash on attacker, red tint on defender
+      if (attacker.sprite && attacker.sprite.setTint) {
+        attacker.sprite.setTint(0xffffff);
+        this.scene.time.delayedCall(80, () => {
+          if (attacker.sprite && attacker.sprite.clearTint) attacker.sprite.clearTint();
+        });
+      }
+      if (defender.sprite && defender.sprite.setTint) {
+        defender.sprite.setTint(0xff4444);
+        this.scene.time.delayedCall(150, () => {
+          if (defender.sprite && defender.sprite.clearTint) defender.sprite.clearTint();
+        });
+      }
     }
 
-    // Camera shake scaled by intensity
-    if (intensity === 'special') {
-      this.scene.cameras.main.shake(200, 0.012);
-    } else if (intensity === 'heavy') {
-      this.scene.cameras.main.shake(100, 0.006);
-    } else {
-      this.scene.cameras.main.shake(50, 0.002);
-    }
-
-    // Fighter tint feedback: white flash on attacker, red tint on defender
-    if (attacker.sprite && attacker.sprite.setTint) {
-      attacker.sprite.setTint(0xffffff);
-      this.scene.time.delayedCall(80, () => {
-        if (attacker.sprite && attacker.sprite.clearTint) attacker.sprite.clearTint();
-      });
-    }
-    if (defender.sprite && defender.sprite.setTint) {
-      defender.sprite.setTint(0xff4444);
-      this.scene.time.delayedCall(150, () => {
-        if (defender.sprite && defender.sprite.clearTint) defender.sprite.clearTint();
-      });
-    }
-
-    if (ko) {
+    if (ko && !muteEffects && !this.suppressRoundEvents) {
       this.handleKO(attacker, defender);
     }
   }
@@ -234,6 +260,8 @@ export class CombatSystem {
     this.timer = ROUND_TIME;
     this.roundActive = false;
     this.matchOver = false;
+    this._timerAccumulator = 0;
+    this.suppressRoundEvents = false;
     if (this.timerEvent) {
       this.timerEvent.remove();
       this.timerEvent = null;

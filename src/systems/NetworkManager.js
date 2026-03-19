@@ -78,6 +78,9 @@ export class NetworkManager {
     this.remoteInputBuffer = {};
     this.lastRemoteInput = null;
 
+    // RTT measurement
+    this.rtt = 0;
+
     // Spectator input buffers (one per player slot)
     this.remoteInputBufferP1 = {};
     this.lastRemoteInputP1 = null;
@@ -222,7 +225,10 @@ export class NetworkManager {
         if (this._onPotion) this._onPotion(msg.target, msg.potionType);
         break;
       case 'pong':
-        this.latency = Date.now() - msg.t;
+        if (msg.t) {
+          this.latency = Date.now() - msg.t;
+          this.rtt = this.latency;
+        }
         break;
     }
   }
@@ -278,6 +284,14 @@ export class NetworkManager {
 
   sendPotion(target, potionType) {
     this._send({ type: 'potion', target, potionType });
+  }
+
+  sendPing() {
+    this._send({ type: 'ping', t: Date.now() });
+  }
+
+  getRTT() {
+    return this.rtt;
   }
 
   /**
@@ -361,6 +375,20 @@ export class NetworkManager {
       return { ...this[lastKey] };
     }
     return { left: false, right: false, up: false, down: false, lp: false, hp: false, lk: false, hk: false, sp: false };
+  }
+
+  /**
+   * Drain all confirmed remote inputs indexed by frame.
+   * Returns entries and clears the buffer.
+   * Used by RollbackManager to process confirmed inputs.
+   * @returns {Array<[number, object]>} Array of [frame, inputState] pairs
+   */
+  drainConfirmedInputs() {
+    const entries = Object.entries(this.remoteInputBuffer).map(
+      ([frame, state]) => [Number(frame), state]
+    );
+    this.remoteInputBuffer = {};
+    return entries;
   }
 
   getPlayerSlot() { return this.playerSlot; }
