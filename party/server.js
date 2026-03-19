@@ -193,6 +193,9 @@ export default class FightRoom {
         this._sendToOther(slot, data);
         this._broadcastToSpectators({ ...data, slot });
         break;
+      case 'checksum':
+        this._sendToOther(slot, data);
+        break;
       case 'sync':
       case 'round_event':
         if (slot !== 0) break;

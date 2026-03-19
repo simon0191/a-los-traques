@@ -670,6 +670,13 @@ export class FightScene extends Phaser.Scene {
       maxRollbackFrames: 7,
     });
 
+    // Wire desync detection
+    nm.onChecksum((frame, hash) => this.rollbackManager.handleRemoteChecksum(frame, hash));
+    this.rollbackManager._onDesync = (frame, localHash, remoteHash) => {
+      console.warn(`[DESYNC] frame=${frame} local=${localHash} remote=${remoteHash}`);
+      this._showDesyncWarning();
+    };
+
     // Sync counter for spectator snapshots: P1 sends state every N frames
     this._syncInterval = 3;
 
@@ -772,6 +779,20 @@ export class FightScene extends Phaser.Scene {
 
     this.combat.checkHit(this.p1Fighter, this.p2Fighter);
     this.combat.checkHit(this.p2Fighter, this.p1Fighter);
+  }
+
+  _showDesyncWarning() {
+    if (this._desyncWarning) return;
+    this._desyncWarning = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 28, 'DESYNC', {
+        fontSize: '7px',
+        fontFamily: 'monospace',
+        color: '#ff4444',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(25);
   }
 
   _handleOnlineUpdate(_time, _delta) {

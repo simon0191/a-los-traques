@@ -845,5 +845,27 @@ describe('FightRoom', () => {
 
       expect(conn3.send).not.toHaveBeenCalled();
     });
+
+    it('checksum relayed to opponent only, not spectators', () => {
+      room.onMessage(JSON.stringify({ type: 'checksum', frame: 30, hash: 12345 }), conn1);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'checksum' && m.frame === 30 && m.hash === 12345)).toBe(
+        true,
+      );
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
+
+    it('checksum from slot 1 relayed to slot 0', () => {
+      room.onMessage(JSON.stringify({ type: 'checksum', frame: 60, hash: 99999 }), conn2);
+
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'checksum' && m.frame === 60 && m.hash === 99999)).toBe(
+        true,
+      );
+
+      expect(conn3.send).not.toHaveBeenCalled();
+    });
   });
 });

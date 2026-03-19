@@ -124,3 +124,35 @@ export function restoreGameState(snapshot, p1, p2, combat) {
   restoreFighterState(p2, snapshot.p2);
   restoreCombatState(combat, snapshot.combat);
 }
+
+/**
+ * Compute a fast hash of a game state snapshot for desync detection.
+ * XOR-rotate hash over key integer fields from both fighters + combat state.
+ * @param {object} snapshot - result of captureGameState()
+ * @returns {number} 32-bit integer hash
+ */
+export function hashGameState(snapshot) {
+  let h = 0;
+  const vals = [
+    snapshot.p1.simX,
+    snapshot.p1.simY,
+    snapshot.p1.hp,
+    snapshot.p1.special,
+    snapshot.p1.stamina,
+    snapshot.p1.attackCooldown,
+    snapshot.p1.hurtTimer,
+    snapshot.p2.simX,
+    snapshot.p2.simY,
+    snapshot.p2.hp,
+    snapshot.p2.special,
+    snapshot.p2.stamina,
+    snapshot.p2.attackCooldown,
+    snapshot.p2.hurtTimer,
+    snapshot.combat.timer,
+    snapshot.combat.roundNumber,
+  ];
+  for (const v of vals) {
+    h = ((h << 5) | (h >>> 27)) ^ (v | 0);
+  }
+  return h;
+}
