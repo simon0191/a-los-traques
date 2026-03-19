@@ -615,12 +615,19 @@ export class FightScene extends Phaser.Scene {
         else this._pingText.setColor('#44ff44');
 
         if (this._transportText) {
-          if (this.networkManager._webrtcReady) {
+          const ready = this.networkManager._webrtcReady;
+          const mode = this.networkManager._transportMode;
+          const hasWrtc = !!this.networkManager._webrtc;
+          if (ready) {
             this._transportText.setText('P2P');
             this._transportText.setColor('#44ff44');
           } else {
             this._transportText.setText('WS');
             this._transportText.setColor('#666666');
+          }
+          // Temporary debug — remove after confirming
+          if (this._pingUpdateCounter === 0) {
+            console.log(`[HUD] transport: ready=${ready} mode=${mode} hasWebrtc=${hasWrtc}`);
           }
         }
       }
