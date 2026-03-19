@@ -20,6 +20,7 @@ jobs:
       - name: Deploy party server preview
         id: party
         run: |
+          set -o pipefail
           bunx partykit deploy --preview pr-${{ github.event.pull_request.number }} 2>&1 | tee /tmp/party-output.txt
           # Extract the preview URL from partykit output
           PREVIEW_URL=$(grep -oP 'https://[^\s]+\.partykit\.dev[^\s]*' /tmp/party-output.txt | tail -1)
