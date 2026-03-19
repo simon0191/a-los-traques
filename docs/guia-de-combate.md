@@ -62,18 +62,19 @@ Comparacion de golpe liviano vs pesado:
 ```mermaid
 gantt
     title Fases de ataque (en frames a 60fps)
-    dateFormat X
-    axisFormat %s
+    dateFormat YYYY-MM-DD
+    axisFormat %j
+    tickInterval 1day
 
     section Golpe Liviano (PL)
-    Startup (2f)    :active, lp_s, 0, 2
-    Activo (2f)     :crit, lp_a, 2, 4
-    Recuperacion (3f) :lp_r, 4, 7
+    Startup (2f)       :active, lp_s, 2025-01-01, 2d
+    Activo (2f)        :crit, lp_a, after lp_s, 2d
+    Recuperacion (3f)  :lp_r, after lp_a, 3d
 
     section Patada Pesada (PaP)
-    Startup (6f)    :active, hk_s, 0, 6
-    Activo (3f)     :crit, hk_a, 6, 9
-    Recuperacion (9f) :hk_r, 9, 18
+    Startup (6f)       :active, hk_s, 2025-01-01, 6d
+    Activo (3f)        :crit, hk_a, after hk_s, 3d
+    Recuperacion (9f)  :hk_r, after hk_a, 9d
 ```
 
 **Ejemplo**: Si tiras una patada pesada (6f startup) y tu oponente tira un golpe liviano (2f startup), el golpe liviano conecta primero.
@@ -93,18 +94,20 @@ Despues de que tu ataque es bloqueado, tanto vos como tu oponente quedan en un e
 ```mermaid
 gantt
     title Frame Advantage: PL bloqueado (Simo)
-    dateFormat X
-    axisFormat %s
+    dateFormat YYYY-MM-DD
+    axisFormat %j
+    tickInterval 1day
 
     section Atacante
-    Startup (2f)     :active, a_s, 0, 2
-    Activo (2f)      :crit, a_a, 2, 4
-    Recuperacion (3f):a_r, 4, 7
-    LIBRE            :done, a_f, 7, 10
+    Startup (2f)      :active, a_s, 2025-01-01, 2d
+    Activo (2f)       :crit, a_a, after a_s, 2d
+    Recuperacion (3f) :a_r, after a_a, 3d
+    LIBRE             :done, a_f, after a_r, 3d
 
     section Defensor
-    Blockstun (8f)   :active, d_b, 4, 12
-    LIBRE            :done, d_f, 12, 15
+    Esperando (4f)    :d_w, 2025-01-01, 4d
+    Blockstun (8f)    :active, d_b, after d_w, 8d
+    LIBRE             :done, d_f, after d_b, 3d
 ```
 
 En este ejemplo, el atacante se libera en el frame 7 pero el defensor recien en el frame 12. El atacante tiene **+5 frames de ventaja** — suficiente para tirar otro golpe antes de que el oponente pueda reaccionar.
