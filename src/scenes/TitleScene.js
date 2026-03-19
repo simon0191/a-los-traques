@@ -72,11 +72,15 @@ export class TitleScene extends Phaser.Scene {
       this._showJoinOverlay();
     });
 
-    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 105, 'INSPECTOR', () => {
+    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 105, 'COMO JUGAR', () => {
+      this.goToLearning();
+    });
+
+    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 129, 'INSPECTOR', () => {
       this.goToInspector();
     });
 
-    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 129, 'MUSICA', () => {
+    this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 153, 'MUSICA', () => {
       this.goToMusic();
     });
 
@@ -116,6 +120,15 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('InspectorScene');
+    });
+  }
+
+  goToLearning() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('LearningScene');
     });
   }
 

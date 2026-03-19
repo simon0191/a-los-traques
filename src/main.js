@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from './config.js';
 import { BootScene } from './scenes/BootScene.js';
 import { FightScene } from './scenes/FightScene.js';
 import { InspectorScene } from './scenes/InspectorScene.js';
+import { LearningScene } from './scenes/LearningScene.js';
 import { LobbyScene } from './scenes/LobbyScene.js';
 import { MusicScene } from './scenes/MusicScene.js';
 import { PreFightScene } from './scenes/PreFightScene.js';
@@ -45,6 +46,7 @@ const config = {
     VictoryScene,
     InspectorScene,
     MusicScene,
+    LearningScene,
   ],
 };
 
