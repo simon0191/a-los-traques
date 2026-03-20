@@ -112,10 +112,6 @@ export class LearningScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Tab buttons
-    this.activeTab = 'basico';
-    this._createTabs();
-
     // Content container + mask
     this.contentContainer = this.add.container(0, 0);
     const maskShape = this.make.graphics();
@@ -126,6 +122,10 @@ export class LearningScene extends Phaser.Scene {
     // Scroll state
     this.scrollY = 0;
     this.maxScroll = 0;
+
+    // Tab buttons
+    this.activeTab = 'basico';
+    this._createTabs();
 
     // Drag scrolling
     this.dragStartY = null;
@@ -314,9 +314,14 @@ export class LearningScene extends Phaser.Scene {
       yOffset += cardHeight + CARD_GAP;
     }
 
-    const totalContentHeight = yOffset - CONTENT_TOP;
-    this.maxScroll = Math.max(0, totalContentHeight - CONTENT_HEIGHT);
-    this._updateScrollIndicator();
+    this.totalContentHeight = yOffset - CONTENT_TOP;
+    this._updateMaxScroll();
+  }
+
+  _updateMaxScroll() {
+     if (!this.totalContentHeight) return;
+     this.maxScroll = Math.max(0, this.totalContentHeight - CONTENT_HEIGHT);
+     this._updateScrollIndicator();
   }
 
   _setScroll(value) {
