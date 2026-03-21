@@ -126,6 +126,7 @@ export class LearningScene extends Phaser.Scene {
     // Tab buttons
     this.activeTab = 'basico';
     this._createTabs();
+    this._buildCardsForActiveTab();
 
     // Drag scrolling
     this.dragStartY = null;
@@ -250,10 +251,6 @@ export class LearningScene extends Phaser.Scene {
 
     this.tabObjects.push(bBg, bText, aBg, aText);
 
-    // Initial card loading
-    if(this.contentContainer) {
-        this._buildCardsForActiveTab();
-    }
   }
 
   _buildCards(cards) {
@@ -319,9 +316,9 @@ export class LearningScene extends Phaser.Scene {
   }
 
   _updateMaxScroll() {
-     if (!this.totalContentHeight) return;
-     this.maxScroll = Math.max(0, this.totalContentHeight - CONTENT_HEIGHT);
-     this._updateScrollIndicator();
+    if (this.totalContentHeight == null) return;
+    this.maxScroll = Math.max(0, this.totalContentHeight - CONTENT_HEIGHT);
+    this._updateScrollIndicator();
   }
 
   _setScroll(value) {
