@@ -251,10 +251,6 @@ export class LearningScene extends Phaser.Scene {
 
     this.tabObjects.push(bBg, bText, aBg, aText);
 
-    // Initial card loading
-    if(this.contentContainer) {
-        this._buildCardsForActiveTab();
-    }
   }
 
   _buildCards(cards) {
