@@ -201,15 +201,24 @@ A single JSON file containing match config, both players' input logs, checksums,
 Use it to replay a fight in the browser:
 
 ```bash
-# 1. Open browser console, paste the bundle:
-window.__REPLAY_BUNDLE = <paste bundle JSON>
+# 1. Open browser console, store the bundle in sessionStorage:
+sessionStorage.setItem('__REPLAY_BUNDLE', JSON.stringify(<paste bundle JSON>))
 
-# 2. Navigate to replay mode:
+# 2. Navigate to replay mode (bundle survives the page load):
 http://localhost:5173/?replay=1         # Normal speed
 http://localhost:5173/?replay=1&speed=5 # Fast-forward
 ```
 
-Or from Playwright:
+Or load the bundle file directly from the terminal:
+
+```bash
+# macOS — copies bundle to clipboard, then paste into console
+cat test-results/random-fighters-bundle.json | pbcopy
+# In browser console:
+sessionStorage.setItem('__REPLAY_BUNDLE', '<paste>')
+```
+
+From Playwright (e.g., for automated replay verification):
 ```js
 await page.evaluate((b) => { window.__REPLAY_BUNDLE = b; }, bundle);
 await page.goto('http://localhost:5173/?replay=1&speed=5');

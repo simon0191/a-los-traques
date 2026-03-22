@@ -126,8 +126,15 @@ export class BootScene extends Phaser.Scene {
     // If URL has ?room=, go directly to lobby as joiner or spectator
     const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
+    // Replay mode: load bundle from window global or sessionStorage
+    if (this.game.autoplay?.replay) {
+      if (!window.__REPLAY_BUNDLE) {
+        const stored = sessionStorage.getItem('__REPLAY_BUNDLE');
+        if (stored) window.__REPLAY_BUNDLE = JSON.parse(stored);
+      }
+    }
     if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
-      // Replay mode: skip lobby, go straight to fight using bundle config
+      // Skip lobby, go straight to fight using bundle config
       const bundle = window.__REPLAY_BUNDLE;
       this.scene.start('PreFightScene', {
         p1Id: bundle.config.p1FighterId,
