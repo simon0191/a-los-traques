@@ -250,7 +250,6 @@ export class LearningScene extends Phaser.Scene {
     });
 
     this.tabObjects.push(bBg, bText, aBg, aText);
-
   }
 
   _buildCards(cards) {
