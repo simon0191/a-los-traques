@@ -682,6 +682,11 @@ export class FightScene extends Phaser.Scene {
     this.isHost = slot === 0;
     this._muteEffects = false;
 
+    // Suppress direct round event firing inside simulation for both P1 and P2.
+    // P1 handles round events from advance() return value.
+    // P2 waits for P1's network message.
+    this.combat.suppressRoundEvents = true;
+
     // Determine which fighter is local vs remote
     this.localFighter = slot === 0 ? this.p1Fighter : this.p2Fighter;
     this.remoteFighter = slot === 0 ? this.p2Fighter : this.p1Fighter;
@@ -741,6 +746,31 @@ export class FightScene extends Phaser.Scene {
     // Dedup guards for guest receiving round events
     this._lastProcessedRound = 0;
     this._matchOverProcessed = false;
+
+    // P2 (guest) receives round events from P1 via network.
+    // P1 detects round events locally from advance() return value;
+    // P2 suppresses local detection and waits for P1's authoritative message.
+    nm.onRoundEvent((msg) => {
+      if (this.isHost) return; // P1 already handled locally
+      if (msg.matchOver && this._matchOverProcessed) return;
+      if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) return;
+
+      this.combat.stopRound();
+      this.combat.p1RoundsWon = msg.p1Rounds;
+      this.combat.p2RoundsWon = msg.p2Rounds;
+      this.combat.roundNumber = msg.roundNumber;
+
+      if (msg.event === 'ko' || msg.event === 'timeup') {
+        if (msg.matchOver) {
+          this._matchOverProcessed = true;
+          this.combat.matchOver = true;
+          this.onMatchOver(msg.winnerIndex);
+        } else {
+          this._lastProcessedRound = msg.roundNumber;
+          this.onRoundOver(msg.winnerIndex);
+        }
+      }
+    });
 
     // --- Graceful reconnection ---
     this.reconnectionManager = new ReconnectionManager({ gracePeriodMs: 20000 });
@@ -872,7 +902,18 @@ export class FightScene extends Phaser.Scene {
     input.consumeTouch();
 
     // Run rollback advance (handles input sending, prediction, rollback, simulation)
-    this.rollbackManager.advance(localInput, this, this.p1Fighter, this.p2Fighter, this.combat);
+    const { roundEvent } = this.rollbackManager.advance(
+      localInput,
+      this,
+      this.p1Fighter,
+      this.p2Fighter,
+      this.combat,
+    );
+
+    // P1 (host) handles round events: fire side effects + send to P2
+    if (roundEvent && this.isHost) {
+      this.combat.handleRoundEnd(roundEvent);
+    }
 
     // P1 sends periodic state snapshots for spectators
     if (this.isHost && this.frameCounter % this._syncInterval === 0) {

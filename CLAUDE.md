@@ -116,17 +116,21 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/multiplayer-security.md` — Trust boundaries, server protections, known gaps
 - `docs/graceful-reconnection.md` — Reconnection state machine, grace period, module responsibilities
 - `docs/room-state-machine.md` — Server room state (`roomState` transitions, `return_to_select` vs `disconnect`)
+- `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phase 1 complete, Phases 2-5 planned)
 
 ## Online Multiplayer
 
 - PartyKit server at `party/server.js`, max 2 players per room (pure relay, no game logic)
 - **Rollback netcode** (GGPO-style): both peers run identical simulations locally with zero perceived input lag
-- P1 authoritative for round events (KO/timeup) only — P2 sets `suppressRoundEvents=true` and receives `round_event` messages
+- **Deferred round events**: `simulateFrame()` returns `{ type, winnerIndex }` descriptors instead of firing side effects. Both P1 and P2 set `suppressRoundEvents=true`. P1 handles events from `advance()` return via `combat.handleRoundEnd()`. P2 receives via `onRoundEvent` network handler.
 - Input prediction: repeat last movement, zero attack buttons. Rollback + re-simulate on misprediction (max 7 frames)
 - Fixed timestep: `FIXED_DELTA = 16.667ms` for deterministic online simulation
 - Input encoding: 9 booleans packed as single integer (bits 0-8) via `InputBuffer.js`
 - Fighter timers are deterministic (no `scene.time.delayedCall` in simulation path)
-- `CombatSystem.tickTimer()` counts frames (60 frames = 1 second) instead of Phaser timer events
+- `CombatSystem.tickTimer({ muteEffects })` counts frames (60 frames = 1 second), returns `{ timeup: true }` instead of calling `timeUp()` directly
+- `CombatSystem.checkHit()` returns `{ hit, ko }` on hit instead of boolean
+- Checksum compares confirmed frames (`currentFrame - maxRollbackFrames - 1`) to avoid false positives from predicted inputs
+- WebSocket inputs always accepted regardless of DataChannel state (resilient to asymmetric WebRTC reconnection)
 - Audio/particles/camera shake suppressed during rollback re-simulation (`muteEffects`)
 - Spectators receive P1 sync snapshots (same as old model, no rollback)
 - URL join: `?room=XXXX` skips title, goes directly to LobbyScene

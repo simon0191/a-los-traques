@@ -807,7 +807,7 @@ describe('NetworkManager', () => {
       expect(wsMsg.spectatorOnly).toBeUndefined();
     });
 
-    it('ignores WS input messages when WebRTC is active (non-spectator)', () => {
+    it('accepts WS input messages even when WebRTC is active (asymmetric reconnection)', () => {
       globalThis.RTCPeerConnection = class {};
       const nm = makeManager();
       nm.playerSlot = 0;
@@ -815,9 +815,10 @@ describe('NetworkManager', () => {
       nm._handleMessage({ type: 'opponent_joined' });
       nm._webrtc._simulateOpen();
 
-      // WS input should be ignored
+      // WS input should be accepted — remote peer may still be sending via WS
+      // if their DataChannel isn't ready yet (no duplication: sender uses spectatorOnly)
       nm._handleMessage({ type: 'input', frame: 1, state: { left: true } });
-      expect(Object.keys(nm.remoteInputBuffer).length).toBe(0);
+      expect(Object.keys(nm.remoteInputBuffer).length).toBe(1);
     });
 
     it('still processes WS input when spectator even with WebRTC active', () => {

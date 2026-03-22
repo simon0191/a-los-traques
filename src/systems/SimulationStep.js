@@ -39,12 +39,14 @@ export function applyInputToFighter(fighter, inputState) {
 /**
  * Run one deterministic simulation frame.
  * No delta parameter — all physics is frame-based integer math.
+ * Returns an optional round event descriptor when KO or timeup is detected.
  * @param {import('../entities/Fighter.js').Fighter} p1Fighter
  * @param {import('../entities/Fighter.js').Fighter} p2Fighter
  * @param {import('./CombatSystem.js').CombatSystem} combat
  * @param {number} p1Input - Encoded input for P1
  * @param {number} p2Input - Encoded input for P2
  * @param {{ muteEffects?: boolean }} [options]
+ * @returns {{ type: 'ko'|'timeup', winnerIndex: number } | null}
  */
 export function simulateFrame(
   p1Fighter,
@@ -71,16 +73,28 @@ export function simulateFrame(
   p1Fighter.faceOpponent(p2Fighter);
   p2Fighter.faceOpponent(p1Fighter);
 
-  // 5. Hit detection (both directions)
+  // 5. Hit detection + timer tick → capture round events
+  let roundEvent = null;
   if (combat.roundActive) {
-    combat.checkHit(p1Fighter, p2Fighter, { muteEffects });
-    combat.checkHit(p2Fighter, p1Fighter, { muteEffects });
+    const p1Hit = combat.checkHit(p1Fighter, p2Fighter, { muteEffects });
+    const p2Hit = combat.checkHit(p2Fighter, p1Fighter, { muteEffects });
+
+    if (p1Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 0 };
+    else if (p2Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 1 };
 
     // 6. Tick timer
-    combat.tickTimer();
+    const timerResult = combat.tickTimer({ muteEffects });
+    if (!roundEvent && timerResult?.timeup) {
+      roundEvent = {
+        type: 'timeup',
+        winnerIndex: p1Fighter.hp >= p2Fighter.hp ? 0 : 1,
+      };
+    }
   }
 
   // 7. Sync sprites (rendering only)
   p1Fighter.syncSprite();
   p2Fighter.syncSprite();
+
+  return roundEvent;
 }

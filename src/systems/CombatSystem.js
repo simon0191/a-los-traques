@@ -58,16 +58,29 @@ export class CombatSystem {
   /**
    * Frame-counted timer tick for deterministic simulation.
    * Called once per simulation frame. Decrements timer every 60 frames.
+   * Returns { timeup: true } when timer reaches 0, null otherwise.
+   * In local mode (!suppressRoundEvents), also fires timeUp() directly.
+   * @param {{ muteEffects?: boolean }} [options]
+   * @returns {{ timeup: true } | null}
    */
-  tickTimer() {
+  tickTimer({ muteEffects = false } = {}) {
     this._timerAccumulator++;
     if (this._timerAccumulator >= 60) {
       this._timerAccumulator = 0;
       this.timer--;
-      if (this.timer <= 0 && !this.suppressRoundEvents) this.timeUp();
+      if (this.timer <= 0) {
+        if (!muteEffects && !this.suppressRoundEvents) this.timeUp();
+        return { timeup: true };
+      }
     }
+    return null;
   }
 
+  /**
+   * Check if attacker's hitbox overlaps defender's hurtbox and apply damage.
+   * Returns { hit: true, ko: boolean } on hit, false on miss.
+   * @returns {{ hit: true, ko: boolean } | false}
+   */
   checkHit(attacker, defender, { muteEffects = false } = {}) {
     if (!attacker.currentAttack || attacker.state !== 'attacking') return false;
     if (attacker.hitConnected) return false;
@@ -81,9 +94,9 @@ export class CombatSystem {
     const hw = Math.abs(hitbox.w);
 
     if (fpRectsOverlap(hx, hitbox.y, hw, hitbox.h, hurtbox.x, hurtbox.y, hurtbox.w, hurtbox.h)) {
-      this.applyDamage(attacker, defender, { muteEffects });
+      const ko = this.applyDamage(attacker, defender, { muteEffects });
       attacker.hitConnected = true;
-      return true;
+      return { hit: true, ko: !!ko };
     }
     return false;
   }
@@ -169,6 +182,8 @@ export class CombatSystem {
     if (ko && !muteEffects && !this.suppressRoundEvents) {
       this.handleKO(attacker, defender);
     }
+
+    return ko;
   }
 
   timeUp() {
@@ -195,6 +210,27 @@ export class CombatSystem {
       this.scene.flashScreen();
     }
     this.roundWin(winnerIndex);
+  }
+
+  /**
+   * Handle a round-ending event from deferred round event detection.
+   * Used by online mode where round events are captured from simulateFrame()
+   * return values instead of firing directly inside the simulation.
+   * @param {{ type: 'ko'|'timeup', winnerIndex: number }} roundEvent
+   */
+  handleRoundEnd(roundEvent) {
+    this.stopRound();
+    if (roundEvent.type === 'ko') {
+      this.scene.game.audioManager.play('ko');
+      this.scene.cameras.main.shake(300, 0.015);
+      if (this.scene.flashScreen) {
+        this.scene.flashScreen();
+      }
+    } else if (roundEvent.type === 'timeup') {
+      this.scene.game.audioManager.play('announce_timeup');
+      this._lastEndReason = 'timeup';
+    }
+    this.roundWin(roundEvent.winnerIndex);
   }
 
   roundWin(playerIndex) {

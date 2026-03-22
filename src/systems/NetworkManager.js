@@ -213,8 +213,11 @@ export class NetworkManager {
         if (this._webrtc) this._webrtc.handleSignal(msg);
         break;
       case 'input':
-        // When WebRTC is active, ignore WS inputs for non-spectators (inputs arrive via DataChannel)
-        if (this._webrtcReady && !this.isSpectator) break;
+        // Always accept WS inputs even when DataChannel is open.
+        // The remote peer may still be sending via WS if their DataChannel
+        // isn't ready yet (asymmetric reconnection). No duplication risk:
+        // when a peer sends via DataChannel, its WS copy uses spectatorOnly
+        // so the server won't forward it to the opponent.
         if (this.isSpectator && msg.slot != null) {
           // Spectator: route input to correct player buffer
           const buf = msg.slot === 0 ? 'remoteInputBufferP1' : 'remoteInputBufferP2';
