@@ -22,7 +22,9 @@ import {
 } from '../systems/FixedPoint.js';
 import { InputManager } from '../systems/InputManager.js';
 import { ReconnectionManager } from '../systems/ReconnectionManager.js';
+import { ReplayInputSource } from '../systems/ReplayInputSource.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
+import { simulateFrame as simFrame } from '../systems/SimulationStep.js';
 import { TouchControls } from '../systems/TouchControls.js';
 
 // ---------------------------------------------------------------------------
@@ -120,12 +122,22 @@ export class FightScene extends Phaser.Scene {
 
       // -- AI controller (local mode only) --
       if (this.gameMode !== 'online') {
-        this.aiController = new AIController(
-          this,
-          this.p2Fighter,
-          this.p1Fighter,
-          this.aiDifficulty,
-        );
+        // Replay mode: use recorded inputs instead of AI/keyboard
+        if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
+          const bundle = window.__REPLAY_BUNDLE;
+          const totalFrames = Math.max(bundle.p1.totalFrames, bundle.p2.totalFrames);
+          this._replayP1 = new ReplayInputSource(bundle.p1.inputs, totalFrames);
+          this._replayP2 = new ReplayInputSource(bundle.p2.inputs, totalFrames);
+          this._replayFrame = 0;
+          this.aiController = null;
+        } else {
+          this.aiController = new AIController(
+            this,
+            this.p2Fighter,
+            this.p1Fighter,
+            this.aiDifficulty,
+          );
+        }
       } else {
         this.aiController = null;
         this.frameCounter = 0;
@@ -725,6 +737,11 @@ export class FightScene extends Phaser.Scene {
         fighterId: slot === 0 ? this.p1Id : this.p2Id,
         opponentId: slot === 0 ? this.p2Id : this.p1Id,
         stageId: this.stageId,
+        config: {
+          seed: this.game.autoplay.seed,
+          speed: this.game.autoplay.speed,
+          aiDifficulty: this.game.autoplay.aiDifficulty,
+        },
       });
     }
 
@@ -890,6 +907,27 @@ export class FightScene extends Phaser.Scene {
   }
 
   _handleLocalUpdate(time, delta) {
+    // Replay mode: use recorded inputs via simulateFrame
+    if (this._replayP1 && this._replayP2) {
+      const frame = this._replayFrame;
+      if (frame > this._replayP1.totalFrames) {
+        // Replay finished — signal completion
+        if (!this._replayFinished) {
+          this._replayFinished = true;
+          if (window.__FIGHT_LOG) window.__FIGHT_LOG.matchComplete = true;
+        }
+        return;
+      }
+      const p1Input = this._replayP1.getEncoded(frame);
+      const p2Input = this._replayP2.getEncoded(frame);
+      const roundEvent = simFrame(this.p1Fighter, this.p2Fighter, this.combat, p1Input, p2Input);
+      if (roundEvent) {
+        this.combat.handleRoundEnd(roundEvent);
+      }
+      this._replayFrame++;
+      return;
+    }
+
     this.p1Fighter.update();
     this.p2Fighter.update();
 
