@@ -222,11 +222,16 @@ export class FightScene extends Phaser.Scene {
     }
 
     if (!this.combat.roundActive) {
-      // Allow restart after match over (Space key or tap)
-      if (this.combat.matchOver && this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-        this.scene.restart();
+      // Replay mode: don't bail out — the fixed-timestep loop handles round transitions
+      if (this._replayP1 && this._replayP2) {
+        // fall through to the fixed-timestep loop below
+      } else {
+        // Allow restart after match over (Space key or tap)
+        if (this.combat.matchOver && this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+          this.scene.restart();
+        }
+        return;
       }
-      return;
     }
 
     // Fixed-timestep accumulator: gate simulation to exactly 60fps
