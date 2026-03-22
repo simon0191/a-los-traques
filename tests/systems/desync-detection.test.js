@@ -190,14 +190,15 @@ describe('RollbackManager checksum exchange', () => {
     rm = new RollbackManager(nm, 0, { inputDelay: 2, maxRollbackFrames: 7 });
   });
 
-  it('sends checksum every 30 frames', () => {
+  it('sends checksum every 30 frames for confirmed frames', () => {
     for (let i = 0; i < 31; i++) {
       rm.advance(noInput, scene, p1, p2, combat);
     }
     // At frame 30 (after advancing 30 times, currentFrame becomes 30)
     expect(nm.sendChecksum).toHaveBeenCalledTimes(1);
     const [frame, hash] = nm.sendChecksum.mock.calls[0];
-    expect(frame).toBe(29); // snapshot of frame 29 (currentFrame - 1 at step 11)
+    // Checksum frame is maxRollbackFrames+1 behind current: 30 - 7 - 1 = 22
+    expect(frame).toBe(22);
     expect(typeof hash).toBe('number');
   });
 

@@ -164,11 +164,14 @@ export class RollbackManager {
     this._pruneOldData();
 
     // 11. Periodic checksum exchange for desync detection
+    // Compare a frame that is maxRollbackFrames behind current, where all inputs
+    // should be confirmed on both peers. Comparing recent frames produces false
+    // positives because predicted (unconfirmed) remote inputs may differ.
     if (this.currentFrame > 0 && this.currentFrame % CHECKSUM_INTERVAL === 0) {
-      const snapshot = this.stateSnapshots.get(this.currentFrame - 1);
-      if (snapshot) {
+      const checksumFrame = this.currentFrame - this.maxRollbackFrames - 1;
+      const snapshot = this.stateSnapshots.get(checksumFrame);
+      if (snapshot && checksumFrame >= 0) {
         const hash = hashGameState(snapshot);
-        const checksumFrame = this.currentFrame - 1;
         this._localChecksums.set(checksumFrame, hash);
         this.nm.sendChecksum(checksumFrame, hash);
       }
