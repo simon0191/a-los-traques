@@ -21,3 +21,12 @@ jobs:
           name: e2e-test-results
           path: test-results/
           retention-days: 7
+      - name: Comment failure report on PR
+        if: failure() && github.event_name == 'pull_request'
+        run: |
+          REPORT=$(find test-results -name '*-report.md' -print -quit 2>/dev/null)
+          if [ -n "$REPORT" ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body-file "$REPORT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
