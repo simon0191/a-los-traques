@@ -2,6 +2,20 @@ import { MAX_HP, SPECIAL_COST } from '../config.js';
 import { FP_SCALE } from './FixedPoint.js';
 
 /**
+ * Mulberry32 seeded PRNG — returns a function that produces [0,1) floats.
+ * Same seed always produces the same sequence.
+ */
+function mulberry32(seed) {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
  * AI Controller for P2 fighter with three difficulty levels.
  *
  * Usage:
@@ -25,6 +39,7 @@ export class AIController {
     this.frameCounter = 0;
 
     this.config = this.getDifficultyConfig(difficulty);
+    this._rng = Math.random;
 
     /** Current decision output – read by applyDecisions() every frame. */
     this.decision = {
@@ -33,6 +48,13 @@ export class AIController {
       attack: null, // null | attack type string
       block: false,
     };
+  }
+
+  /**
+   * Set a deterministic PRNG seed. Once set, all AI decisions become reproducible.
+   */
+  setSeed(seed) {
+    this._rng = mulberry32(seed);
   }
 
   // ---------------------------------------------------------------------------
@@ -141,12 +163,12 @@ export class AIController {
     // 1. Defensive: react to opponent attacking while close
     // ------------------------------------------------------------------
     if (oppAttacking && absDist < cfg.approachRange) {
-      if (cfg.canBlock && Math.random() < cfg.blockChance) {
+      if (cfg.canBlock && this._rng() < cfg.blockChance) {
         this.decision.block = true;
         return; // blocking is exclusive
       }
       // Otherwise try to back off
-      if (Math.random() < 0.4) {
+      if (this._rng() < 0.4) {
         this.decision.moveDir = -dirToOpponent; // walk away
         return;
       }
@@ -156,7 +178,7 @@ export class AIController {
     // 2. Punish opponent recovery (hard mode)
     // ------------------------------------------------------------------
     if (cfg.punishRecovery && oppRecovering && absDist < cfg.approachRange) {
-      if (Math.random() > cfg.missRate) {
+      if (this._rng() > cfg.missRate) {
         this.decision.attack = 'heavyPunch';
         // Walk in if not quite in range
         if (absDist > cfg.idealRange) {
@@ -173,7 +195,7 @@ export class AIController {
       cfg.canBlock &&
       lowHp &&
       absDist < cfg.approachRange &&
-      Math.random() < cfg.blockChance * 0.5
+      this._rng() < cfg.blockChance * 0.5
     ) {
       this.decision.block = true;
       return;
@@ -183,7 +205,7 @@ export class AIController {
     // 4. Attack if at ideal range
     // ------------------------------------------------------------------
     if (absDist <= cfg.approachRange && absDist >= cfg.tooCloseRange) {
-      if (Math.random() > cfg.missRate) {
+      if (this._rng() > cfg.missRate) {
         this.decision.attack = this._pickAttack(absDist);
       }
     }
@@ -192,9 +214,9 @@ export class AIController {
     // 5. Too close – back off occasionally
     // ------------------------------------------------------------------
     if (absDist < cfg.tooCloseRange) {
-      if (Math.random() < cfg.backOffChance) {
+      if (this._rng() < cfg.backOffChance) {
         this.decision.moveDir = -dirToOpponent;
-      } else if (Math.random() > cfg.missRate) {
+      } else if (this._rng() > cfg.missRate) {
         // Quick jab when very close
         this.decision.attack = 'lightPunch';
       }
@@ -210,7 +232,7 @@ export class AIController {
     // ------------------------------------------------------------------
     // 7. Jumping (mix-up / evasion)
     // ------------------------------------------------------------------
-    if (Math.random() < cfg.jumpChance) {
+    if (this._rng() < cfg.jumpChance) {
       // Hard mode: jump to dodge or when opponent jumps
       if (this.difficulty === 'hard') {
         if (oppJumping || (oppAttacking && absDist < cfg.approachRange)) {
@@ -234,13 +256,13 @@ export class AIController {
     if (cfg.canSpecial && me.special >= SPECIAL_COST && absDist < cfg.idealRange + 10) {
       // Hard: always use when available and close. Medium: 40 % chance.
       const specialChance = this.difficulty === 'hard' ? 0.65 : 0.4;
-      if (Math.random() < specialChance) {
+      if (this._rng() < specialChance) {
         return 'special';
       }
     }
 
     // Weighted random pick – favour lights for speed, heavies for damage
-    const roll = Math.random();
+    const roll = this._rng();
 
     if (this.difficulty === 'hard') {
       // Hard prefers fast attacks, uses heavies to punish
@@ -297,7 +319,7 @@ export class AIController {
     if (fighter._isTouchingWall && !fighter._hasWallJumped) {
       const wallJumpChance =
         this.difficulty === 'hard' ? 1.0 : this.difficulty === 'medium' ? 0.3 : 0;
-      if (Math.random() < wallJumpChance) {
+      if (this._rng() < wallJumpChance) {
         fighter.jump();
       }
     }
