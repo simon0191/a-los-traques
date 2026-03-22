@@ -747,6 +747,31 @@ export class FightScene extends Phaser.Scene {
     this._lastProcessedRound = 0;
     this._matchOverProcessed = false;
 
+    // P2 (guest) receives round events from P1 via network.
+    // P1 detects round events locally from advance() return value;
+    // P2 suppresses local detection and waits for P1's authoritative message.
+    nm.onRoundEvent((msg) => {
+      if (this.isHost) return; // P1 already handled locally
+      if (msg.matchOver && this._matchOverProcessed) return;
+      if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) return;
+
+      this.combat.stopRound();
+      this.combat.p1RoundsWon = msg.p1Rounds;
+      this.combat.p2RoundsWon = msg.p2Rounds;
+      this.combat.roundNumber = msg.roundNumber;
+
+      if (msg.event === 'ko' || msg.event === 'timeup') {
+        if (msg.matchOver) {
+          this._matchOverProcessed = true;
+          this.combat.matchOver = true;
+          this.onMatchOver(msg.winnerIndex);
+        } else {
+          this._lastProcessedRound = msg.roundNumber;
+          this.onRoundOver(msg.winnerIndex);
+        }
+      }
+    });
+
     // --- Graceful reconnection ---
     this.reconnectionManager = new ReconnectionManager({ gracePeriodMs: 20000 });
     this._reconnecting = false;
