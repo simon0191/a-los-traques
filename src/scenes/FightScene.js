@@ -129,6 +129,7 @@ export class FightScene extends Phaser.Scene {
           this._replayP1 = new ReplayInputSource(bundle.p1.inputs, totalFrames);
           this._replayP2 = new ReplayInputSource(bundle.p2.inputs, totalFrames);
           this._replayFrame = 0;
+          this._replayRoundCooldown = 0;
           this.aiController = null;
         } else {
           this.aiController = new AIController(
@@ -909,12 +910,25 @@ export class FightScene extends Phaser.Scene {
   _handleLocalUpdate(time, delta) {
     // Replay mode: use recorded inputs via simulateFrame
     if (this._replayP1 && this._replayP2) {
-      // Pause replay during round transitions (KO animation, reset, round intro)
-      if (!this.combat.roundActive && !this.combat.matchOver) return;
+      // Handle frame-based round transition cooldown
+      if (this._replayRoundCooldown > 0) {
+        this._replayRoundCooldown--;
+        this._replayFrame++;
+        if (this._replayRoundCooldown === 0) {
+          // Reset fighters and start next round
+          this.p1Fighter.reset(GAME_WIDTH * 0.3);
+          this.p2Fighter.reset(GAME_WIDTH * 0.7);
+          this._updateHUD();
+          this.combat.startRound();
+          this.centerText.setText('');
+          this.subtitleText.setText('');
+        }
+        return;
+      }
 
       const frame = this._replayFrame;
-      if (frame > this._replayP1.totalFrames || this.combat.matchOver) {
-        // Replay finished — signal completion
+      const totalFrames = Math.max(this._replayP1.totalFrames, this._replayP2.totalFrames);
+      if (frame > totalFrames || this.combat.matchOver) {
         if (!this._replayFinished) {
           this._replayFinished = true;
           if (window.__FIGHT_LOG) window.__FIGHT_LOG.matchComplete = true;
@@ -925,7 +939,26 @@ export class FightScene extends Phaser.Scene {
       const p2Input = this._replayP2.getEncoded(frame);
       const roundEvent = simFrame(this.p1Fighter, this.p2Fighter, this.combat, p1Input, p2Input);
       if (roundEvent) {
-        this.combat.handleRoundEnd(roundEvent);
+        // Handle round end with frame-based transition (not time-based)
+        // This keeps replay in sync regardless of speed multiplier
+        this.combat.stopRound();
+        if (roundEvent.winnerIndex === 0) this.combat.p1RoundsWon++;
+        else this.combat.p2RoundsWon++;
+
+        const winnerName = roundEvent.winnerIndex === 0 ? this.p1Data.name : this.p2Data.name;
+
+        if (this.combat.p1RoundsWon >= ROUNDS_TO_WIN || this.combat.p2RoundsWon >= ROUNDS_TO_WIN) {
+          this.combat.matchOver = true;
+          this.onMatchOver(roundEvent.winnerIndex);
+        } else {
+          // Show KO text and set frame-based cooldown for round transition
+          this.centerText.setText('K.O.!');
+          this.subtitleText.setText(`${winnerName} GANA EL ROUND!`);
+          this.combat.roundNumber++;
+          this._replayRoundCooldown = 180; // 3 seconds at 60fps
+          this.p1Fighter.stop();
+          this.p2Fighter.stop();
+        }
       }
       this._replayFrame++;
       return;
