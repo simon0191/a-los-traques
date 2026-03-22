@@ -437,7 +437,15 @@ describe('rollback-safe round events', () => {
 
       // Set up P1 mid-attack in active frames, P2 at 1 HP
       p1.state = 'attacking';
-      p1.currentAttack = { type: 'heavyPunch', damage: 14, startup: 3, active: 3, recovery: 8, hitstun: 20, blockstun: 14 };
+      p1.currentAttack = {
+        type: 'heavyPunch',
+        damage: 14,
+        startup: 3,
+        active: 3,
+        recovery: 8,
+        hitstun: 20,
+        blockstun: 14,
+      };
       p1.attackFrameElapsed = 4; // in active frames (startup=3, active=3 → 3,4,5 are active)
       p1.attackCooldown = 10;
       p1.hitConnected = false;
@@ -456,7 +464,15 @@ describe('rollback-safe round events', () => {
       const combat = createSimCombat();
 
       p1.state = 'attacking';
-      p1.currentAttack = { type: 'lightPunch', damage: 8, startup: 3, active: 2, recovery: 5, hitstun: 12, blockstun: 8 };
+      p1.currentAttack = {
+        type: 'lightPunch',
+        damage: 8,
+        startup: 3,
+        active: 2,
+        recovery: 5,
+        hitstun: 12,
+        blockstun: 8,
+      };
       p1.attackFrameElapsed = 3; // in active frames
       p1.attackCooldown = 7;
       p1.hitConnected = false;
@@ -475,7 +491,15 @@ describe('rollback-safe round events', () => {
       const combat = createSimCombat();
 
       p1.state = 'attacking';
-      p1.currentAttack = { type: 'lightPunch', damage: 8, startup: 3, active: 2, recovery: 5, hitstun: 12, blockstun: 8 };
+      p1.currentAttack = {
+        type: 'lightPunch',
+        damage: 8,
+        startup: 3,
+        active: 2,
+        recovery: 5,
+        hitstun: 12,
+        blockstun: 8,
+      };
       p1.attackFrameElapsed = 3;
       p1.attackCooldown = 7;
       p1.hitConnected = false;
@@ -507,8 +531,15 @@ describe('rollback-safe round events', () => {
 
       // Start P1 attacking
       const attackInput = encodeInput({
-        left: false, right: false, up: false, down: false,
-        lp: false, hp: true, lk: false, hk: false, sp: false,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: true,
+        lk: false,
+        hk: false,
+        sp: false,
       });
 
       // Run through startup frames until active frames connect
@@ -565,7 +596,15 @@ describe('rollback-safe round events', () => {
 
       // P1 attacks (heavy punch)
       p1.state = 'attacking';
-      p1.currentAttack = { type: 'heavyPunch', damage: 14, startup: 3, active: 3, recovery: 8, hitstun: 20, blockstun: 14 };
+      p1.currentAttack = {
+        type: 'heavyPunch',
+        damage: 14,
+        startup: 3,
+        active: 3,
+        recovery: 8,
+        hitstun: 20,
+        blockstun: 14,
+      };
       p1.attackFrameElapsed = 3; // just before active frame after update()
       p1.attackCooldown = 10;
       p1.hitConnected = false;
@@ -646,8 +685,15 @@ describe('rollback-safe round events', () => {
 
       // Simulate with a predicted attack (P1 heavy punch)
       const attackInput = encodeInput({
-        left: false, right: false, up: false, down: false,
-        lp: false, hp: true, lk: false, hk: false, sp: false,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: true,
+        lk: false,
+        hk: false,
+        sp: false,
       });
 
       // Run through attack frames — might KO
@@ -696,8 +742,15 @@ describe('rollback-safe round events', () => {
       p2b.hp = 1;
 
       const attackInput = encodeInput({
-        left: false, right: false, up: false, down: false,
-        lp: false, hp: true, lk: false, hk: false, sp: false,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: true,
+        lk: false,
+        hk: false,
+        sp: false,
       });
 
       const eventsA = [];
@@ -755,8 +808,15 @@ describe('rollback-safe round events', () => {
       p2.hp = 1;
 
       const attackInput = encodeInput({
-        left: false, right: false, up: false, down: false,
-        lp: false, hp: true, lk: false, hk: false, sp: false,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: true,
+        lk: false,
+        hk: false,
+        sp: false,
       });
 
       // Even with an attack that would KO, no event when round is inactive
@@ -777,8 +837,15 @@ describe('rollback-safe round events', () => {
 
       // Reference: straight-through with attack at frame 20
       const attackInput = encodeInput({
-        left: false, right: false, up: false, down: false,
-        lp: false, hp: true, lk: false, hk: false, sp: false,
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: true,
+        lk: false,
+        hk: false,
+        sp: false,
       });
 
       let refEvent = null;
