@@ -1,14 +1,38 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 
+const CONTROLES_ORDENADOR = {
+  title: 'CONTROLES (ORDENADOR)',
+  body:
+    'Mover: Flechas [←] [→]\n' +
+    'Saltar: [↑] / Bloquear: [↓]\n\n' +
+    'Ataques:\n' +
+    '[Z] Puno Liviano (PL)\n' +
+    '[X] Patada Liviana (PaL)\n' +
+    '[A] Puno Pesado (PP)\n' +
+    '[S] Patada Pesada (PaP)\n' +
+    '[D] Especial (ES)\n\n' +
+    'Pausa: [ESC]',
+};
+
+const CONTROLES_MOVIL = {
+  title: 'CONTROLES (PANTALLA TÁCTIL)',
+  body:
+    'Lado izquierdo:\n' +
+    'Joystick virtual para movimiento.\n\n' +
+    'Lado derecho (5 botones):\n' +
+    'PL (Puno Liviano)\n' +
+    'PaL (Patada Liviana)\n' +
+    'PP (Puno Pesado)\n' +
+    'PaP (Patada Pesada)\n' +
+    'ES (Especial)\n\n' +
+    'Soporta Multi-touch (mover y atacar).',
+};
+
 const BASICO_CARDS = [
   {
-    title: 'CONTROLES',
-    body: 'Joystick izquierdo para moverte.\n5 botones a la derecha:\nPL (puno liviano), PaL (patada liviana),\nPP (puno pesado), PaP (patada pesada),\nES (especial).',
-  },
-  {
     title: 'BLOQUEAR',
-    body: 'Mantene abajo en el joystick para\nbloquear. Reduce el dano un 80% y\nachica tu hitbox. Ideal contra ataques\npesados.',
+    body: 'Mantene abajo en el joystick o [↓]\npara bloquear. Reduce el dano un 80% y\nachica tu hitbox. Ideal contra ataques\npesados.',
   },
   {
     title: 'GOLPES LIVIANOS',
@@ -66,6 +90,11 @@ export class LearningScene extends Phaser.Scene {
     super('LearningScene');
   }
 
+  init() {
+    // Device detection by touching support
+    this.isMobile = this.sys.game.device.input.touch;
+  }
+
   create() {
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
@@ -83,10 +112,6 @@ export class LearningScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Tab buttons
-    this.activeTab = 'basico';
-    this._createTabs();
-
     // Content container + mask
     this.contentContainer = this.add.container(0, 0);
     const maskShape = this.make.graphics();
@@ -94,11 +119,14 @@ export class LearningScene extends Phaser.Scene {
     const mask = maskShape.createGeometryMask();
     this.contentContainer.setMask(mask);
 
-    this._buildCards(BASICO_CARDS);
-
     // Scroll state
     this.scrollY = 0;
     this.maxScroll = 0;
+
+    // Tab buttons
+    this.activeTab = 'basico';
+    this._createTabs();
+    this._buildCardsForActiveTab();
 
     // Drag scrolling
     this.dragStartY = null;
@@ -145,6 +173,23 @@ export class LearningScene extends Phaser.Scene {
     this.transitioning = false;
   }
 
+  // Cards to load
+  _buildCardsForActiveTab() {
+    if (this.activeTab === 'basico') {
+      const cardsToShow = [...BASICO_CARDS];
+
+      if (this.isMobile) {
+        cardsToShow.unshift(CONTROLES_MOVIL);
+      } else {
+        cardsToShow.unshift(CONTROLES_ORDENADOR);
+      }
+
+      this._buildCards(cardsToShow);
+    } else {
+      this._buildCards(AVANZADO_CARDS);
+    }
+  }
+
   _createTabs() {
     const tabY = 36;
     const tabW = 80;
@@ -177,7 +222,7 @@ export class LearningScene extends Phaser.Scene {
       if (this.activeTab === 'basico') return;
       this.activeTab = 'basico';
       this._createTabs();
-      this._buildCards(BASICO_CARDS);
+      this._buildCardsForActiveTab();
       this.scrollY = 0;
       this._applyScroll();
     });
@@ -199,7 +244,7 @@ export class LearningScene extends Phaser.Scene {
       if (this.activeTab === 'avanzado') return;
       this.activeTab = 'avanzado';
       this._createTabs();
-      this._buildCards(AVANZADO_CARDS);
+      this._buildCardsForActiveTab();
       this.scrollY = 0;
       this._applyScroll();
     });
@@ -265,8 +310,13 @@ export class LearningScene extends Phaser.Scene {
       yOffset += cardHeight + CARD_GAP;
     }
 
-    const totalContentHeight = yOffset - CONTENT_TOP;
-    this.maxScroll = Math.max(0, totalContentHeight - CONTENT_HEIGHT);
+    this.totalContentHeight = yOffset - CONTENT_TOP;
+    this._updateMaxScroll();
+  }
+
+  _updateMaxScroll() {
+    if (this.totalContentHeight == null) return;
+    this.maxScroll = Math.max(0, this.totalContentHeight - CONTENT_HEIGHT);
     this._updateScrollIndicator();
   }
 
