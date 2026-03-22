@@ -9,11 +9,13 @@
  *   ?aiDifficulty=medium — AI difficulty (default: medium)
  *   ?seed=12345        — deterministic PRNG seed for reproducible AI decisions
  *   ?speed=10          — overclock: run N simulation steps per visual frame (default: 1)
+ *   ?replay=1          — replay mode: replay a fight from window.__REPLAY_BUNDLE
  */
 export class AutoplayController {
   constructor() {
     const params = new URLSearchParams(window.location.search);
-    this.enabled = params.get('autoplay') === '1';
+    this.enabled = params.get('autoplay') === '1' || params.get('replay') === '1';
+    this.replay = params.get('replay') === '1';
     this.fighterId = params.get('fighter') || null;
     this.createRoom = params.get('createRoom') === '1';
     this.aiDifficulty = params.get('aiDifficulty') || 'medium';
