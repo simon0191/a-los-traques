@@ -13,6 +13,7 @@ import { Fighter } from '../entities/Fighter.js';
 import { AIController } from '../systems/AIController.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { DevConsole } from '../systems/DevConsole.js';
+import { FightRecorder } from '../systems/FightRecorder.js';
 import {
   FP_SCALE,
   MAX_SPECIAL_FP,
@@ -697,10 +698,40 @@ export class FightScene extends Phaser.Scene {
       maxRollbackFrames: 7,
     });
 
+    // Autoplay: use AI controller for local input instead of InputManager
+    if (this.game.autoplay?.enabled) {
+      const difficulty = this.game.autoplay.aiDifficulty || 'medium';
+      const seed = this.game.autoplay.seed;
+      this.autoplayAI = new AIController(this, this.localFighter, this.remoteFighter, difficulty);
+      if (seed != null) {
+        this.autoplayAI.setSeed(seed + slot);
+      }
+    }
+
+    // Fight recorder for E2E testing
+    if (this.game.autoplay?.enabled) {
+      this.recorder = new FightRecorder({
+        roomId: nm.roomId,
+        playerSlot: slot,
+        fighterId: slot === 0 ? this.p1Id : this.p2Id,
+        opponentId: slot === 0 ? this.p2Id : this.p1Id,
+        stageId: this.stageId,
+      });
+    }
+
+    // Wire recorder hooks into rollback manager
+    if (this.recorder) {
+      this.rollbackManager._onRollback = (frame, depth) =>
+        this.recorder.recordRollback(frame, depth);
+      this.rollbackManager._onLocalChecksum = (frame, hash) =>
+        this.recorder.recordChecksum(frame, hash);
+    }
+
     // Wire desync detection + resync
     nm.onChecksum((frame, hash) => this.rollbackManager.handleRemoteChecksum(frame, hash));
     this.rollbackManager._onDesync = (frame, localHash, remoteHash) => {
       console.warn(`[DESYNC] frame=${frame} local=${localHash} remote=${remoteHash}`);
+      this.recorder?.recordDesync(frame, localHash, remoteHash);
       this._showDesyncWarning();
 
       if (this.isHost) {
@@ -883,23 +914,46 @@ export class FightScene extends Phaser.Scene {
       .setDepth(25);
   }
 
-  _handleOnlineUpdate(_time, _delta) {
+  _handleOnlineUpdate(time, delta) {
     this.frameCounter++;
-    const input = this.inputManager;
 
-    // Read local input
-    const localInput = {
-      left: input.left,
-      right: input.right,
-      up: input.up,
-      down: input.down,
-      lp: input.lightPunch,
-      hp: input.heavyPunch,
-      lk: input.lightKick,
-      hk: input.heavyKick,
-      sp: input.special,
-    };
-    input.consumeTouch();
+    // Read local input: from AI in autoplay mode, from InputManager otherwise
+    let localInput;
+    if (this.autoplayAI) {
+      this.autoplayAI.update(time, delta);
+      const d = this.autoplayAI.decision;
+      localInput = {
+        left: d.moveDir < 0,
+        right: d.moveDir > 0,
+        up: d.jump,
+        down: d.block,
+        lp: d.attack === 'lightPunch',
+        hp: d.attack === 'heavyPunch',
+        lk: d.attack === 'lightKick',
+        hk: d.attack === 'heavyKick',
+        sp: d.attack === 'special',
+      };
+      // Consume one-shot decisions so they don't repeat
+      this.autoplayAI.decision.jump = false;
+      this.autoplayAI.decision.attack = null;
+    } else {
+      const input = this.inputManager;
+      localInput = {
+        left: input.left,
+        right: input.right,
+        up: input.up,
+        down: input.down,
+        lp: input.lightPunch,
+        hp: input.heavyPunch,
+        lk: input.lightKick,
+        hk: input.heavyKick,
+        sp: input.special,
+      };
+      input.consumeTouch();
+    }
+
+    // Record input for E2E testing
+    this.recorder?.recordInput(this.rollbackManager.currentFrame, localInput);
 
     // Run rollback advance (handles input sending, prediction, rollback, simulation)
     const { roundEvent } = this.rollbackManager.advance(
@@ -912,6 +966,7 @@ export class FightScene extends Phaser.Scene {
 
     // P1 (host) handles round events: fire side effects + send to P2
     if (roundEvent && this.isHost) {
+      this.recorder?.recordRoundEvent(this.rollbackManager.currentFrame, roundEvent);
       this.combat.handleRoundEnd(roundEvent);
     }
 
@@ -1496,6 +1551,14 @@ export class FightScene extends Phaser.Scene {
   onMatchOver(winnerIndex) {
     // Host sends match-over event to guest
     this._sendRoundEvent('ko', winnerIndex);
+
+    // Capture final state for E2E testing
+    this.recorder?.captureEndState(
+      this.p1Fighter,
+      this.p2Fighter,
+      this.combat,
+      this.rollbackManager?.currentFrame ?? this.frameCounter,
+    );
 
     const winnerData = winnerIndex === 0 ? this.p1Data : this.p2Data;
     const loserData = winnerIndex === 0 ? this.p2Data : this.p1Data;

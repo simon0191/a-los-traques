@@ -56,6 +56,8 @@ export class RollbackManager {
     this._localChecksums = new Map(); // frame → hash
     this.desyncCount = 0;
     this._onDesync = null;
+    this._onRollback = null; // (frame, depth) callback
+    this._onLocalChecksum = null; // (frame, hash) callback
 
     // Adaptive delay state
     this._adaptiveDelayEnabled = true;
@@ -125,6 +127,7 @@ export class RollbackManager {
       const framesToRollback = this.currentFrame - rollbackFrame;
       if (framesToRollback <= this.maxRollbackFrames && this.stateSnapshots.has(rollbackFrame)) {
         this.rollbackCount++;
+        this._onRollback?.(rollbackFrame, framesToRollback);
 
         // Restore snapshot at misprediction frame
         restoreGameState(this.stateSnapshots.get(rollbackFrame), p1, p2, combat);
@@ -173,6 +176,7 @@ export class RollbackManager {
       if (snapshot && checksumFrame >= 0) {
         const hash = hashGameState(snapshot);
         this._localChecksums.set(checksumFrame, hash);
+        this._onLocalChecksum?.(checksumFrame, hash);
         this.nm.sendChecksum(checksumFrame, hash);
       }
     }

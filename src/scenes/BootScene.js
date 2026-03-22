@@ -130,6 +130,9 @@ export class BootScene extends Phaser.Scene {
       this.scene.start('SpectatorLobbyScene', { roomId });
     } else if (roomId) {
       this.scene.start('LobbyScene', { roomId });
+    } else if (this.game.autoplay?.enabled && this.game.autoplay.createRoom) {
+      // Autoplay mode: create a new room automatically
+      this.scene.start('LobbyScene', {});
     } else {
       this.scene.start('TitleScene');
     }
