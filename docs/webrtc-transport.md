@@ -114,7 +114,7 @@ flowchart TD
     end
 ```
 
-When both transports are active, the receiving peer ignores WebSocket `input` messages (dedup guard) since they arrive via DataChannel.
+WebSocket `input` messages are always accepted regardless of local DataChannel state. This prevents input loss during asymmetric reconnection (where one peer has DataChannel open but the other is still sending via WebSocket). No duplication risk: when a peer sends via DataChannel, its WebSocket copy uses `spectatorOnly` so the server won't forward it to the opponent.
 
 ## Fallback Scenarios
 

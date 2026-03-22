@@ -1,6 +1,6 @@
 # RFC 0001: Networking Redesign
 
-**Status:** Draft
+**Status:** In Progress — Phase 1 complete
 **Date:** 2026-03-22
 **Author:** Architecture Team
 
@@ -439,7 +439,7 @@ export class ConnectionMonitor {
 
 ## Implementation Plan
 
-### Phase 1: Fix Simulation Determinism (Critical Path)
+### Phase 1: Fix Simulation Determinism (Critical Path) — COMPLETE ✓
 
 **Goal:** Both peers see the same game state. Timer synchronized. Rounds end at the same time on both phones.
 
@@ -448,18 +448,21 @@ export class ConnectionMonitor {
 - Make `checkHit()` return KO info instead of calling `handleKO()` directly during simulation
 - `simulateFrame()` returns optional round event descriptor instead of firing side effects
 - `RollbackManager.advance()` captures round event from current frame, discards during re-simulation
-- P2 sets `combat.suppressRoundEvents = true` in `_setupOnlineMode()`
-- P1 sends round events to P2 via network; P2 waits for P1's message before firing UI
+- Both P1 and P2 set `combat.suppressRoundEvents = true` in `_setupOnlineMode()`
+- P1 captures round events from `advance()` return value, fires via `combat.handleRoundEnd()`
+- P2 receives round events from P1 via `onRoundEvent` network handler
 
 **Deliverables:**
-- Modified `CombatSystem.js` — `tickTimer({ muteEffects })`, `checkHit()` returns KO info
-- Modified `SimulationStep.js` — returns round event, passes `muteEffects` to all combat methods
-- Modified `RollbackManager.js` — deferred round event handling
-- Modified `FightScene.js` — P1 authority, P2 `suppressRoundEvents = true`, deferred event wiring
-- New `tests/systems/rollback-round-events.test.js` — regression tests for all 3 root cause bugs
+- Modified `CombatSystem.js` — `tickTimer({ muteEffects })`, `checkHit()` returns `{ hit, ko }`, new `handleRoundEnd(roundEvent)` method
+- Modified `SimulationStep.js` — returns round event descriptor, passes `muteEffects` to all combat methods
+- Modified `RollbackManager.js` — deferred round event handling, checksum on confirmed frames
+- Modified `FightScene.js` — P1 authority, both players `suppressRoundEvents = true`, P2 `onRoundEvent` handler
+- Modified `NetworkManager.js` — always accept WS inputs regardless of DataChannel state
+- New `tests/systems/rollback-round-events.test.js` — 13 regression tests for rollback round events
 
-**Risks:**
-- Changing `simulateFrame()` return value affects all callers (local mode, spectator mode). Mitigate: local mode ignores return value and handles events via existing `CombatSystem` callbacks.
+**Additional fixes discovered during testing:**
+- **False desync alerts:** Checksum was comparing predicted (unconfirmed) state at `currentFrame - 1`. Changed to `currentFrame - maxRollbackFrames - 1` so both peers compare confirmed state only. False desyncs triggered harmful resyncs that cleared input history.
+- **Asymmetric WebRTC reconnection:** When P1's DataChannel reconnected, it ignored all WebSocket inputs. P2 might still be sending via WebSocket if P2's DataChannel wasn't ready. Removed the WS input ignore — `spectatorOnly` flag already prevents duplication.
 
 **Estimated effort:** 2-3 days
 

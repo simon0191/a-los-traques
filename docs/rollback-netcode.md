@@ -49,27 +49,33 @@ The rollback system is transport-agnostic — `RollbackManager` reads from `remo
 - **Packet loss** on the unreliable DataChannel is handled the same as late TCP delivery — prediction + rollback
 - **Mid-fight transport switch** (P2P drops → WS fallback) is invisible to the simulation layer
 
-## Peer-Equal Model
+## Peer-Equal Model with Deferred Round Events
 
-Both peers are equal in the simulation. There is no host/guest distinction for gameplay — both independently detect KO, timeup, round transitions, and match over. Deterministic fixed-point math guarantees bit-for-bit agreement.
+Both peers run identical deterministic simulations with zero perceived input lag. Round-ending events (KO/timeup) are **deferred** — `simulateFrame()` returns a round event descriptor instead of firing side effects directly. This prevents corruption during rollback re-simulation.
+
+Both P1 and P2 set `combat.suppressRoundEvents = true` in online mode:
+- **P1 (host):** Captures round events from `advance()` return value, fires side effects via `combat.handleRoundEnd(roundEvent)`, and sends the event to P2 + spectators
+- **P2 (guest):** Ignores local round event detection; receives authoritative round events from P1 via `onRoundEvent` network handler
 
 P1 has additional **non-gameplay** responsibilities:
 - Sends sync snapshots to spectators (every 3 frames)
-- Sends `round_event` messages for spectators (3x with 200ms spacing)
+- Sends `round_event` messages to P2 + spectators (3x with 200ms spacing)
 - Handles potion requests from spectators
 - Sends authoritative resync snapshots on desync detection
 
 ## Simulation Step
 
-Each frame, `simulateFrame()` runs these steps in order using fixed-point integer math (no floats):
+Each frame, `simulateFrame()` runs these steps in order using fixed-point integer math (no floats) and returns an optional round event descriptor (`{ type: 'ko'|'timeup', winnerIndex }` or `null`):
 
 1. `fighter.update()` — FP gravity, cooldown frame timers
 2. `applyInput()` — FP velocities, attack triggers
 3. `resolveBodyCollision()` — FP coordinate push-back
 4. `faceOpponent()` — simX comparison
-5. `checkHit()` — `fpRectsOverlap()` hitbox detection
-6. `tickTimer()` — frame-counted (60 frames = 1 second)
+5. `checkHit()` — `fpRectsOverlap()` hitbox detection; returns `{ hit, ko }` on hit
+6. `tickTimer({ muteEffects })` — frame-counted (60 frames = 1 second); returns `{ timeup: true }` when timer reaches 0
 7. `syncSprite()` — render positions from sim state
+
+KO takes priority over timeup if both occur on the same frame. The return value is used by `RollbackManager.advance()` to defer round event handling.
 
 ## RollbackManager.advance() — Per Frame
 
@@ -83,9 +89,13 @@ flowchart TD
     D -- No --> F["6. Predict remote input\n(repeat movement,\nzero attacks)"]
     F --> G["7. Save snapshot via\ncaptureGameState"]
     G --> H["8. Simulate frame\ncurrentFrame++"]
-    H --> I["9. Prune old snapshots\nbeyond rollback window"]
+    H --> RE{"Round event\nreturned?"}
+    RE -- Yes --> RE_P1["P1: handleRoundEnd()\n+ send to P2"]
+    RE -- No --> I
+    RE_P1 --> I
+    I["9. Prune old snapshots\nbeyond rollback window"]
     I --> J{"10. Frame %\n30 == 0?"}
-    J -- Yes --> K["Send checksum\nvia hashGameState"]
+    J -- Yes --> K["Send checksum for\nconfirmed frame\n(current - maxRollback - 1)"]
     J -- No --> L{"11. Frame %\n180 == 0?"}
     K --> L
     L -- Yes --> M["Recalculate\ninputDelay from RTT"]
@@ -154,7 +164,7 @@ flowchart LR
 
 ## Desync Detection & Recovery
 
-Both peers exchange state checksums every 30 frames. On mismatch, P1 sends an authoritative state snapshot to resync P2.
+Both peers exchange state checksums every 30 frames. Checksums compare **confirmed** frames (`currentFrame - maxRollbackFrames - 1`) to avoid false positives from predicted inputs. On mismatch, P1 sends an authoritative state snapshot to resync P2.
 
 ### Detection
 
