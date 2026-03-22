@@ -107,6 +107,20 @@ Vitest, configured in `vitest.config.js`. Tests live in `tests/` (not alongside 
 Pure logic is extracted into small modules (`src/systems/combat-math.js`, `src/entities/combat-block.js`) to enable Phaser-free unit testing.
 CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to main — runs lint (Biome) then tests.
 
+### E2E Multiplayer Testing
+
+Playwright-based framework that spawns two browser instances in autoplay mode, runs a full multiplayer match, and verifies determinism. See `docs/e2e-testing.md` for full details.
+
+```bash
+bun run test:e2e          # Run E2E tests headless
+bun run test:e2e:headed   # Watch both browsers fight
+```
+
+**Autoplay URL params**: `?autoplay=1&createRoom=1&fighter=simon&seed=42`
+- `AutoplayController` reads params, drives scenes without human interaction
+- `FightRecorder` captures inputs, checksums, rollbacks, desyncs to `window.__FIGHT_LOG`
+- `AIController.setSeed(n)` enables reproducible AI decisions (mulberry32 PRNG)
+
 ## Documentation
 
 Markdown docs with Mermaid diagrams in `docs/`. When making significant changes to a documented system, update the relevant doc to stay in sync.
@@ -116,6 +130,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/multiplayer-security.md` — Trust boundaries, server protections, known gaps
 - `docs/graceful-reconnection.md` — Reconnection state machine, grace period, module responsibilities
 - `docs/room-state-machine.md` — Server room state (`roomState` transitions, `return_to_select` vs `disconnect`)
+- `docs/e2e-testing.md` — E2E multiplayer testing framework (autoplay, FightRecorder, Playwright)
 - `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phase 1 complete, Phases 2-5 planned)
 
 ## Online Multiplayer
