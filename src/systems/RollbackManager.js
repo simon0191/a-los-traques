@@ -68,11 +68,15 @@ export class RollbackManager {
 
   /**
    * Main rollback loop — call once per visual frame.
+   * Returns { roundEvent } where roundEvent is a deferred round event
+   * descriptor from the current frame's simulation, or null.
+   * Round events during rollback re-simulation are intentionally discarded.
    * @param {object} rawLocalInput - { left, right, up, down, lp, hp, lk, hk, sp }
    * @param {object} scene - FightScene (for _muteEffects flag)
    * @param {import('../entities/Fighter.js').Fighter} p1
    * @param {import('../entities/Fighter.js').Fighter} p2
    * @param {import('./CombatSystem.js').CombatSystem} combat
+   * @returns {{ roundEvent: { type: 'ko'|'timeup', winnerIndex: number } | null }}
    */
   advance(rawLocalInput, scene, p1, p2, combat) {
     const encodedLocal = encodeInput(rawLocalInput);
@@ -148,10 +152,10 @@ export class RollbackManager {
     // 7. Save snapshot for currentFrame (before simulating)
     this.stateSnapshots.set(this.currentFrame, captureGameState(this.currentFrame, p1, p2, combat));
 
-    // 8. Simulate currentFrame
+    // 8. Simulate currentFrame — capture round event from current frame
     const p1Input = this._getInputForFrame(this.currentFrame, true);
     const p2Input = this._getInputForFrame(this.currentFrame, false);
-    simulateFrame(p1, p2, combat, p1Input, p2Input);
+    const roundEvent = simulateFrame(p1, p2, combat, p1Input, p2Input);
 
     // 9. Advance frame
     this.currentFrame++;
@@ -178,6 +182,9 @@ export class RollbackManager {
     ) {
       this._recalculateInputDelay();
     }
+
+    // 13. Return deferred round event for caller to handle
+    return { roundEvent };
   }
 
   /**

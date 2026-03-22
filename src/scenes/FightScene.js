@@ -682,6 +682,11 @@ export class FightScene extends Phaser.Scene {
     this.isHost = slot === 0;
     this._muteEffects = false;
 
+    // Suppress direct round event firing inside simulation for both P1 and P2.
+    // P1 handles round events from advance() return value.
+    // P2 waits for P1's network message.
+    this.combat.suppressRoundEvents = true;
+
     // Determine which fighter is local vs remote
     this.localFighter = slot === 0 ? this.p1Fighter : this.p2Fighter;
     this.remoteFighter = slot === 0 ? this.p2Fighter : this.p1Fighter;
@@ -872,7 +877,18 @@ export class FightScene extends Phaser.Scene {
     input.consumeTouch();
 
     // Run rollback advance (handles input sending, prediction, rollback, simulation)
-    this.rollbackManager.advance(localInput, this, this.p1Fighter, this.p2Fighter, this.combat);
+    const { roundEvent } = this.rollbackManager.advance(
+      localInput,
+      this,
+      this.p1Fighter,
+      this.p2Fighter,
+      this.combat,
+    );
+
+    // P1 (host) handles round events: fire side effects + send to P2
+    if (roundEvent && this.isHost) {
+      this.combat.handleRoundEnd(roundEvent);
+    }
 
     // P1 sends periodic state snapshots for spectators
     if (this.isHost && this.frameCounter % this._syncInterval === 0) {
