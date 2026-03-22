@@ -909,8 +909,11 @@ export class FightScene extends Phaser.Scene {
   _handleLocalUpdate(time, delta) {
     // Replay mode: use recorded inputs via simulateFrame
     if (this._replayP1 && this._replayP2) {
+      // Pause replay during round transitions (KO animation, reset, round intro)
+      if (!this.combat.roundActive && !this.combat.matchOver) return;
+
       const frame = this._replayFrame;
-      if (frame > this._replayP1.totalFrames) {
+      if (frame > this._replayP1.totalFrames || this.combat.matchOver) {
         // Replay finished — signal completion
         if (!this._replayFinished) {
           this._replayFinished = true;
