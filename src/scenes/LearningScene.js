@@ -176,7 +176,7 @@ export class LearningScene extends Phaser.Scene {
   // Cards to load
   _buildCardsForActiveTab() {
     if (this.activeTab === 'basico') {
-      let cardsToShow = [...BASICO_CARDS];
+      const cardsToShow = [...BASICO_CARDS];
 
       if (this.isMobile) {
         cardsToShow.unshift(CONTROLES_MOVIL);
@@ -250,7 +250,6 @@ export class LearningScene extends Phaser.Scene {
     });
 
     this.tabObjects.push(bBg, bText, aBg, aText);
-
   }
 
   _buildCards(cards) {
