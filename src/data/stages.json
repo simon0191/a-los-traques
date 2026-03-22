@@ -1,37 +1,34 @@
 [
   {
-    "id": "dojo",
-    "name": "El Dojo",
-    "bgColor": "#2d1b4e",
-    "groundColor": "#4a3728",
-    "description": "Traditional dojo with wooden floor and paper walls"
-  },
-  {
-    "id": "street",
-    "name": "La Calle",
-    "bgColor": "#1a2a3a",
-    "groundColor": "#3a3a3a",
-    "description": "Night street with neon signs and rain"
-  },
-  {
-    "id": "temple",
-    "name": "El Templo",
-    "bgColor": "#2a1a1a",
-    "groundColor": "#5a4a3a",
-    "description": "Ancient temple with fire braziers"
-  },
-  {
     "id": "beach",
-    "name": "La Playa",
+    "name": "Pareo y Bogatell",
     "bgColor": "#1a3a5a",
     "groundColor": "#c4a84a",
-    "description": "Sunset beach with waves and palm trees"
+    "description": "Sunset beach with waves and palm trees",
+    "texture": "stages_beach"
   },
   {
-    "id": "rooftop",
-    "name": "La Azotea",
-    "bgColor": "#0a0a2a",
-    "groundColor": "#4a4a4a",
-    "description": "City rooftop at night with skyline"
+    "id": "jekos_house",
+    "name": "Casa de los Jekos",
+    "bgColor": "#4a4a4a",
+    "groundColor": "#3a3a3a",
+    "description": "The cozy, yet dangerous, home of Jekos",
+    "texture": "stages_jekos_house"
+  },
+  {
+    "id": "metro",
+    "name": "El Metro",
+    "bgColor": "#2a2a3a",
+    "groundColor": "#1a1a2a",
+    "description": "Propera parada: La muerte!",
+    "texture": "stages_metro"
+  },
+  {
+    "id": "input",
+    "name": "Input",
+    "bgColor": "#000000",
+    "groundColor": "#101010",
+    "description": "Epaaa hpta",
+    "texture": "stages_input"
   }
 ]

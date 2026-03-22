@@ -14,6 +14,12 @@ export class PreFightScene extends Phaser.Scene {
     this.stageId = data.stageId;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
+
+    // If no stage is provided, pick one randomly
+    if (!this.stageId) {
+      const randomIndex = Phaser.Math.Between(0, stagesData.length - 1);
+      this.stageId = stagesData[randomIndex].id;
+    }
   }
 
   create() {
@@ -26,7 +32,7 @@ export class PreFightScene extends Phaser.Scene {
 
     const p1 = fightersData.find((f) => f.id === this.p1Id);
     const p2 = fightersData.find((f) => f.id === this.p2Id);
-    const stage = stagesData.find((s) => s.id === this.stageId);
+    const selectedStage = stagesData.find((s) => s.id === this.stageId);
 
     this.transitioning = false;
 
@@ -50,6 +56,79 @@ export class PreFightScene extends Phaser.Scene {
 
     // Center divider line
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 3, GAME_HEIGHT, 0xffffff, 0.3);
+
+    // --- Stage Selection Box (Animated) ---
+    const boxW = 140;
+    const boxH = 80;
+    const boxX = GAME_WIDTH / 2;
+    const boxY = GAME_HEIGHT / 2 + 30;
+
+    // Box background/border
+    this.add.rectangle(boxX, boxY, boxW + 4, boxH + 4, 0xffffff, 0.3);
+    this.add.rectangle(boxX, boxY, boxW, boxH, 0x000000);
+
+    // Stage preview image inside the box
+    this.stagePreview = this.add.image(boxX, boxY, stagesData[0].texture);
+    this.stagePreview.setDisplaySize(boxW, boxH);
+
+    // Stage info text (Name + Description)
+    this.stageNameText = this.add
+      .text(boxX, boxY + boxH / 2 + 12, '', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '11px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+
+    // Stage description at the bottom
+    this.stageDescBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 10, GAME_WIDTH, 20, 0x000000, 0.6);
+    this.stageDescText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 10, '', {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#ffffff',
+        fontStyle: 'italic',
+      })
+      .setOrigin(0.5);
+
+    // Animation logic
+    let currentIdx = 0;
+    const animDuration = 2000; // 2 seconds total
+    const startInterval = 60; // Start fast
+    let currentInterval = startInterval;
+
+    const cycleStage = () => {
+      currentIdx = (currentIdx + 1) % stagesData.length;
+      const stage = stagesData[currentIdx];
+      this.stagePreview.setTexture(stage.texture);
+      this.stagePreview.setDisplaySize(boxW, boxH);
+      this.stageNameText.setText(stage.name.toUpperCase());
+      this.stageDescText.setText(stage.description);
+    };
+
+    // Run the fast cycling
+    const cycleTimer = this.time.addEvent({
+      delay: currentInterval,
+      callback: cycleStage,
+      loop: true,
+    });
+
+    // Slow down and settle on the final selected stage
+    this.time.delayedCall(animDuration - 400, () => {
+      cycleTimer.remove();
+      // Final selection
+      this.stagePreview.setTexture(selectedStage.texture);
+      this.stagePreview.setDisplaySize(boxW, boxH);
+      this.stageNameText.setText(selectedStage.name.toUpperCase()).setColor('#ffcc00');
+      this.stageDescText.setText(selectedStage.description);
+
+      // Flash effect on settle
+      this.tweens.add({
+        targets: this.stagePreview,
+        alpha: { from: 0.5, to: 1 },
+        duration: 200,
+      });
+    });
 
     // P1 portrait (left side)
     if (this.textures.exists(`portrait_${this.p1Id}`)) {
@@ -162,18 +241,8 @@ export class PreFightScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Stage name at bottom
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 10, GAME_WIDTH, 20, 0x000000, 0.6);
-    this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 10, stage ? stage.name : 'Arena', {
-        fontFamily: 'Arial',
-        fontSize: '10px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    // Auto-transition after 3 seconds
-    this.autoTimer = this.time.delayedCall(3000, () => {
+    // Auto-transition after 4 seconds (longer to allow for stage animation)
+    this.autoTimer = this.time.delayedCall(4000, () => {
       this.goToFight();
     });
 
