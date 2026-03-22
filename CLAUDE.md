@@ -131,3 +131,9 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - Spectators receive P1 sync snapshots (same as old model, no rollback)
 - URL join: `?room=XXXX` skips title, goes directly to LobbyScene
 - `bun run party:dev` for local dev, `bun run party:deploy` to deploy
+
+## CRITICAL: Keep this file updated
+
+You are co-owner of this project. Treat this codebase like your own — update CLAUDE.md on the fly as
+architecture evolves, decisions are made, or conventions are established. This file is your memory —
+if it's wrong or stale, you'll make wrong decisions next session.
