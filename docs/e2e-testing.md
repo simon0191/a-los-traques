@@ -190,22 +190,42 @@ Key fields to check:
 - **`inputs`** — compare input sequences around the divergence frame
 - **`rollbackCount`** / **`maxRollbackFrames`** — high values indicate prediction mismatches
 
-The test report also prints a summary to console:
+On failure, the test generates two artifacts in `test-results/`:
+- **`*-report.md`** — formatted markdown report (also posted as PR comment in CI)
+- **`*-bundle.json`** — reproducibility bundle with everything needed to replay the fight
 
+## Reproducibility Bundle
+
+A single JSON file containing match config, both players' input logs, checksums, round events, and final state. Generated automatically on every E2E test run.
+
+Use it to replay a fight in the browser:
+
+```bash
+# 1. Open browser console, paste the bundle:
+window.__REPLAY_BUNDLE = <paste bundle JSON>
+
+# 2. Navigate to replay mode:
+http://localhost:5173/?replay=1         # Normal speed
+http://localhost:5173/?replay=1&speed=5 # Fast-forward
 ```
---- Multiplayer Determinism Report ---
-Room: ABCD
-P1: simon vs P2: jeka
-Total frames: P1=3600, P2=3600
-Rollbacks: P1=12, P2=8
-Max rollback depth: P1=3, P2=4
-Desyncs: P1=0, P2=0
-Shared checksums: 120, mismatches: 0
-Final state hash: P1=-1580074796, P2=-1580074796
-Result: winner=simon
-Duration: P1=62000ms, P2=62000ms
---------------------------------------
+
+Or from Playwright:
+```js
+await page.evaluate((b) => { window.__REPLAY_BUNDLE = b; }, bundle);
+await page.goto('http://localhost:5173/?replay=1&speed=5');
 ```
+
+### Headless Replay
+
+The bundle can also be replayed without a browser via the replay engine (`tests/helpers/replay-engine.js`):
+
+```js
+import { replayFromBundle } from './tests/helpers/replay-engine.js';
+const result = replayFromBundle(bundle);
+// result.finalStateHash, result.roundEvents, result.totalFrames
+```
+
+A Vitest test (`tests/systems/replay.test.js`) validates the replay engine against a known-good fixture.
 
 ## Future Enhancements
 
@@ -224,6 +244,6 @@ Add a TCP proxy (e.g., Toxiproxy) between browsers and servers to simulate:
 - Packet loss and burst loss
 - Mid-fight disconnection and reconnection
 
-### Fight Replay
+### Fight Replay Viewer
 
-The recorded `inputs` array contains enough data to replay a fight frame-by-frame. A future replay viewer could load two fight logs and step through them side-by-side, highlighting divergence points.
+A dedicated replay UI that loads a bundle and lets you step through the fight frame-by-frame, showing both players' states side-by-side with divergence highlights.
