@@ -23,21 +23,30 @@ export async function extractFightLog(page) {
 /**
  * Build the autoplay URL for P1 (room creator).
  */
-export function p1Url(baseUrl, { fighter, seed, aiDifficulty } = {}) {
+/** Default speed multiplier for E2E tests (2x overclock) */
+export const DEFAULT_SPEED = 2;
+
+export function p1Url(baseUrl, { fighter, seed, aiDifficulty, speed = DEFAULT_SPEED } = {}) {
   const params = new URLSearchParams({ autoplay: '1', createRoom: '1' });
   if (fighter) params.set('fighter', fighter);
   if (seed != null) params.set('seed', String(seed));
   if (aiDifficulty) params.set('aiDifficulty', aiDifficulty);
+  if (speed > 1) params.set('speed', String(speed));
   return `${baseUrl}?${params}`;
 }
 
 /**
  * Build the autoplay URL for P2 (room joiner).
  */
-export function p2Url(baseUrl, roomId, { fighter, seed, aiDifficulty } = {}) {
+export function p2Url(
+  baseUrl,
+  roomId,
+  { fighter, seed, aiDifficulty, speed = DEFAULT_SPEED } = {},
+) {
   const params = new URLSearchParams({ autoplay: '1', room: roomId });
   if (fighter) params.set('fighter', fighter);
   if (seed != null) params.set('seed', String(seed));
   if (aiDifficulty) params.set('aiDifficulty', aiDifficulty);
+  if (speed > 1) params.set('speed', String(speed));
   return `${baseUrl}?${params}`;
 }

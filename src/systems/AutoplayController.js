@@ -8,6 +8,7 @@
  *   ?room=XXXX         — join existing room (P2, already handled by BootScene)
  *   ?aiDifficulty=medium — AI difficulty (default: medium)
  *   ?seed=12345        — deterministic PRNG seed for reproducible AI decisions
+ *   ?speed=10          — overclock: run N simulation steps per visual frame (default: 1)
  */
 export class AutoplayController {
   constructor() {
@@ -17,5 +18,6 @@ export class AutoplayController {
     this.createRoom = params.get('createRoom') === '1';
     this.aiDifficulty = params.get('aiDifficulty') || 'medium';
     this.seed = params.has('seed') ? parseInt(params.get('seed'), 10) : null;
+    this.speed = Math.max(1, parseInt(params.get('speed'), 10) || 1);
   }
 }

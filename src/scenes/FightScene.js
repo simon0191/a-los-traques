@@ -218,10 +218,13 @@ export class FightScene extends Phaser.Scene {
 
     // Fixed-timestep accumulator: gate simulation to exactly 60fps
     const FIXED_DELTA = 1000 / 60; // 16.667ms
-    this._simAccumulator += delta;
+    // Overclock: in autoplay mode, inject extra time to run more sim steps per frame
+    const speed = this.game.autoplay?.speed || 1;
+    this._simAccumulator += delta * speed;
     // Cap to prevent spiral of death (e.g. tab was backgrounded)
-    if (this._simAccumulator > FIXED_DELTA * 4) {
-      this._simAccumulator = FIXED_DELTA * 4;
+    const maxSteps = Math.max(4, speed);
+    if (this._simAccumulator > FIXED_DELTA * maxSteps) {
+      this._simAccumulator = FIXED_DELTA * maxSteps;
     }
 
     while (this._simAccumulator >= FIXED_DELTA) {
@@ -692,11 +695,17 @@ export class FightScene extends Phaser.Scene {
     this.localFighter = slot === 0 ? this.p1Fighter : this.p2Fighter;
     this.remoteFighter = slot === 0 ? this.p2Fighter : this.p1Fighter;
 
-    // Create RollbackManager
+    // Create RollbackManager — scale rollback window with overclock speed so the
+    // system has room to absorb the increased frame production rate.
+    const speed = this.game.autoplay?.speed || 1;
     this.rollbackManager = new RollbackManager(nm, slot, {
-      inputDelay: ONLINE_INPUT_DELAY,
-      maxRollbackFrames: 7,
+      inputDelay: ONLINE_INPUT_DELAY * speed,
+      maxRollbackFrames: 7 * speed,
     });
+    // Disable adaptive delay when overclocked — it would clamp values back down
+    if (speed > 1) {
+      this.rollbackManager._adaptiveDelayEnabled = false;
+    }
 
     // Autoplay: use AI controller for local input instead of InputManager
     if (this.game.autoplay?.enabled) {

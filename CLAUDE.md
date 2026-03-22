@@ -116,10 +116,11 @@ bun run test:e2e          # Run E2E tests headless
 bun run test:e2e:headed   # Watch both browsers fight
 ```
 
-**Autoplay URL params**: `?autoplay=1&createRoom=1&fighter=simon&seed=42`
+**Autoplay URL params**: `?autoplay=1&createRoom=1&fighter=simon&seed=42&speed=2`
 - `AutoplayController` reads params, drives scenes without human interaction
 - `FightRecorder` captures inputs, checksums, rollbacks, desyncs to `window.__FIGHT_LOG`
 - `AIController.setSeed(n)` enables reproducible AI decisions (mulberry32 PRNG)
+- `?speed=N` overclocks simulation (N steps per visual frame, default 2x in E2E tests)
 
 ## Documentation
 

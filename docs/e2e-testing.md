@@ -75,6 +75,7 @@ Reads URL parameters and exposes config to all scenes via `window.game.autoplay`
 | `fighter` | `simon` | Select specific fighter (default: random) |
 | `aiDifficulty` | `hard` | AI difficulty: easy, medium, hard (default: medium) |
 | `seed` | `12345` | Deterministic PRNG seed for reproducible AI decisions |
+| `speed` | `2` | Overclock: run N simulation steps per visual frame (default: 1) |
 
 ### FightRecorder (`src/systems/FightRecorder.js`)
 
@@ -129,6 +130,17 @@ flowchart LR
 ```
 
 All autoplay logic is guarded by `if (this.game.autoplay?.enabled)`. No changes to normal gameplay.
+
+### Overclock (`?speed=N`)
+
+Multiplies the simulation accumulator so N frames run per visual frame instead of 1. E2E tests default to `speed=2` for ~2x faster matches.
+
+When overclocked, the rollback system automatically scales:
+- `inputDelay` multiplied by speed (more buffer for in-flight inputs)
+- `maxRollbackFrames` multiplied by speed (wider rollback window)
+- Adaptive delay recalculation disabled (would clamp values back down)
+
+Higher speeds (5x+) stress the network more and can trigger latent desync bugs more often. Use `speed=1` for the most realistic testing conditions.
 
 ## Test Structure
 
