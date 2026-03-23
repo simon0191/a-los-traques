@@ -1,6 +1,6 @@
 # RFC 0001: Networking Redesign
 
-**Status:** In Progress — Phases 1, 2A, 2B complete
+**Status:** In Progress — Phases 1, 2A, 2B, 3 complete
 **Date:** 2026-03-22
 **Author:** Architecture Team
 
@@ -556,30 +556,30 @@ The 762-line `NetworkManager` monolith was decomposed into 5 focused modules + a
 
 ---
 
-### Phase 3: Integration + Connection Quality (Depends on 2A + 2B)
+### Phase 3: Integration + Connection Quality — COMPLETE ✓
 
 **Goal:** Wire fixed simulation to new transport. Pre-match quality indicator.
 
-**Description:**
-- Replace `NetworkManager` imports with `NetworkFacade` in all scenes (FightScene, LobbyScene, SelectScene, PreFightScene, VictoryScene)
-- Wire `ConnectionMonitor.assessQuality()` during character select
-- Show connection quality indicator in SelectScene UI:
-  - Green dot: P2P direct (`host`/`srflx`), RTT < 80ms — "Buena conexion"
-  - Yellow dot: TURN relay or RTT 80-150ms — "Conexion aceptable"
-  - Red dot: WebSocket fallback or RTT > 150ms — "Conexion lenta"
-- Players can always proceed regardless of quality (friends game, not ranked)
-- Exchange `connection_quality` message via server so both peers see the indicator
+**What was done:**
+- Swapped `NetworkManager` imports to `NetworkFacade` in `LobbyScene` and `SpectatorLobbyScene` (the two construction sites). All other scenes receive the network manager via scene data, so the swap is transparent.
+- `FightScene._setupOnlineMode()` updated to use `onSocketClose(cb)`/`onSocketOpen(cb)` methods instead of direct `_onSocketClose`/`_onSocketOpen` assignment
+- `RollbackManager` JSDoc updated to reference `NetworkFacade`
+- TURN credentials automatically fetched on `opponent_joined` (async, before WebRTC init). Credentials cached for reconnection.
+- Connection quality indicator in `SelectScene`: shows "P2P" (green) when WebRTC DataChannel is open, "Relay" (yellow) when only WebSocket, or "..." (red) when disconnected. Updates every 2 seconds.
+- Added `_webrtcReady` compat getter on `NetworkFacade` for FightScene HUD
+
+**Deferred to future work:**
+- `ConnectionMonitor.assessQuality()` pre-match probing (10-ping RTT distribution) — useful but not blocking; the simpler transport indicator covers the main use case
+- `connection_quality` server message type — both peers can assess independently
+- `NetworkManager.js` and `WebRTCTransport.js` not deleted yet — can be removed once integration is verified on real devices
 
 **Deliverables:**
-- Updated scene imports (FightScene, LobbyScene, SelectScene, etc.)
-- Connection quality UI in SelectScene
-- New `connection_quality` message type in `party/server.js`
-- End-to-end test: two headless simulations through `NetworkFacade`
-
-**Risks:**
-- UI changes in SelectScene may conflict with ongoing work. Mitigate: quality indicator is a small overlay, minimal scene changes.
-
-**Estimated effort:** 2 days
+- Modified `src/scenes/LobbyScene.js` — import swap to NetworkFacade
+- Modified `src/scenes/SpectatorLobbyScene.js` — import swap to NetworkFacade
+- Modified `src/scenes/FightScene.js` — use public socket callbacks
+- Modified `src/scenes/SelectScene.js` — connection quality indicator
+- Modified `src/systems/RollbackManager.js` — JSDoc update
+- Modified `src/systems/net/NetworkFacade.js` — `_webrtcReady` getter, TURN fetch on opponent_joined
 
 ---
 
@@ -644,7 +644,7 @@ flowchart TB
     P1[Phase 1<br/>Fix Simulation Determinism<br/>COMPLETE ✓]
     P2A[Phase 2A<br/>E2E Testing Framework<br/>COMPLETE ✓]
     P2B[Phase 2B<br/>Transport + TURN + Modules<br/>COMPLETE ✓]
-    P3[Phase 3<br/>Integration + Quality UI<br/>2 days]
+    P3[Phase 3<br/>Integration + Quality UI<br/>COMPLETE ✓]
     P4[Phase 4<br/>Hardened Reconnection<br/>2 days]
     P5[Phase 5<br/>Binary Protocol<br/>0.5 days]
 
@@ -658,13 +658,14 @@ flowchart TB
     style P1 fill:#c8e6c9
     style P2A fill:#c8e6c9
     style P2B fill:#c8e6c9
-    style P3 fill:#e1f5fe
+    style P3 fill:#c8e6c9
+    style P4 fill:#e1f5fe
     style P5 fill:#fff3e0
 ```
 
-**Completed** (green): Phases 1, 2A, 2B. **Next** (blue): Phase 3. Phase 5 is optional (orange).
+**Completed** (green): Phases 1, 2A, 2B, 3. **Next** (blue): Phase 4. Phase 5 is optional (orange).
 
-**Remaining estimated effort:** 4-4.5 days (Phases 3 through 5).
+**Remaining estimated effort:** 2-2.5 days (Phases 4 and 5).
 
 ---
 

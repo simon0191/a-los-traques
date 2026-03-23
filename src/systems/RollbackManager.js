@@ -21,7 +21,7 @@ const ADAPTIVE_DELAY_INTERVAL = 180;
 
 export class RollbackManager {
   /**
-   * @param {import('./NetworkManager.js').NetworkManager} networkManager
+   * @param {import('./net/NetworkFacade.js').NetworkFacade} networkManager
    * @param {number} localSlot - 0 for P1, 1 for P2
    * @param {{ inputDelay?: number, maxRollbackFrames?: number }} [options]
    */

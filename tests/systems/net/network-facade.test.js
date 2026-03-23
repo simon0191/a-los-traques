@@ -79,6 +79,17 @@ function emitMsg(nf, msg) {
   nf.signaling.socket._emit('message', { data: JSON.stringify(msg) });
 }
 
+/** Emit opponent_joined and wait for async TURN fetch + WebRTC init */
+async function emitOpponentJoined(nf) {
+  emitMsg(nf, { type: 'opponent_joined' });
+  // _fetchTurnThenInitWebRTC is async — flush the microtask queue
+  await vi.waitFor(() => {
+    if (nf.transport._webrtc === null && !nf.signaling.isSpectator) {
+      throw new Error('WebRTC not yet initialized');
+    }
+  });
+}
+
 describe('NetworkFacade', () => {
   describe('API surface matches NetworkManager', () => {
     it('has all callback registration methods', () => {
@@ -350,22 +361,22 @@ describe('NetworkFacade', () => {
   });
 
   describe('WebRTC integration', () => {
-    it('inits WebRTC on opponent_joined', () => {
+    it('inits WebRTC on opponent_joined', async () => {
       globalThis.RTCPeerConnection = class {};
       const nf = makeFacade();
 
       emitMsg(nf, { type: 'assign', player: 0 });
-      emitMsg(nf, { type: 'opponent_joined' });
+      await emitOpponentJoined(nf);
 
       expect(nf.transport._webrtc).not.toBeNull();
     });
 
-    it('re-inits WebRTC on opponent_reconnected', () => {
+    it('re-inits WebRTC on opponent_reconnected', async () => {
       globalThis.RTCPeerConnection = class {};
       const nf = makeFacade();
 
       emitMsg(nf, { type: 'assign', player: 0 });
-      emitMsg(nf, { type: 'opponent_joined' });
+      await emitOpponentJoined(nf);
       const first = nf.transport._webrtc;
 
       emitMsg(nf, { type: 'opponent_reconnected' });
@@ -383,14 +394,14 @@ describe('NetworkFacade', () => {
       expect(nf.transport._webrtc).toBeNull();
     });
 
-    it('sends inputs via WebRTC when available, plus WS spectator relay', () => {
+    it('sends inputs via WebRTC when available, plus WS spectator relay', async () => {
       globalThis.RTCPeerConnection = class {};
       const nf = makeFacade();
       nf.signaling.connected = true;
       const wsSpy = vi.spyOn(nf.signaling.socket, 'send');
 
       emitMsg(nf, { type: 'assign', player: 0 });
-      emitMsg(nf, { type: 'opponent_joined' });
+      await emitOpponentJoined(nf);
       nf.transport._webrtc._simulateOpen();
 
       nf.sendInput(5, { left: true });
@@ -403,14 +414,14 @@ describe('NetworkFacade', () => {
       expect(spectatorMsg.spectatorOnly).toBe(true);
     });
 
-    it('receives P2P inputs via DataChannel', () => {
+    it('receives P2P inputs via DataChannel', async () => {
       globalThis.RTCPeerConnection = class {};
       const nf = makeFacade();
       const received = [];
       nf.onRemoteInput((frame, state) => received.push({ frame, state }));
 
       emitMsg(nf, { type: 'assign', player: 0 });
-      emitMsg(nf, { type: 'opponent_joined' });
+      await emitOpponentJoined(nf);
       nf.transport._webrtc._simulateOpen();
       nf.transport._webrtc._simulateMessage(
         JSON.stringify({
@@ -456,7 +467,7 @@ describe('NetworkFacade', () => {
   });
 
   describe('resetForReselect', () => {
-    it('clears input buffers and scene-specific callbacks', () => {
+    it('clears input buffers and scene-specific callbacks', async () => {
       globalThis.RTCPeerConnection = class {};
       const nf = makeFacade();
 
@@ -465,7 +476,7 @@ describe('NetworkFacade', () => {
       nf.onLeave(() => {});
 
       emitMsg(nf, { type: 'assign', player: 0 });
-      emitMsg(nf, { type: 'opponent_joined' });
+      await emitOpponentJoined(nf);
       nf.transport._webrtc._simulateOpen();
 
       nf.resetForReselect();

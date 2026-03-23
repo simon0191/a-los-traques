@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
-import { NetworkManager } from '../systems/NetworkManager.js';
+import { NetworkFacade as NetworkManager } from '../systems/net/NetworkFacade.js';
 
 function getPartyHost() {
   const params = new URLSearchParams(window.location.search);

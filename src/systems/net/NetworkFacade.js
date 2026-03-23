@@ -45,14 +45,18 @@ export class NetworkFacade {
       this.monitor.start();
     });
 
-    // Wire opponent_joined/reconnected → WebRTC init
+    // Store host for TURN credential fetching
+    this._host = host;
+
+    // Wire opponent_joined → fetch TURN credentials, then init WebRTC
     this.signaling.on('opponent_joined', (msg) => {
       if (!this.signaling.isSpectator) {
-        this.transport.initWebRTC(this.signaling.playerSlot);
+        this._fetchTurnThenInitWebRTC();
       }
       if (this._onOpponentJoined) this._onOpponentJoined(msg);
     });
 
+    // Wire opponent_reconnected → re-init WebRTC (credentials already cached)
     this.signaling.on('opponent_reconnected', (msg) => {
       if (!this.signaling.isSpectator) {
         this.transport.initWebRTC(this.signaling.playerSlot);
@@ -157,6 +161,10 @@ export class NetworkFacade {
   }
   get lastRemoteInputP2() {
     return this.inputSync.lastRemoteInputP2;
+  }
+  /** Compat: FightScene reads this for HUD transport indicator */
+  get _webrtcReady() {
+    return this.transport.isWebRTCReady();
   }
 
   // --- Public API: register callbacks ---
@@ -335,14 +343,17 @@ export class NetworkFacade {
   }
 
   /**
-   * Fetch TURN credentials from the server.
-   * Call this before WebRTC negotiation for NAT traversal.
+   * Fetch TURN credentials then init WebRTC.
+   * Called on opponent_joined. Non-blocking: WebRTC init proceeds
+   * even if TURN fetch fails (falls back to STUN-only).
    */
-  async fetchTurnCredentials() {
-    const host = this.signaling.socket?.url
-      ? new URL(this.signaling.socket.url).host
-      : `${this.signaling.roomId}`;
-    await this.transport.fetchTurnCredentials(host, this.roomId);
+  async _fetchTurnThenInitWebRTC() {
+    try {
+      await this.transport.fetchTurnCredentials(this._host, this.roomId);
+    } catch (_) {
+      // Non-fatal: proceed with STUN-only
+    }
+    this.transport.initWebRTC(this.signaling.playerSlot);
   }
 
   destroy() {
