@@ -28,23 +28,18 @@ jobs:
       - name: Comment failure summary on PR
         if: failure() && github.event_name == 'pull_request'
         run: |
-          REPORT=$(find test-results -name '*-report.md' -print -quit 2>/dev/null)
-          if [ -n "$REPORT" ]; then
-            # Extract key info from report for a short summary
-            FIGHTERS=$(grep -A1 'P1 Fighter' "$REPORT" | tail -1 | sed 's/.*| //' | sed 's/ |//')
-            P1=$(grep 'P1 Fighter' "$REPORT" | sed 's/.*| //' | sed 's/ |//')
-            P2=$(grep 'P2 Fighter' "$REPORT" | sed 's/.*| //' | sed 's/ |//')
-            VERDICT=$(grep -A2 '### Determinism' "$REPORT" | tail -1)
-            DESYNCS_P1=$(grep 'Desyncs' "$REPORT" | sed 's/.*| //' | awk -F'|' '{print $1}' | xargs)
-            DESYNCS_P2=$(grep 'Desyncs' "$REPORT" | sed 's/.*| //' | awk -F'|' '{print $2}' | xargs)
+          SUMMARY="test-results/ci-summary.md"
+          if [ -f "$SUMMARY" ]; then
             RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            gh pr comment ${{ github.event.pull_request.number }} --body "$(cat <<EOF
-          :x: **E2E multiplayer test failed** — ${P1} vs ${P2}
-          ${VERDICT}
-          Desyncs: P1=${DESYNCS_P1}, P2=${DESYNCS_P2}
-          [Full report & replay bundle](${RUN_URL}#artifacts) (download \`e2e-test-results\` artifact)
+            BODY=$(cat <<EOF
+          **E2E multiplayer tests failed**
+
+          $(cat "$SUMMARY")
+
+          [Download full report & replay bundle](${RUN_URL}#artifacts)
           EOF
-          )"
+          )
+            gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

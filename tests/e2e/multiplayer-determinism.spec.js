@@ -62,17 +62,19 @@ async function runMatchAndReport(browser, testInfo, { p1Opts, p2Opts, testName }
       fs.writeFileSync(reportPath, report);
       fs.writeFileSync(bundlePath, JSON.stringify(bundle, null, 2));
 
+      // Append to CI summary file (aggregates all tests)
+      const hashMatch = logP1.finalStateHash === logP2.finalStateHash;
+      const icon = hashMatch && logP1.desyncCount === 0 && logP2.desyncCount === 0 ? ':white_check_mark:' : ':x:';
+      const summaryLine = `${icon} **${testName}** — ${logP1.fighterId} vs ${logP2.fighterId} | ` +
+        `hash: ${hashMatch ? 'match' : 'MISMATCH'} | ` +
+        `desyncs: ${logP1.desyncCount + logP2.desyncCount} | ` +
+        `winner: ${logP1.result?.winnerId || logP2.result?.winnerId || '?'}`;
+      const summaryPath = path.join(RESULTS_DIR, 'ci-summary.md');
+      fs.appendFileSync(summaryPath, summaryLine + '\n');
+
       // Attach to Playwright test results
       await testInfo.attach('report', { path: reportPath, contentType: 'text/markdown' });
       await testInfo.attach('bundle', { path: bundlePath, contentType: 'application/json' });
-
-      // Print summary to console
-      const hashMatch = logP1.finalStateHash === logP2.finalStateHash;
-      console.log(
-        `${hashMatch ? 'PASS' : 'FAIL'}: ${logP1.fighterId} vs ${logP2.fighterId}, ` +
-          `winner=${logP1.result?.winnerId || logP2.result?.winnerId}, ` +
-          `frames=${logP1.totalFrames}, desyncs=${logP1.desyncCount + logP2.desyncCount}`,
-      );
     }
 
     await ctx1.close();
