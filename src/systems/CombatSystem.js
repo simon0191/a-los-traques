@@ -218,6 +218,12 @@ export class CombatSystem {
    * return values instead of firing directly inside the simulation.
    * @param {{ type: 'ko'|'timeup', winnerIndex: number }} roundEvent
    */
+  /**
+   * Handle round-ending side effects (audio, camera, UI).
+   * In online mode, simulation state (roundsWon, roundNumber, matchOver)
+   * is already updated by simulateFrame() — this only fires effects and
+   * triggers scene callbacks.
+   */
   handleRoundEnd(roundEvent) {
     this.stopRound();
     if (roundEvent.type === 'ko') {
@@ -230,7 +236,12 @@ export class CombatSystem {
       this.scene.game.audioManager.play('announce_timeup');
       this._lastEndReason = 'timeup';
     }
-    this.roundWin(roundEvent.winnerIndex);
+    // Scene callbacks (UI transitions, fighter reset, match-over flow)
+    if (this.matchOver) {
+      this.scene.onMatchOver(roundEvent.winnerIndex);
+    } else {
+      this.scene.onRoundOver(roundEvent.winnerIndex);
+    }
   }
 
   roundWin(playerIndex) {

@@ -4,6 +4,7 @@
  * Frame-based — no delta time needed.
  */
 
+import { ROUNDS_TO_WIN } from '../config.js';
 import { FP_SCALE } from './FixedPoint.js';
 import { decodeInput } from './InputBuffer.js';
 
@@ -99,15 +100,22 @@ export function simulateFrame(
     };
   }
 
-  // Stop combat and freeze fighters on the frame that detects a round event.
-  // Both peers must stop at the same simulation frame, regardless of
-  // when the network round-event message arrives at P2.
-  // Without this, P1's handleRoundEnd() calls fighter.stop() between frames
-  // (modifying simVX/state), while P2 doesn't until the network message arrives.
+  // Stop combat and update all round state on the frame that detects a round event.
+  // Both peers must reach identical state at the same simulation frame, regardless
+  // of when the network round-event message arrives at P2.
+  // handleRoundEnd() still fires for audio/visual effects, but all simulation
+  // state changes (roundActive, roundsWon, roundNumber, velocities) happen here.
   if (roundEvent) {
     combat.roundActive = false;
     p1Fighter.simVX = 0;
     p2Fighter.simVX = 0;
+    // Update round score inside simulation so both peers agree at the same frame
+    if (roundEvent.winnerIndex === 0) combat.p1RoundsWon++;
+    else combat.p2RoundsWon++;
+    combat.roundNumber++;
+    if (combat.p1RoundsWon >= ROUNDS_TO_WIN || combat.p2RoundsWon >= ROUNDS_TO_WIN) {
+      combat.matchOver = true;
+    }
   }
 
   // 7. Sync sprites (rendering only)
