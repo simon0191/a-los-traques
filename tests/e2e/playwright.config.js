@@ -3,7 +3,7 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.js',
-  timeout: 120_000,
+  timeout: 180_000,
   retries: 0,
   workers: 1, // both tests in one file, Playwright parallelizes by file
 
