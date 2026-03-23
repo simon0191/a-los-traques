@@ -257,7 +257,7 @@ export default class FightRoom {
         // If both ready, send start
         if (this.players[0]?.ready && this.players[1]?.ready) {
           this.roomState = 'fighting';
-          const stageIds = ['dojo', 'rooftop', 'beach', 'arcade', 'park'];
+          const stageIds = ['beach', 'jekos_house', 'metro', 'input'];
           const stageId = stageIds[Math.floor(Math.random() * stageIds.length)];
           this.fightInfo = {
             p1Id: this.players[0].fighterId,

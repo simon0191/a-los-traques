@@ -136,7 +136,7 @@ describe('FightRoom', () => {
       expect(startMsg).toBeDefined();
       expect(startMsg.p1Id).toBe('simon');
       expect(startMsg.p2Id).toBe('jeka');
-      expect(['dojo', 'rooftop', 'beach', 'arcade', 'park']).toContain(startMsg.stageId);
+      expect(['beach', 'jekos_house', 'metro', 'input']).toContain(startMsg.stageId);
     });
   });
 
