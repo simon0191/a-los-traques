@@ -200,6 +200,11 @@ export class FightScene extends Phaser.Scene {
       console.log(
         `[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`,
       );
+    } else if (this.gameMode === 'online') {
+      // Online mode: start round immediately for determinism.
+      // The simulation must not depend on wall-clock Phaser timers.
+      this.combat.startRound();
+      this._showRoundIntroVisual();
     } else {
       this._showRoundIntro();
     }
@@ -1670,6 +1675,39 @@ export class FightScene extends Phaser.Scene {
   // =========================================================================
   // ROUND FLOW
   // =========================================================================
+  /** Visual-only round intro for online mode — doesn't touch roundActive or startRound. */
+  _showRoundIntroVisual() {
+    this.centerText.setText(`ROUND ${this.combat.roundNumber}`);
+    this.subtitleText.setText('');
+    this.game.audioManager.play('announce_round');
+    this.centerText.setScale(2.5).setAlpha(0);
+    this.tweens.add({
+      targets: this.centerText,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 400,
+      ease: 'Back.easeOut',
+    });
+    this.time.delayedCall(1500, () => {
+      this.centerText.setText('A PELEAR!');
+      this.game.audioManager.play('announce_fight');
+      this.centerText.setScale(2).setAlpha(0);
+      this.tweens.add({
+        targets: this.centerText,
+        scaleX: 1,
+        scaleY: 1,
+        alpha: 1,
+        duration: 300,
+        ease: 'Back.easeOut',
+      });
+      this.time.delayedCall(800, () => {
+        this.centerText.setText('');
+        this.subtitleText.setText('');
+      });
+    });
+  }
+
   _showRoundIntro() {
     this.combat.roundActive = false;
 
