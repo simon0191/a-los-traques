@@ -178,7 +178,16 @@ export class FightScene extends Phaser.Scene {
     this._simAccumulator = 0;
 
     // -- Start first round intro --
-    this._showRoundIntro();
+    if (this._replayP1) {
+      // Replay mode: skip intro animation, start round immediately with frame-based timer
+      // (no time.addEvent timer — simulateFrame's tickTimer handles it)
+      this.combat.timer = 60;
+      this.combat._timerAccumulator = 0;
+      this.combat.roundActive = true;
+      console.log(`[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`);
+    } else {
+      this._showRoundIntro();
+    }
   }
 
   // =========================================================================
@@ -920,11 +929,15 @@ export class FightScene extends Phaser.Scene {
         this._replayRoundCooldown--;
         this._replayFrame++;
         if (this._replayRoundCooldown === 0) {
+          console.log(`[REPLAY] Round transition complete at frame ${this._replayFrame}, starting round ${this.combat.roundNumber}`);
           // Reset fighters and start next round
           this.p1Fighter.reset(GAME_WIDTH * 0.3);
           this.p2Fighter.reset(GAME_WIDTH * 0.7);
           this._updateHUD();
-          this.combat.startRound();
+          // Start round without the time-based timer (replay uses frame-based tickTimer inside simulateFrame)
+          this.combat.timer = 60;
+          this.combat._timerAccumulator = 0;
+          this.combat.roundActive = true;
           this.centerText.setText('');
           this.subtitleText.setText('');
         }
@@ -935,6 +948,7 @@ export class FightScene extends Phaser.Scene {
       const totalFrames = Math.max(this._replayP1.totalFrames, this._replayP2.totalFrames);
       if (frame > totalFrames || this.combat.matchOver) {
         if (!this._replayFinished) {
+          console.log(`[REPLAY] Finished at frame ${frame}, matchOver=${this.combat.matchOver}`);
           this._replayFinished = true;
           if (window.__FIGHT_LOG) window.__FIGHT_LOG.matchComplete = true;
         }
@@ -944,15 +958,17 @@ export class FightScene extends Phaser.Scene {
       const p2Input = this._replayP2.getEncoded(frame);
       const roundEvent = simFrame(this.p1Fighter, this.p2Fighter, this.combat, p1Input, p2Input);
       if (roundEvent) {
+        console.log(`[REPLAY] Round event at frame ${frame}: ${roundEvent.type}, winner=P${roundEvent.winnerIndex + 1}`);
         // Handle round end with frame-based transition (not time-based)
-        // This keeps replay in sync regardless of speed multiplier
         this.combat.stopRound();
         if (roundEvent.winnerIndex === 0) this.combat.p1RoundsWon++;
         else this.combat.p2RoundsWon++;
 
         const winnerName = roundEvent.winnerIndex === 0 ? this.p1Data.name : this.p2Data.name;
+        console.log(`[REPLAY] Score: P1=${this.combat.p1RoundsWon}, P2=${this.combat.p2RoundsWon} (need ${ROUNDS_TO_WIN})`);
 
         if (this.combat.p1RoundsWon >= ROUNDS_TO_WIN || this.combat.p2RoundsWon >= ROUNDS_TO_WIN) {
+          console.log(`[REPLAY] Match over!`);
           this.combat.matchOver = true;
           this.onMatchOver(roundEvent.winnerIndex);
         } else {
@@ -963,7 +979,11 @@ export class FightScene extends Phaser.Scene {
           this._replayRoundCooldown = 180; // 3 seconds at 60fps
           this.p1Fighter.stop();
           this.p2Fighter.stop();
+          console.log(`[REPLAY] Starting 180-frame cooldown for round ${this.combat.roundNumber}`);
         }
+      }
+      if (frame % 300 === 0) {
+        console.log(`[REPLAY] frame=${frame}/${totalFrames}, timer=${this.combat.timer}, roundActive=${this.combat.roundActive}, p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}`);
       }
       this._replayFrame++;
       return;
