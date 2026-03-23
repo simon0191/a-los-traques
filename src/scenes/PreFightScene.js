@@ -102,7 +102,7 @@ export class PreFightScene extends Phaser.Scene {
     let currentIdx = 0;
     const animDuration = 2000; // 2 seconds total
     const startInterval = 60; // Start fast
-    const currentInterval = startInterval;
+    let currentInterval = startInterval;
 
     const cycleStage = () => {
       currentIdx = (currentIdx + 1) % stagesData.length;
@@ -111,18 +111,29 @@ export class PreFightScene extends Phaser.Scene {
       this.stagePreview.setDisplaySize(boxW, boxH);
       this.stageNameText.setText(stage.name.toUpperCase());
       this.stageDescText.setText(stage.description);
+
+      // Decelerate: increase interval for the next call
+      currentInterval += 10;
+      this.cycleTimer.reset({
+        delay: currentInterval,
+        callback: cycleStage,
+        loop: true,
+      });
     };
 
     // Run the fast cycling
-    const cycleTimer = this.time.addEvent({
+    this.cycleTimer = this.time.addEvent({
       delay: currentInterval,
       callback: cycleStage,
       loop: true,
     });
 
     // Slow down and settle on the final selected stage
-    this.time.delayedCall(animDuration - 400, () => {
-      cycleTimer.remove();
+    this.settleTimer = this.time.delayedCall(animDuration - 400, () => {
+      if (this.cycleTimer) {
+        this.cycleTimer.remove();
+        this.cycleTimer = null;
+      }
       // Final selection
       this.stagePreview.setTexture(selectedStage.texture);
       this.stagePreview.setDisplaySize(boxW, boxH);
@@ -269,6 +280,12 @@ export class PreFightScene extends Phaser.Scene {
 
     if (this.autoTimer) {
       this.autoTimer.remove();
+    }
+    if (this.cycleTimer) {
+      this.cycleTimer.remove();
+    }
+    if (this.settleTimer) {
+      this.settleTimer.remove();
     }
 
     this.cameras.main.fadeOut(400, 255, 255, 255);
