@@ -181,7 +181,11 @@ export default class FightRoom {
       if (rejoinSlot !== 0 && rejoinSlot !== 1) return;
       if (!this._graceTimers[rejoinSlot]) {
         // No grace period active — connection restored before server saw disconnect.
-        // Acknowledge so client knows signaling is stable.
+        // Update connection ID so stale onClose for the old connection won't
+        // match this slot and erroneously start a grace period.
+        if (this.players[rejoinSlot]) {
+          this.players[rejoinSlot].id = connection.id;
+        }
         connection.send(JSON.stringify({ type: 'rejoin_ack', state: this.roomState }));
         return;
       }

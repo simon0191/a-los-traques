@@ -454,6 +454,22 @@ describe('FightRoom', () => {
       expect(c1bMsgs.some((m) => m.type === 'rejoin_ack' && m.state === room.roomState)).toBe(true);
     });
 
+    it('no-grace rejoin updates connection ID so stale onClose is ignored', () => {
+      const conn1b = makeConnection('c1b');
+      party.getConnections = () => [conn1b, conn2, conn3];
+
+      // Rejoin before server saw disconnect (no grace timer)
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+      expect(room.players[0].id).toBe('c1b');
+
+      // Stale onClose for OLD connection — should NOT start grace
+      conn2.send.mockClear();
+      room.onClose(conn1);
+      expect(room.roomState).not.toBe('reconnecting');
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'opponent_reconnecting')).toBe(false);
+    });
+
     it('new connection during grace period receives rejoin_available', () => {
       room.onClose(conn1);
 
