@@ -27,6 +27,17 @@ export class TransportManager {
     /** @type {RTCIceServer[]|null} */
     this._iceServers = null;
 
+    /** @type {number|null} Pending WebRTC init slot (deferred until signaling stable) */
+    this._pendingWebRTCInit = null;
+
+    /** @type {boolean} True after DC was open then closed (degraded state) */
+    this._transportDegraded = false;
+
+    /** @type {Function|null} */
+    this._onTransportDegraded = null;
+    /** @type {Function|null} */
+    this._onTransportRestored = null;
+
     // Register signaling relay for WebRTC messages
     signaling.on('webrtc_offer', (msg) => this._handleSignal(msg));
     signaling.on('webrtc_answer', (msg) => this._handleSignal(msg));
@@ -66,10 +77,19 @@ export class TransportManager {
       onOpen: () => {
         this._transportMode = 'webrtc';
         this._webrtcReady = true;
+        if (this._transportDegraded) {
+          this._transportDegraded = false;
+          if (this._onTransportRestored) this._onTransportRestored();
+        }
       },
       onClose: () => {
+        const wasOpen = this._webrtcReady;
         this._transportMode = 'websocket';
         this._webrtcReady = false;
+        if (wasOpen) {
+          this._transportDegraded = true;
+          if (this._onTransportDegraded) this._onTransportDegraded();
+        }
       },
       onFailed: () => {
         this._transportMode = 'websocket';
@@ -93,6 +113,7 @@ export class TransportManager {
     }
     this._transportMode = 'websocket';
     this._webrtcReady = false;
+    this._pendingWebRTCInit = null;
   }
 
   /**
@@ -122,6 +143,48 @@ export class TransportManager {
       console.log('[TM] TURN credential fetch error:', err.message);
       // Non-fatal: fall back to STUN-only
     }
+  }
+
+  /**
+   * Queue WebRTC init for later (deferred until signaling confirms stable).
+   * @param {number} playerSlot
+   */
+  queueWebRTCInit(playerSlot) {
+    this._pendingWebRTCInit = playerSlot;
+  }
+
+  /**
+   * Flush pending WebRTC init if one is queued.
+   */
+  flushPendingWebRTCInit() {
+    if (this._pendingWebRTCInit !== null) {
+      const slot = this._pendingWebRTCInit;
+      this._pendingWebRTCInit = null;
+      this.initWebRTC(slot);
+    }
+  }
+
+  /**
+   * Cancel pending WebRTC init without executing it.
+   */
+  cancelPendingWebRTCInit() {
+    this._pendingWebRTCInit = null;
+  }
+
+  /**
+   * Register callback for when DataChannel drops mid-fight (WebSocket still works).
+   * @param {Function} cb
+   */
+  onTransportDegraded(cb) {
+    this._onTransportDegraded = cb;
+  }
+
+  /**
+   * Register callback for when DataChannel is re-established after degradation.
+   * @param {Function} cb
+   */
+  onTransportRestored(cb) {
+    this._onTransportRestored = cb;
   }
 
   /**
@@ -155,10 +218,13 @@ export class TransportManager {
 
   destroy() {
     this.destroyWebRTC();
+    this._transportDegraded = false;
     this.signaling.off('webrtc_offer');
     this.signaling.off('webrtc_answer');
     this.signaling.off('webrtc_ice');
     this._onP2PMessage = null;
+    this._onTransportDegraded = null;
+    this._onTransportRestored = null;
   }
 
   // --- Internal ---

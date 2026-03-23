@@ -915,11 +915,20 @@ export class FightScene extends Phaser.Scene {
     nm.onSocketClose(() => this.reconnectionManager.handleConnectionLost());
     nm.onSocketOpen(() => {
       this.reconnectionManager.handleConnectionRestored();
+      nm.queueWebRTCInit(); // queue until rejoin_ack confirms signaling stable
       nm.sendRejoin(nm.getPlayerSlot());
     });
     nm.onOpponentReconnecting(() => this.reconnectionManager.handleOpponentReconnecting());
     nm.onOpponentReconnected(() => this.reconnectionManager.handleOpponentReconnected());
     nm.onDisconnect(() => this.reconnectionManager.handleOpponentDisconnected());
+
+    // Transport degradation: DataChannel dropped but WebSocket still works
+    nm.onTransportDegraded(() => {
+      if (this._transportText) {
+        this._transportText.setText('WS');
+        this._transportText.setColor('#ffcc00');
+      }
+    });
 
     // Grace expired during fight — return to fighter select
     nm.onReturnToSelect(() => {
