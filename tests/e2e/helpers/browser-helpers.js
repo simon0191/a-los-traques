@@ -14,6 +14,16 @@ export async function waitForMatchComplete(page, timeout = 110_000) {
 }
 
 /**
+ * Wait until the fight is in progress (enough frames simulated).
+ * Used to ensure the fight is running before injecting network disruptions.
+ */
+export async function waitForFightInProgress(page, minFrames = 120, timeout = 60_000) {
+  await page.waitForFunction((min) => (window.__FIGHT_LOG?.totalFrames ?? 0) > min, minFrames, {
+    timeout,
+  });
+}
+
+/**
  * Extract the full fight log from a page.
  */
 export async function extractFightLog(page) {
