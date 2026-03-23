@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>A Los Traques — Replay</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a1e;
+      color: #ccc;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 640px;
+      width: 100%;
+    }
+    h1 {
+      color: #ffcc00;
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: #666;
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      background: #111;
+      color: #0f0;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #ffcc00;
+    }
+    textarea.error {
+      border-color: #ff4444;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      align-items: center;
+    }
+    button {
+      background: #3366ff;
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: #4477ff; }
+    button:disabled { background: #333; color: #666; cursor: not-allowed; }
+    label {
+      color: #888;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    select {
+      background: #111;
+      color: #ccc;
+      border: 1px solid #333;
+      padding: 4px 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+    .info {
+      margin-top: 16px;
+      padding: 12px;
+      background: #111;
+      border-radius: 4px;
+      font-size: 12px;
+      display: none;
+    }
+    .info.visible { display: block; }
+    .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .info-label { color: #888; }
+    .info-value { color: #fff; }
+    .error-msg {
+      color: #ff4444;
+      font-size: 12px;
+      margin-top: 8px;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+    .drop-hint {
+      color: #555;
+      font-size: 11px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>REPLAY</h1>
+    <p class="subtitle">Paste a replay bundle JSON or drag & drop a .json file</p>
+    <textarea id="bundle-input" placeholder='Paste bundle JSON here...' spellcheck="false"></textarea>
+    <p class="drop-hint">Or drag & drop a .json file onto the text area</p>
+    <div class="error-msg" id="error-msg"></div>
+    <div class="controls">
+      <button id="play-btn" disabled>PLAY</button>
+      <label>
+        Speed:
+        <select id="speed-select">
+          <option value="1">1x</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="5" selected>5x</option>
+          <option value="10">10x</option>
+        </select>
+      </label>
+    </div>
+    <div class="info" id="bundle-info">
+      <div class="info-row"><span class="info-label">P1</span><span class="info-value" id="info-p1"></span></div>
+      <div class="info-row"><span class="info-label">P2</span><span class="info-value" id="info-p2"></span></div>
+      <div class="info-row"><span class="info-label">Stage</span><span class="info-value" id="info-stage"></span></div>
+      <div class="info-row"><span class="info-label">Frames</span><span class="info-value" id="info-frames"></span></div>
+      <div class="info-row"><span class="info-label">Confirmed inputs</span><span class="info-value" id="info-confirmed"></span></div>
+    </div>
+  </div>
+
+  <script>
+    const textarea = document.getElementById('bundle-input');
+    const playBtn = document.getElementById('play-btn');
+    const errorMsg = document.getElementById('error-msg');
+    const bundleInfo = document.getElementById('bundle-info');
+    let parsedBundle = null;
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.add('visible');
+      textarea.classList.add('error');
+      bundleInfo.classList.remove('visible');
+      playBtn.disabled = true;
+      parsedBundle = null;
+    }
+
+    function showInfo(bundle) {
+      errorMsg.classList.remove('visible');
+      textarea.classList.remove('error');
+      document.getElementById('info-p1').textContent = bundle.config.p1FighterId;
+      document.getElementById('info-p2').textContent = bundle.config.p2FighterId;
+      document.getElementById('info-stage').textContent = bundle.config.stageId || 'random';
+      document.getElementById('info-frames').textContent = Math.max(bundle.p1.totalFrames, bundle.p2.totalFrames);
+      const confirmed = bundle.confirmedInputs?.length || 0;
+      document.getElementById('info-confirmed').textContent = confirmed > 0 ? `${confirmed} entries` : 'none (will use raw inputs)';
+      bundleInfo.classList.add('visible');
+      playBtn.disabled = false;
+      parsedBundle = bundle;
+    }
+
+    function tryParse(text) {
+      if (!text.trim()) {
+        errorMsg.classList.remove('visible');
+        textarea.classList.remove('error');
+        bundleInfo.classList.remove('visible');
+        playBtn.disabled = true;
+        parsedBundle = null;
+        return;
+      }
+      try {
+        const bundle = JSON.parse(text);
+        if (!bundle.config || !bundle.p1 || !bundle.p2) {
+          showError('Invalid bundle: missing config, p1, or p2 fields');
+          return;
+        }
+        showInfo(bundle);
+      } catch (e) {
+        showError('Invalid JSON: ' + e.message);
+      }
+    }
+
+    textarea.addEventListener('input', () => tryParse(textarea.value));
+
+    // Drag & drop support
+    textarea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      textarea.style.borderColor = '#ffcc00';
+    });
+    textarea.addEventListener('dragleave', () => {
+      textarea.style.borderColor = '';
+    });
+    textarea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      textarea.style.borderColor = '';
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.json')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          textarea.value = reader.result;
+          tryParse(reader.result);
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // Play button
+    playBtn.addEventListener('click', () => {
+      if (!parsedBundle) return;
+      const speed = document.getElementById('speed-select').value;
+      sessionStorage.setItem('__REPLAY_BUNDLE', JSON.stringify(parsedBundle));
+      window.location.href = '/?replay=1&speed=' + speed;
+    });
+  </script>
+</body>
+</html>
