@@ -56,6 +56,15 @@ export function simulateFrame(
   p2Input,
   { muteEffects = false } = {},
 ) {
+  // If round is not active (post-KO/timeup), freeze simulation state.
+  // Both peers must behave identically after a round event, regardless
+  // of when P2 receives P1's network round-event message.
+  if (!combat.roundActive) {
+    p1Fighter.syncSprite();
+    p2Fighter.syncSprite();
+    return null;
+  }
+
   // 1. Update fighters (gravity, cooldowns, timers, ground check)
   p1Fighter.update();
   p2Fighter.update();
@@ -75,28 +84,30 @@ export function simulateFrame(
 
   // 5. Hit detection + timer tick → capture round events
   let roundEvent = null;
-  if (combat.roundActive) {
-    const p1Hit = combat.checkHit(p1Fighter, p2Fighter, { muteEffects });
-    const p2Hit = combat.checkHit(p2Fighter, p1Fighter, { muteEffects });
+  const p1Hit = combat.checkHit(p1Fighter, p2Fighter, { muteEffects });
+  const p2Hit = combat.checkHit(p2Fighter, p1Fighter, { muteEffects });
 
-    if (p1Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 0 };
-    else if (p2Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 1 };
+  if (p1Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 0 };
+  else if (p2Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 1 };
 
-    // 6. Tick timer
-    const timerResult = combat.tickTimer({ muteEffects });
-    if (!roundEvent && timerResult?.timeup) {
-      roundEvent = {
-        type: 'timeup',
-        winnerIndex: p1Fighter.hp >= p2Fighter.hp ? 0 : 1,
-      };
-    }
+  // 6. Tick timer
+  const timerResult = combat.tickTimer({ muteEffects });
+  if (!roundEvent && timerResult?.timeup) {
+    roundEvent = {
+      type: 'timeup',
+      winnerIndex: p1Fighter.hp >= p2Fighter.hp ? 0 : 1,
+    };
+  }
 
-    // Stop combat processing on the frame that detects a round event.
-    // Both peers must stop at the same simulation frame, regardless of
-    // when the network round-event message arrives at P2.
-    if (roundEvent) {
-      combat.roundActive = false;
-    }
+  // Stop combat and freeze fighters on the frame that detects a round event.
+  // Both peers must stop at the same simulation frame, regardless of
+  // when the network round-event message arrives at P2.
+  // Without this, P1's handleRoundEnd() calls fighter.stop() between frames
+  // (modifying simVX/state), while P2 doesn't until the network message arrives.
+  if (roundEvent) {
+    combat.roundActive = false;
+    p1Fighter.simVX = 0;
+    p2Fighter.simVX = 0;
   }
 
   // 7. Sync sprites (rendering only)
