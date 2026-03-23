@@ -51,6 +51,7 @@ export class RollbackManager {
 
     // Stats
     this.rollbackCount = 0;
+    this.maxRollbackDepth = 0;
 
     // Desync detection
     this._localChecksums = new Map(); // frame → hash
@@ -125,17 +126,29 @@ export class RollbackManager {
 
     // 5. Rollback and re-simulate if misprediction detected
     if (rollbackFrame >= 0) {
-      const framesToRollback = this.currentFrame - rollbackFrame;
-      if (framesToRollback <= this.maxRollbackFrames && this.stateSnapshots.has(rollbackFrame)) {
-        this.rollbackCount++;
-        this._onRollback?.(rollbackFrame, framesToRollback);
+      // If the ideal rollback target is too far back, use the oldest available snapshot.
+      // This is better than silently ignoring the misprediction, which causes permanent divergence.
+      let actualRollbackFrame = rollbackFrame;
+      if (!this.stateSnapshots.has(actualRollbackFrame)) {
+        // Find the oldest snapshot we still have
+        const available = [...this.stateSnapshots.keys()].filter((f) => f >= rollbackFrame);
+        if (available.length > 0) {
+          actualRollbackFrame = Math.min(...available);
+        }
+      }
 
-        // Restore snapshot at misprediction frame
-        restoreGameState(this.stateSnapshots.get(rollbackFrame), p1, p2, combat);
+      if (this.stateSnapshots.has(actualRollbackFrame)) {
+        const depth = this.currentFrame - actualRollbackFrame;
+        this.rollbackCount++;
+        if (depth > this.maxRollbackDepth) this.maxRollbackDepth = depth;
+        this._onRollback?.(actualRollbackFrame, depth);
+
+        // Restore snapshot at rollback frame
+        restoreGameState(this.stateSnapshots.get(actualRollbackFrame), p1, p2, combat);
 
         // Re-simulate from rollbackFrame to currentFrame
         scene._muteEffects = true;
-        for (let f = rollbackFrame; f < this.currentFrame; f++) {
+        for (let f = actualRollbackFrame; f < this.currentFrame; f++) {
           const p1Input = this._getInputForFrame(f, true);
           const p2Input = this._getInputForFrame(f, false);
           simulateFrame(p1, p2, combat, p1Input, p2Input, { muteEffects: true });
