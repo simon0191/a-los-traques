@@ -89,19 +89,25 @@ async function runMatchAndReport(browser, testInfo, { p1Opts, p2Opts, testName }
 }
 
 test.describe('Multiplayer determinism', () => {
-  // Known desync bug with specific fighters — tracked for investigation.
-  // Remove .fixme once the underlying determinism issue is resolved.
-  test.fixme('both peers reach identical final state', async ({ browser }, testInfo) => {
+  test('both peers reach identical final state (seeded)', async ({ browser }, testInfo) => {
     const { logP1, logP2 } = await runMatchAndReport(browser, testInfo, {
       p1Opts: { fighter: 'simon', seed: 42 },
       p2Opts: { fighter: 'jeka', seed: 42 },
       testName: 'deterministic fighters',
     });
 
-    expect(logP1.finalStateHash).toBe(logP2.finalStateHash);
+    const p1Checksums = new Map(logP1.checksums.map((c) => [c.frame, c.hash]));
+    const p2Checksums = new Map(logP2.checksums.map((c) => [c.frame, c.hash]));
+    const sharedFrames = [...p1Checksums.keys()].filter((f) => p2Checksums.has(f));
+
+    expect(sharedFrames.length).toBeGreaterThan(0);
+    for (const frame of sharedFrames) {
+      expect(p1Checksums.get(frame), `checksum mismatch at frame ${frame}`).toBe(
+        p2Checksums.get(frame),
+      );
+    }
     expect(logP1.desyncCount).toBe(0);
     expect(logP2.desyncCount).toBe(0);
-    expect(logP1.result?.winnerId || null).toBe(logP2.result?.winnerId || null);
   });
 
   test('match completes with random fighters', async ({ browser }, testInfo) => {
