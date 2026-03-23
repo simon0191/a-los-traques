@@ -21,6 +21,90 @@ export default class FightRoom {
     this._graceTimers = [null, null];
   }
 
+  /**
+   * HTTP request handler for TURN credential generation.
+   * GET /turn-creds → fetches short-lived TURN credentials from Cloudflare.
+   */
+  async onRequest(request) {
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/turn-creds') && request.method === 'GET') {
+      const response = await this._handleTurnCreds();
+      // Add CORS headers to the response
+      for (const [key, value] of Object.entries(corsHeaders)) {
+        response.headers.set(key, value);
+      }
+      return response;
+    }
+    return new Response('Not Found', { status: 404, headers: corsHeaders });
+  }
+
+  async _handleTurnCreds() {
+    const keyId = this.party.env?.CLOUDFLARE_TURN_KEY_ID;
+    const apiToken = this.party.env?.CLOUDFLARE_TURN_API_TOKEN;
+
+    if (!keyId || !apiToken) {
+      // TURN not configured — return default STUN-only servers
+      return Response.json({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ],
+      });
+    }
+
+    try {
+      const response = await fetch(
+        `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ttl: 86400 }),
+        },
+      );
+
+      if (!response.ok) {
+        console.log(`TURN credential API error: ${response.status}`);
+        return Response.json(
+          {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+            ],
+          },
+          { status: 200 },
+        );
+      }
+
+      const data = await response.json();
+      return Response.json({ iceServers: data.iceServers });
+    } catch (err) {
+      console.log('TURN credential fetch error:', err.message);
+      return Response.json(
+        {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+          ],
+        },
+        { status: 200 },
+      );
+    }
+  }
+
   onConnect(connection, ctx) {
     // Check if spectator
     const url = new URL(ctx.request.url);
@@ -173,7 +257,7 @@ export default class FightRoom {
         // If both ready, send start
         if (this.players[0]?.ready && this.players[1]?.ready) {
           this.roomState = 'fighting';
-          const stageIds = ['dojo', 'rooftop', 'beach', 'arcade', 'park'];
+          const stageIds = ['beach', 'jekos_house', 'metro', 'input'];
           const stageId = stageIds[Math.floor(Math.random() * stageIds.length)];
           this.fightInfo = {
             p1Id: this.players[0].fighterId,

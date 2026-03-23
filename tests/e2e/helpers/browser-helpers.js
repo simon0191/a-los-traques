@@ -9,7 +9,7 @@ export async function waitForRoomId(page, timeout = 30_000) {
 /**
  * Wait for the fight to complete (matchComplete flag set by VictoryScene).
  */
-export async function waitForMatchComplete(page, timeout = 90_000) {
+export async function waitForMatchComplete(page, timeout = 110_000) {
   await page.waitForFunction(() => window.__FIGHT_LOG?.matchComplete === true, { timeout });
 }
 

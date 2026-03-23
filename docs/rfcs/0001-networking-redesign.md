@@ -1,6 +1,6 @@
 # RFC 0001: Networking Redesign
 
-**Status:** In Progress — Phase 1 complete, E2E testing framework complete
+**Status:** In Progress — Phases 1, 2A, 2B, 3 complete. Phase 4 ready for implementation.
 **Date:** 2026-03-22
 **Author:** Architecture Team
 
@@ -212,9 +212,7 @@ flowchart TB
        │                                                │
 ```
 
-**TURN Key ID** is created once via Cloudflare dashboard and stored as a PartyKit environment variable (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN`). No Terraform resource exists for Cloudflare TURN yet — the key is provisioned manually.
-
-**Terraform** manages: Cloudflare DNS records, Workers/PartyKit deployment configuration, environment variable bindings.
+**TURN Key ID and API Token** are created via the Cloudflare dashboard (Calls → TURN Keys) and stored as PartyKit environment variables via `npx partykit env add CLOUDFLARE_TURN_KEY_ID` and `npx partykit env add CLOUDFLARE_TURN_API_TOKEN`.
 
 ---
 
@@ -504,97 +502,169 @@ export class ConnectionMonitor {
 
 ---
 
-### Phase 2B: Transport Layer + TURN (Parallelizable with 2A)
+### Phase 2B: Transport Layer + TURN — COMPLETE ✓
 
 **Goal:** Reliable P2P connectivity across all network types. Clean module boundaries.
 
-**Description:**
+**What was built:**
 
 **2B.1: Cloudflare TURN integration**
-- Create Cloudflare TURN key via dashboard, store as PartyKit env vars (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN`)
-- Add `onRequest` handler to `party/server.js` to generate TURN credentials (REST call to `rtc.live.cloudflare.com`)
-- Client fetches credentials on `opponent_joined`, before WebRTC negotiation
-- ICE server list: Google STUN x2 + Cloudflare STUN + Cloudflare TURN (UDP + TCP)
+- `onRequest` handler on `party/server.js` generates TURN credentials via Cloudflare REST API (`POST rtc.live.cloudflare.com/v1/turn/keys/{keyId}/credentials/generate`)
+- Reads `CLOUDFLARE_TURN_KEY_ID` and `CLOUDFLARE_TURN_API_TOKEN` from PartyKit env vars
+- Graceful fallback: returns STUN-only servers when TURN is not configured or API fails
+- `TransportManager.fetchTurnCredentials()` calls the endpoint before WebRTC negotiation
+- `WebRTCTransport` accepts `iceServers` parameter instead of hardcoding STUN-only
 
 **2B.2: Module decomposition**
-- Extract `SignalingClient.js` from NetworkManager (WebSocket lifecycle, room messages, event emitter)
-- Extract `TransportManager.js` from NetworkManager + WebRTCTransport (WebRTC setup, TURN creds, transport routing)
-- Extract `InputSync.js` from NetworkManager (input buffer, send/receive, drain, checksum/resync relay)
-- Extract `ConnectionMonitor.js` from NetworkManager (ping/pong, RTT, pong timeout, quality assessment)
-- Extract `SpectatorRelay.js` from NetworkManager (spectator buffers, sync, shout, potion)
-- Create `NetworkFacade.js` that composes all 5 and exposes the same public API
+The 762-line `NetworkManager` monolith was decomposed into 5 focused modules + a composing facade, all in `src/systems/net/`:
 
-**2B.3: Terraform configuration**
-- Terraform config for Cloudflare DNS, PartyKit/Workers environment variables
-- TURN key ID as a Terraform variable (provisioned manually, referenced in config)
+- **`SignalingClient.js`** (~175 lines) — PartySocket lifecycle, type-based message dispatch via `on(type, cb)`, B4 pending message queue, B5 callback buffering for `sync`/`round_event`/`start`
+- **`TransportManager.js`** (~160 lines) — WebRTC lifecycle, TURN credential fetching, dual-transport routing (DataChannel primary, WS fallback), signaling relay
+- **`InputSync.js`** (~210 lines) — Input buffers (player + spectator), B3 OR-merge attack flags, input history gap-fill, `drainConfirmedInputs()` for RollbackManager, dual-transport `sendInput()`
+- **`ConnectionMonitor.js`** (~85 lines) — Ping interval (3s), pong timeout (6s), RTT measurement
+- **`SpectatorRelay.js`** (~120 lines) — Sync/round_event broadcast with B5 buffering, spectator count, shout, potion, fight state
+- **`NetworkFacade.js`** (~260 lines) — Composes all 5 modules, exposes identical public API to `NetworkManager` (same callback registration, send methods, input consumption, lifecycle)
+
+**Key design decisions:**
+- `SignalingClient` uses a generic `on(type, cb)` event system instead of ~30 named callback properties. Other modules register for the types they care about.
+- B5 buffering lives in two layers: `SignalingClient` buffers messages when no handler is registered for a type; `SpectatorRelay` additionally buffers `sync`/`round_event` when its own callback isn't set yet (since it eagerly registers handlers on `SignalingClient` in its constructor).
+- `NetworkManager.js` is NOT deleted yet — scenes still import it. Phase 3 swaps imports to `NetworkFacade`.
+- `WebRTCTransport.js` stays as a standalone module; `TransportManager` wraps it with TURN credentials and signaling relay.
+
+**2B.3: Terraform configuration** — deferred (infrastructure provisioning is orthogonal to code)
 
 **Deliverables:**
-- `src/systems/net/SignalingClient.js`
-- `src/systems/net/TransportManager.js`
-- `src/systems/net/InputSync.js`
-- `src/systems/net/ConnectionMonitor.js`
-- `src/systems/net/SpectatorRelay.js`
-- `src/systems/net/NetworkFacade.js`
+- `src/systems/net/SignalingClient.js` — WebSocket lifecycle, message dispatch
+- `src/systems/net/TransportManager.js` — WebRTC + TURN + transport routing
+- `src/systems/net/InputSync.js` — Input buffers, OR-merge, dual-transport send
+- `src/systems/net/ConnectionMonitor.js` — Ping/pong, RTT, timeout detection
+- `src/systems/net/SpectatorRelay.js` — Spectator messaging with B5 buffering
+- `src/systems/net/NetworkFacade.js` — Composes all modules, same public API
 - Modified `party/server.js` — `onRequest` for TURN credential endpoint
-- `infra/main.tf` — Terraform configuration
-- `tests/systems/net/signaling-client.test.js`
-- `tests/systems/net/transport-manager.test.js`
-- `tests/systems/net/input-sync.test.js`
-- Delete: `src/systems/NetworkManager.js`, `src/systems/WebRTCTransport.js`
-
-**Risks:**
-- Decomposition may introduce subtle message ordering bugs. Mitigate: `NetworkFacade` exposes identical API, existing tests run against facade.
-- Cloudflare TURN credential API may have latency. Mitigate: fetch eagerly on `opponent_joined` (during character select), cache for 5 minutes.
+- Modified `src/systems/WebRTCTransport.js` — accepts `iceServers` param
+- `tests/systems/net/signaling-client.test.js` (25 tests)
+- `tests/systems/net/transport-manager.test.js` (18 tests)
+- `tests/systems/net/input-sync.test.js` (24 tests)
+- `tests/systems/net/connection-monitor.test.js` (8 tests)
+- `tests/systems/net/spectator-relay.test.js` (16 tests)
+- `tests/systems/net/network-facade.test.js` (25 tests)
+- Modified `tests/party/server.test.js` (6 new TURN endpoint tests)
 
 **Estimated effort:** 4-5 days
 
 ---
 
-### Phase 3: Integration + Connection Quality (Depends on 2A + 2B)
+### Phase 3: Integration + Connection Quality — COMPLETE ✓
 
 **Goal:** Wire fixed simulation to new transport. Pre-match quality indicator.
 
-**Description:**
-- Replace `NetworkManager` imports with `NetworkFacade` in all scenes (FightScene, LobbyScene, SelectScene, PreFightScene, VictoryScene)
-- Wire `ConnectionMonitor.assessQuality()` during character select
-- Show connection quality indicator in SelectScene UI:
-  - Green dot: P2P direct (`host`/`srflx`), RTT < 80ms — "Buena conexion"
-  - Yellow dot: TURN relay or RTT 80-150ms — "Conexion aceptable"
-  - Red dot: WebSocket fallback or RTT > 150ms — "Conexion lenta"
-- Players can always proceed regardless of quality (friends game, not ranked)
-- Exchange `connection_quality` message via server so both peers see the indicator
+**What was done:**
+- Swapped `NetworkManager` imports to `NetworkFacade` in `LobbyScene` and `SpectatorLobbyScene` (the two construction sites). All other scenes receive the network manager via scene data, so the swap is transparent.
+- `FightScene._setupOnlineMode()` updated to use `onSocketClose(cb)`/`onSocketOpen(cb)` methods instead of direct `_onSocketClose`/`_onSocketOpen` assignment
+- `RollbackManager` JSDoc updated to reference `NetworkFacade`
+- TURN credentials automatically fetched on `opponent_joined` (async, before WebRTC init). Credentials cached for reconnection.
+- Connection quality indicator in `SelectScene`: shows "P2P" (green) when WebRTC DataChannel is open, "Relay" (yellow) when only WebSocket, or "..." (red) when disconnected. Updates every 2 seconds.
+- Added `_webrtcReady` compat getter on `NetworkFacade` for FightScene HUD
+
+**Deferred to future work:**
+- `ConnectionMonitor.assessQuality()` pre-match probing (10-ping RTT distribution) — useful but not blocking; the simpler transport indicator covers the main use case
+- `connection_quality` server message type — both peers can assess independently
+- `NetworkManager.js` and `WebRTCTransport.js` not deleted yet — can be removed once integration is verified on real devices
 
 **Deliverables:**
-- Updated scene imports (FightScene, LobbyScene, SelectScene, etc.)
-- Connection quality UI in SelectScene
-- New `connection_quality` message type in `party/server.js`
-- End-to-end test: two headless simulations through `NetworkFacade`
-
-**Risks:**
-- UI changes in SelectScene may conflict with ongoing work. Mitigate: quality indicator is a small overlay, minimal scene changes.
-
-**Estimated effort:** 2 days
+- Modified `src/scenes/LobbyScene.js` — import swap to NetworkFacade
+- Modified `src/scenes/SpectatorLobbyScene.js` — import swap to NetworkFacade
+- Modified `src/scenes/FightScene.js` — use public socket callbacks
+- Modified `src/scenes/SelectScene.js` — connection quality indicator
+- Modified `src/systems/RollbackManager.js` — JSDoc update
+- Modified `src/systems/net/NetworkFacade.js` — `_webrtcReady` getter, TURN fetch on opponent_joined
 
 ---
 
 ### Phase 4: Hardened Reconnection (Depends on Phase 3)
 
-**Goal:** Fix race conditions in reconnection flow.
+**Goal:** Fix race conditions in the reconnection flow so WiFi drops mid-fight recover cleanly.
 
-**Description:**
-- `TransportManager` handles WebRTC renegotiation as a proper state machine (not `_initWebRTC()` called from multiple code paths)
-- On reconnect: `SignalingClient` reconnects WebSocket → sends `rejoin` → waits for server confirmation → `TransportManager` renegotiates WebRTC
-- Sequential, not concurrent: WebSocket must be stable before WebRTC renegotiation starts
-- `ReconnectionManager` (already solid) receives events from `SignalingClient` and `TransportManager` through clean callbacks
-- Add reconnection integration test in headless harness: simulate WebSocket drop, reconnect, verify state convergence
+#### Current Architecture
 
-**Deliverables:**
-- `TransportManager` reconnection state machine
-- `SignalingClient` rejoin flow (sequential)
-- `tests/integration/reconnection.test.js`
+The reconnection system has three layers:
+1. **Server** (`party/server.js`): 20-second grace period per slot. On disconnect, sets `roomState = 'reconnecting'`, notifies opponent. On `rejoin`, restores room state or resets to selecting.
+2. **`ReconnectionManager`** (`src/systems/ReconnectionManager.js`): Pure state machine (`connected → reconnecting → connected | disconnected`). FightScene wires socket events to it. Already solid — 120 lines, fully tested, injectable clock.
+3. **`NetworkFacade`** (`src/systems/net/NetworkFacade.js`): On `opponent_reconnected`, calls `transport.initWebRTC()` to re-establish DataChannel.
 
-**Risks:**
-- WebRTC renegotiation on Safari has known quirks (ICE restart behavior). Mitigate: on reconnect failure, fall back to WebSocket relay rather than retrying indefinitely.
+Current wiring in FightScene (`_setupOnlineMode`, lines 892-900):
+```
+nm.onSocketClose → reconnectionManager.handleConnectionLost()
+nm.onSocketOpen  → reconnectionManager.handleConnectionRestored() + nm.sendRejoin(slot)
+nm.onOpponentReconnecting → reconnectionManager.handleOpponentReconnecting()
+nm.onOpponentReconnected  → reconnectionManager.handleOpponentReconnected()
+nm.onDisconnect → reconnectionManager.handleOpponentDisconnected()
+```
+
+#### Known Race Conditions
+
+**Race 1: WebRTC renegotiation starts before WebSocket is stable.**
+When `opponent_reconnected` arrives, `NetworkFacade` immediately calls `transport.initWebRTC()`. But the reconnecting peer's WebSocket may still be flapping. If WebRTC signaling messages arrive during a WebSocket reconnect cycle, they get lost.
+
+**Fix:** `TransportManager` should queue WebRTC init until SignalingClient confirms a stable connection (socket open + rejoin acknowledged). Add a `_pendingWebRTCInit` flag that defers `initWebRTC()` until the signaling channel is confirmed stable.
+
+**Race 2: Both peers disconnect simultaneously.**
+If both peers lose connection at the same time (e.g., server restart), both send `rejoin` on reconnect. The server handles this correctly (independent grace timers per slot), but the client doesn't — `handleConnectionLost()` only fires once, and the second peer's reconnection events may arrive while the first is still in `reconnecting` state.
+
+**Fix:** `ReconnectionManager.handleConnectionLost()` should be re-entrant: if already in `reconnecting` state, reset the timer instead of ignoring the event.
+
+**Race 3: WebRTC DataChannel closes but WebSocket stays open (asymmetric).**
+Currently handled: WebSocket inputs are always accepted regardless of DataChannel state. But the UI shows "P2P" in the HUD even after DataChannel drops, and no reconnection overlay appears (since the WebSocket is fine).
+
+**Fix:** `TransportManager` should emit a `transportDegraded` event when DataChannel closes mid-fight. FightScene can show a brief "Relay" indicator without pausing gameplay (WebSocket relay is functional, just higher latency).
+
+**Race 4: `sendRejoin` fires before server processes the disconnect.**
+`onSocketOpen` immediately sends `rejoin`, but PartySocket's auto-reconnect may re-establish the connection before the server's `onClose` fires. The `rejoin` message arrives at a server that hasn't started the grace period yet.
+
+**Fix:** Server should handle `rejoin` for a slot that isn't in grace — treat it as a no-op and respond with current room state.
+
+#### Implementation Steps
+
+**4.1: TransportManager reconnection state machine**
+- Add states: `idle → connecting → connected → degraded → reconnecting`
+- `degraded`: DataChannel closed but WebSocket works (relay mode)
+- `reconnecting`: Both transports down, waiting for WebSocket restore
+- Emit `transportDegraded` / `transportRestored` events for UI
+- Queue WebRTC init until signaling confirms stable (`_pendingWebRTCInit`)
+- On reconnect: WebSocket first → rejoin acknowledged → then WebRTC renegotiation
+
+**4.2: ReconnectionManager improvements**
+- Make `handleConnectionLost()` re-entrant (reset timer if already reconnecting)
+- Add `handleTransportDegraded()` for DataChannel-only drops (no pause, just UI update)
+
+**4.3: Server robustness**
+- Handle `rejoin` for non-grace slots (no-op, reply with current state)
+- Handle duplicate `rejoin` messages (idempotent)
+
+**4.4: Integration tests**
+- Test: WebSocket drop → auto-reconnect → rejoin → WebRTC re-negotiation → gameplay resumes
+- Test: DataChannel closes mid-fight → relay mode → DataChannel recovers
+- Test: Both peers disconnect simultaneously → both rejoin → state converges
+- Test: `rejoin` arrives before server grace period starts
+- Mock WebSocket/WebRTC with injectable delays to simulate real network conditions
+
+#### Key Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/systems/net/TransportManager.js` | Add reconnection state machine, `_pendingWebRTCInit`, `transportDegraded`/`transportRestored` events |
+| `src/systems/net/NetworkFacade.js` | Wire transport events to FightScene callbacks, defer WebRTC init |
+| `src/systems/ReconnectionManager.js` | Re-entrant `handleConnectionLost()`, `handleTransportDegraded()` |
+| `src/scenes/FightScene.js` | Show "Relay" indicator on transport degradation (no pause) |
+| `party/server.js` | Handle `rejoin` for non-grace slots, idempotent duplicate handling |
+| `tests/systems/net/transport-manager.test.js` | State machine tests |
+| `tests/systems/reconnection-manager.test.js` | Re-entrant + degraded tests |
+| `tests/integration/reconnection.test.js` | Full flow integration tests |
+
+#### Risks
+
+- **Safari ICE restart quirks**: Safari may not support ICE restart reliably. Mitigate: on WebRTC reconnect failure after 5s, stay on WebSocket relay permanently for that session.
+- **PartySocket auto-reconnect timing**: PartySocket has its own reconnect logic (`maxRetries: 3`). Our `sendRejoin` must coordinate with it, not race against it. Mitigate: only send `rejoin` after `onSocketOpen` fires (already done).
 
 **Estimated effort:** 2 days
 
@@ -637,8 +707,8 @@ Replace with binary encoding on DataChannel (keep JSON on WebSocket for debuggab
 flowchart TB
     P1[Phase 1<br/>Fix Simulation Determinism<br/>COMPLETE ✓]
     P2A[Phase 2A<br/>E2E Testing Framework<br/>COMPLETE ✓]
-    P2B[Phase 2B<br/>Transport + TURN + Modules<br/>4-5 days]
-    P3[Phase 3<br/>Integration + Quality UI<br/>2 days]
+    P2B[Phase 2B<br/>Transport + TURN + Modules<br/>COMPLETE ✓]
+    P3[Phase 3<br/>Integration + Quality UI<br/>COMPLETE ✓]
     P4[Phase 4<br/>Hardened Reconnection<br/>2 days]
     P5[Phase 5<br/>Binary Protocol<br/>0.5 days]
 
@@ -651,13 +721,15 @@ flowchart TB
 
     style P1 fill:#c8e6c9
     style P2A fill:#c8e6c9
-    style P2B fill:#e1f5fe
+    style P2B fill:#c8e6c9
+    style P3 fill:#c8e6c9
+    style P4 fill:#e1f5fe
     style P5 fill:#fff3e0
 ```
 
-**Completed** (green): Phase 1 + Phase 2A. **Next** (blue): Phase 2B. Phase 5 is optional (orange).
+**Completed** (green): Phases 1, 2A, 2B, 3. **Next** (blue): Phase 4. Phase 5 is optional (orange).
 
-**Remaining estimated effort:** 8-9.5 days (Phases 2B through 5).
+**Remaining estimated effort:** 2-2.5 days (Phases 4 and 5).
 
 ---
 
@@ -719,13 +791,15 @@ bun run test:e2e:headed   # Watch both browsers fight
 
 `tests/helpers/replay-engine.js` replays fights from bundles using pure simulation (no Phaser). Uses shared `sim-factory.js` (extracted from test inline definitions). Vitest test validates deterministic replay against fixture bundles.
 
-### Layer 4: Transport Unit Tests (Planned — Phase 2B)
+### Layer 4: Transport Unit Tests (COMPLETE ✓)
 
-- Mock `RTCPeerConnection` and `RTCDataChannel` for `TransportManager` tests
-- Mock `PartySocket` for `SignalingClient` tests
-- Test TURN credential fetching (mock HTTP response)
-- Test ICE candidate type reporting
-- Test transport fallback (DataChannel close → WebSocket)
+116 tests across 6 test files in `tests/systems/net/`:
+- `SignalingClient` (25 tests): message dispatch, B4 queuing, B5 buffering, socket lifecycle, destroy cleanup
+- `TransportManager` (18 tests): WebRTC lifecycle, signaling relay, P2P messaging, TURN credentials, transport fallback
+- `InputSync` (24 tests): B3 OR-merge, input history processing, P2P input, dual-transport send, checksum/resync, drain
+- `ConnectionMonitor` (8 tests): ping interval, pong timeout, RTT measurement
+- `SpectatorRelay` (16 tests): send/receive for all spectator message types, B5 buffering, reset/destroy
+- `NetworkFacade` (25 tests): API surface validation, message routing, WebRTC integration, B4/B5 behavior, resetForReselect
 
 ### Layer 5: Network Condition Simulation (Planned — Toxiproxy)
 
@@ -807,22 +881,41 @@ TCP proxy between browsers and PartyKit for simulating latency, jitter, packet l
 | `.github/workflows/e2e.yml` | CI workflow for E2E tests |
 | `docs/e2e-testing.md` | E2E testing framework documentation |
 
-### Phases 2B-5 (Planned) — To Create
+### Phase 2B (Complete) — Created
 
 | File | Purpose |
 |------|---------|
-| `src/systems/net/SignalingClient.js` | WebSocket lifecycle, room messages |
-| `src/systems/net/TransportManager.js` | WebRTC + WS routing, TURN credentials |
-| `src/systems/net/InputSync.js` | Frame-indexed input send/receive/drain |
-| `src/systems/net/ConnectionMonitor.js` | RTT, ping/pong, quality assessment |
-| `src/systems/net/SpectatorRelay.js` | Spectator buffers, sync, shout, potion |
+| `src/systems/net/SignalingClient.js` | WebSocket lifecycle, type-based message dispatch |
+| `src/systems/net/TransportManager.js` | WebRTC + TURN + transport routing |
+| `src/systems/net/InputSync.js` | Input buffers, OR-merge, dual-transport send |
+| `src/systems/net/ConnectionMonitor.js` | Ping/pong, RTT, timeout detection |
+| `src/systems/net/SpectatorRelay.js` | Spectator messaging with B5 buffering |
 | `src/systems/net/NetworkFacade.js` | Composes all modules, same public API |
+| `tests/systems/net/signaling-client.test.js` | 25 tests for SignalingClient |
+| `tests/systems/net/transport-manager.test.js` | 18 tests for TransportManager |
+| `tests/systems/net/input-sync.test.js` | 24 tests for InputSync |
+| `tests/systems/net/connection-monitor.test.js` | 8 tests for ConnectionMonitor |
+| `tests/systems/net/spectator-relay.test.js` | 16 tests for SpectatorRelay |
+| `tests/systems/net/network-facade.test.js` | 25 tests for NetworkFacade |
+
+### Phase 2B (Complete) — Modified
+
+| File | Change |
+|------|--------|
+| `party/server.js` | Added `onRequest` for TURN credential endpoint |
+| `src/systems/WebRTCTransport.js` | Accepts `iceServers` param instead of hardcoding |
+| `tests/party/server.test.js` | 6 new tests for TURN credential endpoint |
+
+### Phases 3-5 (Planned) — To Create
+
+| File | Purpose |
+|------|---------|
 | `infra/main.tf` | Terraform config for Cloudflare DNS + env vars |
 | `src/systems/net/BinaryCodec.js` | Binary input encoding (Phase 5, optional) |
 
-### Phases 2B-5 (Planned) — To Delete
+### Phases 3-5 (Planned) — To Delete
 
 | File | Reason |
 |------|--------|
-| `src/systems/NetworkManager.js` | Replaced by `net/` modules + `NetworkFacade` |
-| `src/systems/WebRTCTransport.js` | Absorbed into `TransportManager` |
+| `src/systems/NetworkManager.js` | Replaced by `net/` modules + `NetworkFacade` (Phase 3) |
+| `src/systems/WebRTCTransport.js` | Kept as-is; wrapped by `TransportManager` |

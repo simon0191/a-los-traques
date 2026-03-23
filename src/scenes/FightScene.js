@@ -907,11 +907,11 @@ export class FightScene extends Phaser.Scene {
     });
 
     // Wire NetworkManager socket events → ReconnectionManager
-    nm._onSocketClose = () => this.reconnectionManager.handleConnectionLost();
-    nm._onSocketOpen = () => {
+    nm.onSocketClose(() => this.reconnectionManager.handleConnectionLost());
+    nm.onSocketOpen(() => {
       this.reconnectionManager.handleConnectionRestored();
       nm.sendRejoin(nm.getPlayerSlot());
-    };
+    });
     nm.onOpponentReconnecting(() => this.reconnectionManager.handleOpponentReconnecting());
     nm.onOpponentReconnected(() => this.reconnectionManager.handleOpponentReconnected());
     nm.onDisconnect(() => this.reconnectionManager.handleOpponentDisconnected());

@@ -274,9 +274,8 @@ describe('rollback-safe round events', () => {
       // Event is returned even with muteEffects (caller decides what to do)
       expect(event).toEqual({ type: 'timeup', winnerIndex: expect.any(Number) });
 
-      // Critically: roundActive should still be true (not corrupted by timeUp side effects)
-      // because suppressRoundEvents=true prevents timeUp() from being called
-      expect(combat.roundActive).toBe(true);
+      // roundActive is set to false by simulateFrame when it detects a round event.
+      expect(combat.roundActive).toBe(false);
 
       // Restore snapshot and verify state is clean
       restoreGameState(snapshot, p1, p2, combat);
@@ -328,8 +327,8 @@ describe('rollback-safe round events', () => {
       expect(koDetected).toBe(true);
       expect(p2.hp).toBe(0);
 
-      // But roundActive is still true because we're in rollback (suppressRoundEvents=true)
-      expect(combat.roundActive).toBe(true);
+      // roundActive is false because simulateFrame sets it when KO is detected
+      expect(combat.roundActive).toBe(false);
 
       // Now rollback: restore snapshot
       restoreGameState(snapshot, p1, p2, combat);

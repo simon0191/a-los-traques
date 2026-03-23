@@ -299,6 +299,24 @@ export class SelectScene extends Phaser.Scene {
         })
         .setOrigin(0.5, 1)
         .setDepth(10);
+
+      // Connection quality indicator (bottom-right)
+      this._connectionText = this.add
+        .text(GAME_WIDTH - 4, GAME_HEIGHT - 8, '', {
+          fontSize: '6px',
+          fontFamily: 'monospace',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(1, 1)
+        .setDepth(10);
+
+      this._updateConnectionStatus();
+      this.time.addEvent({
+        delay: 2000,
+        loop: true,
+        callback: () => this._updateConnectionStatus(),
+      });
     }
 
     // In online mode, reset stale state and listen for opponent ready early
@@ -535,5 +553,21 @@ export class SelectScene extends Phaser.Scene {
         networkManager: this.networkManager,
       });
     });
+  }
+
+  _updateConnectionStatus() {
+    if (!this._connectionText || !this.networkManager) return;
+    const nm = this.networkManager;
+
+    if (nm._webrtcReady) {
+      this._connectionText.setText('P2P');
+      this._connectionText.setColor('#44ff44');
+    } else if (nm.connected) {
+      this._connectionText.setText('Relay');
+      this._connectionText.setColor('#ffcc44');
+    } else {
+      this._connectionText.setText('...');
+      this._connectionText.setColor('#ff4444');
+    }
   }
 }
