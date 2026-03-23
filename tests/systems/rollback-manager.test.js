@@ -89,6 +89,7 @@ function mockCombat() {
     roundActive: true,
     matchOver: false,
     _timerAccumulator: 0,
+    transitionTimer: 0,
     resolveBodyCollision: vi.fn(),
     checkHit: vi.fn(),
     tickTimer: vi.fn(),

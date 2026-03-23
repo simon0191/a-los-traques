@@ -348,6 +348,11 @@ function createSimCombat() {
     suppressRoundEvents: true,
     timer: 60,
     _timerAccumulator: 0,
+    transitionTimer: 0,
+    matchOver: false,
+    roundNumber: 1,
+    p1RoundsWon: 0,
+    p2RoundsWon: 0,
     resolveBodyCollision(f1, f2) {
       const halfW = 18 * FP_SCALE;
       const airThreshold = GROUND_Y_FP - 20 * FP_SCALE;
