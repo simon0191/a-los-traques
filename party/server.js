@@ -90,7 +90,8 @@ export default class FightRoom {
       }
 
       const data = await response.json();
-      return Response.json({ iceServers: data.iceServers });
+      const iceServers = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];
+      return Response.json({ iceServers });
     } catch (err) {
       console.log('TURN credential fetch error:', err.message);
       return Response.json(

@@ -992,14 +992,12 @@ describe('FightRoom', () => {
       };
       const room2 = new FightRoom(party);
 
-      const mockIceServers = [
-        { urls: 'stun:stun.cloudflare.com:3478' },
-        {
-          urls: 'turn:turn.cloudflare.com:3478?transport=udp',
-          username: 'user',
-          credential: 'pass',
-        },
-      ];
+      // Cloudflare TURN API returns iceServers as a single object, not an array
+      const mockIceServers = {
+        urls: ['stun:stun.cloudflare.com:3478', 'turn:turn.cloudflare.com:3478?transport=udp'],
+        username: 'user',
+        credential: 'pass',
+      };
 
       globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
@@ -1012,7 +1010,9 @@ describe('FightRoom', () => {
 
       expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.iceServers).toEqual(mockIceServers);
+      // Server should wrap the single object in an array
+      expect(Array.isArray(data.iceServers)).toBe(true);
+      expect(data.iceServers).toEqual([mockIceServers]);
 
       // Verify Cloudflare API was called correctly
       expect(globalThis.fetch).toHaveBeenCalledWith(
