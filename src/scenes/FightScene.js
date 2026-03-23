@@ -9,8 +9,8 @@ import {
   STAGE_RIGHT,
 } from '../config.js';
 import fightersData from '../data/fighters.json';
-import { Fighter } from '../entities/Fighter.js';
 import stagesData from '../data/stages.json';
+import { Fighter } from '../entities/Fighter.js';
 import { AIController } from '../systems/AIController.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { DevConsole } from '../systems/DevConsole.js';
@@ -305,9 +305,7 @@ export class FightScene extends Phaser.Scene {
 
     // Ground (subtle colored rectangle to ground the characters)
     const groundColor = Phaser.Display.Color.HexStringToColor(stage.groundColor).color;
-    this.add
-      .rectangle(GAME_WIDTH / 2, GROUND_Y + 25, GAME_WIDTH, 50, groundColor, 0.4)
-      .setDepth(1);
+    this.add.rectangle(GAME_WIDTH / 2, GROUND_Y + 25, GAME_WIDTH, 50, groundColor, 0.4).setDepth(1);
 
     // Stage boundary lines (subtle)
     this.add

@@ -342,7 +342,7 @@ export function createSimCombat({ suppressRoundEvents = true } = {}) {
       f1.simX = fpClamp(f1.simX, STAGE_LEFT_FP, STAGE_RIGHT_FP);
       f2.simX = fpClamp(f2.simX, STAGE_LEFT_FP, STAGE_RIGHT_FP);
     },
-    checkHit(attacker, defender, { muteEffects = false } = {}) {
+    checkHit(attacker, defender) {
       if (!attacker.currentAttack || attacker.state !== 'attacking') return false;
       if (attacker.hitConnected) return false;
       const hitbox = attacker.getAttackHitbox();
@@ -366,7 +366,7 @@ export function createSimCombat({ suppressRoundEvents = true } = {}) {
       }
       return false;
     },
-    tickTimer({ muteEffects = false } = {}) {
+    tickTimer() {
       this._timerAccumulator++;
       if (this._timerAccumulator >= 60) {
         this._timerAccumulator = 0;

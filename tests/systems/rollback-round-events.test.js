@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_HP, ROUNDS_TO_WIN } from '../../src/config.js';
+import { MAX_HP } from '../../src/config.js';
 import { captureGameState, restoreGameState } from '../../src/systems/GameState.js';
 import { encodeInput } from '../../src/systems/InputBuffer.js';
 import { simulateFrame } from '../../src/systems/SimulationStep.js';

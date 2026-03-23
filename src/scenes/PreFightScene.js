@@ -81,7 +81,14 @@ export class PreFightScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Stage description at the bottom
-    this.stageDescBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 10, GAME_WIDTH, 20, 0x000000, 0.6);
+    this.stageDescBg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 10,
+      GAME_WIDTH,
+      20,
+      0x000000,
+      0.6,
+    );
     this.stageDescText = this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT - 10, '', {
         fontFamily: 'Arial',
@@ -95,7 +102,7 @@ export class PreFightScene extends Phaser.Scene {
     let currentIdx = 0;
     const animDuration = 2000; // 2 seconds total
     const startInterval = 60; // Start fast
-    let currentInterval = startInterval;
+    const currentInterval = startInterval;
 
     const cycleStage = () => {
       currentIdx = (currentIdx + 1) % stagesData.length;
