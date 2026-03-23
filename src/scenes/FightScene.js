@@ -950,9 +950,38 @@ export class FightScene extends Phaser.Scene {
       const totalFrames = Math.max(this._replayP1.totalFrames, this._replayP2.totalFrames);
       if (frame > totalFrames || this.combat.matchOver) {
         if (!this._replayFinished) {
-          console.log(`[REPLAY] Finished at frame ${frame}, matchOver=${this.combat.matchOver}`);
           this._replayFinished = true;
           if (window.__FIGHT_LOG) window.__FIGHT_LOG.matchComplete = true;
+          if (!this.combat.matchOver) {
+            // Replay ran out of frames without a match-ending event.
+            // This can happen because replay runs inputs linearly while the
+            // original used rollback netcode which may produce different outcomes.
+            console.log(`[REPLAY] Frames exhausted at ${frame} without match end. Forcing finish.`);
+            console.log(`[REPLAY] Final state: p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}, score=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`);
+            // Determine winner from HP or round score
+            const bundle = window.__REPLAY_BUNDLE;
+            const winnerId = bundle?.p1?.finalState?.combat?.p1RoundsWon >= ROUNDS_TO_WIN
+              ? this.p1Data.id
+              : this.p2Data.id;
+            const loserId = winnerId === this.p1Data.id ? this.p2Data.id : this.p1Data.id;
+            this.combat.matchOver = true;
+            // Transition to victory using the bundle's recorded winner
+            this.time.delayedCall(1000, () => {
+              this.cameras.main.fadeOut(500, 0, 0, 0);
+              this.cameras.main.once('camerafadeoutcomplete', () => {
+                this.scene.start('VictoryScene', {
+                  winnerId,
+                  loserId,
+                  p1Id: this.p1Id,
+                  p2Id: this.p2Id,
+                  stageId: this.stageId,
+                  gameMode: 'local',
+                });
+              });
+            });
+          } else {
+            console.log(`[REPLAY] Finished at frame ${frame}, matchOver=true`);
+          }
         }
         return;
       }
