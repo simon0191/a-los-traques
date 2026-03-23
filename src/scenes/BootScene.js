@@ -84,7 +84,7 @@ export class BootScene extends Phaser.Scene {
 
     // Load stage background images (only for those that have actual image files)
     for (const stage of stages) {
-      if (stage.texture.startsWith('stages_')) {
+      if (stage.texture?.startsWith('stages_')) {
         this.load.image(stage.texture, `assets/stages/${stage.texture}.png`);
       }
     }
