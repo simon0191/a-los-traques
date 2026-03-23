@@ -5,7 +5,7 @@ export default defineConfig({
   testMatch: '**/*.spec.js',
   timeout: 120_000,
   retries: 0,
-  workers: 1, // tests share servers, run sequentially
+  workers: 2, // each test creates its own room, safe to parallelize
 
   use: {
     headless: true,
