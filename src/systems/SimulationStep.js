@@ -57,15 +57,6 @@ export function simulateFrame(
   p2Input,
   { muteEffects = false } = {},
 ) {
-  // If round is not active (post-KO/timeup), freeze simulation state.
-  // Both peers must behave identically after a round event, regardless
-  // of when P2 receives P1's network round-event message.
-  if (!combat.roundActive) {
-    p1Fighter.syncSprite();
-    p2Fighter.syncSprite();
-    return null;
-  }
-
   // 1. Update fighters (gravity, cooldowns, timers, ground check)
   p1Fighter.update();
   p2Fighter.update();
@@ -83,38 +74,40 @@ export function simulateFrame(
   p1Fighter.faceOpponent(p2Fighter);
   p2Fighter.faceOpponent(p1Fighter);
 
-  // 5. Hit detection + timer tick → capture round events
+  // 5. Hit detection + timer tick → capture round events (only when round is active)
   let roundEvent = null;
-  const p1Hit = combat.checkHit(p1Fighter, p2Fighter, { muteEffects });
-  const p2Hit = combat.checkHit(p2Fighter, p1Fighter, { muteEffects });
+  if (combat.roundActive) {
+    const p1Hit = combat.checkHit(p1Fighter, p2Fighter, { muteEffects });
+    const p2Hit = combat.checkHit(p2Fighter, p1Fighter, { muteEffects });
 
-  if (p1Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 0 };
-  else if (p2Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 1 };
+    if (p1Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 0 };
+    else if (p2Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 1 };
 
-  // 6. Tick timer
-  const timerResult = combat.tickTimer({ muteEffects });
-  if (!roundEvent && timerResult?.timeup) {
-    roundEvent = {
-      type: 'timeup',
-      winnerIndex: p1Fighter.hp >= p2Fighter.hp ? 0 : 1,
-    };
-  }
+    // 6. Tick timer
+    const timerResult = combat.tickTimer({ muteEffects });
+    if (!roundEvent && timerResult?.timeup) {
+      roundEvent = {
+        type: 'timeup',
+        winnerIndex: p1Fighter.hp >= p2Fighter.hp ? 0 : 1,
+      };
+    }
 
-  // Stop combat and update all round state on the frame that detects a round event.
-  // Both peers must reach identical state at the same simulation frame, regardless
-  // of when the network round-event message arrives at P2.
-  // handleRoundEnd() still fires for audio/visual effects, but all simulation
-  // state changes (roundActive, roundsWon, roundNumber, velocities) happen here.
-  if (roundEvent) {
-    combat.roundActive = false;
-    p1Fighter.simVX = 0;
-    p2Fighter.simVX = 0;
-    // Update round score inside simulation so both peers agree at the same frame
-    if (roundEvent.winnerIndex === 0) combat.p1RoundsWon++;
-    else combat.p2RoundsWon++;
-    combat.roundNumber++;
-    if (combat.p1RoundsWon >= ROUNDS_TO_WIN || combat.p2RoundsWon >= ROUNDS_TO_WIN) {
-      combat.matchOver = true;
+    // Update all round state on the frame that detects a round event.
+    // Both peers must reach identical state at the same simulation frame,
+    // regardless of when the network round-event message arrives at P2.
+    // handleRoundEnd() still fires for audio/visual effects, but all
+    // simulation state (roundActive, roundsWon, roundNumber, velocities)
+    // is set here so both peers agree.
+    if (roundEvent) {
+      combat.roundActive = false;
+      p1Fighter.simVX = 0;
+      p2Fighter.simVX = 0;
+      if (roundEvent.winnerIndex === 0) combat.p1RoundsWon++;
+      else combat.p2RoundsWon++;
+      combat.roundNumber++;
+      if (combat.p1RoundsWon >= ROUNDS_TO_WIN || combat.p2RoundsWon >= ROUNDS_TO_WIN) {
+        combat.matchOver = true;
+      }
     }
   }
 

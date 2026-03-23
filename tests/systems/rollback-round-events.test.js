@@ -275,7 +275,6 @@ describe('rollback-safe round events', () => {
       expect(event).toEqual({ type: 'timeup', winnerIndex: expect.any(Number) });
 
       // roundActive is set to false by simulateFrame when it detects a round event.
-      // This ensures both peers stop combat on the same simulation frame.
       expect(combat.roundActive).toBe(false);
 
       // Restore snapshot and verify state is clean
