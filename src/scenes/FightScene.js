@@ -181,6 +181,8 @@ export class FightScene extends Phaser.Scene {
     if (this._replayP1) {
       // Replay mode: skip intro animation, start round immediately with frame-based timer
       // (no time.addEvent timer — simulateFrame's tickTimer handles it)
+      // Suppress direct KO/timeup handling — the replay loop handles round wins itself
+      this.combat.suppressRoundEvents = true;
       this.combat.timer = 60;
       this.combat._timerAccumulator = 0;
       this.combat.roundActive = true;
