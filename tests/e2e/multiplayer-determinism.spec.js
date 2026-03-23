@@ -70,7 +70,7 @@ async function runMatchAndReport(browser, testInfo, { p1Opts, p2Opts, testName }
         `desyncs: ${logP1.desyncCount + logP2.desyncCount} | ` +
         `winner: ${logP1.result?.winnerId || logP2.result?.winnerId || '?'}`;
       const summaryPath = path.join(RESULTS_DIR, 'ci-summary.md');
-      fs.appendFileSync(summaryPath, summaryLine + '\n');
+      fs.appendFileSync(summaryPath, `${summaryLine}\n`);
 
       // Attach to Playwright test results
       await testInfo.attach('report', { path: reportPath, contentType: 'text/markdown' });
