@@ -5,7 +5,7 @@ export default defineConfig({
   testMatch: '**/*.spec.js',
   timeout: 120_000,
   retries: 0,
-  workers: 2, // each test creates its own room, safe to parallelize
+  workers: 1, // both tests in one file, Playwright parallelizes by file
 
   use: {
     headless: true,
