@@ -90,6 +90,13 @@ export function simulateFrame(
         winnerIndex: p1Fighter.hp >= p2Fighter.hp ? 0 : 1,
       };
     }
+
+    // Stop combat processing on the frame that detects a round event.
+    // Both peers must stop at the same simulation frame, regardless of
+    // when the network round-event message arrives at P2.
+    if (roundEvent) {
+      combat.roundActive = false;
+    }
   }
 
   // 7. Sync sprites (rendering only)
