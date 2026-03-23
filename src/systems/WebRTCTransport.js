@@ -5,7 +5,7 @@
  * State machine: idle → signaling → connecting → open → closed|failed
  */
 
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+const DEFAULT_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 const DEFAULT_TIMEOUT_MS = 5000;
 
 export class WebRTCTransport {
@@ -18,6 +18,7 @@ export class WebRTCTransport {
    * @param {() => void} opts.onClose - DataChannel closed after being open
    * @param {() => void} opts.onFailed - connection failed or timed out
    * @param {number} [opts.timeoutMs=5000] - max time to establish connection
+   * @param {RTCIceServer[]} [opts.iceServers] - ICE server configuration (STUN/TURN)
    */
   constructor({
     isOfferer,
@@ -27,6 +28,7 @@ export class WebRTCTransport {
     onClose,
     onFailed,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    iceServers = DEFAULT_ICE_SERVERS,
   }) {
     this._isOfferer = isOfferer;
     this._onSignal = onSignal;
@@ -35,6 +37,7 @@ export class WebRTCTransport {
     this._onClose = onClose;
     this._onFailed = onFailed;
     this._timeoutMs = timeoutMs;
+    this._iceServers = iceServers;
 
     /** @type {'idle'|'signaling'|'connecting'|'open'|'closed'|'failed'} */
     this.state = 'idle';
@@ -171,7 +174,7 @@ export class WebRTCTransport {
   // --- Private ---
 
   _createPeerConnection() {
-    this._pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    this._pc = new RTCPeerConnection({ iceServers: this._iceServers });
 
     this._pc.onicecandidate = (event) => {
       if (event.candidate) {

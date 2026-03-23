@@ -1,6 +1,6 @@
 # RFC 0001: Networking Redesign
 
-**Status:** In Progress — Phase 1 complete, E2E testing framework complete
+**Status:** In Progress — Phases 1, 2A, 2B complete
 **Date:** 2026-03-22
 **Author:** Architecture Team
 
@@ -504,47 +504,53 @@ export class ConnectionMonitor {
 
 ---
 
-### Phase 2B: Transport Layer + TURN (Parallelizable with 2A)
+### Phase 2B: Transport Layer + TURN — COMPLETE ✓
 
 **Goal:** Reliable P2P connectivity across all network types. Clean module boundaries.
 
-**Description:**
+**What was built:**
 
 **2B.1: Cloudflare TURN integration**
-- Create Cloudflare TURN key via dashboard, store as PartyKit env vars (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN`)
-- Add `onRequest` handler to `party/server.js` to generate TURN credentials (REST call to `rtc.live.cloudflare.com`)
-- Client fetches credentials on `opponent_joined`, before WebRTC negotiation
-- ICE server list: Google STUN x2 + Cloudflare STUN + Cloudflare TURN (UDP + TCP)
+- `onRequest` handler on `party/server.js` generates TURN credentials via Cloudflare REST API (`POST rtc.live.cloudflare.com/v1/turn/keys/{keyId}/credentials/generate`)
+- Reads `CLOUDFLARE_TURN_KEY_ID` and `CLOUDFLARE_TURN_API_TOKEN` from PartyKit env vars
+- Graceful fallback: returns STUN-only servers when TURN is not configured or API fails
+- `TransportManager.fetchTurnCredentials()` calls the endpoint before WebRTC negotiation
+- `WebRTCTransport` accepts `iceServers` parameter instead of hardcoding STUN-only
 
 **2B.2: Module decomposition**
-- Extract `SignalingClient.js` from NetworkManager (WebSocket lifecycle, room messages, event emitter)
-- Extract `TransportManager.js` from NetworkManager + WebRTCTransport (WebRTC setup, TURN creds, transport routing)
-- Extract `InputSync.js` from NetworkManager (input buffer, send/receive, drain, checksum/resync relay)
-- Extract `ConnectionMonitor.js` from NetworkManager (ping/pong, RTT, pong timeout, quality assessment)
-- Extract `SpectatorRelay.js` from NetworkManager (spectator buffers, sync, shout, potion)
-- Create `NetworkFacade.js` that composes all 5 and exposes the same public API
+The 762-line `NetworkManager` monolith was decomposed into 5 focused modules + a composing facade, all in `src/systems/net/`:
 
-**2B.3: Terraform configuration**
-- Terraform config for Cloudflare DNS, PartyKit/Workers environment variables
-- TURN key ID as a Terraform variable (provisioned manually, referenced in config)
+- **`SignalingClient.js`** (~175 lines) — PartySocket lifecycle, type-based message dispatch via `on(type, cb)`, B4 pending message queue, B5 callback buffering for `sync`/`round_event`/`start`
+- **`TransportManager.js`** (~160 lines) — WebRTC lifecycle, TURN credential fetching, dual-transport routing (DataChannel primary, WS fallback), signaling relay
+- **`InputSync.js`** (~210 lines) — Input buffers (player + spectator), B3 OR-merge attack flags, input history gap-fill, `drainConfirmedInputs()` for RollbackManager, dual-transport `sendInput()`
+- **`ConnectionMonitor.js`** (~85 lines) — Ping interval (3s), pong timeout (6s), RTT measurement
+- **`SpectatorRelay.js`** (~120 lines) — Sync/round_event broadcast with B5 buffering, spectator count, shout, potion, fight state
+- **`NetworkFacade.js`** (~260 lines) — Composes all 5 modules, exposes identical public API to `NetworkManager` (same callback registration, send methods, input consumption, lifecycle)
+
+**Key design decisions:**
+- `SignalingClient` uses a generic `on(type, cb)` event system instead of ~30 named callback properties. Other modules register for the types they care about.
+- B5 buffering lives in two layers: `SignalingClient` buffers messages when no handler is registered for a type; `SpectatorRelay` additionally buffers `sync`/`round_event` when its own callback isn't set yet (since it eagerly registers handlers on `SignalingClient` in its constructor).
+- `NetworkManager.js` is NOT deleted yet — scenes still import it. Phase 3 swaps imports to `NetworkFacade`.
+- `WebRTCTransport.js` stays as a standalone module; `TransportManager` wraps it with TURN credentials and signaling relay.
+
+**2B.3: Terraform configuration** — deferred (infrastructure provisioning is orthogonal to code)
 
 **Deliverables:**
-- `src/systems/net/SignalingClient.js`
-- `src/systems/net/TransportManager.js`
-- `src/systems/net/InputSync.js`
-- `src/systems/net/ConnectionMonitor.js`
-- `src/systems/net/SpectatorRelay.js`
-- `src/systems/net/NetworkFacade.js`
+- `src/systems/net/SignalingClient.js` — WebSocket lifecycle, message dispatch
+- `src/systems/net/TransportManager.js` — WebRTC + TURN + transport routing
+- `src/systems/net/InputSync.js` — Input buffers, OR-merge, dual-transport send
+- `src/systems/net/ConnectionMonitor.js` — Ping/pong, RTT, timeout detection
+- `src/systems/net/SpectatorRelay.js` — Spectator messaging with B5 buffering
+- `src/systems/net/NetworkFacade.js` — Composes all modules, same public API
 - Modified `party/server.js` — `onRequest` for TURN credential endpoint
-- `infra/main.tf` — Terraform configuration
-- `tests/systems/net/signaling-client.test.js`
-- `tests/systems/net/transport-manager.test.js`
-- `tests/systems/net/input-sync.test.js`
-- Delete: `src/systems/NetworkManager.js`, `src/systems/WebRTCTransport.js`
-
-**Risks:**
-- Decomposition may introduce subtle message ordering bugs. Mitigate: `NetworkFacade` exposes identical API, existing tests run against facade.
-- Cloudflare TURN credential API may have latency. Mitigate: fetch eagerly on `opponent_joined` (during character select), cache for 5 minutes.
+- Modified `src/systems/WebRTCTransport.js` — accepts `iceServers` param
+- `tests/systems/net/signaling-client.test.js` (25 tests)
+- `tests/systems/net/transport-manager.test.js` (18 tests)
+- `tests/systems/net/input-sync.test.js` (24 tests)
+- `tests/systems/net/connection-monitor.test.js` (8 tests)
+- `tests/systems/net/spectator-relay.test.js` (16 tests)
+- `tests/systems/net/network-facade.test.js` (25 tests)
+- Modified `tests/party/server.test.js` (6 new TURN endpoint tests)
 
 **Estimated effort:** 4-5 days
 
@@ -637,7 +643,7 @@ Replace with binary encoding on DataChannel (keep JSON on WebSocket for debuggab
 flowchart TB
     P1[Phase 1<br/>Fix Simulation Determinism<br/>COMPLETE ✓]
     P2A[Phase 2A<br/>E2E Testing Framework<br/>COMPLETE ✓]
-    P2B[Phase 2B<br/>Transport + TURN + Modules<br/>4-5 days]
+    P2B[Phase 2B<br/>Transport + TURN + Modules<br/>COMPLETE ✓]
     P3[Phase 3<br/>Integration + Quality UI<br/>2 days]
     P4[Phase 4<br/>Hardened Reconnection<br/>2 days]
     P5[Phase 5<br/>Binary Protocol<br/>0.5 days]
@@ -651,13 +657,14 @@ flowchart TB
 
     style P1 fill:#c8e6c9
     style P2A fill:#c8e6c9
-    style P2B fill:#e1f5fe
+    style P2B fill:#c8e6c9
+    style P3 fill:#e1f5fe
     style P5 fill:#fff3e0
 ```
 
-**Completed** (green): Phase 1 + Phase 2A. **Next** (blue): Phase 2B. Phase 5 is optional (orange).
+**Completed** (green): Phases 1, 2A, 2B. **Next** (blue): Phase 3. Phase 5 is optional (orange).
 
-**Remaining estimated effort:** 8-9.5 days (Phases 2B through 5).
+**Remaining estimated effort:** 4-4.5 days (Phases 3 through 5).
 
 ---
 
@@ -719,13 +726,15 @@ bun run test:e2e:headed   # Watch both browsers fight
 
 `tests/helpers/replay-engine.js` replays fights from bundles using pure simulation (no Phaser). Uses shared `sim-factory.js` (extracted from test inline definitions). Vitest test validates deterministic replay against fixture bundles.
 
-### Layer 4: Transport Unit Tests (Planned — Phase 2B)
+### Layer 4: Transport Unit Tests (COMPLETE ✓)
 
-- Mock `RTCPeerConnection` and `RTCDataChannel` for `TransportManager` tests
-- Mock `PartySocket` for `SignalingClient` tests
-- Test TURN credential fetching (mock HTTP response)
-- Test ICE candidate type reporting
-- Test transport fallback (DataChannel close → WebSocket)
+116 tests across 6 test files in `tests/systems/net/`:
+- `SignalingClient` (25 tests): message dispatch, B4 queuing, B5 buffering, socket lifecycle, destroy cleanup
+- `TransportManager` (18 tests): WebRTC lifecycle, signaling relay, P2P messaging, TURN credentials, transport fallback
+- `InputSync` (24 tests): B3 OR-merge, input history processing, P2P input, dual-transport send, checksum/resync, drain
+- `ConnectionMonitor` (8 tests): ping interval, pong timeout, RTT measurement
+- `SpectatorRelay` (16 tests): send/receive for all spectator message types, B5 buffering, reset/destroy
+- `NetworkFacade` (25 tests): API surface validation, message routing, WebRTC integration, B4/B5 behavior, resetForReselect
 
 ### Layer 5: Network Condition Simulation (Planned — Toxiproxy)
 
@@ -807,22 +816,41 @@ TCP proxy between browsers and PartyKit for simulating latency, jitter, packet l
 | `.github/workflows/e2e.yml` | CI workflow for E2E tests |
 | `docs/e2e-testing.md` | E2E testing framework documentation |
 
-### Phases 2B-5 (Planned) — To Create
+### Phase 2B (Complete) — Created
 
 | File | Purpose |
 |------|---------|
-| `src/systems/net/SignalingClient.js` | WebSocket lifecycle, room messages |
-| `src/systems/net/TransportManager.js` | WebRTC + WS routing, TURN credentials |
-| `src/systems/net/InputSync.js` | Frame-indexed input send/receive/drain |
-| `src/systems/net/ConnectionMonitor.js` | RTT, ping/pong, quality assessment |
-| `src/systems/net/SpectatorRelay.js` | Spectator buffers, sync, shout, potion |
+| `src/systems/net/SignalingClient.js` | WebSocket lifecycle, type-based message dispatch |
+| `src/systems/net/TransportManager.js` | WebRTC + TURN + transport routing |
+| `src/systems/net/InputSync.js` | Input buffers, OR-merge, dual-transport send |
+| `src/systems/net/ConnectionMonitor.js` | Ping/pong, RTT, timeout detection |
+| `src/systems/net/SpectatorRelay.js` | Spectator messaging with B5 buffering |
 | `src/systems/net/NetworkFacade.js` | Composes all modules, same public API |
+| `tests/systems/net/signaling-client.test.js` | 25 tests for SignalingClient |
+| `tests/systems/net/transport-manager.test.js` | 18 tests for TransportManager |
+| `tests/systems/net/input-sync.test.js` | 24 tests for InputSync |
+| `tests/systems/net/connection-monitor.test.js` | 8 tests for ConnectionMonitor |
+| `tests/systems/net/spectator-relay.test.js` | 16 tests for SpectatorRelay |
+| `tests/systems/net/network-facade.test.js` | 25 tests for NetworkFacade |
+
+### Phase 2B (Complete) — Modified
+
+| File | Change |
+|------|--------|
+| `party/server.js` | Added `onRequest` for TURN credential endpoint |
+| `src/systems/WebRTCTransport.js` | Accepts `iceServers` param instead of hardcoding |
+| `tests/party/server.test.js` | 6 new tests for TURN credential endpoint |
+
+### Phases 3-5 (Planned) — To Create
+
+| File | Purpose |
+|------|---------|
 | `infra/main.tf` | Terraform config for Cloudflare DNS + env vars |
 | `src/systems/net/BinaryCodec.js` | Binary input encoding (Phase 5, optional) |
 
-### Phases 2B-5 (Planned) — To Delete
+### Phases 3-5 (Planned) — To Delete
 
 | File | Reason |
 |------|--------|
-| `src/systems/NetworkManager.js` | Replaced by `net/` modules + `NetworkFacade` |
-| `src/systems/WebRTCTransport.js` | Absorbed into `TransportManager` |
+| `src/systems/NetworkManager.js` | Replaced by `net/` modules + `NetworkFacade` (Phase 3) |
+| `src/systems/WebRTCTransport.js` | Kept as-is; wrapped by `TransportManager` |

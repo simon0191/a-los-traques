@@ -1,0 +1,369 @@
+import { ConnectionMonitor } from './ConnectionMonitor.js';
+import { InputSync } from './InputSync.js';
+import { SignalingClient } from './SignalingClient.js';
+import { SpectatorRelay } from './SpectatorRelay.js';
+import { TransportManager } from './TransportManager.js';
+
+/**
+ * Composes all networking modules and exposes the same public API
+ * as the original NetworkManager. Scenes can swap imports from
+ * NetworkManager to NetworkFacade with no behavioral changes.
+ */
+export class NetworkFacade {
+  /**
+   * @param {string} roomId
+   * @param {string} host - PartyKit host
+   * @param {{ spectator?: boolean }} [options]
+   */
+  constructor(roomId, host, { spectator = false } = {}) {
+    this.roomId = roomId;
+
+    // Core signaling layer
+    this.signaling = new SignalingClient(roomId, host, { spectator });
+
+    // Transport (WebRTC + signaling relay)
+    this.transport = new TransportManager(this.signaling, {
+      onP2PMessage: (msg) => {
+        // Only input messages come through DataChannel
+        if (msg.type === 'input') {
+          this.inputSync.handleP2PInput(msg);
+        }
+      },
+    });
+
+    // Input buffering and dual-transport routing
+    this.inputSync = new InputSync(this.signaling, this.transport);
+
+    // Ping/pong RTT measurement
+    this.monitor = new ConnectionMonitor(this.signaling);
+
+    // Spectator messaging
+    this.spectator = new SpectatorRelay(this.signaling);
+
+    // Wire socket lifecycle → monitor
+    this.signaling.onSocketOpen(() => {
+      this.monitor.start();
+    });
+
+    // Wire opponent_joined/reconnected → WebRTC init
+    this.signaling.on('opponent_joined', (msg) => {
+      if (!this.signaling.isSpectator) {
+        this.transport.initWebRTC(this.signaling.playerSlot);
+      }
+      if (this._onOpponentJoined) this._onOpponentJoined(msg);
+    });
+
+    this.signaling.on('opponent_reconnected', (msg) => {
+      if (!this.signaling.isSpectator) {
+        this.transport.initWebRTC(this.signaling.playerSlot);
+      }
+      if (this._onOpponentReconnected) this._onOpponentReconnected(msg);
+    });
+
+    // Wire remaining room lifecycle events
+    this._onOpponentJoined = null;
+    this._onOpponentReconnected = null;
+
+    this.signaling.on('opponent_ready', (msg) => {
+      if (this._onOpponentReady) this._onOpponentReady(msg.fighterId);
+    });
+    this.signaling.on('disconnect', () => {
+      if (this._onDisconnect) this._onDisconnect();
+    });
+    this.signaling.on('rematch', () => {
+      if (this._onRematch) this._onRematch();
+    });
+    this.signaling.on('full', () => {
+      if (this._onFull) this._onFull();
+    });
+    this.signaling.on('leave', () => {
+      if (this._onLeave) this._onLeave();
+    });
+    this.signaling.on('opponent_reconnecting', () => {
+      if (this._onOpponentReconnecting) this._onOpponentReconnecting();
+    });
+    this.signaling.on('return_to_select', () => {
+      if (this._onReturnToSelect) this._onReturnToSelect();
+    });
+    this.signaling.on('rejoin_available', (msg) => {
+      if (this._onRejoinAvailable) this._onRejoinAvailable(msg.slot);
+    });
+
+    // Room lifecycle callbacks
+    this._onOpponentReady = null;
+    this._onDisconnect = null;
+    this._onRematch = null;
+    this._onFull = null;
+    this._onLeave = null;
+    this._onOpponentReconnecting = null;
+    this._onReturnToSelect = null;
+    this._onRejoinAvailable = null;
+    this._onError = null;
+
+    // Wire monitor timeout → socket close callback
+    this.monitor.onTimeout(() => {
+      if (this._onSocketClose) this._onSocketClose();
+    });
+
+    // Socket lifecycle callbacks (used by ReconnectionManager)
+    this._onSocketClose = null;
+    this._onSocketOpen = null;
+
+    this.signaling.onSocketClose(() => {
+      if (this._onSocketClose) this._onSocketClose();
+    });
+    this.signaling.onSocketOpen(() => {
+      if (this._onSocketOpen) this._onSocketOpen();
+    });
+    this.signaling.onSocketError(() => {
+      if (this._onError) this._onError();
+    });
+  }
+
+  // --- Proxy properties ---
+
+  get playerSlot() {
+    return this.signaling.playerSlot;
+  }
+  get connected() {
+    return this.signaling.connected;
+  }
+  get isSpectator() {
+    return this.signaling.isSpectator;
+  }
+  get socket() {
+    return this.signaling.socket;
+  }
+  get latency() {
+    return this.monitor.latency;
+  }
+  get rtt() {
+    return this.monitor.rtt;
+  }
+  get remoteInputBuffer() {
+    return this.inputSync.remoteInputBuffer;
+  }
+  get lastRemoteInput() {
+    return this.inputSync.lastRemoteInput;
+  }
+  get remoteInputBufferP1() {
+    return this.inputSync.remoteInputBufferP1;
+  }
+  get remoteInputBufferP2() {
+    return this.inputSync.remoteInputBufferP2;
+  }
+  get lastRemoteInputP1() {
+    return this.inputSync.lastRemoteInputP1;
+  }
+  get lastRemoteInputP2() {
+    return this.inputSync.lastRemoteInputP2;
+  }
+
+  // --- Public API: register callbacks ---
+
+  onAssign(cb) {
+    this.signaling.on('assign', (msg) => cb(msg.player));
+  }
+  onOpponentJoined(cb) {
+    this._onOpponentJoined = cb;
+  }
+  onOpponentReady(cb) {
+    this._onOpponentReady = cb;
+  }
+  onStart(cb) {
+    this.signaling.on('start', cb);
+  }
+  onRemoteInput(cb) {
+    this.inputSync.onRemoteInput(cb);
+  }
+  onDisconnect(cb) {
+    this._onDisconnect = cb;
+  }
+  onRematch(cb) {
+    this._onRematch = cb;
+  }
+  onFull(cb) {
+    this._onFull = cb;
+  }
+  onError(cb) {
+    this._onError = cb;
+  }
+  onSync(cb) {
+    this.spectator.onSync(cb);
+  }
+  onRoundEvent(cb) {
+    this.spectator.onRoundEvent(cb);
+  }
+  onLeave(cb) {
+    this._onLeave = cb;
+  }
+  onAssignSpectator(cb) {
+    this.spectator.onAssignSpectator(cb);
+  }
+  onSpectatorCount(cb) {
+    this.spectator.onSpectatorCount(cb);
+  }
+  onShout(cb) {
+    this.spectator.onShout(cb);
+  }
+  onFightState(cb) {
+    this.spectator.onFightState(cb);
+  }
+  onPotionApplied(cb) {
+    this.spectator.onPotionApplied(cb);
+  }
+  onPotion(cb) {
+    this.spectator.onPotion(cb);
+  }
+  onOpponentReconnecting(cb) {
+    this._onOpponentReconnecting = cb;
+  }
+  onOpponentReconnected(cb) {
+    this._onOpponentReconnected = cb;
+  }
+  onReturnToSelect(cb) {
+    this._onReturnToSelect = cb;
+  }
+  onRejoinAvailable(cb) {
+    this._onRejoinAvailable = cb;
+  }
+  onChecksum(cb) {
+    this.inputSync.onChecksum(cb);
+  }
+  onResyncRequest(cb) {
+    this.inputSync.onResyncRequest(cb);
+  }
+  onResync(cb) {
+    this.inputSync.onResync(cb);
+  }
+  onSocketClose(cb) {
+    this._onSocketClose = cb;
+  }
+  onSocketOpen(cb) {
+    this._onSocketOpen = cb;
+  }
+
+  // --- Public API: send messages ---
+
+  sendReady(fighterId) {
+    this.signaling.send({ type: 'ready', fighterId });
+  }
+  sendInput(frame, inputState, history) {
+    this.inputSync.sendInput(frame, inputState, history);
+  }
+  sendChecksum(frame, hash) {
+    this.inputSync.sendChecksum(frame, hash);
+  }
+  sendResyncRequest(frame) {
+    this.inputSync.sendResyncRequest(frame);
+  }
+  sendResync(snapshot) {
+    this.inputSync.sendResync(snapshot);
+  }
+  sendRematch() {
+    this.signaling.send({ type: 'rematch' });
+  }
+  sendLeave() {
+    this.signaling.send({ type: 'leave' });
+  }
+  sendSync(state) {
+    this.spectator.sendSync(state);
+  }
+  sendRoundEvent(event) {
+    this.spectator.sendRoundEvent(event);
+  }
+  sendShout(text) {
+    this.spectator.sendShout(text);
+  }
+  sendPotion(target, potionType) {
+    this.spectator.sendPotion(target, potionType);
+  }
+  sendRejoin(slot, reset = false) {
+    const msg = { type: 'rejoin', slot };
+    if (reset) msg.reset = true;
+    this.signaling.send(msg);
+  }
+  sendPing() {
+    this.monitor.sendPing();
+  }
+  getRTT() {
+    return this.monitor.getRTT();
+  }
+
+  // --- Public API: input consumption ---
+
+  getRemoteInput() {
+    return this.inputSync.getRemoteInput();
+  }
+  getRemoteInputForSlot(slot) {
+    return this.inputSync.getRemoteInputForSlot(slot);
+  }
+  drainConfirmedInputs() {
+    return this.inputSync.drainConfirmedInputs();
+  }
+  getPlayerSlot() {
+    return this.signaling.playerSlot;
+  }
+
+  // --- Lifecycle ---
+
+  resetForReselect() {
+    this.inputSync.reset();
+    this.spectator.reset();
+    // Clear room lifecycle callbacks that are scene-specific
+    this._onOpponentReady = null;
+    this._onRematch = null;
+    this._onLeave = null;
+    this._onOpponentReconnecting = null;
+    this._onOpponentReconnected = null;
+    this._onReturnToSelect = null;
+    this._onSocketClose = null;
+    this._onSocketOpen = null;
+    this._onRejoinAvailable = null;
+    // Reset signaling handlers for scene-specific types
+    this.signaling.resetHandlers([
+      'opponent_ready',
+      'start',
+      'rematch',
+      'leave',
+      'opponent_reconnecting',
+      'opponent_reconnected',
+      'return_to_select',
+      'rejoin_available',
+    ]);
+    // Note: WebRTC is intentionally preserved across reselect
+  }
+
+  /**
+   * Fetch TURN credentials from the server.
+   * Call this before WebRTC negotiation for NAT traversal.
+   */
+  async fetchTurnCredentials() {
+    const host = this.signaling.socket?.url
+      ? new URL(this.signaling.socket.url).host
+      : `${this.signaling.roomId}`;
+    await this.transport.fetchTurnCredentials(host, this.roomId);
+  }
+
+  destroy() {
+    this.monitor.destroy();
+    this.transport.destroy();
+    this.inputSync.destroy();
+    this.spectator.destroy();
+    this.signaling.destroy();
+
+    this._onOpponentJoined = null;
+    this._onOpponentReady = null;
+    this._onOpponentReconnected = null;
+    this._onDisconnect = null;
+    this._onRematch = null;
+    this._onFull = null;
+    this._onLeave = null;
+    this._onError = null;
+    this._onOpponentReconnecting = null;
+    this._onReturnToSelect = null;
+    this._onRejoinAvailable = null;
+    this._onSocketClose = null;
+    this._onSocketOpen = null;
+  }
+}

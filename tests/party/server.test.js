@@ -951,4 +951,115 @@ describe('FightRoom', () => {
       expect(conn3.send).not.toHaveBeenCalled();
     });
   });
+
+  // ---- TURN credential endpoint ----
+
+  describe('onRequest — TURN credentials', () => {
+    it('returns 404 for non-turn-creds paths', async () => {
+      const response = await room.onRequest(
+        new Request('http://localhost/parties/main/room/unknown', { method: 'GET' }),
+      );
+      expect(response.status).toBe(404);
+    });
+
+    it('returns default STUN servers when TURN env vars not configured', async () => {
+      const response = await room.onRequest(
+        new Request('http://localhost/parties/main/room/turn-creds', { method: 'GET' }),
+      );
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.iceServers).toEqual([
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ]);
+    });
+
+    it('returns default STUN servers when env has partial config', async () => {
+      party.env = { CLOUDFLARE_TURN_KEY_ID: 'key-id' }; // missing API token
+      const room2 = new FightRoom(party);
+      const response = await room2.onRequest(
+        new Request('http://localhost/parties/main/room/turn-creds', { method: 'GET' }),
+      );
+      const data = await response.json();
+      expect(data.iceServers.length).toBe(2);
+      expect(data.iceServers[0].urls).toContain('stun');
+    });
+
+    it('calls Cloudflare TURN API and returns iceServers when configured', async () => {
+      party.env = {
+        CLOUDFLARE_TURN_KEY_ID: 'test-key-id',
+        CLOUDFLARE_TURN_API_TOKEN: 'test-api-token',
+      };
+      const room2 = new FightRoom(party);
+
+      const mockIceServers = [
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        {
+          urls: 'turn:turn.cloudflare.com:3478?transport=udp',
+          username: 'user',
+          credential: 'pass',
+        },
+      ];
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ iceServers: mockIceServers }),
+      });
+
+      const response = await room2.onRequest(
+        new Request('http://localhost/parties/main/room/turn-creds', { method: 'GET' }),
+      );
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.iceServers).toEqual(mockIceServers);
+
+      // Verify Cloudflare API was called correctly
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        'https://rtc.live.cloudflare.com/v1/turn/keys/test-key-id/credentials/generate',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-api-token',
+          }),
+        }),
+      );
+    });
+
+    it('falls back to STUN when Cloudflare API returns error', async () => {
+      party.env = {
+        CLOUDFLARE_TURN_KEY_ID: 'test-key-id',
+        CLOUDFLARE_TURN_API_TOKEN: 'test-api-token',
+      };
+      const room2 = new FightRoom(party);
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      });
+
+      const response = await room2.onRequest(
+        new Request('http://localhost/parties/main/room/turn-creds', { method: 'GET' }),
+      );
+      const data = await response.json();
+      expect(data.iceServers.length).toBe(2);
+      expect(data.iceServers[0].urls).toContain('stun');
+    });
+
+    it('falls back to STUN when fetch throws', async () => {
+      party.env = {
+        CLOUDFLARE_TURN_KEY_ID: 'test-key-id',
+        CLOUDFLARE_TURN_API_TOKEN: 'test-api-token',
+      };
+      const room2 = new FightRoom(party);
+
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('network error'));
+
+      const response = await room2.onRequest(
+        new Request('http://localhost/parties/main/room/turn-creds', { method: 'GET' }),
+      );
+      const data = await response.json();
+      expect(data.iceServers.length).toBe(2);
+    });
+  });
 });
