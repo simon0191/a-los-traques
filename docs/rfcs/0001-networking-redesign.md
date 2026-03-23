@@ -212,9 +212,9 @@ flowchart TB
        │                                                │
 ```
 
-**TURN Key ID** is created once via Cloudflare dashboard and stored as a PartyKit environment variable (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN`). No Terraform resource exists for Cloudflare TURN yet — the key is provisioned manually.
+**TURN Key ID and API Token** are provisioned via Terraform (`cloudflare_calls_turn_app` resource in `infra/main.tf`) and stored as PartyKit environment variables (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN`).
 
-**Terraform** manages: Cloudflare DNS records, Workers/PartyKit deployment configuration, environment variable bindings.
+**Terraform** manages: Cloudflare TURN app provisioning (key ID + bearer token). Outputs are wired to PartyKit env vars via `npx partykit env add`.
 
 ---
 

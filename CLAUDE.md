@@ -22,7 +22,8 @@ bun run format       # Format only (auto-fix)
 src/
   scenes/          # Boot -> Title -> Select -> PreFight -> Fight -> Victory
   entities/        # Fighter.js (sprite + state machine + animation)
-  systems/         # CombatSystem, InputManager, TouchControls, AIController, NetworkManager
+  systems/         # CombatSystem, InputManager, TouchControls, AIController
+    net/           # NetworkFacade, SignalingClient, TransportManager, InputSync, ConnectionMonitor, SpectatorRelay
   data/            # fighters.json (16 fighters), stages.json (5 stages)
   config.js        # Constants (dimensions, ground Y, fighter size 128x128)
 assets/
@@ -38,7 +39,9 @@ public/
 scripts/
   asset-pipeline/  # Gemini-based sprite generation pipeline
 party/
-  server.js        # PartyKit multiplayer server
+  server.js        # PartyKit multiplayer server (+ TURN credential endpoint)
+infra/
+  main.tf          # Terraform: Cloudflare TURN app provisioning
 tests/
   data/            # fighters.json data validation
   party/           # PartyKit server (slot assignment, rate limiting, routing)
@@ -136,7 +139,9 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 
 ## Online Multiplayer
 
-- PartyKit server at `party/server.js`, max 2 players per room (pure relay, no game logic)
+- PartyKit server at `party/server.js`, max 2 players per room (pure relay, no game logic, TURN credential endpoint)
+- **Network modules** in `src/systems/net/`: SignalingClient (WebSocket), TransportManager (WebRTC + TURN), InputSync (buffers), ConnectionMonitor (ping/RTT), SpectatorRelay, NetworkFacade (composes all, same API as old NetworkManager)
+- **Cloudflare TURN**: `infra/main.tf` provisions TURN app via Terraform. Server endpoint `/turn-creds` generates short-lived credentials. Enables P2P behind symmetric NAT (mobile carriers).
 - **Rollback netcode** (GGPO-style): both peers run identical simulations locally with zero perceived input lag
 - **Deferred round events**: `simulateFrame()` returns `{ type, winnerIndex }` descriptors instead of firing side effects. Both P1 and P2 set `suppressRoundEvents=true`. P1 handles events from `advance()` return via `combat.handleRoundEnd()`. P2 receives via `onRoundEvent` network handler.
 - Input prediction: repeat last movement, zero attack buttons. Rollback + re-simulate on misprediction (max 7 frames)
