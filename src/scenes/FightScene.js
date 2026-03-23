@@ -126,8 +126,18 @@ export class FightScene extends Phaser.Scene {
         if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
           const bundle = window.__REPLAY_BUNDLE;
           const totalFrames = Math.max(bundle.p1.totalFrames, bundle.p2.totalFrames);
-          this._replayP1 = new ReplayInputSource(bundle.p1.inputs, totalFrames);
-          this._replayP2 = new ReplayInputSource(bundle.p2.inputs, totalFrames);
+          // Prefer confirmed input pairs (exact post-rollback inputs) over raw per-player inputs
+          if (bundle.confirmedInputs?.length > 0) {
+            const sources = ReplayInputSource.fromConfirmedInputs(
+              bundle.confirmedInputs,
+              totalFrames,
+            );
+            this._replayP1 = sources.p1;
+            this._replayP2 = sources.p2;
+          } else {
+            this._replayP1 = new ReplayInputSource(bundle.p1.inputs, totalFrames);
+            this._replayP2 = new ReplayInputSource(bundle.p2.inputs, totalFrames);
+          }
           this._replayFrame = 0;
           this._replayRoundCooldown = 0;
           this.aiController = null;
@@ -186,7 +196,9 @@ export class FightScene extends Phaser.Scene {
       this.combat.timer = 60;
       this.combat._timerAccumulator = 0;
       this.combat.roundActive = true;
-      console.log(`[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`);
+      console.log(
+        `[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`,
+      );
     } else {
       this._showRoundIntro();
     }
@@ -238,7 +250,11 @@ export class FightScene extends Phaser.Scene {
         // fall through to the fixed-timestep loop below
       } else {
         // Allow restart after match over (Space key or tap)
-        if (this.combat.matchOver && this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+        if (
+          this.combat.matchOver &&
+          this.spaceKey &&
+          Phaser.Input.Keyboard.JustDown(this.spaceKey)
+        ) {
           this.scene.restart();
         }
         return;
@@ -768,6 +784,8 @@ export class FightScene extends Phaser.Scene {
         this.recorder.recordRollback(frame, depth);
       this.rollbackManager._onLocalChecksum = (frame, hash) =>
         this.recorder.recordChecksum(frame, hash);
+      this.rollbackManager._onConfirmedInputs = (frame, p1, p2) =>
+        this.recorder.recordConfirmedInputs(frame, p1, p2);
     }
 
     // Wire desync detection + resync
@@ -931,7 +949,9 @@ export class FightScene extends Phaser.Scene {
         this._replayRoundCooldown--;
         this._replayFrame++;
         if (this._replayRoundCooldown === 0) {
-          console.log(`[REPLAY] Round transition complete at frame ${this._replayFrame}, starting round ${this.combat.roundNumber}`);
+          console.log(
+            `[REPLAY] Round transition complete at frame ${this._replayFrame}, starting round ${this.combat.roundNumber}`,
+          );
           // Reset fighters and start next round
           this.p1Fighter.reset(GAME_WIDTH * 0.3);
           this.p2Fighter.reset(GAME_WIDTH * 0.7);
@@ -957,12 +977,15 @@ export class FightScene extends Phaser.Scene {
             // This can happen because replay runs inputs linearly while the
             // original used rollback netcode which may produce different outcomes.
             console.log(`[REPLAY] Frames exhausted at ${frame} without match end. Forcing finish.`);
-            console.log(`[REPLAY] Final state: p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}, score=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`);
+            console.log(
+              `[REPLAY] Final state: p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}, score=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+            );
             // Determine winner from HP or round score
             const bundle = window.__REPLAY_BUNDLE;
-            const winnerId = bundle?.p1?.finalState?.combat?.p1RoundsWon >= ROUNDS_TO_WIN
-              ? this.p1Data.id
-              : this.p2Data.id;
+            const winnerId =
+              bundle?.p1?.finalState?.combat?.p1RoundsWon >= ROUNDS_TO_WIN
+                ? this.p1Data.id
+                : this.p2Data.id;
             const loserId = winnerId === this.p1Data.id ? this.p2Data.id : this.p1Data.id;
             this.combat.matchOver = true;
             // Transition to victory using the bundle's recorded winner
@@ -989,14 +1012,18 @@ export class FightScene extends Phaser.Scene {
       const p2Input = this._replayP2.getEncoded(frame);
       const roundEvent = simFrame(this.p1Fighter, this.p2Fighter, this.combat, p1Input, p2Input);
       if (roundEvent) {
-        console.log(`[REPLAY] Round event at frame ${frame}: ${roundEvent.type}, winner=P${roundEvent.winnerIndex + 1}`);
+        console.log(
+          `[REPLAY] Round event at frame ${frame}: ${roundEvent.type}, winner=P${roundEvent.winnerIndex + 1}`,
+        );
         // Handle round end with frame-based transition (not time-based)
         this.combat.stopRound();
         if (roundEvent.winnerIndex === 0) this.combat.p1RoundsWon++;
         else this.combat.p2RoundsWon++;
 
         const winnerName = roundEvent.winnerIndex === 0 ? this.p1Data.name : this.p2Data.name;
-        console.log(`[REPLAY] Score: P1=${this.combat.p1RoundsWon}, P2=${this.combat.p2RoundsWon} (need ${ROUNDS_TO_WIN})`);
+        console.log(
+          `[REPLAY] Score: P1=${this.combat.p1RoundsWon}, P2=${this.combat.p2RoundsWon} (need ${ROUNDS_TO_WIN})`,
+        );
 
         if (this.combat.p1RoundsWon >= ROUNDS_TO_WIN || this.combat.p2RoundsWon >= ROUNDS_TO_WIN) {
           console.log(`[REPLAY] Match over!`);
@@ -1014,7 +1041,9 @@ export class FightScene extends Phaser.Scene {
         }
       }
       if (frame % 300 === 0) {
-        console.log(`[REPLAY] frame=${frame}/${totalFrames}, timer=${this.combat.timer}, roundActive=${this.combat.roundActive}, p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}`);
+        console.log(
+          `[REPLAY] frame=${frame}/${totalFrames}, timer=${this.combat.timer}, roundActive=${this.combat.roundActive}, p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}`,
+        );
       }
       this._replayFrame++;
       return;

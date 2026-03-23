@@ -19,6 +19,8 @@ export function generateBundle(logP1, logP2, urls) {
       speed: logP1.config?.speed ?? 1,
       aiDifficulty: logP1.config?.aiDifficulty ?? 'medium',
     },
+    // Confirmed input pairs from P1's rollback system (both peers simulate identically)
+    confirmedInputs: logP1.confirmedInputs || [],
     p1: extractPlayerData(logP1),
     p2: extractPlayerData(logP2),
     urls,

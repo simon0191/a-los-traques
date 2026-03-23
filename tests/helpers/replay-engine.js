@@ -31,8 +31,22 @@ export function replayFromBundle(bundle) {
   const combat = createSimCombat();
 
   const totalFrames = Math.max(bundle.p1.totalFrames, bundle.p2.totalFrames);
-  const p1Inputs = expandSparseInputs(bundle.p1.inputs, totalFrames);
-  const p2Inputs = expandSparseInputs(bundle.p2.inputs, totalFrames);
+
+  // Prefer confirmed input pairs (exact post-rollback inputs) over raw per-player inputs
+  let p1Inputs, p2Inputs;
+  if (bundle.confirmedInputs?.length > 0) {
+    p1Inputs = expandSparseInputs(
+      bundle.confirmedInputs.map((c) => ({ frame: c.frame, encoded: c.p1 })),
+      totalFrames,
+    );
+    p2Inputs = expandSparseInputs(
+      bundle.confirmedInputs.map((c) => ({ frame: c.frame, encoded: c.p2 })),
+      totalFrames,
+    );
+  } else {
+    p1Inputs = expandSparseInputs(bundle.p1.inputs, totalFrames);
+    p2Inputs = expandSparseInputs(bundle.p2.inputs, totalFrames);
+  }
 
   const roundEvents = [];
   let roundTransitionCooldown = 0;

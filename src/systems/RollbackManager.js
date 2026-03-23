@@ -58,6 +58,7 @@ export class RollbackManager {
     this._onDesync = null;
     this._onRollback = null; // (frame, depth) callback
     this._onLocalChecksum = null; // (frame, hash) callback
+    this._onConfirmedInputs = null; // (frame, p1Input, p2Input) callback
 
     // Adaptive delay state
     this._adaptiveDelayEnabled = true;
@@ -158,6 +159,7 @@ export class RollbackManager {
     // 8. Simulate currentFrame — capture round event from current frame
     const p1Input = this._getInputForFrame(this.currentFrame, true);
     const p2Input = this._getInputForFrame(this.currentFrame, false);
+    this._onConfirmedInputs?.(this.currentFrame, p1Input, p2Input);
     const roundEvent = simulateFrame(p1, p2, combat, p1Input, p2Input);
 
     // 9. Advance frame

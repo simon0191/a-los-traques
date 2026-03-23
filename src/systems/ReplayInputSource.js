@@ -38,4 +38,19 @@ export class ReplayInputSource {
   getInput(frame) {
     return decodeInput(this.getEncoded(frame));
   }
+
+  /**
+   * Build P1 and P2 ReplayInputSources from confirmed input pairs.
+   * @param {Array<{ frame: number, p1: number, p2: number }>} confirmedInputs
+   * @param {number} totalFrames
+   * @returns {{ p1: ReplayInputSource, p2: ReplayInputSource }}
+   */
+  static fromConfirmedInputs(confirmedInputs, totalFrames) {
+    const p1Sparse = confirmedInputs.map((c) => ({ frame: c.frame, encoded: c.p1 }));
+    const p2Sparse = confirmedInputs.map((c) => ({ frame: c.frame, encoded: c.p2 }));
+    return {
+      p1: new ReplayInputSource(p1Sparse, totalFrames),
+      p2: new ReplayInputSource(p2Sparse, totalFrames),
+    };
+  }
 }

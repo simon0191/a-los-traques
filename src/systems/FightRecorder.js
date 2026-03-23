@@ -9,6 +9,8 @@ import { encodeInput } from './InputBuffer.js';
 export class FightRecorder {
   constructor({ roomId, playerSlot, fighterId, opponentId, stageId, config }) {
     this._lastEncodedInput = -1;
+    this._lastConfirmedP1 = -1;
+    this._lastConfirmedP2 = -1;
 
     this.log = {
       roomId,
@@ -24,6 +26,9 @@ export class FightRecorder {
 
       // Per-frame input log (sparse — only when input changes)
       inputs: [],
+
+      // Confirmed input pairs from rollback system (sparse — both P1+P2 as simulated)
+      confirmedInputs: [],
 
       // Periodic state checksums
       checksums: [],
@@ -58,6 +63,18 @@ export class FightRecorder {
       this._lastEncodedInput = encoded;
     }
     this.log.totalFrames = frame;
+  }
+
+  /**
+   * Record confirmed input pair (post-rollback) for exact replay.
+   * Sparse — only stores when either input changes.
+   */
+  recordConfirmedInputs(frame, p1, p2) {
+    if (p1 !== this._lastConfirmedP1 || p2 !== this._lastConfirmedP2) {
+      this.log.confirmedInputs.push({ frame, p1, p2 });
+      this._lastConfirmedP1 = p1;
+      this._lastConfirmedP2 = p2;
+    }
   }
 
   /**
