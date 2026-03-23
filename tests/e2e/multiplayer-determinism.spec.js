@@ -111,6 +111,19 @@ test.describe('Multiplayer determinism', () => {
       testName: 'random fighters',
     });
 
-    expect(logP1.finalStateHash).toBe(logP2.finalStateHash);
+    // Compare determinism via checksums — these compare confirmed-frame snapshots
+    // that both peers computed independently. Final state hash can differ because
+    // peers capture it at different frame counts (P2 receives match-over event
+    // a few frames after P1 fires it).
+    const p1Checksums = new Map(logP1.checksums.map((c) => [c.frame, c.hash]));
+    const p2Checksums = new Map(logP2.checksums.map((c) => [c.frame, c.hash]));
+    const sharedFrames = [...p1Checksums.keys()].filter((f) => p2Checksums.has(f));
+
+    expect(sharedFrames.length).toBeGreaterThan(0);
+    for (const frame of sharedFrames) {
+      expect(p1Checksums.get(frame), `checksum mismatch at frame ${frame}`).toBe(
+        p2Checksums.get(frame),
+      );
+    }
   });
 });
