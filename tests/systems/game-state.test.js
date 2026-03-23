@@ -49,6 +49,7 @@ function makeCombat(overrides = {}) {
     roundActive: true,
     matchOver: false,
     _timerAccumulator: 0,
+    transitionTimer: 0,
     ...overrides,
   };
 }

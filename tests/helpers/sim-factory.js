@@ -311,6 +311,31 @@ export function createSimFighter(xPx, playerIndex, fighterData) {
       this.sprite.x = this.simX / FP_SCALE;
       this.sprite.y = this.simY / FP_SCALE;
     },
+    resetForRound(x) {
+      this.simX = Math.trunc(x * FP_SCALE);
+      this.simY = GROUND_Y_FP;
+      this.simVX = 0;
+      this.simVY = 0;
+      this.hp = MAX_HP;
+      this.special = 0;
+      this.state = 'idle';
+      this.attackCooldown = 0;
+      this.attackFrameElapsed = 0;
+      this.comboCount = 0;
+      this.blockTimer = 0;
+      this.hurtTimer = 0;
+      this.currentAttack = null;
+      this.hitConnected = false;
+      this.hasDoubleJumped = false;
+      this._airborneTime = 0;
+      this.stamina = MAX_STAMINA_FP;
+      this._isTouchingWall = false;
+      this._wallDir = 0;
+      this._hasWallJumped = false;
+      this._specialTintTimer = 0;
+      this._prevAnimState = null;
+      this.facingRight = this.playerIndex === 0;
+    },
   };
 }
 
@@ -328,6 +353,7 @@ export function createSimCombat({ suppressRoundEvents = true } = {}) {
     roundNumber: 1,
     p1RoundsWon: 0,
     p2RoundsWon: 0,
+    transitionTimer: 0,
     _lastEndReason: null,
     resolveBodyCollision(f1, f2) {
       const halfW = 18 * FP_SCALE;

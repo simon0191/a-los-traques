@@ -86,6 +86,7 @@ export function captureCombatState(combat) {
     roundActive: combat.roundActive,
     matchOver: combat.matchOver,
     _timerAccumulator: combat._timerAccumulator || 0,
+    transitionTimer: combat.transitionTimer || 0,
   };
 }
 
@@ -102,6 +103,7 @@ export function restoreCombatState(combat, state) {
   combat.roundActive = state.roundActive;
   combat.matchOver = state.matchOver;
   combat._timerAccumulator = state._timerAccumulator || 0;
+  combat.transitionTimer = state.transitionTimer || 0;
 }
 
 /**
@@ -150,6 +152,10 @@ export function hashGameState(snapshot) {
     snapshot.p2.hurtTimer,
     snapshot.combat.timer,
     snapshot.combat.roundNumber,
+    snapshot.combat.transitionTimer || 0,
+    snapshot.combat.roundActive ? 1 : 0,
+    snapshot.combat.p1RoundsWon,
+    snapshot.combat.p2RoundsWon,
   ];
   for (const v of vals) {
     h = ((h << 5) | (h >>> 27)) ^ (v | 0);
