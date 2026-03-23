@@ -133,7 +133,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/graceful-reconnection.md` — Reconnection state machine, grace period, module responsibilities
 - `docs/room-state-machine.md` — Server room state (`roomState` transitions, `return_to_select` vs `disconnect`)
 - `docs/e2e-testing.md` — E2E multiplayer testing framework (autoplay, FightRecorder, Playwright)
-- `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phase 1 complete, Phases 2-5 planned)
+- `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phases 1-4 complete, Phase 5 optional)
 
 ## Online Multiplayer
 
