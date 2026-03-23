@@ -312,6 +312,19 @@ export class SelectScene extends Phaser.Scene {
         }
       });
 
+      // Autoplay: auto-select fighter and confirm immediately
+      if (this.game.autoplay?.enabled) {
+        const autoId = this.game.autoplay.fighterId;
+        if (autoId) {
+          const idx = this.fighters.findIndex((f) => f.id === autoId);
+          if (idx >= 0) this.p1Index = idx;
+        } else {
+          this.p1Index = Math.floor(Math.random() * this.fighters.length);
+        }
+        this.updateP1Display();
+        this.confirmP1();
+      }
+
       this.networkManager.onDisconnect(() => {
         this.transitioning = true;
         this.add

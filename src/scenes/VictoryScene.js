@@ -18,6 +18,13 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   create() {
+    // Signal match completion for E2E test orchestration
+    if (this.game.autoplay?.enabled && window.__FIGHT_LOG) {
+      window.__FIGHT_LOG.matchComplete = true;
+      window.__FIGHT_LOG.completedAt = Date.now();
+      window.__FIGHT_LOG.result = { winnerId: this.winnerId, loserId: this.loserId };
+    }
+
     const audio = this.game.audioManager;
     audio.setScene(this);
     audio.playMusic('bgm_victory', { loop: false, volume: 0.5 });

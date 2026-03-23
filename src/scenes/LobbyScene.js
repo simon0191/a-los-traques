@@ -124,6 +124,10 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     this.network.onAssign((_slot) => {
+      // Expose room ID for E2E test orchestration
+      if (this.game.autoplay?.enabled && this.isCreator) {
+        window.__AUTOPLAY_ROOM_ID = this.roomId;
+      }
       if (this.isCreator) {
         const params = new URLSearchParams(window.location.search);
         const partyHost = params.get('partyHost');

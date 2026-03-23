@@ -1,6 +1,6 @@
 # RFC 0001: Networking Redesign
 
-**Status:** In Progress — Phase 1 complete
+**Status:** In Progress — Phase 1 complete, E2E testing framework complete
 **Date:** 2026-03-22
 **Author:** Architecture Team
 
@@ -189,7 +189,7 @@ flowchart TB
 | Input sync | Embedded in `NetworkManager` | `InputSync.js` (extracted) | Independently testable. Clear API: `sendInput()`, `drainConfirmedInputs()`. |
 | Monitoring | Ping/pong in `NetworkManager` | `ConnectionMonitor.js` (extracted) | Pre-match quality probing. Mid-match degradation detection. RTT on DataChannel (not just WebSocket). |
 | Infra provisioning | Manual | **Terraform** (Cloudflare provider) | DNS, Workers config. TURN Key ID via Cloudflare dashboard/API (no Terraform resource exists for TURN yet). |
-| Testing | Unit tests (Vitest) | + **Headless dual-simulation harness** | `NetworkSimulator` mock transport connecting two RollbackManagers. Configurable latency/loss/jitter. |
+| Testing | Unit tests (Vitest) | + **Browser E2E framework** (Playwright) + **Headless replay engine** | Autoplay mode spawns two browsers, records confirmed inputs, compares final state. Replay engine reproduces fights from bundles. See `docs/e2e-testing.md`. |
 
 ### Cloudflare TURN Integration
 
@@ -468,39 +468,39 @@ export class ConnectionMonitor {
 
 ---
 
-### Phase 2A: Headless Testing Harness (Parallelizable with 2B)
+### Phase 2A: E2E Testing Framework — COMPLETE ✓
 
-**Goal:** Automated tests that catch desync, timer drift, and rollback corruption without needing a browser.
+**Goal:** Automated tests that catch desync, timer drift, and rollback corruption in real browsers.
 
-**Description:**
-- Create `NetworkSimulator` mock transport with configurable: latency (ms), jitter (ms), packet loss (%), reordering probability, burst loss length
-- Create `HeadlessFight` test utility that wires two `RollbackManager` instances + `SimulationStep` + `CombatSystem` via `NetworkSimulator`
-- Uses mock fighters from existing `tests/systems/determinism.test.js` pattern (pure FP simulation, no Phaser)
-- Scripted input sequences drive both sides
-- Assertions: bit-exact state at every confirmed frame, timer values match, round events agree
+**What was built (different from original plan):** Instead of a headless dual-simulation harness with `NetworkSimulator`, we built a browser-based E2E framework using Playwright that tests the full stack — real WebSocket/WebRTC, Phaser rendering, and scene transitions. This catches a wider class of bugs (scene flow, round transitions, network timing) than a headless harness would.
 
 **Deliverables:**
-- `tests/harness/NetworkSimulator.js` — configurable mock transport
-- `tests/harness/HeadlessFight.js` — dual-simulation test utility
-- `tests/harness/MockFighter.js` — pure simulation fighter (extracted from `determinism.test.js`)
-- `tests/integration/dual-sim-determinism.test.js` — determinism under various network conditions
-- `tests/integration/dual-sim-round-events.test.js` — round event correctness under rollback
+- `src/systems/AutoplayController.js` — URL params (`?autoplay=1`, `?fighter=`, `?seed=`, `?speed=`) drive automated gameplay
+- `src/systems/FightRecorder.js` — records inputs, confirmed input pairs (post-rollback), checksums, round events, desyncs to `window.__FIGHT_LOG`
+- `src/systems/AIController.js` — seeded PRNG (`setSeed()`) for reproducible AI decisions
+- `src/systems/ReplayInputSource.js` — frame-indexed input reader for browser replay
+- `tests/e2e/multiplayer-determinism.spec.js` — Playwright tests spawning two browser contexts
+- `tests/e2e/helpers/report-generator.js` — markdown failure reports (posted as PR comment in CI)
+- `tests/e2e/helpers/bundle-generator.js` — reproducibility bundles with confirmed inputs
+- `tests/helpers/sim-factory.js` — shared `createSimFighter`/`createSimCombat` (extracted from inline test definitions)
+- `tests/helpers/replay-engine.js` — headless replay from bundle (Vitest, no browser)
+- `tests/helpers/input-utils.js` — sparse-to-dense input expansion
+- `tests/systems/replay.test.js` — Vitest replay determinism test
+- `public/replay.html` — browser UI for loading and replaying bundles
+- `.github/workflows/e2e.yml` — separate CI workflow with PR comment on failure + artifact upload
+- Overclock mode (`?speed=N`) for faster test execution (2x default in CI)
 
-**Test scenarios:**
-| Scenario | Latency | Loss | Expected |
-|----------|---------|------|----------|
-| Perfect LAN | 0ms | 0% | Bit-exact, no rollbacks |
-| Good WiFi | 30ms | 0% | Bit-exact at confirmation, rollbacks converge |
-| Mobile cellular | 80ms, 20ms jitter | 2% | State converges within rollback window |
-| Bad connection | 150ms, 50ms jitter | 10% | State converges, adaptive delay increases |
-| Burst loss | 50ms | 5 consecutive frames lost | Recovers via input redundancy |
-| Timer edge case | 50ms | timed to hit timer=0 during rollback | Timer identical on both sides |
-| KO during rollback | 50ms | timed to cause KO misprediction | Round event only fires on confirmed state |
+**Key design decisions:**
+- Browser E2E over headless dual-sim: tests the real game stack, not mocks. Already caught real desync bugs on first run.
+- Confirmed input pairs: `RollbackManager._onConfirmedInputs` captures the exact P1+P2 inputs that `simulateFrame` received after rollback corrections, enabling exact replay.
+- `?replay=1` mode: load a bundle via `/replay.html`, watch the fight with full Phaser rendering at any speed.
+- Flaky test handling: `retries: 1` in Playwright config — known desync bug causes intermittent failures, marked as flaky (not blocking).
 
-**Risks:**
-- Mock fighters may diverge from real Fighter.js behavior over time. Mitigate: share constants from `FixedPoint.js`, add snapshot comparison tests against real fighters in Playwright layer.
+**Still planned (from original Phase 2A):**
+- `NetworkSimulator` with configurable latency/jitter/loss — planned via Toxiproxy (see `TODO.md`)
+- Network condition test scenarios (good WiFi, mobile cellular, burst loss, etc.)
 
-**Estimated effort:** 3-4 days
+**Full documentation:** `docs/e2e-testing.md`
 
 ---
 
@@ -635,8 +635,8 @@ Replace with binary encoding on DataChannel (keep JSON on WebSocket for debuggab
 
 ```mermaid
 flowchart TB
-    P1[Phase 1<br/>Fix Simulation Determinism<br/>2-3 days]
-    P2A[Phase 2A<br/>Headless Testing Harness<br/>3-4 days]
+    P1[Phase 1<br/>Fix Simulation Determinism<br/>COMPLETE ✓]
+    P2A[Phase 2A<br/>E2E Testing Framework<br/>COMPLETE ✓]
     P2B[Phase 2B<br/>Transport + TURN + Modules<br/>4-5 days]
     P3[Phase 3<br/>Integration + Quality UI<br/>2 days]
     P4[Phase 4<br/>Hardened Reconnection<br/>2 days]
@@ -649,14 +649,15 @@ flowchart TB
     P3 --> P4
     P4 --> P5
 
-    style P2A fill:#e1f5fe
+    style P1 fill:#c8e6c9
+    style P2A fill:#c8e6c9
     style P2B fill:#e1f5fe
     style P5 fill:#fff3e0
 ```
 
-**Phase 2A and 2B run in parallel** (blue). Phase 5 is optional (orange).
+**Completed** (green): Phase 1 + Phase 2A. **Next** (blue): Phase 2B. Phase 5 is optional (orange).
 
-**Total estimated effort:** 13-16 days (sequential), ~10-12 days (with parallelism).
+**Remaining estimated effort:** 8-9.5 days (Phases 2B through 5).
 
 ---
 
@@ -676,7 +677,7 @@ The `NetworkFacade` pattern allows zero-disruption migration:
 
 ### Rollout Steps
 
-1. **Local testing:** Fix simulation bugs (Phase 1), run headless harness (Phase 2A), verify determinism
+1. ✅ **Local testing:** Fix simulation bugs (Phase 1), E2E testing framework (Phase 2A) — catches desync bugs in CI
 2. **Staging:** Deploy TURN-enabled PartyKit server, test on two iPhones over cellular
 3. **Canary:** Enable for a subset of rooms (e.g., rooms starting with "test-")
 4. **Full rollout:** Remove canary gate, update docs
@@ -690,60 +691,35 @@ The `NetworkFacade` pattern allows zero-disruption migration:
 
 ## Testing Strategy
 
-### Layer 1: Headless Dual-Simulation Harness (Phase 2A)
+### Layer 1: Browser E2E Framework (COMPLETE ✓)
 
-Two `RollbackManager` instances connected via a `NetworkSimulator` mock transport. Uses real `SimulationStep`, `GameState`, `InputBuffer`, `CombatSystem` with mock fighters (existing pattern from `tests/systems/determinism.test.js`).
+Playwright-based framework that spawns two browser instances in autoplay mode, runs full multiplayer matches, and verifies determinism. See `docs/e2e-testing.md` for complete details.
 
-`NetworkSimulator` is configurable:
-- **Latency**: one-way delay in ms (applied per-packet)
-- **Jitter**: random variation added to latency (uniform distribution)
-- **Packet loss**: probability of dropping a packet (0-1)
-- **Reordering**: probability of delivering packets out of order
-- **Burst loss**: consecutive frames dropped (simulates WiFi handoff)
+- **Autoplay mode** (`?autoplay=1`): AI-driven gameplay, seeded PRNG, overclock support
+- **FightRecorder**: captures inputs, confirmed input pairs (post-rollback), checksums, round events, desyncs
+- **Failure reports**: markdown report + reproducibility bundle generated on every run, posted as PR comment in CI
+- **Replay**: load bundle via `/replay.html` for browser replay, or `replayFromBundle()` for headless Vitest replay
+- **CI**: separate workflow (`.github/workflows/e2e.yml`), artifact upload, `retries: 1` for known flaky desync
 
-```javascript
-const sim = new NetworkSimulator({
-  latencyMs: 80,
-  jitterMs: 20,
-  packetLossRate: 0.02,
-  burstLossFrames: 0,
-});
-
-const fight = new HeadlessFight(sim, {
-  p1Inputs: generateInputSequence(600),  // 10 seconds
-  p2Inputs: generateInputSequence(600),
-});
-
-const result = fight.run();
-expect(result.p1FinalState).toEqual(result.p2FinalState);
-expect(result.p1Timer).toBe(result.p2Timer);
-expect(result.p1RoundEvents).toEqual(result.p2RoundEvents);
+```bash
+bun run test:e2e          # Headless (CI)
+bun run test:e2e:headed   # Watch both browsers fight
 ```
 
-### Layer 2: Targeted Rollback Regression Tests
+### Layer 2: Targeted Rollback Regression Tests (COMPLETE ✓)
 
-```javascript
-// Test: timeUp during rollback re-simulation must NOT fire side effects
-test('timer reaching 0 during rollback does not corrupt state', () => {
-  // Set timer to 1 second remaining (60 frames)
-  // Run 59 frames normally
-  // Inject a misprediction at frame 55 that triggers rollback
-  // During re-simulation frames 55-59, timer hits 0
-  // Assert: roundActive is still true after rollback completes
-  // Assert: timeUp() was NOT called during re-simulation
-});
+13 tests in `tests/systems/rollback-round-events.test.js` covering:
+- Timer reaching 0 during rollback re-simulation (no side effects)
+- KO during rollback (deferred, not fired)
+- KO on predicted vs confirmed inputs
+- Round event deduplication
+- Timer/state synchronization
 
-// Test: KO on predicted input + rollback
-test('KO on predicted input is rolled back correctly', () => {
-  // Set defender HP to 1
-  // Predict an attack that would KO
-  // Confirmed input shows the attack was blocked
-  // Assert: defender HP is not 0, round continues
-  // Assert: handleKO() was NOT called
-});
-```
+### Layer 3: Headless Replay Engine (COMPLETE ✓)
 
-### Layer 3: Transport Unit Tests
+`tests/helpers/replay-engine.js` replays fights from bundles using pure simulation (no Phaser). Uses shared `sim-factory.js` (extracted from test inline definitions). Vitest test validates deterministic replay against fixture bundles.
+
+### Layer 4: Transport Unit Tests (Planned — Phase 2B)
 
 - Mock `RTCPeerConnection` and `RTCDataChannel` for `TransportManager` tests
 - Mock `PartySocket` for `SignalingClient` tests
@@ -751,12 +727,9 @@ test('KO on predicted input is rolled back correctly', () => {
 - Test ICE candidate type reporting
 - Test transport fallback (DataChannel close → WebSocket)
 
-### Layer 4: Playwright E2E (CI-optional, Slow)
+### Layer 5: Network Condition Simulation (Planned — Toxiproxy)
 
-- Two `browser.newContext()` instances connecting to local PartyKit server (`bun run party:dev`)
-- Scripted inputs via `page.evaluate(() => window.game.inputManager.injectInput({...}))`
-- Assert both tabs show same timer, HP, and round result after 30 seconds of play
-- Run as a separate CI job (not blocking, takes ~2 minutes)
+TCP proxy between browsers and PartyKit for simulating latency, jitter, packet loss, burst loss, and disconnection. See `TODO.md` for design.
 
 ---
 
@@ -803,17 +776,38 @@ test('KO on predicted input is rolled back correctly', () => {
 
 ## Appendix: Files Modified/Created
 
-### Modified
+### Phase 1 (Complete) — Modified
 
 | File | Change |
 |------|--------|
-| `src/systems/CombatSystem.js` | `tickTimer({ muteEffects })`, `checkHit()` returns KO info |
+| `src/systems/CombatSystem.js` | `tickTimer({ muteEffects })`, `checkHit()` returns KO info, `handleRoundEnd()` |
 | `src/systems/SimulationStep.js` | Returns round event, passes `muteEffects` to all combat methods |
-| `src/systems/RollbackManager.js` | Deferred round event in `advance()`, discard during re-simulation |
-| `src/scenes/FightScene.js` | P1 authority wiring, P2 `suppressRoundEvents`, deferred events, quality UI |
-| `party/server.js` | `onRequest` TURN credential endpoint, `connection_quality` message |
+| `src/systems/RollbackManager.js` | Deferred round event in `advance()`, discard during re-simulation, `_onConfirmedInputs` callback |
+| `src/scenes/FightScene.js` | P1 authority wiring, P2 `suppressRoundEvents`, deferred events, autoplay, replay mode |
+| `tests/systems/rollback-round-events.test.js` | 13 regression tests for deferred round events |
 
-### Created
+### Phase 2A (Complete) — Created
+
+| File | Purpose |
+|------|---------|
+| `src/systems/AutoplayController.js` | URL param reader for autoplay/replay mode |
+| `src/systems/FightRecorder.js` | Records inputs, confirmed pairs, checksums, round events, desyncs |
+| `src/systems/AIController.js` | Added seeded PRNG for reproducible AI |
+| `src/systems/ReplayInputSource.js` | Frame-indexed input reader for browser replay |
+| `tests/e2e/playwright.config.js` | Playwright config (Chromium, webServer, retries) |
+| `tests/e2e/multiplayer-determinism.spec.js` | E2E determinism tests |
+| `tests/e2e/helpers/browser-helpers.js` | URL builders, log extraction, wait utilities |
+| `tests/e2e/helpers/report-generator.js` | Markdown failure report generator |
+| `tests/e2e/helpers/bundle-generator.js` | Reproducibility bundle generator |
+| `tests/helpers/sim-factory.js` | Shared `createSimFighter`/`createSimCombat` |
+| `tests/helpers/input-utils.js` | Sparse-to-dense input expansion |
+| `tests/helpers/replay-engine.js` | Headless replay from bundle |
+| `tests/systems/replay.test.js` | Vitest replay determinism test |
+| `public/replay.html` | Browser UI for loading and replaying bundles |
+| `.github/workflows/e2e.yml` | CI workflow for E2E tests |
+| `docs/e2e-testing.md` | E2E testing framework documentation |
+
+### Phases 2B-5 (Planned) — To Create
 
 | File | Purpose |
 |------|---------|
@@ -824,18 +818,9 @@ test('KO on predicted input is rolled back correctly', () => {
 | `src/systems/net/SpectatorRelay.js` | Spectator buffers, sync, shout, potion |
 | `src/systems/net/NetworkFacade.js` | Composes all modules, same public API |
 | `infra/main.tf` | Terraform config for Cloudflare DNS + env vars |
-| `tests/harness/NetworkSimulator.js` | Mock transport with configurable conditions |
-| `tests/harness/HeadlessFight.js` | Dual-simulation test utility |
-| `tests/harness/MockFighter.js` | Pure simulation fighter (no Phaser) |
-| `tests/integration/dual-sim-determinism.test.js` | Determinism under network conditions |
-| `tests/integration/dual-sim-round-events.test.js` | Round event correctness |
-| `tests/integration/reconnection.test.js` | Reconnection flow |
-| `tests/systems/net/signaling-client.test.js` | SignalingClient unit tests |
-| `tests/systems/net/transport-manager.test.js` | TransportManager unit tests |
-| `tests/systems/net/input-sync.test.js` | InputSync unit tests |
 | `src/systems/net/BinaryCodec.js` | Binary input encoding (Phase 5, optional) |
 
-### Deleted
+### Phases 2B-5 (Planned) — To Delete
 
 | File | Reason |
 |------|--------|

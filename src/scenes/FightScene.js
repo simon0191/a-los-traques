@@ -13,6 +13,7 @@ import { Fighter } from '../entities/Fighter.js';
 import { AIController } from '../systems/AIController.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { DevConsole } from '../systems/DevConsole.js';
+import { FightRecorder } from '../systems/FightRecorder.js';
 import {
   FP_SCALE,
   MAX_SPECIAL_FP,
@@ -21,7 +22,9 @@ import {
 } from '../systems/FixedPoint.js';
 import { InputManager } from '../systems/InputManager.js';
 import { ReconnectionManager } from '../systems/ReconnectionManager.js';
+import { ReplayInputSource } from '../systems/ReplayInputSource.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
+import { simulateFrame as simFrame } from '../systems/SimulationStep.js';
 import { TouchControls } from '../systems/TouchControls.js';
 
 // ---------------------------------------------------------------------------
@@ -119,12 +122,33 @@ export class FightScene extends Phaser.Scene {
 
       // -- AI controller (local mode only) --
       if (this.gameMode !== 'online') {
-        this.aiController = new AIController(
-          this,
-          this.p2Fighter,
-          this.p1Fighter,
-          this.aiDifficulty,
-        );
+        // Replay mode: use recorded inputs instead of AI/keyboard
+        if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
+          const bundle = window.__REPLAY_BUNDLE;
+          const totalFrames = Math.max(bundle.p1.totalFrames, bundle.p2.totalFrames);
+          // Prefer confirmed input pairs (exact post-rollback inputs) over raw per-player inputs
+          if (bundle.confirmedInputs?.length > 0) {
+            const sources = ReplayInputSource.fromConfirmedInputs(
+              bundle.confirmedInputs,
+              totalFrames,
+            );
+            this._replayP1 = sources.p1;
+            this._replayP2 = sources.p2;
+          } else {
+            this._replayP1 = new ReplayInputSource(bundle.p1.inputs, totalFrames);
+            this._replayP2 = new ReplayInputSource(bundle.p2.inputs, totalFrames);
+          }
+          this._replayFrame = 0;
+          this._replayRoundCooldown = 0;
+          this.aiController = null;
+        } else {
+          this.aiController = new AIController(
+            this,
+            this.p2Fighter,
+            this.p1Fighter,
+            this.aiDifficulty,
+          );
+        }
       } else {
         this.aiController = null;
         this.frameCounter = 0;
@@ -164,7 +188,20 @@ export class FightScene extends Phaser.Scene {
     this._simAccumulator = 0;
 
     // -- Start first round intro --
-    this._showRoundIntro();
+    if (this._replayP1) {
+      // Replay mode: skip intro animation, start round immediately with frame-based timer
+      // (no time.addEvent timer — simulateFrame's tickTimer handles it)
+      // Suppress direct KO/timeup handling — the replay loop handles round wins itself
+      this.combat.suppressRoundEvents = true;
+      this.combat.timer = 60;
+      this.combat._timerAccumulator = 0;
+      this.combat.roundActive = true;
+      console.log(
+        `[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`,
+      );
+    } else {
+      this._showRoundIntro();
+    }
   }
 
   // =========================================================================
@@ -208,19 +245,31 @@ export class FightScene extends Phaser.Scene {
     }
 
     if (!this.combat.roundActive) {
-      // Allow restart after match over (Space key or tap)
-      if (this.combat.matchOver && this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-        this.scene.restart();
+      // Replay mode: don't bail out — the fixed-timestep loop handles round transitions
+      if (this._replayP1 && this._replayP2) {
+        // fall through to the fixed-timestep loop below
+      } else {
+        // Allow restart after match over (Space key or tap)
+        if (
+          this.combat.matchOver &&
+          this.spaceKey &&
+          Phaser.Input.Keyboard.JustDown(this.spaceKey)
+        ) {
+          this.scene.restart();
+        }
+        return;
       }
-      return;
     }
 
     // Fixed-timestep accumulator: gate simulation to exactly 60fps
     const FIXED_DELTA = 1000 / 60; // 16.667ms
-    this._simAccumulator += delta;
+    // Overclock: in autoplay mode, inject extra time to run more sim steps per frame
+    const speed = this.game.autoplay?.speed || 1;
+    this._simAccumulator += delta * speed;
     // Cap to prevent spiral of death (e.g. tab was backgrounded)
-    if (this._simAccumulator > FIXED_DELTA * 4) {
-      this._simAccumulator = FIXED_DELTA * 4;
+    const maxSteps = Math.max(4, speed);
+    if (this._simAccumulator > FIXED_DELTA * maxSteps) {
+      this._simAccumulator = FIXED_DELTA * maxSteps;
     }
 
     while (this._simAccumulator >= FIXED_DELTA) {
@@ -691,16 +740,59 @@ export class FightScene extends Phaser.Scene {
     this.localFighter = slot === 0 ? this.p1Fighter : this.p2Fighter;
     this.remoteFighter = slot === 0 ? this.p2Fighter : this.p1Fighter;
 
-    // Create RollbackManager
+    // Create RollbackManager — scale rollback window with overclock speed so the
+    // system has room to absorb the increased frame production rate.
+    const speed = this.game.autoplay?.speed || 1;
     this.rollbackManager = new RollbackManager(nm, slot, {
-      inputDelay: ONLINE_INPUT_DELAY,
-      maxRollbackFrames: 7,
+      inputDelay: ONLINE_INPUT_DELAY * speed,
+      maxRollbackFrames: 7 * speed,
     });
+    // Disable adaptive delay when overclocked — it would clamp values back down
+    if (speed > 1) {
+      this.rollbackManager._adaptiveDelayEnabled = false;
+    }
+
+    // Autoplay: use AI controller for local input instead of InputManager
+    if (this.game.autoplay?.enabled) {
+      const difficulty = this.game.autoplay.aiDifficulty || 'medium';
+      const seed = this.game.autoplay.seed;
+      this.autoplayAI = new AIController(this, this.localFighter, this.remoteFighter, difficulty);
+      if (seed != null) {
+        this.autoplayAI.setSeed(seed + slot);
+      }
+    }
+
+    // Fight recorder for E2E testing
+    if (this.game.autoplay?.enabled) {
+      this.recorder = new FightRecorder({
+        roomId: nm.roomId,
+        playerSlot: slot,
+        fighterId: slot === 0 ? this.p1Id : this.p2Id,
+        opponentId: slot === 0 ? this.p2Id : this.p1Id,
+        stageId: this.stageId,
+        config: {
+          seed: this.game.autoplay.seed,
+          speed: this.game.autoplay.speed,
+          aiDifficulty: this.game.autoplay.aiDifficulty,
+        },
+      });
+    }
+
+    // Wire recorder hooks into rollback manager
+    if (this.recorder) {
+      this.rollbackManager._onRollback = (frame, depth) =>
+        this.recorder.recordRollback(frame, depth);
+      this.rollbackManager._onLocalChecksum = (frame, hash) =>
+        this.recorder.recordChecksum(frame, hash);
+      this.rollbackManager._onConfirmedInputs = (frame, p1, p2) =>
+        this.recorder.recordConfirmedInputs(frame, p1, p2);
+    }
 
     // Wire desync detection + resync
     nm.onChecksum((frame, hash) => this.rollbackManager.handleRemoteChecksum(frame, hash));
     this.rollbackManager._onDesync = (frame, localHash, remoteHash) => {
       console.warn(`[DESYNC] frame=${frame} local=${localHash} remote=${remoteHash}`);
+      this.recorder?.recordDesync(frame, localHash, remoteHash);
       this._showDesyncWarning();
 
       if (this.isHost) {
@@ -850,6 +942,113 @@ export class FightScene extends Phaser.Scene {
   }
 
   _handleLocalUpdate(time, delta) {
+    // Replay mode: use recorded inputs via simulateFrame
+    if (this._replayP1 && this._replayP2) {
+      // Handle frame-based round transition cooldown
+      if (this._replayRoundCooldown > 0) {
+        this._replayRoundCooldown--;
+        this._replayFrame++;
+        if (this._replayRoundCooldown === 0) {
+          console.log(
+            `[REPLAY] Round transition complete at frame ${this._replayFrame}, starting round ${this.combat.roundNumber}`,
+          );
+          // Reset fighters and start next round
+          this.p1Fighter.reset(GAME_WIDTH * 0.3);
+          this.p2Fighter.reset(GAME_WIDTH * 0.7);
+          this._updateHUD();
+          // Start round without the time-based timer (replay uses frame-based tickTimer inside simulateFrame)
+          this.combat.timer = 60;
+          this.combat._timerAccumulator = 0;
+          this.combat.roundActive = true;
+          this.centerText.setText('');
+          this.subtitleText.setText('');
+        }
+        return;
+      }
+
+      const frame = this._replayFrame;
+      const totalFrames = Math.max(this._replayP1.totalFrames, this._replayP2.totalFrames);
+      if (frame > totalFrames || this.combat.matchOver) {
+        if (!this._replayFinished) {
+          this._replayFinished = true;
+          if (window.__FIGHT_LOG) window.__FIGHT_LOG.matchComplete = true;
+          if (!this.combat.matchOver) {
+            // Replay ran out of frames without a match-ending event.
+            // This can happen because replay runs inputs linearly while the
+            // original used rollback netcode which may produce different outcomes.
+            console.log(`[REPLAY] Frames exhausted at ${frame} without match end. Forcing finish.`);
+            console.log(
+              `[REPLAY] Final state: p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}, score=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+            );
+            // Determine winner from HP or round score
+            const bundle = window.__REPLAY_BUNDLE;
+            const winnerId =
+              bundle?.p1?.finalState?.combat?.p1RoundsWon >= ROUNDS_TO_WIN
+                ? this.p1Data.id
+                : this.p2Data.id;
+            const loserId = winnerId === this.p1Data.id ? this.p2Data.id : this.p1Data.id;
+            this.combat.matchOver = true;
+            // Transition to victory using the bundle's recorded winner
+            this.time.delayedCall(1000, () => {
+              this.cameras.main.fadeOut(500, 0, 0, 0);
+              this.cameras.main.once('camerafadeoutcomplete', () => {
+                this.scene.start('VictoryScene', {
+                  winnerId,
+                  loserId,
+                  p1Id: this.p1Id,
+                  p2Id: this.p2Id,
+                  stageId: this.stageId,
+                  gameMode: 'local',
+                });
+              });
+            });
+          } else {
+            console.log(`[REPLAY] Finished at frame ${frame}, matchOver=true`);
+          }
+        }
+        return;
+      }
+      const p1Input = this._replayP1.getEncoded(frame);
+      const p2Input = this._replayP2.getEncoded(frame);
+      const roundEvent = simFrame(this.p1Fighter, this.p2Fighter, this.combat, p1Input, p2Input);
+      if (roundEvent) {
+        console.log(
+          `[REPLAY] Round event at frame ${frame}: ${roundEvent.type}, winner=P${roundEvent.winnerIndex + 1}`,
+        );
+        // Handle round end with frame-based transition (not time-based)
+        this.combat.stopRound();
+        if (roundEvent.winnerIndex === 0) this.combat.p1RoundsWon++;
+        else this.combat.p2RoundsWon++;
+
+        const winnerName = roundEvent.winnerIndex === 0 ? this.p1Data.name : this.p2Data.name;
+        console.log(
+          `[REPLAY] Score: P1=${this.combat.p1RoundsWon}, P2=${this.combat.p2RoundsWon} (need ${ROUNDS_TO_WIN})`,
+        );
+
+        if (this.combat.p1RoundsWon >= ROUNDS_TO_WIN || this.combat.p2RoundsWon >= ROUNDS_TO_WIN) {
+          console.log(`[REPLAY] Match over!`);
+          this.combat.matchOver = true;
+          this.onMatchOver(roundEvent.winnerIndex);
+        } else {
+          // Show KO text and set frame-based cooldown for round transition
+          this.centerText.setText('K.O.!');
+          this.subtitleText.setText(`${winnerName} GANA EL ROUND!`);
+          this.combat.roundNumber++;
+          this._replayRoundCooldown = 180; // 3 seconds at 60fps
+          this.p1Fighter.stop();
+          this.p2Fighter.stop();
+          console.log(`[REPLAY] Starting 180-frame cooldown for round ${this.combat.roundNumber}`);
+        }
+      }
+      if (frame % 300 === 0) {
+        console.log(
+          `[REPLAY] frame=${frame}/${totalFrames}, timer=${this.combat.timer}, roundActive=${this.combat.roundActive}, p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}`,
+        );
+      }
+      this._replayFrame++;
+      return;
+    }
+
     this.p1Fighter.update();
     this.p2Fighter.update();
 
@@ -883,23 +1082,46 @@ export class FightScene extends Phaser.Scene {
       .setDepth(25);
   }
 
-  _handleOnlineUpdate(_time, _delta) {
+  _handleOnlineUpdate(time, delta) {
     this.frameCounter++;
-    const input = this.inputManager;
 
-    // Read local input
-    const localInput = {
-      left: input.left,
-      right: input.right,
-      up: input.up,
-      down: input.down,
-      lp: input.lightPunch,
-      hp: input.heavyPunch,
-      lk: input.lightKick,
-      hk: input.heavyKick,
-      sp: input.special,
-    };
-    input.consumeTouch();
+    // Read local input: from AI in autoplay mode, from InputManager otherwise
+    let localInput;
+    if (this.autoplayAI) {
+      this.autoplayAI.update(time, delta);
+      const d = this.autoplayAI.decision;
+      localInput = {
+        left: d.moveDir < 0,
+        right: d.moveDir > 0,
+        up: d.jump,
+        down: d.block,
+        lp: d.attack === 'lightPunch',
+        hp: d.attack === 'heavyPunch',
+        lk: d.attack === 'lightKick',
+        hk: d.attack === 'heavyKick',
+        sp: d.attack === 'special',
+      };
+      // Consume one-shot decisions so they don't repeat
+      this.autoplayAI.decision.jump = false;
+      this.autoplayAI.decision.attack = null;
+    } else {
+      const input = this.inputManager;
+      localInput = {
+        left: input.left,
+        right: input.right,
+        up: input.up,
+        down: input.down,
+        lp: input.lightPunch,
+        hp: input.heavyPunch,
+        lk: input.lightKick,
+        hk: input.heavyKick,
+        sp: input.special,
+      };
+      input.consumeTouch();
+    }
+
+    // Record input for E2E testing
+    this.recorder?.recordInput(this.rollbackManager.currentFrame, localInput);
 
     // Run rollback advance (handles input sending, prediction, rollback, simulation)
     const { roundEvent } = this.rollbackManager.advance(
@@ -912,6 +1134,7 @@ export class FightScene extends Phaser.Scene {
 
     // P1 (host) handles round events: fire side effects + send to P2
     if (roundEvent && this.isHost) {
+      this.recorder?.recordRoundEvent(this.rollbackManager.currentFrame, roundEvent);
       this.combat.handleRoundEnd(roundEvent);
     }
 
@@ -1496,6 +1719,14 @@ export class FightScene extends Phaser.Scene {
   onMatchOver(winnerIndex) {
     // Host sends match-over event to guest
     this._sendRoundEvent('ko', winnerIndex);
+
+    // Capture final state for E2E testing
+    this.recorder?.captureEndState(
+      this.p1Fighter,
+      this.p2Fighter,
+      this.combat,
+      this.rollbackManager?.currentFrame ?? this.frameCounter,
+    );
 
     const winnerData = winnerIndex === 0 ? this.p1Data : this.p2Data;
     const loserData = winnerIndex === 0 ? this.p2Data : this.p1Data;

@@ -12,6 +12,7 @@ import { SpectatorLobbyScene } from './scenes/SpectatorLobbyScene.js';
 import { TitleScene } from './scenes/TitleScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
 import { AudioManager } from './systems/AudioManager.js';
+import { AutoplayController } from './systems/AutoplayController.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -51,4 +52,5 @@ const config = {
 };
 
 window.game = new Phaser.Game(config);
+window.game.autoplay = new AutoplayController();
 new AudioManager(window.game);

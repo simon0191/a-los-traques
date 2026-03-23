@@ -9,6 +9,8 @@
     "party:deploy": "bunx partykit deploy",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:e2e": "npx playwright test --config tests/e2e/playwright.config.js",
+    "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.js --headed",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write ."
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
+    "@playwright/test": "^1.58.2",
     "vitest": "^4.1.0"
   }
 }

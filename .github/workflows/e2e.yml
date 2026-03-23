@@ -1,0 +1,45 @@
+name: E2E Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: npx playwright install chromium --with-deps
+      - run: bun run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 7
+      - name: Comment failure summary on PR
+        if: failure() && github.event_name == 'pull_request'
+        run: |
+          SUMMARY="test-results/ci-summary.md"
+          if [ -f "$SUMMARY" ]; then
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            BODY=$(cat <<EOF
+          **E2E multiplayer tests failed**
+
+          $(cat "$SUMMARY")
+
+          [Download full report & replay bundle](${RUN_URL}#artifacts)
+          EOF
+          )
+            gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
