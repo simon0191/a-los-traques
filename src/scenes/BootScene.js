@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { FIGHTER_COLORS, FIGHTER_HEIGHT, FIGHTER_WIDTH } from '../config.js';
+import stages from '../data/stages.json';
 
 // Auto-discover fight music MP3s at build time via Vite glob
 const fightMusicFiles = Object.keys(import.meta.glob('/public/assets/audio/fights/*.mp3')).map(
@@ -81,6 +82,13 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('ui_confirm', 'assets/audio/ui_confirm.mp3');
     this.load.audio('ui_cancel', 'assets/audio/ui_cancel.mp3');
 
+    // Load stage background images (only for those that have actual image files)
+    for (const stage of stages) {
+      if (stage.texture?.startsWith('stages_')) {
+        this.load.image(stage.texture, `assets/stages/${stage.texture}.png`);
+      }
+    }
+
     // Load fighter sprite sheets and portraits
     for (const id of FIGHTERS_WITH_SPRITES) {
       for (const [animName, _def] of Object.entries(ANIM_DEFS)) {
@@ -102,6 +110,18 @@ export class BootScene extends Phaser.Scene {
     // Generate placeholder rectangle textures for fighters
     this.generateFighterPlaceholder('fighter_p1', FIGHTER_COLORS.p1);
     this.generateFighterPlaceholder('fighter_p2', FIGHTER_COLORS.p2);
+
+    // Generate placeholder rectangle textures for stages (if no real assets)
+    for (const stage of stages) {
+      if (!this.textures.exists(stage.texture)) {
+        this.generateRect(
+          stage.texture,
+          this.game.config.width,
+          this.game.config.height,
+          Phaser.Display.Color.HexStringToColor(stage.bgColor).color,
+        );
+      }
+    }
 
     // Create animations for fighters with real sprites
     for (const id of FIGHTERS_WITH_SPRITES) {

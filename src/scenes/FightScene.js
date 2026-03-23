@@ -9,6 +9,7 @@ import {
   STAGE_RIGHT,
 } from '../config.js';
 import fightersData from '../data/fighters.json';
+import stagesData from '../data/stages.json';
 import { Fighter } from '../entities/Fighter.js';
 import { AIController } from '../systems/AIController.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
@@ -291,16 +292,32 @@ export class FightScene extends Phaser.Scene {
   // BACKGROUND
   // =========================================================================
   _createBackground() {
-    // Default background
-    const bgColor = 0x1a1a2e;
-    const groundColor = 0x2d2d44;
+    const stage = stagesData.find((s) => s.id === this.stageId) || stagesData[0];
 
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, bgColor);
-    this.add.rectangle(GAME_WIDTH / 2, GROUND_Y + 25, GAME_WIDTH, 50, groundColor);
+    // Main background image
+    this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, stage.texture)
+      .setOrigin(0.5)
+      .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+
+    // Optional: Add a subtle overlay to help fighters pop
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.15);
+
+    // Ground (subtle colored rectangle to ground the characters)
+    const groundColor = Phaser.Display.Color.HexStringToColor(stage.groundColor).color;
+    this.add.rectangle(GAME_WIDTH / 2, GROUND_Y + 25, GAME_WIDTH, 50, groundColor, 0.4).setDepth(1);
 
     // Stage boundary lines (subtle)
-    this.add.rectangle(STAGE_LEFT, GROUND_Y, 2, 20, 0x444466).setOrigin(0.5, 1).setAlpha(0.3);
-    this.add.rectangle(STAGE_RIGHT, GROUND_Y, 2, 20, 0x444466).setOrigin(0.5, 1).setAlpha(0.3);
+    this.add
+      .rectangle(STAGE_LEFT, GROUND_Y, 2, 20, 0xffffff)
+      .setOrigin(0.5, 1)
+      .setAlpha(0.2)
+      .setDepth(1);
+    this.add
+      .rectangle(STAGE_RIGHT, GROUND_Y, 2, 20, 0xffffff)
+      .setOrigin(0.5, 1)
+      .setAlpha(0.2)
+      .setDepth(1);
   }
 
   // =========================================================================
