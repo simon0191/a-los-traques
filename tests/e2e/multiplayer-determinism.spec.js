@@ -26,6 +26,12 @@ async function runMatchAndReport(browser, testInfo, { p1Opts, p2Opts, testName }
 
   let logP1, logP2, usedP1Url, usedP2Url;
 
+  // Capture console logs from both browsers
+  const p1Console = [];
+  const p2Console = [];
+  pageP1.on('console', (msg) => p1Console.push(`[${msg.type()}] ${msg.text()}`));
+  pageP2.on('console', (msg) => p2Console.push(`[${msg.type()}] ${msg.text()}`));
+
   try {
     // P1 creates a room
     usedP1Url = p1Url(BASE_URL, p1Opts);
@@ -79,6 +85,19 @@ async function runMatchAndReport(browser, testInfo, { p1Opts, p2Opts, testName }
       // Attach to Playwright test results
       await testInfo.attach('report', { path: reportPath, contentType: 'text/markdown' });
       await testInfo.attach('bundle', { path: bundlePath, contentType: 'application/json' });
+    }
+
+    // Attach console logs (always, even without fight logs)
+    if (p1Console.length > 0 || p2Console.length > 0) {
+      const consolePath = path.join(
+        RESULTS_DIR,
+        `${testName.replace(/\s+/g, '-').toLowerCase()}-console.log`,
+      );
+      const consoleContent =
+        `=== P1 Console (${p1Console.length} messages) ===\n${p1Console.join('\n')}\n\n` +
+        `=== P2 Console (${p2Console.length} messages) ===\n${p2Console.join('\n')}\n`;
+      fs.writeFileSync(consolePath, consoleContent);
+      await testInfo.attach('console-logs', { path: consolePath, contentType: 'text/plain' });
     }
 
     await ctx1.close();
