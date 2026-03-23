@@ -1,6 +1,6 @@
 # RFC 0001: Networking Redesign
 
-**Status:** In Progress — Phases 1, 2A, 2B, 3 complete
+**Status:** In Progress — Phases 1, 2A, 2B, 3 complete. Phase 4 ready for implementation.
 **Date:** 2026-03-22
 **Author:** Architecture Team
 
@@ -583,22 +583,88 @@ The 762-line `NetworkManager` monolith was decomposed into 5 focused modules + a
 
 ### Phase 4: Hardened Reconnection (Depends on Phase 3)
 
-**Goal:** Fix race conditions in reconnection flow.
+**Goal:** Fix race conditions in the reconnection flow so WiFi drops mid-fight recover cleanly.
 
-**Description:**
-- `TransportManager` handles WebRTC renegotiation as a proper state machine (not `_initWebRTC()` called from multiple code paths)
-- On reconnect: `SignalingClient` reconnects WebSocket → sends `rejoin` → waits for server confirmation → `TransportManager` renegotiates WebRTC
-- Sequential, not concurrent: WebSocket must be stable before WebRTC renegotiation starts
-- `ReconnectionManager` (already solid) receives events from `SignalingClient` and `TransportManager` through clean callbacks
-- Add reconnection integration test in headless harness: simulate WebSocket drop, reconnect, verify state convergence
+#### Current Architecture
 
-**Deliverables:**
-- `TransportManager` reconnection state machine
-- `SignalingClient` rejoin flow (sequential)
-- `tests/integration/reconnection.test.js`
+The reconnection system has three layers:
+1. **Server** (`party/server.js`): 20-second grace period per slot. On disconnect, sets `roomState = 'reconnecting'`, notifies opponent. On `rejoin`, restores room state or resets to selecting.
+2. **`ReconnectionManager`** (`src/systems/ReconnectionManager.js`): Pure state machine (`connected → reconnecting → connected | disconnected`). FightScene wires socket events to it. Already solid — 120 lines, fully tested, injectable clock.
+3. **`NetworkFacade`** (`src/systems/net/NetworkFacade.js`): On `opponent_reconnected`, calls `transport.initWebRTC()` to re-establish DataChannel.
 
-**Risks:**
-- WebRTC renegotiation on Safari has known quirks (ICE restart behavior). Mitigate: on reconnect failure, fall back to WebSocket relay rather than retrying indefinitely.
+Current wiring in FightScene (`_setupOnlineMode`, lines 892-900):
+```
+nm.onSocketClose → reconnectionManager.handleConnectionLost()
+nm.onSocketOpen  → reconnectionManager.handleConnectionRestored() + nm.sendRejoin(slot)
+nm.onOpponentReconnecting → reconnectionManager.handleOpponentReconnecting()
+nm.onOpponentReconnected  → reconnectionManager.handleOpponentReconnected()
+nm.onDisconnect → reconnectionManager.handleOpponentDisconnected()
+```
+
+#### Known Race Conditions
+
+**Race 1: WebRTC renegotiation starts before WebSocket is stable.**
+When `opponent_reconnected` arrives, `NetworkFacade` immediately calls `transport.initWebRTC()`. But the reconnecting peer's WebSocket may still be flapping. If WebRTC signaling messages arrive during a WebSocket reconnect cycle, they get lost.
+
+**Fix:** `TransportManager` should queue WebRTC init until SignalingClient confirms a stable connection (socket open + rejoin acknowledged). Add a `_pendingWebRTCInit` flag that defers `initWebRTC()` until the signaling channel is confirmed stable.
+
+**Race 2: Both peers disconnect simultaneously.**
+If both peers lose connection at the same time (e.g., server restart), both send `rejoin` on reconnect. The server handles this correctly (independent grace timers per slot), but the client doesn't — `handleConnectionLost()` only fires once, and the second peer's reconnection events may arrive while the first is still in `reconnecting` state.
+
+**Fix:** `ReconnectionManager.handleConnectionLost()` should be re-entrant: if already in `reconnecting` state, reset the timer instead of ignoring the event.
+
+**Race 3: WebRTC DataChannel closes but WebSocket stays open (asymmetric).**
+Currently handled: WebSocket inputs are always accepted regardless of DataChannel state. But the UI shows "P2P" in the HUD even after DataChannel drops, and no reconnection overlay appears (since the WebSocket is fine).
+
+**Fix:** `TransportManager` should emit a `transportDegraded` event when DataChannel closes mid-fight. FightScene can show a brief "Relay" indicator without pausing gameplay (WebSocket relay is functional, just higher latency).
+
+**Race 4: `sendRejoin` fires before server processes the disconnect.**
+`onSocketOpen` immediately sends `rejoin`, but PartySocket's auto-reconnect may re-establish the connection before the server's `onClose` fires. The `rejoin` message arrives at a server that hasn't started the grace period yet.
+
+**Fix:** Server should handle `rejoin` for a slot that isn't in grace — treat it as a no-op and respond with current room state.
+
+#### Implementation Steps
+
+**4.1: TransportManager reconnection state machine**
+- Add states: `idle → connecting → connected → degraded → reconnecting`
+- `degraded`: DataChannel closed but WebSocket works (relay mode)
+- `reconnecting`: Both transports down, waiting for WebSocket restore
+- Emit `transportDegraded` / `transportRestored` events for UI
+- Queue WebRTC init until signaling confirms stable (`_pendingWebRTCInit`)
+- On reconnect: WebSocket first → rejoin acknowledged → then WebRTC renegotiation
+
+**4.2: ReconnectionManager improvements**
+- Make `handleConnectionLost()` re-entrant (reset timer if already reconnecting)
+- Add `handleTransportDegraded()` for DataChannel-only drops (no pause, just UI update)
+
+**4.3: Server robustness**
+- Handle `rejoin` for non-grace slots (no-op, reply with current state)
+- Handle duplicate `rejoin` messages (idempotent)
+
+**4.4: Integration tests**
+- Test: WebSocket drop → auto-reconnect → rejoin → WebRTC re-negotiation → gameplay resumes
+- Test: DataChannel closes mid-fight → relay mode → DataChannel recovers
+- Test: Both peers disconnect simultaneously → both rejoin → state converges
+- Test: `rejoin` arrives before server grace period starts
+- Mock WebSocket/WebRTC with injectable delays to simulate real network conditions
+
+#### Key Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/systems/net/TransportManager.js` | Add reconnection state machine, `_pendingWebRTCInit`, `transportDegraded`/`transportRestored` events |
+| `src/systems/net/NetworkFacade.js` | Wire transport events to FightScene callbacks, defer WebRTC init |
+| `src/systems/ReconnectionManager.js` | Re-entrant `handleConnectionLost()`, `handleTransportDegraded()` |
+| `src/scenes/FightScene.js` | Show "Relay" indicator on transport degradation (no pause) |
+| `party/server.js` | Handle `rejoin` for non-grace slots, idempotent duplicate handling |
+| `tests/systems/net/transport-manager.test.js` | State machine tests |
+| `tests/systems/reconnection-manager.test.js` | Re-entrant + degraded tests |
+| `tests/integration/reconnection.test.js` | Full flow integration tests |
+
+#### Risks
+
+- **Safari ICE restart quirks**: Safari may not support ICE restart reliably. Mitigate: on WebRTC reconnect failure after 5s, stay on WebSocket relay permanently for that session.
+- **PartySocket auto-reconnect timing**: PartySocket has its own reconnect logic (`maxRetries: 3`). Our `sendRejoin` must coordinate with it, not race against it. Mitigate: only send `rejoin` after `onSocketOpen` fires (already done).
 
 **Estimated effort:** 2 days
 
