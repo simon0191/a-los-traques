@@ -64,8 +64,12 @@ async function runMatchAndReport(browser, testInfo, { p1Opts, p2Opts, testName }
 
       // Append to CI summary file (aggregates all tests)
       const hashMatch = logP1.finalStateHash === logP2.finalStateHash;
-      const icon = hashMatch && logP1.desyncCount === 0 && logP2.desyncCount === 0 ? ':white_check_mark:' : ':x:';
-      const summaryLine = `${icon} **${testName}** — ${logP1.fighterId} vs ${logP2.fighterId} | ` +
+      const icon =
+        hashMatch && logP1.desyncCount === 0 && logP2.desyncCount === 0
+          ? ':white_check_mark:'
+          : ':x:';
+      const summaryLine =
+        `${icon} **${testName}** — ${logP1.fighterId} vs ${logP2.fighterId} | ` +
         `hash: ${hashMatch ? 'match' : 'MISMATCH'} | ` +
         `desyncs: ${logP1.desyncCount + logP2.desyncCount} | ` +
         `winner: ${logP1.result?.winnerId || logP2.result?.winnerId || '?'}`;
