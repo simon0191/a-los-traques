@@ -249,6 +249,10 @@ export class FightScene extends Phaser.Scene {
       // Replay mode: don't bail out — the fixed-timestep loop handles round transitions
       if (this._replayP1 && this._replayP2) {
         // fall through to the fixed-timestep loop below
+      } else if (this.gameMode === 'online') {
+        // Online mode: keep simulation running during round transitions so both
+        // peers stay in lockstep. The frame-based transitionTimer in simulateFrame
+        // handles deterministic round reset.
       } else {
         // Allow restart after match over (Space key or tap)
         if (
@@ -864,15 +868,11 @@ export class FightScene extends Phaser.Scene {
       if (msg.matchOver && this._matchOverProcessed) return;
       if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) return;
 
-      this.combat.stopRound();
-      this.combat.p1RoundsWon = msg.p1Rounds;
-      this.combat.p2RoundsWon = msg.p2Rounds;
-      this.combat.roundNumber = msg.roundNumber;
-
+      // Don't modify combat state here — simulateFrame handles it deterministically.
+      // Only fire visual/audio effects via onRoundOver/onMatchOver.
       if (msg.event === 'ko' || msg.event === 'timeup') {
         if (msg.matchOver) {
           this._matchOverProcessed = true;
-          this.combat.matchOver = true;
           this.onMatchOver(msg.winnerIndex);
         } else {
           this._lastProcessedRound = msg.roundNumber;
@@ -1101,6 +1101,7 @@ export class FightScene extends Phaser.Scene {
 
   _handleOnlineUpdate(time, delta) {
     this.frameCounter++;
+    const wasRoundActive = this.combat.roundActive;
 
     // Read local input: from AI in autoplay mode, from InputManager otherwise
     let localInput;
@@ -1153,6 +1154,28 @@ export class FightScene extends Phaser.Scene {
     if (roundEvent && this.isHost) {
       this.recorder?.recordRoundEvent(this.rollbackManager.currentFrame, roundEvent);
       this.combat.handleRoundEnd(roundEvent);
+    }
+
+    // Detect simulation-driven round reset (transitionTimer expired → roundActive became true)
+    if (!wasRoundActive && this.combat.roundActive) {
+      // Sync sprites to new positions after reset
+      this.p1Fighter.syncSprite();
+      this.p2Fighter.syncSprite();
+      if (this.p1Fighter.hasAnims) this.p1Fighter.sprite.play(`${this.p1Fighter.fighterId}_idle`);
+      if (this.p2Fighter.hasAnims) this.p2Fighter.sprite.play(`${this.p2Fighter.fighterId}_idle`);
+      this._updateHUD();
+      // Show round intro text (visual only)
+      this.centerText.setText(`ROUND ${this.combat.roundNumber - 1}`);
+      this.subtitleText.setText('');
+      this.game.audioManager.play('announce_round');
+      this.time.delayedCall(800, () => {
+        this.centerText.setText('A PELEAR!');
+        this.game.audioManager.play('announce_fight');
+        this.time.delayedCall(500, () => {
+          this.centerText.setText('');
+          this.subtitleText.setText('');
+        });
+      });
     }
 
     // P1 sends periodic state snapshots for spectators
@@ -1710,7 +1733,20 @@ export class FightScene extends Phaser.Scene {
       ease: 'Back.easeOut',
     });
 
-    // Stop AI movement
+    if (this.gameMode === 'online') {
+      // Online mode: simulation handles round reset via deterministic transitionTimer.
+      // Only show visual feedback here — don't modify fighter/combat state.
+      this.time.delayedCall(1500, () => {
+        this.centerText.setText(`${winnerName} GANA EL ROUND!`);
+        this.centerText.setScale(1).setAlpha(1);
+        this.subtitleText.setText(
+          `RONDAS: ${this.combat.p1RoundsWon} - ${this.combat.p2RoundsWon}`,
+        );
+      });
+      return;
+    }
+
+    // Local mode: manage round transition via Phaser timers
     this.p1Fighter.stop();
     this.p2Fighter.stop();
 
@@ -1754,8 +1790,11 @@ export class FightScene extends Phaser.Scene {
       this.aiController = null;
     }
 
-    this.p1Fighter.stop();
-    this.p2Fighter.stop();
+    // In online mode, don't modify simulation state — simulateFrame handles it
+    if (this.gameMode !== 'online') {
+      this.p1Fighter.stop();
+      this.p2Fighter.stop();
+    }
 
     this.centerText.setText('K.O.!');
     this.subtitleText.setText('');
