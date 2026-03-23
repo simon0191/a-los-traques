@@ -459,6 +459,36 @@ export class Fighter {
     }
   }
 
+  /**
+   * Reset fighter state for a new round (simulation-safe, no sprite/animation calls).
+   * Used by deterministic frame-based round transitions in online mode.
+   */
+  resetForRound(x) {
+    this.simX = Math.trunc(x * FP_SCALE);
+    this.simY = GROUND_Y_FP;
+    this.simVX = 0;
+    this.simVY = 0;
+    this.hp = MAX_HP;
+    this.special = 0;
+    this.state = 'idle';
+    this.attackCooldown = 0;
+    this.attackFrameElapsed = 0;
+    this.comboCount = 0;
+    this.blockTimer = 0;
+    this.hurtTimer = 0;
+    this.currentAttack = null;
+    this.hitConnected = false;
+    this.hasDoubleJumped = false;
+    this._airborneTime = 0;
+    this.stamina = MAX_STAMINA_FP;
+    this._isTouchingWall = false;
+    this._wallDir = 0;
+    this._hasWallJumped = false;
+    this._specialTintTimer = 0;
+    this._prevAnimState = null;
+    this.facingRight = this.playerIndex === 0;
+  }
+
   get alive() {
     return this.hp > 0;
   }

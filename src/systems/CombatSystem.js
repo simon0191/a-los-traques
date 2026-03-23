@@ -25,6 +25,7 @@ export class CombatSystem {
     this.timerEvent = null;
     this._timerAccumulator = 0;
     this.suppressRoundEvents = false;
+    this.transitionTimer = 0; // frame-based countdown between rounds (online mode)
   }
 
   startRound() {
@@ -308,6 +309,7 @@ export class CombatSystem {
     this.roundActive = false;
     this.matchOver = false;
     this._timerAccumulator = 0;
+    this.transitionTimer = 0;
     this.suppressRoundEvents = false;
     if (this.timerEvent) {
       this.timerEvent.remove();

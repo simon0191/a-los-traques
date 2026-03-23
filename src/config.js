@@ -11,6 +11,7 @@ export const GRAVITY = 800;
 // Combat
 export const ROUND_TIME = 60; // seconds
 export const ROUNDS_TO_WIN = 2;
+export const ROUND_TRANSITION_FRAMES = 300; // ~5s at 60fps — pause between rounds in online mode
 export const MAX_HP = 100;
 export const MAX_SPECIAL = 100;
 export const SPECIAL_COST = 50;

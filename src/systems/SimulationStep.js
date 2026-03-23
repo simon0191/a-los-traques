@@ -4,9 +4,12 @@
  * Frame-based — no delta time needed.
  */
 
-import { ROUNDS_TO_WIN } from '../config.js';
+import { GAME_WIDTH, ROUND_TIME, ROUND_TRANSITION_FRAMES, ROUNDS_TO_WIN } from '../config.js';
 import { FP_SCALE } from './FixedPoint.js';
 import { decodeInput } from './InputBuffer.js';
+
+const P1_START_X = GAME_WIDTH * 0.3;
+const P2_START_X = GAME_WIDTH * 0.7;
 
 /**
  * Apply decoded input to a fighter.
@@ -108,6 +111,23 @@ export function simulateFrame(
       if (combat.p1RoundsWon >= ROUNDS_TO_WIN || combat.p2RoundsWon >= ROUNDS_TO_WIN) {
         combat.matchOver = true;
       }
+      // Start frame-based transition countdown (deterministic, both peers agree)
+      if (!combat.matchOver) {
+        combat.transitionTimer = ROUND_TRANSITION_FRAMES;
+      }
+    }
+  }
+
+  // 6b. Tick transition timer — deterministic round reset for online mode
+  if (!combat.roundActive && combat.transitionTimer > 0) {
+    combat.transitionTimer--;
+    if (combat.transitionTimer <= 0 && !combat.matchOver) {
+      // Reset fighters for next round (simulation-safe, no sprite/audio calls)
+      p1Fighter.resetForRound(P1_START_X);
+      p2Fighter.resetForRound(P2_START_X);
+      combat.timer = ROUND_TIME;
+      combat._timerAccumulator = 0;
+      combat.roundActive = true;
     }
   }
 
