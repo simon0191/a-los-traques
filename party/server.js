@@ -26,11 +26,27 @@ export default class FightRoom {
    * GET /turn-creds → fetches short-lived TURN credentials from Cloudflare.
    */
   async onRequest(request) {
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+
+    // Handle CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
     const url = new URL(request.url);
     if (url.pathname.endsWith('/turn-creds') && request.method === 'GET') {
-      return this._handleTurnCreds();
+      const response = await this._handleTurnCreds();
+      // Add CORS headers to the response
+      for (const [key, value] of Object.entries(corsHeaders)) {
+        response.headers.set(key, value);
+      }
+      return response;
     }
-    return new Response('Not Found', { status: 404 });
+    return new Response('Not Found', { status: 404, headers: corsHeaders });
   }
 
   async _handleTurnCreds() {

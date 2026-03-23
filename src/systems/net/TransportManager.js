@@ -107,7 +107,7 @@ export class TransportManager {
       const protocol = isLocal ? 'http' : 'https';
       const url = `${protocol}://${host}/parties/main/${roomId}/turn-creds`;
 
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
       if (!response.ok) {
         console.log(`[TM] TURN credential fetch failed: ${response.status}`);
         return;
