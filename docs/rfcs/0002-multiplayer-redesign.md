@@ -1,9 +1,24 @@
 # RFC 0002: Multiplayer Architecture Redesign
 
-**Status:** Proposed
+**Status:** In Progress — Phase 1 complete, Phase 2A.1–2A.2 complete, Phase 2B.2 complete
 **Date:** 2026-03-24
+**Updated:** 2026-03-25
 **Author:** Architecture Team
 **Predecessor:** [RFC 0001: Networking Redesign](0001-networking-redesign.md) (Phases 1–4 complete)
+**PR:** [#49](https://github.com/simon0191/a-los-traques/pull/49)
+
+---
+
+### What's Next
+
+The next high-impact task is **2B.1: Wire MatchStateMachine into FightScene**. This is the largest remaining refactor — FightScene is ~1,939 lines with boolean flags (`_reconnecting`, `_onlineDisconnected`, `combat.roundActive` as flow control) that should be replaced by state machine transitions. Each MatchState maps to a block in the update loop, eliminating the 3-way `online`/`local`/`spectator` branching.
+
+Once 2B.1 is done, 2B.3 (SYNCHRONIZING state), 2B.4 (ReconnectionManager → state machine), and 2A.4 (frame-0 sync exchange) are unblocked. After all of Phase 2, Phase 3 (event-driven presentation: AudioBridge, VFXBridge, remove `_muteEffects`) can begin.
+
+**Key files to read before starting 2B.1:**
+- `src/systems/MatchStateMachine.js` — the FSM to integrate (15 states, validated transitions)
+- `src/scenes/FightScene.js` — the refactor target (~1,939 lines)
+- `tests/systems/match-state-machine.test.js` — 29 tests documenting all valid transitions
 
 ---
 
@@ -629,16 +644,16 @@ flowchart TD
 
 **Tasks:**
 
-| # | Task | Details |
-|---|------|---------|
-| 1.1 | Create `src/simulation/FighterSim.js` | Extract all state fields and pure methods from `Fighter.js`. No `this.scene`, no `this.sprite`. Same interface as `sim-factory.js` `createSimFighter` output, but as a proper class. |
-| 1.2 | Create `src/simulation/CombatSim.js` | Extract `resolveBodyCollision`, `checkHit`, `tickTimer`, `applyDamage` from `CombatSystem.js`. Return event descriptors. No `this.scene`. |
-| 1.3 | Create `src/simulation/SimulationEngine.js` | Pure `tick(state, p1Input, p2Input) → {state, events}`. Subsumes `simulateFrame()` minus `syncSprite()`. Includes round transition logic (`transitionTimer`). |
-| 1.4 | Refactor `Fighter.js` → delegate to `FighterSim` | `Fighter` holds a `FighterSim`. All simulation methods proxy to it. `syncSprite()` reads from `FighterSim` state. Animation logic stays in `Fighter`. |
-| 1.5 | Refactor `CombatSystem.js` → delegate to `CombatSim` | Side-effect methods (`handleRoundEnd`, `timeUp`, audio/camera) stay in `CombatSystem`. Pure methods delegate to `CombatSim`. |
-| 1.6 | Delete `tests/helpers/sim-factory.js` | Update all tests to import `FighterSim` and `CombatSim` directly. Update `determinism.test.js` to use `SimulationEngine.tick()`. |
-| 1.7 | Create `src/systems/MatchStateMachine.js` | Enum states, transition table, validation, event callbacks. Pure module, no Phaser. |
-| 1.8 | Add lint rules | Flag `Math.random()`, `Date.now()`, `parseFloat` in `src/simulation/` via Biome config. |
+| # | Task | Status | Details |
+|---|------|--------|---------|
+| 1.1 | Create `src/simulation/FighterSim.js` | **Done** | Pure fighter state + logic class. 37 unit tests. |
+| 1.2 | Create `src/simulation/CombatSim.js` | **Done** | Pure combat resolution. 19 unit tests. |
+| 1.3 | Create `src/simulation/SimulationEngine.js` | **Done** | Pure `tick()` returning immutable state. `captureGameState`/`restoreGameState`/`hashGameState`. 18 unit tests. Determinism verified. |
+| 1.4 | Refactor `Fighter.js` → delegate to `FighterSim` | **Done** | Fighter holds `this.sim` (FighterSim). All sim fields proxied via getter/setter. Phaser side effects applied after delegation. |
+| 1.5 | Refactor `CombatSystem.js` → delegate to `CombatSim` | **Done** | CombatSystem holds `this.sim` (CombatSim). Pure methods delegate; audio/camera/tints stay in CombatSystem. |
+| 1.6 | Delete `tests/helpers/sim-factory.js` | **Done** | 442-line duplicate eliminated. Tests import FighterSim/CombatSim directly. |
+| 1.7 | Create `src/systems/MatchStateMachine.js` | **Done** | 15 states, validated transitions, event callbacks. 29 unit tests. |
+| 1.8 | Add lint rules | Deferred | Lower priority. Can be added anytime. |
 
 **Parallelization:**
 - Tasks 1.1, 1.2, 1.3 can be done in parallel (independent extractions)
@@ -663,13 +678,13 @@ flowchart TD
 
 **Tasks:**
 
-| # | Task | Details |
-|---|------|---------|
-| 2A.1 | Update `advance()` signature | `advance(rawLocalInput, gameState)` replaces `(rawLocalInput, scene, p1, p2, combat)`. No `scene._muteEffects` toggle. |
-| 2A.2 | Use `SimulationEngine.tick()` | Replace `simulateFrame()` calls with `SimulationEngine.tick()`. `tick()` returns a new state — past return values are the snapshot window (no separate `captureGameState()` call). Rollback = swap to a past state. Resim = call `tick()` from the rollback point forward, discarding events. |
-| 2A.3 | Tag snapshots confirmed/predicted | `stateSnapshots.set(frame, { state, confirmed: boolean })`. A snapshot is confirmed when both local and remote inputs for that frame are known. |
-| 2A.4 | Implement frame-0 sync exchange | New method `exchangeInitialChecksum(gameState)`. Sends frame-0 hash via WebSocket, waits for peer's hash. Returns `Promise<boolean>`. Used by SYNCHRONIZING state. |
-| 2A.5 | Add snapshot version field | `version: 2` on resync snapshots. Reject mismatched versions (prevents bugs during rolling code updates). |
+| # | Task | Status | Details |
+|---|------|--------|---------|
+| 2A.1 | Update `advance()` signature | **Done** | Removed `scene` parameter. `advance(rawLocalInput, p1, p2, combat)`. `_muteEffects` accessed via `p1.scene` during rollback (temporary until Phase 3). |
+| 2A.2 | Use `SimulationEngine.tick()` | **Done** | RollbackManager uses `tick()` for both normal frames and resimulation. Snapshots from `captureGameState`/`restoreFighterState`/`restoreCombatState` in SimulationEngine. |
+| 2A.3 | Tag snapshots confirmed/predicted | Pending | |
+| 2A.4 | Implement frame-0 sync exchange | Pending | Depends on 2B.3 (SYNCHRONIZING state in FightScene). |
+| 2A.5 | Add snapshot version field | Pending | |
 
 **Dependencies:** Phase 1 (`SimulationEngine` must exist).
 
@@ -686,12 +701,12 @@ flowchart TD
 
 **Tasks:**
 
-| # | Task | Details |
-|---|------|---------|
-| 2B.1 | Wire `MatchStateMachine` into FightScene | Replace `_reconnecting`, `_onlineDisconnected`, `combat.roundActive` (as flow control), `combat.matchOver` with state machine transitions. Each state maps to a block in `update()`. |
-| 2B.2 | Formalize server state machine | Replace `this.roomState` string with enum + transition function. Add EMPTY and READY_CHECK states. Validate all messages against current state. |
-| 2B.3 | Add SYNCHRONIZING state flow | After LOADING, online mode enters SYNCHRONIZING. Both peers exchange frame-0 hashes. Transition to ROUND_INTRO on match. |
-| 2B.4 | Update ReconnectionManager | ReconnectionManager is already re-entrant with `rejoin_ack` gating (RFC 0001 Phase 4). Remaining work: fire `MatchStateMachine.transition('connection_lost')` instead of setting boolean flags. Grace period expiry fires `transition('grace_expired')`. Wire `transportDegraded`/`transportRestored` events to state machine. |
+| # | Task | Status | Details |
+|---|------|--------|---------|
+| 2B.1 | Wire `MatchStateMachine` into FightScene | Pending | Large refactor (~1,939 lines). Replace boolean flags with state machine transitions. Each state maps to a block in `update()`. |
+| 2B.2 | Formalize server state machine | **Done** | `RoomState` enum + `_transition()` validator. Added EMPTY and READY_CHECK states. Messages validated against current state. 6 new tests. Merged with PR #42's `rejoin_ack` and no-grace rejoin path. |
+| 2B.3 | Add SYNCHRONIZING state flow | Pending | Depends on 2B.1 (FightScene must use MatchStateMachine). |
+| 2B.4 | Update ReconnectionManager | Pending | Blocked by 2B.1. Wire `connection_lost`/`grace_expired`/`opponent_reconnected` to MatchStateMachine transitions. |
 
 **Dependencies:** Phase 1 (`MatchStateMachine` must exist).
 
