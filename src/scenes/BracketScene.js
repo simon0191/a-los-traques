@@ -82,16 +82,29 @@ export class BracketScene extends Phaser.Scene {
     const p1Name = match.p1 ? fightersData.find((f) => f.id === match.p1).name : '???';
     const p2Name = match.p2 ? fightersData.find((f) => f.id === match.p2).name : '???';
 
+    const p1Color =
+      match.p1 === this.playerFighterId
+        ? '#ff0000'
+        : match.winner === match.p1 && match.p1
+          ? '#00ff00'
+          : '#ffffff';
+    const p2Color =
+      match.p2 === this.playerFighterId
+        ? '#ff0000'
+        : match.winner === match.p2 && match.p2
+          ? '#00ff00'
+          : '#ffffff';
+
     this.add
       .text(x, y - 7, p1Name, {
         fontSize: '8px',
-        color: match.winner === match.p1 && match.p1 ? '#00ff00' : '#ffffff',
+        color: p1Color,
       })
       .setOrigin(0.5);
     this.add
       .text(x, y + 7, p2Name, {
         fontSize: '8px',
-        color: match.winner === match.p2 && match.p2 ? '#00ff00' : '#ffffff',
+        color: p2Color,
       })
       .setOrigin(0.5);
 
@@ -145,10 +158,24 @@ export class BracketScene extends Phaser.Scene {
     if (nextRound) {
       const nextMatchIdx = Math.floor(matchIdx / 2);
       const isP1 = matchIdx % 2 === 0;
-      if (isP1) {
-        nextRound[nextMatchIdx].p1 = winner;
+
+      // If winner is player, force them to P1 slot for simplicity in FightScene/InputManager
+      if (winner === this.playerFighterId) {
+        // If we are advancing to a match where we should be P2, swap with the other side
+        if (!isP1) {
+          // Move whoever was in P1 to P2
+          nextRound[nextMatchIdx].p2 = nextRound[nextMatchIdx].p1;
+          nextRound[nextMatchIdx].p1 = winner;
+        } else {
+          nextRound[nextMatchIdx].p1 = winner;
+        }
       } else {
-        nextRound[nextMatchIdx].p2 = winner;
+        // AI winner, just fill the slot
+        if (isP1) {
+          nextRound[nextMatchIdx].p1 = winner;
+        } else {
+          nextRound[nextMatchIdx].p2 = winner;
+        }
       }
     }
   }

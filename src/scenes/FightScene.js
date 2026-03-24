@@ -152,12 +152,14 @@ export class FightScene extends Phaser.Scene {
           this._replayRoundCooldown = 0;
           this.aiController = null;
         } else {
-          this.aiController = new AIController(
-            this,
-            this.p2Fighter,
-            this.p1Fighter,
-            this.aiDifficulty,
-          );
+          if (this.p1Fighter && this.p2Fighter) {
+            this.aiController = new AIController(
+              this,
+              this.p2Fighter,
+              this.p1Fighter,
+              this.aiDifficulty,
+            );
+          }
         }
       } else {
         this.aiController = null;
@@ -180,13 +182,6 @@ export class FightScene extends Phaser.Scene {
     const trackIndex = Math.floor(Math.random() * fightMusicCount);
     audio.playMusic(`bgm_fight_${trackIndex}`);
     audio.createMuteButton(this);
-
-    // -- Dev console (backtick to toggle) --
-    DevConsole._AIController = AIController;
-    this.devConsole = new DevConsole(this);
-
-    // -- Space key for restart --
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     // -- Pause system --
     this._pauseOverlay = null;
