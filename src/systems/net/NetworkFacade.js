@@ -94,6 +94,10 @@ export class NetworkFacade {
     });
     this.signaling.on('rejoin_ack', () => {
       this.transport.flushPendingWebRTCInit();
+      // rejoin_ack confirms our rejoin succeeded. The server only sends
+      // opponent_reconnected to the OTHER peer, so we must resume our own
+      // ReconnectionManager here.
+      if (this._onOpponentReconnected) this._onOpponentReconnected();
     });
 
     // Room lifecycle callbacks

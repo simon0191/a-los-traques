@@ -449,6 +449,16 @@ describe('NetworkFacade', () => {
       expect(nf.transport._webrtc).not.toBeNull();
     });
 
+    it('rejoin_ack fires onOpponentReconnected callback', () => {
+      const nf = makeFacade();
+      const reconnected = vi.fn();
+      nf.onOpponentReconnected(reconnected);
+
+      emitMsg(nf, { type: 'rejoin_ack', state: 'fighting' });
+
+      expect(reconnected).toHaveBeenCalledOnce();
+    });
+
     it('rejoin_ack without pending init is no-op', () => {
       globalThis.RTCPeerConnection = class {};
       const nf = makeFacade();
