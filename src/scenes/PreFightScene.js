@@ -14,6 +14,10 @@ export class PreFightScene extends Phaser.Scene {
     this.stageId = data.stageId;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
+    this.tournament = data.tournament || null;
+    this.playerFighterId = data.playerFighterId || null;
+    this.matchRound = data.matchRound;
+    this.matchIndex = data.matchIndex;
 
     // If no stage is provided, pick one randomly
     if (!this.stageId) {
@@ -296,6 +300,10 @@ export class PreFightScene extends Phaser.Scene {
         stageId: this.stageId,
         gameMode: this.gameMode,
         networkManager: this.networkManager,
+        tournament: this.tournament,
+        playerFighterId: this.playerFighterId,
+        matchRound: this.matchRound,
+        matchIndex: this.matchIndex,
       });
     });
   }

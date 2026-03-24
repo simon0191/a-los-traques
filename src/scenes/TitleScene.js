@@ -35,13 +35,13 @@ export class TitleScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.4);
 
     // Layout anchor — shifted up to fit all buttons on screen
-    const cy = GAME_HEIGHT / 2 - 30;
+    const cy = GAME_HEIGHT / 2 - 50;
 
     // Game title
     this.add
-      .text(GAME_WIDTH / 2, cy - 50, 'A LOS TRAQUES', {
+      .text(GAME_WIDTH / 2, cy - 40, 'A LOS TRAQUES', {
         fontFamily: 'Arial Black, Arial',
-        fontSize: '36px',
+        fontSize: '32px',
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 6,
@@ -51,9 +51,9 @@ export class TitleScene extends Phaser.Scene {
 
     // Subtitle
     this.add
-      .text(GAME_WIDTH / 2, cy - 15, 'Pelea de Amigos', {
+      .text(GAME_WIDTH / 2, cy - 10, 'Pelea de Amigos', {
         fontFamily: 'Arial',
-        fontSize: '16px',
+        fontSize: '14px',
         color: '#ccccff',
         fontStyle: 'italic',
       })
@@ -63,27 +63,32 @@ export class TitleScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, cy + 5, 200, 2, 0xccccff, 0.6);
 
     // Mode buttons
-    this._createButton(GAME_WIDTH / 2, cy + 33, 'VS MAQUINA', () => {
+    const btnGap = 22;
+    this._createButton(GAME_WIDTH / 2, cy + 30, 'VS MAQUINA', () => {
       this.goToSelect();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 57, 'EN LINEA', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap, 'TORNEO', () => {
+      this.goToTournamentSetup();
+    });
+
+    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 2, 'EN LINEA', () => {
       this.goToLobby();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 81, 'UNIRSE', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'UNIRSE', () => {
       this._showJoinOverlay();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 105, 'COMO JUGAR', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'COMO JUGAR', () => {
       this.goToLearning();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 129, 'INSPECTOR', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 5, 'INSPECTOR', () => {
       this.goToInspector();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 153, 'MUSICA', () => {
+    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 6, 'MUSICA', () => {
       this.goToMusic();
     });
 
@@ -101,6 +106,15 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('SelectScene', { gameMode: 'local' });
+    });
+  }
+
+  goToTournamentSetup() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('TournamentSetupScene');
     });
   }
 

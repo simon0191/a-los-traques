@@ -75,6 +75,10 @@ export class FightScene extends Phaser.Scene {
     this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
     this.gameMode = data?.gameMode || 'local';
     this.networkManager = data?.networkManager || null;
+    this.tournament = data?.tournament || null;
+    this.playerFighterId = data?.playerFighterId || null;
+    this.matchRound = data?.matchRound;
+    this.matchIndex = data?.matchIndex;
   }
 
   // =========================================================================
@@ -1057,7 +1061,12 @@ export class FightScene extends Phaser.Scene {
                   p1Id: this.p1Id,
                   p2Id: this.p2Id,
                   stageId: this.stageId,
-                  gameMode: 'local',
+                  gameMode: this.gameMode,
+                  networkManager: this.networkManager,
+                  tournament: this.tournament,
+                  playerFighterId: this.playerFighterId,
+                  matchRound: this.matchRound,
+                  matchIndex: this.matchIndex,
                 });
               });
             });
@@ -2000,6 +2009,10 @@ export class FightScene extends Phaser.Scene {
           stageId: this.stageId,
           gameMode: this.gameMode,
           networkManager: this.networkManager,
+          tournament: this.tournament,
+          playerFighterId: this.playerFighterId,
+          matchRound: this.matchRound,
+          matchIndex: this.matchIndex,
         });
       });
     });

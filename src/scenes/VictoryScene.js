@@ -15,9 +15,33 @@ export class VictoryScene extends Phaser.Scene {
     this.stageId = data.stageId;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
+    this.tournament = data.tournament || null;
+    this.playerFighterId = data.playerFighterId || null;
+    this.matchRound = data.matchRound;
+    this.matchIndex = data.matchIndex;
   }
 
   create() {
+    // If tournament mode, update the bracket
+    if (this.gameMode === 'tournament' && this.tournament) {
+      const round = this.tournament.rounds[this.matchRound];
+      const match = round[this.matchIndex];
+      match.winner = this.winnerId;
+
+      // Advance winner to next round
+      const nextRound = this.tournament.rounds[this.matchRound + 1];
+      if (nextRound) {
+        const nextMatchIdx = Math.floor(this.matchIndex / 2);
+        const isP1 = this.matchIndex % 2 === 0;
+        if (isP1) {
+          nextRound[nextMatchIdx].p1 = this.winnerId;
+        } else {
+          nextRound[nextMatchIdx].p2 = this.winnerId;
+        }
+      } else {
+        this.tournament.complete = true;
+      }
+    }
     // Signal match completion for E2E test orchestration
     if (this.game.autoplay?.enabled && window.__FIGHT_LOG) {
       window.__FIGHT_LOG.matchComplete = true;
@@ -124,48 +148,67 @@ export class VictoryScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Buttons
-    this.createButton(GAME_WIDTH / 2 - 115, 252, 'REVANCHA', () => {
-      if (this.gameMode === 'online' && this.networkManager) {
-        this.networkManager.sendRematch();
-        this._waitingRematch = true;
-        this._rematchText = this.add
-          .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
-            fontFamily: 'Arial',
-            fontSize: '8px',
-            color: '#ffcc00',
-          })
-          .setOrigin(0.5);
-
-        // If we already received a rematch request
-        if (this._rematchReceived) {
-          this._goToFight();
-        }
-      } else {
-        this._goToFight();
-      }
-    });
-
-    this.createButton(GAME_WIDTH / 2, 252, 'ELEGIR OTRO', () => {
-      if (this.gameMode === 'online' && this.networkManager) {
-        this.networkManager.sendLeave();
-        this._goToSelect();
-      } else {
+    if (this.gameMode === 'tournament') {
+      this.createButton(GAME_WIDTH / 2 - 60, 252, 'CONTINUAR', () => {
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('SelectScene', { gameMode: 'local' });
+          this.scene.start('BracketScene', {
+            tournament: this.tournament,
+            playerFighterId: this.playerFighterId,
+          });
         });
-      }
-    });
-
-    this.createButton(GAME_WIDTH / 2 + 115, 252, 'MENU', () => {
-      if (this.gameMode === 'online' && this.networkManager) {
-        this.networkManager.destroy();
-      }
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('TitleScene');
       });
-    });
+
+      this.createButton(GAME_WIDTH / 2 + 60, 252, 'MENU', () => {
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('TitleScene');
+        });
+      });
+    } else {
+      this.createButton(GAME_WIDTH / 2 - 115, 252, 'REVANCHA', () => {
+        if (this.gameMode === 'online' && this.networkManager) {
+          this.networkManager.sendRematch();
+          this._waitingRematch = true;
+          this._rematchText = this.add
+            .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
+              fontFamily: 'Arial',
+              fontSize: '8px',
+              color: '#ffcc00',
+            })
+            .setOrigin(0.5);
+
+          // If we already received a rematch request
+          if (this._rematchReceived) {
+            this._goToFight();
+          }
+        } else {
+          this._goToFight();
+        }
+      });
+
+      this.createButton(GAME_WIDTH / 2, 252, 'ELEGIR OTRO', () => {
+        if (this.gameMode === 'online' && this.networkManager) {
+          this.networkManager.sendLeave();
+          this._goToSelect();
+        } else {
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('SelectScene', { gameMode: 'local' });
+          });
+        }
+      });
+
+      this.createButton(GAME_WIDTH / 2 + 115, 252, 'MENU', () => {
+        if (this.gameMode === 'online' && this.networkManager) {
+          this.networkManager.destroy();
+        }
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('TitleScene');
+        });
+      });
+    }
 
     // In online mode, listen for rematch/leave from opponent even before pressing button
     if (this.gameMode === 'online' && this.networkManager) {
