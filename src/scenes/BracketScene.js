@@ -31,21 +31,36 @@ export class BracketScene extends Phaser.Scene {
       this._createButton(GAME_WIDTH / 2 - 75, GAME_HEIGHT - 30, 'SIGUIENTE COMBATE', () => {
         this.goToMatch(currentMatch);
       });
-      this._createButton(GAME_WIDTH / 2 + 75, GAME_HEIGHT - 30, 'SALIR', () => {
+      this._createButton(GAME_WIDTH / 2 + 75, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
         this.scene.start('TitleScene');
       });
     } else if (this.tournament.complete) {
-      const winner = this.tournament.rounds[this.tournament.rounds.length - 1][0].winner;
-      const winnerName = fightersData.find((f) => f.id === winner).name;
+      const winnerId = this.tournament.rounds[this.tournament.rounds.length - 1][0].winner;
+      const winner = fightersData.find((f) => f.id === winnerId);
+
+      // Display Champion Portrait
+      if (this.textures.exists(`portrait_${winnerId}`)) {
+        this.add
+          .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, `portrait_${winnerId}`)
+          .setDisplaySize(80, 80);
+      } else {
+        this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 80, 80, parseInt(winner.color, 16));
+      }
       this.add
-        .text(GAME_WIDTH / 2, GAME_HEIGHT - 60, `CAMPEÓN: ${winnerName}`, {
+        .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 80, 80, 0x000000, 0)
+        .setStrokeStyle(3, 0xffcc00);
+
+      this.add
+        .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 55, `¡CAMPEÓN: ${winner.name.toUpperCase()}!`, {
           fontSize: '18px',
           color: '#ffcc00',
           fontFamily: 'Arial Black',
+          stroke: '#000000',
+          strokeThickness: 4,
         })
         .setOrigin(0.5);
 
-      this._createButton(GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR', () => {
+      this._createButton(GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
         this.scene.start('TitleScene');
       });
     } else {

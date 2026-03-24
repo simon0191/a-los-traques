@@ -149,7 +149,7 @@ export class VictoryScene extends Phaser.Scene {
 
     // Buttons
     if (this.gameMode === 'tournament') {
-      this.createButton(GAME_WIDTH / 2 - 60, 252, 'CONTINUAR', () => {
+      this.createButton(GAME_WIDTH / 2 - 60, 252, 'CONTINUAR TORNEO', () => {
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start('BracketScene', {
@@ -159,7 +159,7 @@ export class VictoryScene extends Phaser.Scene {
         });
       });
 
-      this.createButton(GAME_WIDTH / 2 + 60, 252, 'MENU', () => {
+      this.createButton(GAME_WIDTH / 2 + 60, 252, 'SALIR AL MENÚ', () => {
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start('TitleScene');
