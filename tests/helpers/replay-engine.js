@@ -5,10 +5,11 @@
 
 import { GAME_WIDTH, ROUNDS_TO_WIN } from '../../src/config.js';
 import fightersData from '../../src/data/fighters.json' with { type: 'json' };
-import { captureGameState, hashGameState } from '../../src/systems/GameState.js';
+import { createCombatSim } from '../../src/simulation/CombatSim.js';
+import { createFighterSim } from '../../src/simulation/FighterSim.js';
+import { captureGameState, hashGameState } from '../../src/simulation/SimulationEngine.js';
 import { simulateFrame } from '../../src/systems/SimulationStep.js';
 import { expandSparseInputs } from './input-utils.js';
-import { createSimCombat, createSimFighter, resetSimFighter } from './sim-factory.js';
 
 const P1_START_X = Math.trunc(GAME_WIDTH * 0.3);
 const P2_START_X = Math.trunc(GAME_WIDTH * 0.7);
@@ -26,9 +27,9 @@ export function replayFromBundle(bundle) {
   if (!p1Data) throw new Error(`Fighter not found: ${bundle.config.p1FighterId}`);
   if (!p2Data) throw new Error(`Fighter not found: ${bundle.config.p2FighterId}`);
 
-  const p1 = createSimFighter(P1_START_X, 0, p1Data);
-  const p2 = createSimFighter(P2_START_X, 1, p2Data);
-  const combat = createSimCombat();
+  const p1 = createFighterSim(P1_START_X, 0, p1Data);
+  const p2 = createFighterSim(P2_START_X, 1, p2Data);
+  const combat = createCombatSim();
 
   const totalFrames = Math.max(bundle.p1.totalFrames, bundle.p2.totalFrames);
 
@@ -56,8 +57,8 @@ export function replayFromBundle(bundle) {
     if (roundTransitionCooldown > 0) {
       roundTransitionCooldown--;
       if (roundTransitionCooldown === 0) {
-        resetSimFighter(p1, P1_START_X);
-        resetSimFighter(p2, P2_START_X);
+        p1.resetForRound(P1_START_X);
+        p2.resetForRound(P2_START_X);
         combat.startRound();
       }
       continue;

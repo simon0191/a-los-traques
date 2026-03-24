@@ -2,14 +2,59 @@
 
 const GRACE_PERIOD_MS = 20000;
 
+/**
+ * Server room states (formal state machine).
+ */
+const RoomState = {
+  EMPTY: 'empty',
+  WAITING: 'waiting',
+  SELECTING: 'selecting',
+  READY_CHECK: 'ready_check',
+  FIGHTING: 'fighting',
+  RECONNECTING: 'reconnecting',
+};
+
+/**
+ * Valid state transitions: { [currentState]: { [event]: nextState } }
+ */
+const ROOM_TRANSITIONS = {
+  [RoomState.EMPTY]: {
+    player_connected: RoomState.WAITING,
+  },
+  [RoomState.WAITING]: {
+    second_connected: RoomState.SELECTING,
+    player_disconnected: RoomState.EMPTY,
+  },
+  [RoomState.SELECTING]: {
+    first_ready: RoomState.READY_CHECK,
+    ws_close: RoomState.RECONNECTING,
+    leave: RoomState.WAITING,
+  },
+  [RoomState.READY_CHECK]: {
+    both_ready: RoomState.FIGHTING,
+    ready_player_disconnected: RoomState.SELECTING,
+    non_ready_leave: RoomState.WAITING,
+    ws_close: RoomState.RECONNECTING,
+  },
+  [RoomState.FIGHTING]: {
+    ws_close: RoomState.RECONNECTING,
+    leave: RoomState.SELECTING,
+  },
+  [RoomState.RECONNECTING]: {
+    rejoin_fighting: RoomState.FIGHTING,
+    rejoin_selecting: RoomState.SELECTING,
+    rejoin_ready_check: RoomState.READY_CHECK,
+    grace_expired: RoomState.WAITING,
+  },
+};
+
 export default class FightRoom {
   constructor(party) {
     this.party = party;
     /** @type {(PlayerSlot|null)[]} */
     this.players = [null, null];
-    /** @type {'waiting'|'selecting'|'fighting'|'reconnecting'} */
-    this.roomState = 'waiting';
-    /** @type {'waiting'|'selecting'|'fighting'|null} state before entering reconnecting */
+    this.roomState = RoomState.EMPTY;
+    /** @type {string|null} state before entering reconnecting */
     this._stateBeforeGrace = null;
     this.spectators = new Set();
     this.fightInfo = null;
@@ -22,8 +67,17 @@ export default class FightRoom {
   }
 
   /**
+   * Attempt a room state transition. Returns true if valid, false if rejected.
+   */
+  _transition(event) {
+    const transitions = ROOM_TRANSITIONS[this.roomState];
+    if (!transitions || !transitions[event]) return false;
+    this.roomState = transitions[event];
+    return true;
+  }
+
+  /**
    * HTTP request handler for TURN credential generation.
-   * GET /turn-creds → fetches short-lived TURN credentials from Cloudflare.
    */
   async onRequest(request) {
     const corsHeaders = {
@@ -32,7 +86,6 @@ export default class FightRoom {
       'Access-Control-Allow-Headers': 'Content-Type',
     };
 
-    // Handle CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
@@ -40,7 +93,6 @@ export default class FightRoom {
     const url = new URL(request.url);
     if (url.pathname.endsWith('/turn-creds') && request.method === 'GET') {
       const response = await this._handleTurnCreds();
-      // Add CORS headers to the response
       for (const [key, value] of Object.entries(corsHeaders)) {
         response.headers.set(key, value);
       }
@@ -54,7 +106,6 @@ export default class FightRoom {
     const apiToken = this.party.env?.CLOUDFLARE_TURN_API_TOKEN;
 
     if (!keyId || !apiToken) {
-      // TURN not configured — return default STUN-only servers
       return Response.json({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
@@ -107,7 +158,6 @@ export default class FightRoom {
   }
 
   onConnect(connection, ctx) {
-    // Check if spectator
     const url = new URL(ctx.request.url);
     const isSpectator = url.searchParams.get('spectate') === '1';
 
@@ -116,7 +166,6 @@ export default class FightRoom {
       const count = this.spectators.size;
       connection.send(JSON.stringify({ type: 'assign_spectator', spectatorCount: count }));
       this._broadcast({ type: 'spectator_count', count });
-      // Send fight state catch-up if fight already started
       if (this.fightInfo) {
         connection.send(
           JSON.stringify({
@@ -124,9 +173,9 @@ export default class FightRoom {
             p1Id: this.fightInfo.p1Id,
             p2Id: this.fightInfo.p2Id,
             stageId: this.fightInfo.stageId,
-            started: this.roomState === 'fighting',
-            p1Rounds: this.players[0]?.ready ? 0 : 0,
-            p2Rounds: this.players[1]?.ready ? 0 : 0,
+            started: this.roomState === RoomState.FIGHTING,
+            p1Rounds: 0,
+            p2Rounds: 0,
             roundNumber: 1,
           }),
         );
@@ -134,14 +183,11 @@ export default class FightRoom {
       return;
     }
 
-    // Clean up stale slots whose connections no longer exist
     this._cleanupStaleSlots();
 
-    // Find open slot
     const slot = this.players[0] === null ? 0 : this.players[1] === null ? 1 : -1;
 
     if (slot === -1) {
-      // During grace period, tell new connection which slot can be reclaimed
       const graceSlot = this._graceTimers[0] ? 0 : this._graceTimers[1] ? 1 : -1;
       if (graceSlot !== -1) {
         connection.send(JSON.stringify({ type: 'rejoin_available', slot: graceSlot }));
@@ -153,19 +199,18 @@ export default class FightRoom {
     }
 
     this.players[slot] = { id: connection.id, fighterId: null, ready: false };
-
-    // Tell this player their slot
     connection.send(JSON.stringify({ type: 'assign', player: slot }));
 
-    // Send spectator count if there are spectators
     if (this.spectators.size > 0) {
       connection.send(JSON.stringify({ type: 'spectator_count', count: this.spectators.size }));
     }
 
-    // If both connected, notify both and transition to selecting
+    // State transitions on connect
     if (this.players[0] && this.players[1]) {
-      this.roomState = 'selecting';
+      this._transition('second_connected');
       this._broadcast({ type: 'opponent_joined' });
+    } else if (this.roomState === RoomState.EMPTY) {
+      this._transition('player_connected');
     }
   }
 
@@ -176,114 +221,27 @@ export default class FightRoom {
     } catch {
       return;
     }
+
     // Handle rejoin before slot lookup (new connection doesn't have a slot yet)
     if (data.type === 'rejoin') {
-      const rejoinSlot = data.slot;
-      if (rejoinSlot !== 0 && rejoinSlot !== 1) return;
-      if (!this._graceTimers[rejoinSlot]) {
-        // No grace period active — connection restored before server saw disconnect.
-        // Update connection ID so stale onClose for the old connection won't
-        // match this slot and erroneously start a grace period.
-        if (this.players[rejoinSlot]) {
-          this.players[rejoinSlot].id = connection.id;
-        }
-        connection.send(JSON.stringify({ type: 'rejoin_ack', state: this.roomState }));
-        return;
-      }
-      clearTimeout(this._graceTimers[rejoinSlot]);
-      this._graceTimers[rejoinSlot] = null;
-      this.players[rejoinSlot].id = connection.id;
-
-      if (data.reset) {
-        // Page refresh: client lost fight state, reset room to selecting
-        this._sendToOther(rejoinSlot, { type: 'return_to_select' });
-        this._broadcastToSpectators({ type: 'return_to_select' });
-        this.roomState = 'selecting';
-        this._stateBeforeGrace = null;
-        this.fightInfo = null;
-        for (let i = 0; i < 2; i++) {
-          if (this.players[i]) {
-            this.players[i].ready = false;
-            this.players[i].fighterId = null;
-          }
-        }
-        connection.send(JSON.stringify({ type: 'assign', player: rejoinSlot }));
-        if (this.spectators.size > 0) {
-          connection.send(JSON.stringify({ type: 'spectator_count', count: this.spectators.size }));
-        }
-        this._broadcast({ type: 'opponent_joined' });
-      } else {
-        // WiFi drop: same page still loaded, resume fight
-        this.roomState = this._stateBeforeGrace || 'fighting';
-        this._stateBeforeGrace = null;
-        this._sendToOther(rejoinSlot, { type: 'opponent_reconnected' });
-        this._broadcastToSpectators({ type: 'opponent_reconnected' });
-      }
-      connection.send(JSON.stringify({ type: 'rejoin_ack', state: this.roomState }));
+      this._handleRejoin(data, connection);
       return;
     }
 
     const slot = this._slotOf(connection.id);
     const isSpectator = this._isSpectator(connection.id);
 
-    // Handle spectator messages
     if (isSpectator) {
-      switch (data.type) {
-        case 'shout': {
-          const now = Date.now();
-          const last = this._shoutCooldowns.get(connection.id) || 0;
-          if (now - last < 2000) return; // 2s rate limit
-          this._shoutCooldowns.set(connection.id, now);
-          this._broadcast({ type: 'shout', text: String(data.text).slice(0, 20) });
-          break;
-        }
-        case 'potion': {
-          const now = Date.now();
-          const last = this._potionCooldowns.get(connection.id) || 0;
-          if (now - last < 15000) return; // 15s rate limit
-          this._potionCooldowns.set(connection.id, now);
-          const target = data.target === 0 ? 0 : 1;
-          const potionType = data.potionType === 'special' ? 'special' : 'hp';
-          // Send potion request to host only
-          this._sendToHost({ type: 'potion', target, potionType });
-          // Broadcast visual feedback to all
-          this._broadcast({ type: 'potion_applied', target, potionType });
-          break;
-        }
-      }
+      this._handleSpectatorMessage(data, connection);
       return;
     }
 
     if (slot === -1) return;
 
     switch (data.type) {
-      case 'ready': {
-        if (this.roomState !== 'selecting' || this.players[slot].ready) break;
-        this.players[slot].fighterId = data.fighterId;
-        this.players[slot].ready = true;
-
-        // Relay to opponent
-        this._sendToOther(slot, { type: 'opponent_ready', fighterId: data.fighterId });
-
-        // If both ready, send start
-        if (this.players[0]?.ready && this.players[1]?.ready) {
-          this.roomState = 'fighting';
-          const stageIds = ['beach', 'jekos_house', 'metro', 'input'];
-          const stageId = stageIds[Math.floor(Math.random() * stageIds.length)];
-          this.fightInfo = {
-            p1Id: this.players[0].fighterId,
-            p2Id: this.players[1].fighterId,
-            stageId,
-          };
-          this._broadcast({
-            type: 'start',
-            p1Id: this.players[0].fighterId,
-            p2Id: this.players[1].fighterId,
-            stageId,
-          });
-        }
+      case 'ready':
+        this._handleReady(slot, data);
         break;
-      }
       case 'input':
         if (!data.spectatorOnly) {
           this._sendToOther(slot, data);
@@ -295,7 +253,6 @@ export default class FightRoom {
         this._sendToOther(slot, data);
         break;
       case 'resync':
-        // Only P1 (slot 0) can send authoritative resync snapshots
         if (slot !== 0) break;
         this._sendToOther(slot, data);
         break;
@@ -311,35 +268,143 @@ export default class FightRoom {
         this._broadcastToSpectators(data);
         break;
       case 'ping':
-        // Echo back directly to sender
         connection.send(JSON.stringify({ type: 'pong', t: data.t }));
         break;
       case 'rematch':
-        // Relay directly to opponent
         this._sendToOther(slot, data);
         break;
       case 'leave':
-        // If grace timer active for this player, cancel it and disconnect immediately
-        if (this._graceTimers[slot]) {
-          clearTimeout(this._graceTimers[slot]);
-          this._graceTimers[slot] = null;
-        }
-        // Reset both players' ready state so they can re-select fighters
-        for (let i = 0; i < 2; i++) {
-          if (this.players[i]) {
-            this.players[i].ready = false;
-            this.players[i].fighterId = null;
-          }
-        }
-        this.roomState = 'selecting';
-        this.fightInfo = null;
-        this._sendToOther(slot, data);
+        this._handleLeave(slot);
         break;
     }
   }
 
+  _handleReady(slot, data) {
+    // Validate state: ready only accepted in SELECTING or READY_CHECK
+    if (this.roomState !== RoomState.SELECTING && this.roomState !== RoomState.READY_CHECK) return;
+    if (this.players[slot].ready) return;
+
+    this.players[slot].fighterId = data.fighterId;
+    this.players[slot].ready = true;
+
+    this._sendToOther(slot, { type: 'opponent_ready', fighterId: data.fighterId });
+
+    if (this.players[0]?.ready && this.players[1]?.ready) {
+      // Both ready → FIGHTING
+      this._transition('both_ready');
+      const stageIds = ['beach', 'jekos_house', 'metro', 'input'];
+      const stageId = stageIds[Math.floor(Math.random() * stageIds.length)];
+      this.fightInfo = {
+        p1Id: this.players[0].fighterId,
+        p2Id: this.players[1].fighterId,
+        stageId,
+      };
+      this._broadcast({
+        type: 'start',
+        p1Id: this.players[0].fighterId,
+        p2Id: this.players[1].fighterId,
+        stageId,
+      });
+    } else if (this.roomState === RoomState.SELECTING) {
+      // First ready → READY_CHECK
+      this._transition('first_ready');
+    }
+  }
+
+  _handleLeave(slot) {
+    if (this._graceTimers[slot]) {
+      clearTimeout(this._graceTimers[slot]);
+      this._graceTimers[slot] = null;
+    }
+    for (let i = 0; i < 2; i++) {
+      if (this.players[i]) {
+        this.players[i].ready = false;
+        this.players[i].fighterId = null;
+      }
+    }
+    this._transition('leave');
+    this.fightInfo = null;
+    this._sendToOther(slot, { type: 'leave' });
+  }
+
+  _handleRejoin(data, connection) {
+    const rejoinSlot = data.slot;
+    if (rejoinSlot !== 0 && rejoinSlot !== 1) return;
+
+    if (!this._graceTimers[rejoinSlot]) {
+      // No grace period active — connection restored before server saw disconnect.
+      // Update connection ID so stale onClose won't match this slot.
+      if (this.players[rejoinSlot]) {
+        this.players[rejoinSlot].id = connection.id;
+      }
+      connection.send(JSON.stringify({ type: 'rejoin_ack', state: this.roomState }));
+      return;
+    }
+
+    clearTimeout(this._graceTimers[rejoinSlot]);
+    this._graceTimers[rejoinSlot] = null;
+    this.players[rejoinSlot].id = connection.id;
+
+    if (data.reset) {
+      // Page refresh: client lost fight state, reset room to selecting
+      this._sendToOther(rejoinSlot, { type: 'return_to_select' });
+      this._broadcastToSpectators({ type: 'return_to_select' });
+      this.roomState = RoomState.SELECTING;
+      this._stateBeforeGrace = null;
+      this.fightInfo = null;
+      for (let i = 0; i < 2; i++) {
+        if (this.players[i]) {
+          this.players[i].ready = false;
+          this.players[i].fighterId = null;
+        }
+      }
+      connection.send(JSON.stringify({ type: 'assign', player: rejoinSlot }));
+      if (this.spectators.size > 0) {
+        connection.send(JSON.stringify({ type: 'spectator_count', count: this.spectators.size }));
+      }
+      this._broadcast({ type: 'opponent_joined' });
+    } else {
+      // WiFi drop: resume to state before grace
+      const prevState = this._stateBeforeGrace || RoomState.FIGHTING;
+      this._stateBeforeGrace = null;
+      if (prevState === RoomState.FIGHTING) {
+        this._transition('rejoin_fighting');
+      } else if (prevState === RoomState.READY_CHECK) {
+        this._transition('rejoin_ready_check');
+      } else {
+        this._transition('rejoin_selecting');
+      }
+      this._sendToOther(rejoinSlot, { type: 'opponent_reconnected' });
+      this._broadcastToSpectators({ type: 'opponent_reconnected' });
+    }
+    connection.send(JSON.stringify({ type: 'rejoin_ack', state: this.roomState }));
+  }
+
+  _handleSpectatorMessage(data, connection) {
+    switch (data.type) {
+      case 'shout': {
+        const now = Date.now();
+        const last = this._shoutCooldowns.get(connection.id) || 0;
+        if (now - last < 2000) return;
+        this._shoutCooldowns.set(connection.id, now);
+        this._broadcast({ type: 'shout', text: String(data.text).slice(0, 20) });
+        break;
+      }
+      case 'potion': {
+        const now = Date.now();
+        const last = this._potionCooldowns.get(connection.id) || 0;
+        if (now - last < 15000) return;
+        this._potionCooldowns.set(connection.id, now);
+        const target = data.target === 0 ? 0 : 1;
+        const potionType = data.potionType === 'special' ? 'special' : 'hp';
+        this._sendToHost({ type: 'potion', target, potionType });
+        this._broadcast({ type: 'potion_applied', target, potionType });
+        break;
+      }
+    }
+  }
+
   onClose(connection) {
-    // Handle spectator disconnect
     if (this._isSpectator(connection.id)) {
       this.spectators.delete(connection.id);
       this._shoutCooldowns.delete(connection.id);
@@ -351,9 +416,8 @@ export default class FightRoom {
     const slot = this._slotOf(connection.id);
     if (slot === -1) return;
 
-    // Start grace period — keep slot reserved, notify opponent
     this._stateBeforeGrace = this.roomState;
-    this.roomState = 'reconnecting';
+    this._transition('ws_close');
     this._sendToOther(slot, { type: 'opponent_reconnecting' });
     this._broadcastToSpectators({ type: 'opponent_reconnecting' });
 
@@ -363,13 +427,11 @@ export default class FightRoom {
     }, GRACE_PERIOD_MS);
   }
 
-  /** Run permanent disconnect logic for a slot (grace expired or intentional leave). */
   _finalizeDisconnect(slot) {
-    const wasFighting = this._stateBeforeGrace === 'fighting';
+    const wasFighting = this._stateBeforeGrace === RoomState.FIGHTING;
     this.players[slot] = null;
 
     if (wasFighting) {
-      // Grace expired during a fight — tell remaining player to return to select
       this._sendToOther(slot, { type: 'return_to_select' });
       this._broadcastToSpectators({ type: 'return_to_select' });
     } else {
@@ -377,9 +439,8 @@ export default class FightRoom {
       this._broadcastToSpectators({ type: 'disconnect' });
     }
 
-    // Reset room to pre-match state
     this._stateBeforeGrace = null;
-    this.roomState = 'waiting';
+    this._transition('grace_expired');
     this.fightInfo = null;
     const otherSlot = slot === 0 ? 1 : 0;
     if (this.players[otherSlot]) {
@@ -398,7 +459,6 @@ export default class FightRoom {
     return this.spectators.has(connId);
   }
 
-  /** Remove player slots whose connection is no longer alive (skip slots with active grace timers) */
   _cleanupStaleSlots() {
     const liveIds = new Set();
     for (const conn of this.party.getConnections()) {

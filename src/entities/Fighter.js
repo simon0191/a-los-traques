@@ -1,48 +1,72 @@
-import { MAX_HP, STAMINA_COSTS } from '../config.js';
-import {
-  DOUBLE_JUMP_AIRBORNE_THRESHOLD,
-  DOUBLE_JUMP_VY_FP,
-  FP_SCALE,
-  fpClamp,
-  GRAVITY_PER_FRAME_FP,
-  GROUND_Y_FP,
-  HURT_TIMER_KNOCKDOWN,
-  HURT_TIMER_LIGHT,
-  JUMP_VY_FP,
-  KNOCKBACK_VX_FP,
-  KNOCKBACK_VY_FP,
-  MAX_SPECIAL_FP,
-  MAX_STAMINA_FP,
-  SPECIAL_COST_FP,
-  SPECIAL_TINT_MAX_FRAMES,
-  STAGE_LEFT_FP,
-  STAGE_RIGHT_FP,
-  STAMINA_REGEN_ATTACKING_PER_FRAME_FP,
-  STAMINA_REGEN_BLOCKING_PER_FRAME_FP,
-  STAMINA_REGEN_IDLE_PER_FRAME_FP,
-  WALL_DETECT_THRESHOLD_FP,
-  WALL_JUMP_X_FP,
-  WALL_JUMP_Y_FP,
-  WALL_SLIDE_SPEED_FP,
-} from '../systems/FixedPoint.js';
+import { FighterSim } from '../simulation/FighterSim.js';
+import { FP_SCALE } from '../systems/FixedPoint.js';
 
 export { calculateBlockDamage } from './combat-block.js';
 
-import { calculateBlockDamage } from './combat-block.js';
+/**
+ * All FighterSim state fields proxied to Fighter via getters/setters.
+ * Existing code reads/writes fighter.simX and it transparently goes to fighter.sim.simX.
+ */
+const SIM_FIELDS = [
+  'simX',
+  'simY',
+  'simVX',
+  'simVY',
+  'hp',
+  'special',
+  'stamina',
+  'state',
+  'facingRight',
+  'attackCooldown',
+  'attackFrameElapsed',
+  'currentAttack',
+  'hitConnected',
+  'comboCount',
+  '_specialTintTimer',
+  'blockTimer',
+  'hurtTimer',
+  'isOnGround',
+  'hasDoubleJumped',
+  '_airborneTime',
+  '_isTouchingWall',
+  '_wallDir',
+  '_hasWallJumped',
+  '_prevAnimState',
+];
 
 export class Fighter {
   constructor(scene, x, y, textureKey, fighterData, playerIndex) {
     this.scene = scene;
+    this.playerIndex = playerIndex;
     this.data = fighterData;
-    this.playerIndex = playerIndex; // 0 or 1
 
-    // Create sprite — physics body kept for compatibility but disabled
+    // Pure simulation state — canonical source of truth
+    this.sim = new FighterSim(x, playerIndex, fighterData);
+
+    // Proxy all simulation fields so existing code (GameState, SimulationStep, etc.) works
+    for (const field of SIM_FIELDS) {
+      Object.defineProperty(this, field, {
+        get() {
+          return this.sim[field];
+        },
+        set(v) {
+          this.sim[field] = v;
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    }
+
+    // FighterSim starts at GROUND_Y, but Fighter gets an explicit y from the scene
+    this.sim.simY = Math.trunc(y * FP_SCALE);
+
+    // Phaser sprite
     this.sprite = scene.physics.add.sprite(x, y, textureKey);
     this.sprite.setOrigin(0.5, 1);
     this.sprite.body.moves = false;
     this.sprite.body.setAllowGravity(false);
 
-    // Check if this fighter has real sprite animations
+    // Animation detection
     this.fighterId = fighterData.id;
     const idleTexKey = `fighter_${this.fighterId}_idle`;
     const idleTex = scene.textures.exists(idleTexKey) && scene.textures.get(idleTexKey);
@@ -50,142 +74,109 @@ export class Fighter {
     if (this.hasAnims) {
       this.sprite.play(`${this.fighterId}_idle`);
     }
-
-    // Fixed-point simulation state
-    this.simX = Math.trunc(x * FP_SCALE);
-    this.simY = Math.trunc(y * FP_SCALE);
-    this.simVX = 0;
-    this.simVY = 0;
-
-    // State
-    this.hp = MAX_HP;
-    this.special = 0; // FP (0 is same scaled or not)
-    this.state = 'idle';
-    this._prevAnimState = null;
-    this.facingRight = playerIndex === 0;
-    this.attackCooldown = 0; // frames
-    this.hurtTimer = 0; // frames
-    this.isOnGround = true;
-    this.hitConnected = false;
-
-    // Double jump tracking
-    this.hasDoubleJumped = false;
-    this._airborneTime = 0; // frames
-
-    // Stamina (FP for fractional regen)
-    this.stamina = MAX_STAMINA_FP;
-
-    // Wall jump tracking
-    this._isTouchingWall = false;
-    this._wallDir = 0;
-    this._hasWallJumped = false;
-
-    // Timer for special attack tint (frames)
-    this._specialTintTimer = 0;
-
-    // Attack phase tracking (frames elapsed since attack started)
-    this.attackFrameElapsed = 0;
-
-    // Combo counter (incremented on hit while defender in hitstun)
-    this.comboCount = 0;
-
-    // Block commitment timer (minimum frames in block state)
-    this.blockTimer = 0;
   }
 
-  update() {
-    // Update cooldowns (frame-based — decrement by 1)
-    if (this.attackCooldown > 0) {
-      this.attackCooldown--;
-      this.attackFrameElapsed++;
-    }
+  // --- Simulation methods: delegate to FighterSim, then apply presentation side effects ---
 
-    // Attack completion (deterministic)
-    if (this.attackCooldown <= 0 && this.state === 'attacking') {
-      if (!this.hitConnected && !this.scene._muteEffects) {
+  update() {
+    // Snapshot state before sim for detecting whiff/tint changes
+    const wasAttacking = this.sim.state === 'attacking';
+    const hadHitConnected = this.sim.hitConnected;
+    const prevTintTimer = this.sim._specialTintTimer;
+
+    this.sim.update();
+
+    // Presentation: whiff sound on attack completion without hit
+    if (wasAttacking && this.sim.state === 'idle' && !hadHitConnected) {
+      if (!this.scene._muteEffects) {
         this.scene.game.audioManager.play('whiff');
       }
-      this.state = 'idle';
-      this.currentAttack = null;
     }
 
-    // Block commitment timer
-    if (this.blockTimer > 0) this.blockTimer--;
-
-    // Special tint timer (frame-based)
-    if (this._specialTintTimer > 0) {
-      this._specialTintTimer--;
-      if (this._specialTintTimer <= 0) {
-        this._specialTintTimer = 0;
-        if (this.sprite?.clearTint) this.sprite.clearTint();
-      }
+    // Presentation: clear tint when special tint timer expires
+    if (prevTintTimer > 0 && this.sim._specialTintTimer <= 0) {
+      if (this.sprite?.clearTint) this.sprite.clearTint();
     }
 
-    if (this.hurtTimer > 0) {
-      this.hurtTimer--;
-      if (this.hurtTimer <= 0) this.state = 'idle';
-    }
-
-    // Stamina regen (FP integer add)
-    let regenRate = STAMINA_REGEN_IDLE_PER_FRAME_FP;
-    if (this.state === 'attacking') regenRate = STAMINA_REGEN_ATTACKING_PER_FRAME_FP;
-    else if (this.state === 'blocking') regenRate = STAMINA_REGEN_BLOCKING_PER_FRAME_FP;
-    this.stamina = Math.min(MAX_STAMINA_FP, this.stamina + regenRate);
-
-    // Gravity
-    this.simVY += GRAVITY_PER_FRAME_FP;
-
-    // Position integration (integer division, truncate toward zero)
-    this.simY += Math.trunc(this.simVY / 60);
-    this.simX += Math.trunc(this.simVX / 60);
-
-    // Ground check
-    const wasAirborne = !this.isOnGround;
-    this.isOnGround = this.simY >= GROUND_Y_FP;
-    if (this.isOnGround && wasAirborne) {
-      this.hasDoubleJumped = false;
-      this._hasWallJumped = false;
-      this._airborneTime = 0;
-    }
-    if (!this.isOnGround) {
-      this._airborneTime++;
-    }
-
-    // Clamp to stage bounds
-    this.simX = fpClamp(this.simX, STAGE_LEFT_FP, STAGE_RIGHT_FP);
-
-    // Wall detection + wall slide
-    this._isTouchingWall = false;
-    this._wallDir = 0;
-    if (!this.isOnGround) {
-      if (this.simX <= STAGE_LEFT_FP + WALL_DETECT_THRESHOLD_FP) {
-        this._isTouchingWall = true;
-        this._wallDir = -1;
-      } else if (this.simX >= STAGE_RIGHT_FP - WALL_DETECT_THRESHOLD_FP) {
-        this._isTouchingWall = true;
-        this._wallDir = 1;
-      }
-      // Wall slide: cap downward velocity
-      if (this._isTouchingWall && this.simVY > WALL_SLIDE_SPEED_FP) {
-        this.simVY = WALL_SLIDE_SPEED_FP;
-      }
-    }
-
-    // Floor collision
-    if (this.simY > GROUND_Y_FP) {
-      this.simY = GROUND_Y_FP;
-      this.simVY = 0;
-    }
-
-    // Update animation based on state
+    // Update animation
     if (this.hasAnims) {
       this._updateAnimation();
     }
   }
 
+  moveLeft(speed) {
+    const wasBlocking = this.sim.state === 'blocking';
+    this.sim.moveLeft(speed);
+    if (wasBlocking && this.sim.state === 'walking') this.sprite.clearTint();
+  }
+
+  moveRight(speed) {
+    const wasBlocking = this.sim.state === 'blocking';
+    this.sim.moveRight(speed);
+    if (wasBlocking && this.sim.state === 'walking') this.sprite.clearTint();
+  }
+
+  stop() {
+    const wasBlocking = this.sim.state === 'blocking';
+    this.sim.stop();
+    if (wasBlocking && this.sim.state !== 'blocking') this.sprite.clearTint();
+  }
+
+  jump() {
+    const wasOnGround = this.sim.isOnGround;
+    const prevVY = this.sim.simVY;
+    this.sim.jump();
+    // Detect if a jump actually happened (velocity changed)
+    if (this.sim.simVY !== prevVY || (!this.sim.isOnGround && wasOnGround)) {
+      if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
+    }
+  }
+
+  block() {
+    this.sim.block();
+    this.sprite.setTint(0x6688ff);
+  }
+
+  attack(type) {
+    const result = this.sim.attack(type);
+    if (result && type === 'special') {
+      if (!this.scene._muteEffects) {
+        this.scene.game.audioManager.play('special_charge');
+      }
+      if (!this.scene._muteEffects) {
+        this.sprite.setTint(0xffcc00);
+      }
+    }
+    return result;
+  }
+
+  faceOpponent(opponent) {
+    // Accept either a Fighter (with .sim) or a FighterSim (with .simX directly)
+    const opponentSim = opponent.sim || opponent;
+    this.sim.faceOpponent(opponentSim);
+    this.sprite.setFlipX(!this.sim.facingRight);
+  }
+
+  getAttackHitbox() {
+    return this.sim.getAttackHitbox();
+  }
+
+  getHurtbox() {
+    return this.sim.getHurtbox();
+  }
+
+  takeDamage(amount, attackerSimX, stunFrames) {
+    if (this.sim.state === 'blocking') {
+      this.sprite.clearTint();
+    }
+    return this.sim.takeDamage(amount, attackerSimX, stunFrames);
+  }
+
+  // --- Presentation-only methods ---
+
   _updateAnimation() {
-    let animState = this.state;
-    if (animState === 'attacking' && this.currentAttack) {
+    let animState = this.sim.state;
+    if (animState === 'attacking' && this.sim.currentAttack) {
       const attackMap = {
         lightPunch: 'light_punch',
         heavyPunch: 'heavy_punch',
@@ -193,7 +184,7 @@ export class Fighter {
         heavyKick: 'heavy_kick',
         special: 'special',
       };
-      animState = attackMap[this.currentAttack.type] || 'idle';
+      animState = attackMap[this.sim.currentAttack.type] || 'idle';
     } else if (animState === 'walking') {
       animState = 'walk';
     } else if (animState === 'jumping') {
@@ -202,294 +193,44 @@ export class Fighter {
       animState = 'block';
     }
 
-    if (animState !== this._prevAnimState) {
+    if (animState !== this.sim._prevAnimState) {
       const key = `${this.fighterId}_${animState}`;
       if (this.scene.anims.exists(key)) {
-        // For attack animations, match framerate to attack duration (in frames → fps)
-        if (this.state === 'attacking' && this.currentAttack && this.attackCooldown > 0) {
+        if (
+          this.sim.state === 'attacking' &&
+          this.sim.currentAttack &&
+          this.sim.attackCooldown > 0
+        ) {
           const anim = this.scene.anims.get(key);
-          const fps = (anim.frames.length / this.attackCooldown) * 60;
+          const fps = (anim.frames.length / this.sim.attackCooldown) * 60;
           this.sprite.play({ key, frameRate: fps });
         } else {
           this.sprite.play(key);
         }
-        this._prevAnimState = animState;
+        this.sim._prevAnimState = animState;
       }
     }
   }
 
-  faceOpponent(opponent) {
-    this.facingRight = this.simX < opponent.simX;
-    this.sprite.setFlipX(!this.facingRight);
-  }
-
-  moveLeft(speed) {
-    if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
-    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
-    if (this.state === 'blocking') this.sprite.clearTint();
-    this.simVX = -speed;
-    this.state = 'walking';
-  }
-
-  moveRight(speed) {
-    if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
-    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
-    if (this.state === 'blocking') this.sprite.clearTint();
-    this.simVX = speed;
-    this.state = 'walking';
-  }
-
-  stop() {
-    if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
-    if (this.state === 'blocking' && this.blockTimer > 0) return; // block commitment
-    if (this.state === 'blocking') this.sprite.clearTint();
-    this.simVX = 0;
-    if (this.isOnGround) this.state = 'idle';
-  }
-
-  jump() {
-    if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
-
-    if (this.isOnGround) {
-      this.simVY = JUMP_VY_FP;
-      this.state = 'jumping';
-      this.isOnGround = false;
-      if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
-    } else if (this._isTouchingWall && !this._hasWallJumped) {
-      this._hasWallJumped = true;
-      this.hasDoubleJumped = false;
-      this.simVY = WALL_JUMP_Y_FP;
-      this.simVX = -this._wallDir * WALL_JUMP_X_FP;
-      this.state = 'jumping';
-      if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
-    } else if (!this.hasDoubleJumped && this._airborneTime > DOUBLE_JUMP_AIRBORNE_THRESHOLD) {
-      this.hasDoubleJumped = true;
-      this.simVY = DOUBLE_JUMP_VY_FP;
-      if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
-    }
-  }
-
-  attack(type) {
-    // Normal-to-special cancel: allow cancelling a normal into special on hit
-    if (this.attackCooldown > 0 && this.state === 'attacking') {
-      if (type === 'special' && this.hitConnected && this.currentAttack?.type !== 'special') {
-        const move = this.currentAttack;
-        const cancelEnd = move.startup + move.active + 4; // 4 recovery frames cancel window
-        if (this.attackFrameElapsed >= move.startup && this.attackFrameElapsed < cancelEnd) {
-          // Cancel granted — reset attack state and fall through to execute special
-          this.attackCooldown = 0;
-          this.attackFrameElapsed = 0;
-          this.hitConnected = false;
-        } else {
-          return false; // Outside cancel window
-        }
-      } else {
-        return false; // Can't cancel non-special or on whiff
-      }
-    }
-
-    if (this.attackCooldown > 0 || this.state === 'hurt' || this.state === 'knockdown') {
-      return false;
-    }
-    if (type === 'special' && this.special < SPECIAL_COST_FP) return false;
-
-    // Stamina gate (FP)
-    const staCost = (STAMINA_COSTS[type] || 15) * FP_SCALE;
-    if (this.stamina < staCost) return false;
-    this.stamina -= staCost;
-
-    const moveData = this.data.moves[type];
-    if (!moveData) return false;
-
-    this.state = 'attacking';
-    this._prevAnimState = null;
-    this.hitConnected = false;
-    this.attackFrameElapsed = 0;
-    this.currentAttack = { type, ...moveData };
-
-    // Total attack duration in frames
-    const totalFrames = moveData.startup + moveData.active + moveData.recovery;
-    this.attackCooldown = totalFrames;
-
-    if (type === 'special') {
-      this.special -= SPECIAL_COST_FP;
-      if (!this.scene._muteEffects) {
-        this.scene.game.audioManager.play('special_charge');
-      }
-      if (!this.scene._muteEffects) {
-        this.sprite.setTint(0xffcc00);
-      }
-      this._specialTintTimer = Math.min(this.attackCooldown, SPECIAL_TINT_MAX_FRAMES);
-    }
-
-    return true;
-  }
-
-  // Returns hitbox as plain FP object {x, y, w, h}
-  // Only active during the 'active' phase (after startup, before recovery)
-  getAttackHitbox() {
-    if (this.state !== 'attacking' || !this.currentAttack) return null;
-
-    const move = this.currentAttack;
-    if (
-      this.attackFrameElapsed < move.startup ||
-      this.attackFrameElapsed >= move.startup + move.active
-    ) {
-      return null; // No hitbox during startup or recovery
-    }
-
-    const defaultReach = move.type.includes('Kick') ? 55 : 45;
-    const reach = (move.reach || defaultReach) * FP_SCALE;
-    const h = (move.height || 40) * FP_SCALE;
-    const dir = this.facingRight ? 1 : -1;
-
-    return {
-      x: this.simX + dir * 10 * FP_SCALE,
-      y: this.simY - 50 * FP_SCALE,
-      w: reach * dir,
-      h,
-    };
-  }
-
-  // Returns hurtbox as plain FP object {x, y, w, h}
-  // Varies by state for meaningful vertical gameplay
-  getHurtbox() {
-    let w = 36,
-      h = 60,
-      offsetY = 60;
-    if (this.state === 'blocking') {
-      h = 40;
-      offsetY = 40;
-    } // Crouching block
-    else if (!this.isOnGround) {
-      w = 28;
-      h = 50;
-      offsetY = 50;
-    } // Airborne (smaller)
-    else if (this.state === 'attacking') {
-      w = 40;
-    } // Extended body
-    return {
-      x: this.simX - Math.trunc(w / 2) * FP_SCALE,
-      y: this.simY - offsetY * FP_SCALE,
-      w: w * FP_SCALE,
-      h: h * FP_SCALE,
-    };
-  }
-
-  takeDamage(amount, attackerSimX, stunFrames) {
-    if (this.state === 'blocking') {
-      amount = calculateBlockDamage(amount);
-      this.sprite.clearTint();
-    }
-
-    this.hp = Math.max(0, this.hp - amount);
-    // Gain special from damage: 0.8 * FP_SCALE = 800
-    this.special = Math.min(MAX_SPECIAL_FP, this.special + amount * 800);
-
-    // Knockback direction based on FP positions
-    const knockDir = this.simX > attackerSimX ? 1 : -1;
-    this.simVX = knockDir * KNOCKBACK_VX_FP;
-
-    // Use per-move stun if provided, else fall back to legacy constants
-    if (stunFrames != null) {
-      if (amount >= 15) {
-        this.state = 'knockdown';
-        this.hurtTimer = stunFrames;
-        this.simVY = KNOCKBACK_VY_FP;
-      } else {
-        this.state = 'hurt';
-        this.hurtTimer = stunFrames;
-      }
-    } else if (amount >= 15) {
-      this.state = 'knockdown';
-      this.hurtTimer = HURT_TIMER_KNOCKDOWN;
-      this.simVY = KNOCKBACK_VY_FP;
-    } else {
-      this.state = 'hurt';
-      this.hurtTimer = HURT_TIMER_LIGHT;
-    }
-
-    return this.hp <= 0;
-  }
-
-  block() {
-    if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
-    if (this.state !== 'blocking') {
-      this.blockTimer = 3; // 3-frame minimum block commitment
-    }
-    this.state = 'blocking';
-    this.simVX = 0;
-    this.sprite.setTint(0x6688ff);
-  }
-
-  /** Sync sprite position from simulation state. Call after simulation frame. */
   syncSprite() {
-    this.sprite.x = this.simX / FP_SCALE;
-    this.sprite.y = this.simY / FP_SCALE;
+    this.sprite.x = this.sim.simX / FP_SCALE;
+    this.sprite.y = this.sim.simY / FP_SCALE;
   }
 
   reset(x) {
-    this.simX = Math.trunc(x * FP_SCALE);
-    this.simY = GROUND_Y_FP;
-    this.simVX = 0;
-    this.simVY = 0;
+    this.sim.resetForRound(x);
     this.syncSprite();
     this.sprite.clearTint();
-    this.hp = MAX_HP;
-    this.special = 0;
-    this.state = 'idle';
-    this._prevAnimState = null;
-    this.attackCooldown = 0;
-    this.attackFrameElapsed = 0;
-    this.comboCount = 0;
-    this.blockTimer = 0;
-    this.hurtTimer = 0;
-    this.currentAttack = null;
-    this.hitConnected = false;
-    this.hasDoubleJumped = false;
-    this._airborneTime = 0;
-    this.stamina = MAX_STAMINA_FP;
-    this._isTouchingWall = false;
-    this._wallDir = 0;
-    this._hasWallJumped = false;
-    this._specialTintTimer = 0;
     if (this.hasAnims) {
       this.sprite.play(`${this.fighterId}_idle`);
     }
   }
 
-  /**
-   * Reset fighter state for a new round (simulation-safe, no sprite/animation calls).
-   * Used by deterministic frame-based round transitions in online mode.
-   */
   resetForRound(x) {
-    this.simX = Math.trunc(x * FP_SCALE);
-    this.simY = GROUND_Y_FP;
-    this.simVX = 0;
-    this.simVY = 0;
-    this.hp = MAX_HP;
-    this.special = 0;
-    this.state = 'idle';
-    this.attackCooldown = 0;
-    this.attackFrameElapsed = 0;
-    this.comboCount = 0;
-    this.blockTimer = 0;
-    this.hurtTimer = 0;
-    this.currentAttack = null;
-    this.hitConnected = false;
-    this.hasDoubleJumped = false;
-    this._airborneTime = 0;
-    this.stamina = MAX_STAMINA_FP;
-    this._isTouchingWall = false;
-    this._wallDir = 0;
-    this._hasWallJumped = false;
-    this._specialTintTimer = 0;
-    this._prevAnimState = null;
-    this.facingRight = this.playerIndex === 0;
+    this.sim.resetForRound(x);
   }
 
   get alive() {
-    return this.hp > 0;
+    return this.sim.hp > 0;
   }
 }

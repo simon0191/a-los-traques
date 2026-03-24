@@ -117,6 +117,8 @@ describe('RollbackManager', () => {
     scene = mockScene();
     p1 = mockFighter(144);
     p2 = mockFighter(336);
+    p1.scene = scene;
+    p2.scene = scene;
     combat = mockCombat();
     rm = new RollbackManager(nm, 0, { inputDelay: 2, maxRollbackFrames: 7 });
   });
@@ -124,27 +126,27 @@ describe('RollbackManager', () => {
   describe('basic advance', () => {
     it('increments currentFrame on each advance', () => {
       expect(rm.currentFrame).toBe(0);
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
       expect(rm.currentFrame).toBe(1);
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
       expect(rm.currentFrame).toBe(2);
     });
 
     it('sends local input to network with inputDelay offset', () => {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
       // 3rd arg is redundant history (empty on first frame)
       expect(nm.sendInput).toHaveBeenCalledWith(2, noInput, []);
     });
 
     it('stores local input at delayed frame', () => {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
       expect(rm.localInputHistory.has(2)).toBe(true);
     });
   });
 
   describe('input prediction', () => {
     it('predicts EMPTY_INPUT when no remote input received', () => {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
       expect(rm.predictedRemoteInputs.has(0)).toBe(true);
       expect(rm.predictedRemoteInputs.get(0)).toBe(EMPTY_INPUT);
     });
@@ -163,9 +165,9 @@ describe('RollbackManager', () => {
       };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, remoteInput]]);
 
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
 
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
 
       const predicted = rm.predictedRemoteInputs.get(1);
       expect(predicted).toBeDefined();
@@ -177,7 +179,7 @@ describe('RollbackManager', () => {
 
   describe('misprediction detection', () => {
     it('detects misprediction when confirmed differs from predicted', () => {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
       expect(rm.predictedRemoteInputs.get(0)).toBe(EMPTY_INPUT);
 
       const confirmedInput = {
@@ -193,16 +195,16 @@ describe('RollbackManager', () => {
       };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
 
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
 
       expect(rm.rollbackCount).toBe(1);
     });
 
     it('does not rollback when prediction matches confirmed', () => {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
 
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, noInput]]);
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
 
       expect(rm.rollbackCount).toBe(0);
     });
@@ -211,7 +213,7 @@ describe('RollbackManager', () => {
   describe('rollback window', () => {
     it('does not rollback beyond maxRollbackFrames', () => {
       for (let i = 0; i < 10; i++) {
-        rm.advance(noInput, scene, p1, p2, combat);
+        rm.advance(noInput, p1, p2, combat);
       }
 
       const confirmedInput = {
@@ -227,7 +229,7 @@ describe('RollbackManager', () => {
       };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
 
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
       expect(rm.rollbackCount).toBe(0);
     });
   });
@@ -235,7 +237,7 @@ describe('RollbackManager', () => {
   describe('pruning', () => {
     it('prunes old data beyond rollback window', () => {
       for (let i = 0; i < 20; i++) {
-        rm.advance(noInput, scene, p1, p2, combat);
+        rm.advance(noInput, p1, p2, combat);
       }
 
       expect(rm.stateSnapshots.has(0)).toBe(false);
@@ -244,7 +246,7 @@ describe('RollbackManager', () => {
 
     it('keeps recent data within rollback window', () => {
       for (let i = 0; i < 20; i++) {
-        rm.advance(noInput, scene, p1, p2, combat);
+        rm.advance(noInput, p1, p2, combat);
       }
 
       expect(rm.stateSnapshots.has(19)).toBe(true);
@@ -259,7 +261,7 @@ describe('RollbackManager', () => {
         if (scene._muteEffects) muteEffectsDuringResim = true;
       });
 
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
 
       const confirmedInput = {
         left: true,
@@ -273,7 +275,7 @@ describe('RollbackManager', () => {
         sp: false,
       };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
 
       expect(muteEffectsDuringResim).toBe(true);
       expect(scene._muteEffects).toBe(false);

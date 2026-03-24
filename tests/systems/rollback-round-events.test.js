@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_HP } from '../../src/config.js';
+import { createCombatSim } from '../../src/simulation/CombatSim.js';
+import { createFighterSim } from '../../src/simulation/FighterSim.js';
 import { captureGameState, restoreGameState } from '../../src/systems/GameState.js';
 import { encodeInput } from '../../src/systems/InputBuffer.js';
 import { simulateFrame } from '../../src/systems/SimulationStep.js';
-import { createSimCombat, createSimFighter } from '../helpers/sim-factory.js';
 
 const EMPTY = encodeInput({
   left: false,
@@ -20,7 +21,7 @@ const EMPTY = encodeInput({
 describe('rollback-safe round events', () => {
   describe('tickTimer returns timeup instead of firing side effects', () => {
     it('tickTimer returns { timeup: true } when timer reaches 0', () => {
-      const combat = createSimCombat();
+      const combat = createCombatSim();
       combat.timer = 1;
       combat._timerAccumulator = 59;
 
@@ -30,7 +31,7 @@ describe('rollback-safe round events', () => {
     });
 
     it('tickTimer returns null when timer has not reached 0', () => {
-      const combat = createSimCombat();
+      const combat = createCombatSim();
       combat.timer = 10;
       combat._timerAccumulator = 0;
 
@@ -39,7 +40,7 @@ describe('rollback-safe round events', () => {
     });
 
     it('tickTimer with muteEffects still ticks the timer (deterministic)', () => {
-      const combat = createSimCombat();
+      const combat = createCombatSim();
       combat.timer = 1;
       combat._timerAccumulator = 59;
 
@@ -51,9 +52,9 @@ describe('rollback-safe round events', () => {
 
   describe('checkHit returns KO info instead of calling handleKO', () => {
     it('checkHit returns { hit: true, ko: true } when hit causes KO', () => {
-      const p1 = createSimFighter(100, 0);
-      const p2 = createSimFighter(130, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(100, 0);
+      const p2 = createFighterSim(130, 1);
+      const combat = createCombatSim();
 
       // Set up P1 mid-attack in active frames, P2 at 1 HP
       p1.state = 'attacking';
@@ -74,14 +75,14 @@ describe('rollback-safe round events', () => {
       p2.hp = 1; // Will be KO'd by any hit
 
       const result = combat.checkHit(p1, p2);
-      expect(result).toEqual({ hit: true, ko: true });
+      expect(result).toMatchObject({ hit: true, ko: true });
       expect(p2.hp).toBe(0);
     });
 
     it('checkHit returns { hit: true, ko: false } when hit does not KO', () => {
-      const p1 = createSimFighter(100, 0);
-      const p2 = createSimFighter(130, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(100, 0);
+      const p2 = createFighterSim(130, 1);
+      const combat = createCombatSim();
 
       p1.state = 'attacking';
       p1.currentAttack = {
@@ -101,14 +102,14 @@ describe('rollback-safe round events', () => {
       p2.hp = MAX_HP; // Will survive
 
       const result = combat.checkHit(p1, p2);
-      expect(result).toEqual({ hit: true, ko: false });
+      expect(result).toMatchObject({ hit: true, ko: false });
       expect(p2.hp).toBeGreaterThan(0);
     });
 
     it('checkHit returns false on miss', () => {
-      const p1 = createSimFighter(100, 0);
-      const p2 = createSimFighter(400, 1); // Far apart — no hit
-      const combat = createSimCombat();
+      const p1 = createFighterSim(100, 0);
+      const p2 = createFighterSim(400, 1); // Far apart — no hit
+      const combat = createCombatSim();
 
       p1.state = 'attacking';
       p1.currentAttack = {
@@ -132,18 +133,18 @@ describe('rollback-safe round events', () => {
 
   describe('simulateFrame returns round event descriptors', () => {
     it('returns null when no round event occurs', () => {
-      const p1 = createSimFighter(144, 0);
-      const p2 = createSimFighter(336, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(144, 0);
+      const p2 = createFighterSim(336, 1);
+      const combat = createCombatSim();
 
       const result = simulateFrame(p1, p2, combat, EMPTY, EMPTY);
       expect(result).toBeNull();
     });
 
     it('returns KO event when a fighter is knocked out', () => {
-      const p1 = createSimFighter(100, 0);
-      const p2 = createSimFighter(130, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(100, 0);
+      const p2 = createFighterSim(130, 1);
+      const combat = createCombatSim();
 
       // Set P2 to 1 HP and P1 mid-attack at startup frame
       // We need to advance enough frames for the attack to reach active frames
@@ -173,9 +174,9 @@ describe('rollback-safe round events', () => {
     });
 
     it('returns timeup event when timer reaches 0', () => {
-      const p1 = createSimFighter(144, 0);
-      const p2 = createSimFighter(336, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(144, 0);
+      const p2 = createFighterSim(336, 1);
+      const combat = createCombatSim();
 
       // Set timer to expire in 1 tick
       combat.timer = 1;
@@ -190,9 +191,9 @@ describe('rollback-safe round events', () => {
     });
 
     it('returns timeup with P2 winner when P2 has more HP', () => {
-      const p1 = createSimFighter(144, 0);
-      const p2 = createSimFighter(336, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(144, 0);
+      const p2 = createFighterSim(336, 1);
+      const combat = createCombatSim();
 
       combat.timer = 1;
       combat._timerAccumulator = 59;
@@ -205,9 +206,9 @@ describe('rollback-safe round events', () => {
     });
 
     it('KO takes priority over timeup when both happen on same frame', () => {
-      const p1 = createSimFighter(100, 0);
-      const p2 = createSimFighter(130, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(100, 0);
+      const p2 = createFighterSim(130, 1);
+      const combat = createCombatSim();
 
       // Set up so both KO and timeup could happen
       combat.timer = 1;
@@ -241,9 +242,9 @@ describe('rollback-safe round events', () => {
 
   describe('timer reaching 0 during rollback does not corrupt state', () => {
     it('round event is discarded during rollback re-simulation', () => {
-      const p1 = createSimFighter(144, 0);
-      const p2 = createSimFighter(336, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(144, 0);
+      const p2 = createFighterSim(336, 1);
+      const combat = createCombatSim();
 
       // Set timer to 2 seconds (120 frames)
       combat.timer = 2;
@@ -286,9 +287,9 @@ describe('rollback-safe round events', () => {
 
   describe('KO on predicted input is rolled back correctly', () => {
     it('KO from predicted attack is undone after rollback', () => {
-      const p1 = createSimFighter(100, 0);
-      const p2 = createSimFighter(130, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(100, 0);
+      const p2 = createFighterSim(130, 1);
+      const combat = createCombatSim();
 
       // Set P2 to low HP
       p2.hp = 1;
@@ -348,13 +349,13 @@ describe('rollback-safe round events', () => {
   describe('P1 and P2 agree on round events', () => {
     it('both peers produce identical round event from identical simulation', () => {
       // Simulate the same inputs on two independent instances (P1 and P2 views)
-      const p1a = createSimFighter(100, 0);
-      const p2a = createSimFighter(130, 1);
-      const combatA = createSimCombat();
+      const p1a = createFighterSim(100, 0);
+      const p2a = createFighterSim(130, 1);
+      const combatA = createCombatSim();
 
-      const p1b = createSimFighter(100, 0);
-      const p2b = createSimFighter(130, 1);
-      const combatB = createSimCombat();
+      const p1b = createFighterSim(100, 0);
+      const p2b = createFighterSim(130, 1);
+      const combatB = createCombatSim();
 
       // Set both P2 fighters to low HP
       p2a.hp = 1;
@@ -391,15 +392,15 @@ describe('rollback-safe round events', () => {
     });
 
     it('timeup event agrees on winner based on HP', () => {
-      const p1a = createSimFighter(144, 0);
-      const p2a = createSimFighter(336, 1);
-      const combatA = createSimCombat();
+      const p1a = createFighterSim(144, 0);
+      const p2a = createFighterSim(336, 1);
+      const combatA = createCombatSim();
       combatA.timer = 1;
       combatA._timerAccumulator = 59;
 
-      const p1b = createSimFighter(144, 0);
-      const p2b = createSimFighter(336, 1);
-      const combatB = createSimCombat();
+      const p1b = createFighterSim(144, 0);
+      const p2b = createFighterSim(336, 1);
+      const combatB = createCombatSim();
       combatB.timer = 1;
       combatB._timerAccumulator = 59;
 
@@ -419,9 +420,9 @@ describe('rollback-safe round events', () => {
 
   describe('round event not returned when roundActive is false', () => {
     it('simulateFrame returns null when round is not active', () => {
-      const p1 = createSimFighter(100, 0);
-      const p2 = createSimFighter(130, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(100, 0);
+      const p2 = createFighterSim(130, 1);
+      const combat = createCombatSim();
       combat.roundActive = false;
 
       p2.hp = 1;
@@ -449,9 +450,9 @@ describe('rollback-safe round events', () => {
 
   describe('snapshot/restore preserves round event determinism', () => {
     it('restore + re-simulate produces same round event as straight-through', () => {
-      const p1ref = createSimFighter(100, 0);
-      const p2ref = createSimFighter(130, 1);
-      const combatRef = createSimCombat();
+      const p1ref = createFighterSim(100, 0);
+      const p2ref = createFighterSim(130, 1);
+      const combatRef = createCombatSim();
       p2ref.hp = 30;
 
       // Reference: straight-through with attack at frame 20
@@ -479,9 +480,9 @@ describe('rollback-safe round events', () => {
       }
 
       // Rollback path: run to frame 15, snapshot, continue with wrong inputs, rollback, re-simulate
-      const p1 = createSimFighter(100, 0);
-      const p2 = createSimFighter(130, 1);
-      const combat = createSimCombat();
+      const p1 = createFighterSim(100, 0);
+      const p2 = createFighterSim(130, 1);
+      const combat = createCombatSim();
       p2.hp = 30;
 
       for (let f = 0; f < 15; f++) {

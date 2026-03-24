@@ -193,7 +193,7 @@ describe('RollbackManager checksum exchange', () => {
 
   it('sends checksum every 30 frames for confirmed frames', () => {
     for (let i = 0; i < 31; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
     // At frame 30 (after advancing 30 times, currentFrame becomes 30)
     expect(nm.sendChecksum).toHaveBeenCalledTimes(1);
@@ -205,7 +205,7 @@ describe('RollbackManager checksum exchange', () => {
 
   it('does not send checksum before interval', () => {
     for (let i = 0; i < 29; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
     expect(nm.sendChecksum).not.toHaveBeenCalled();
   });
@@ -216,7 +216,7 @@ describe('RollbackManager checksum exchange', () => {
 
     // Advance to frame 30 so a local checksum is generated
     for (let i = 0; i < 31; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     const [frame, localHash] = nm.sendChecksum.mock.calls[0];
@@ -232,7 +232,7 @@ describe('RollbackManager checksum exchange', () => {
     rm._onDesync = desyncCb;
 
     for (let i = 0; i < 31; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     const [frame, localHash] = nm.sendChecksum.mock.calls[0];
@@ -258,18 +258,18 @@ describe('RollbackManager input redundancy', () => {
     const rm = new RollbackManager(nm, 0, { inputDelay: 2, maxRollbackFrames: 7 });
 
     // First frame: no history available
-    rm.advance(noInput, scene, p1, p2, combat);
+    rm.advance(noInput, p1, p2, combat);
     expect(nm.sendInput).toHaveBeenCalledWith(2, noInput, []);
 
     // Second frame: 1 history entry
-    rm.advance(noInput, scene, p1, p2, combat);
+    rm.advance(noInput, p1, p2, combat);
     const call2 = nm.sendInput.mock.calls[1];
     expect(call2[0]).toBe(3); // targetFrame
     expect(call2[2]).toHaveLength(1); // history: [frame 2]
     expect(call2[2][0][0]).toBe(2); // frame number
 
     // Third frame: 2 history entries
-    rm.advance(noInput, scene, p1, p2, combat);
+    rm.advance(noInput, p1, p2, combat);
     const call3 = nm.sendInput.mock.calls[2];
     expect(call3[2]).toHaveLength(2); // history: [frame 3, frame 2]
   });
@@ -289,7 +289,7 @@ describe('RollbackManager adaptive input delay', () => {
 
     // Advance 180 frames to trigger adaptive delay check
     for (let i = 0; i < 181; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     // oneWayFrames = ceil(75/16.667) = 5, optimal = min(5, 5+1) = 5
@@ -309,7 +309,7 @@ describe('RollbackManager adaptive input delay', () => {
     nm.rtt = 5; // 5ms RTT
 
     for (let i = 0; i < 181; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     // oneWayFrames = ceil(2.5/16.667) = 1, optimal = max(1, min(5, 1+1)) = 2
@@ -328,7 +328,7 @@ describe('RollbackManager adaptive input delay', () => {
     nm.rtt = 0;
 
     for (let i = 0; i < 181; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     // oneWayFrames = ceil(0) = 0, optimal = max(1, 0+1) = 1
@@ -346,7 +346,7 @@ describe('RollbackManager adaptive input delay', () => {
     nm.rtt = 150;
 
     for (let i = 0; i < 181; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     // After delay increases to 4: maxRollback = max(7, 4*2+1) = 9
@@ -370,7 +370,7 @@ describe('RollbackManager resync', () => {
 
     // Advance a few frames
     for (let i = 0; i < 10; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
     expect(rm.currentFrame).toBe(10);
 
@@ -389,7 +389,7 @@ describe('RollbackManager resync', () => {
     const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 5; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     expect(rm.stateSnapshots.size).toBeGreaterThan(0);
@@ -423,7 +423,7 @@ describe('RollbackManager resync', () => {
     const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 20; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     // Snapshot from frame 5 is too old (currentFrame=20, maxRollback=7, threshold=13)
@@ -440,7 +440,7 @@ describe('RollbackManager resync', () => {
     const rm = new RollbackManager(nm, 0, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 5; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     const snapshot = rm.captureResyncSnapshot(p1, p2, combat);
@@ -475,7 +475,7 @@ describe('RollbackManager resync', () => {
     const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 5; i++) {
-      rm.advance(noInput, scene, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
     }
 
     const snapshot = makeSnapshot({ p1: { hp: 80 } });

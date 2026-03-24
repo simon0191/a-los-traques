@@ -63,6 +63,48 @@ describe('FightRoom', () => {
     });
   });
 
+  // ---- Room state machine ----
+
+  describe('room state machine', () => {
+    it('starts in empty state', () => {
+      expect(room.roomState).toBe('empty');
+    });
+
+    it('transitions empty → waiting on first connect', () => {
+      room.onConnect(conn1, makeCtx());
+      expect(room.roomState).toBe('waiting');
+    });
+
+    it('transitions waiting → selecting on second connect', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      expect(room.roomState).toBe('selecting');
+    });
+
+    it('transitions selecting → ready_check on first ready', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      expect(room.roomState).toBe('ready_check');
+    });
+
+    it('transitions ready_check → fighting when both ready', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'paula' }), conn2);
+      expect(room.roomState).toBe('fighting');
+    });
+
+    it('rejects ready message outside selecting/ready_check states', () => {
+      room.onConnect(conn1, makeCtx());
+      // Only one player connected — state is 'waiting'
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      expect(room.roomState).toBe('waiting');
+      expect(room.players[0].ready).toBe(false);
+    });
+  });
+
   // ---- Room full ----
 
   describe('room full', () => {
