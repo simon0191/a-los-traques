@@ -5,10 +5,10 @@
 
 import { GAME_WIDTH, ROUNDS_TO_WIN } from '../../src/config.js';
 import fightersData from '../../src/data/fighters.json' with { type: 'json' };
-import { captureGameState, hashGameState } from '../../src/simulation/SimulationEngine.js';
-import { simulateFrame } from '../../src/systems/SimulationStep.js';
 import { createCombatSim } from '../../src/simulation/CombatSim.js';
 import { createFighterSim } from '../../src/simulation/FighterSim.js';
+import { captureGameState, hashGameState } from '../../src/simulation/SimulationEngine.js';
+import { simulateFrame } from '../../src/systems/SimulationStep.js';
 import { expandSparseInputs } from './input-utils.js';
 
 const P1_START_X = Math.trunc(GAME_WIDTH * 0.3);
