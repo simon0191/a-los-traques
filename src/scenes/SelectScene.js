@@ -31,20 +31,33 @@ export class SelectScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
-    this.fighters = fightersData;
+    this.fighters = [
+      ...fightersData,
+      {
+        id: 'random',
+        name: 'ALEATORIO',
+        subtitle: '???',
+        color: '0x555555',
+        stats: { speed: 0, power: 0, defense: 0, special: 0 },
+      },
+    ];
     this.p1Index = 0;
-    this.p2Index = -1; // not yet selected
+    this.p2Index = 0;
     this.p1Confirmed = false;
+    this.p2SelectionMode = false;
+    this.p2Confirmed = false;
     this.transitioning = false;
     this.opponentFighterId = null;
     this.opponentReady = false;
+    this.p1StatValues = null;
+    this.p2StatValues = null;
 
     // Background
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
     // Header
     this.headerText = this.add
-      .text(GAME_WIDTH / 2, 16, 'ELIGE TU LUCHADOR', {
+      .text(GAME_WIDTH / 2, 16, 'ELIGE TU LUCHADOR: JUGADOR 1', {
         fontFamily: 'Arial Black, Arial',
         fontSize: '18px',
         color: '#ffcc00',
@@ -55,7 +68,7 @@ export class SelectScene extends Phaser.Scene {
 
     // Player labels (only show keyboard hint on non-touch devices)
     if (!this.sys.game.device.input.touch) {
-      this.add.text(GRID_START_X, 34, 'P1: Flechas + Z', {
+      this.add.text(GRID_START_X, 34, 'Flechas + Z', {
         fontFamily: 'Arial',
         fontSize: '8px',
         color: '#6688ff',
@@ -75,12 +88,17 @@ export class SelectScene extends Phaser.Scene {
 
       // Fighter cell: use portrait if available, else colored rectangle
       let rect;
-      if (this.textures.exists(`portrait_${fighter.id}`)) {
+      if (fighter.id !== 'random' && this.textures.exists(`portrait_${fighter.id}`)) {
         rect = this.add
           .image(x, y, `portrait_${fighter.id}`)
           .setDisplaySize(CELL_W - 4, CELL_H - 10);
       } else {
         rect = this.add.rectangle(x, y, CELL_W - 4, CELL_H - 10, color);
+        if (fighter.id === 'random') {
+          this.add
+            .text(x, y - 5, '?', { fontSize: '16px', color: '#ffffff', fontFamily: 'Arial Black' })
+            .setOrigin(0.5);
+        }
       }
 
       // Fighter name below rectangle
@@ -95,10 +113,17 @@ export class SelectScene extends Phaser.Scene {
       // Make cell tappable for touch selection
       rect.setInteractive();
       rect.on('pointerdown', () => {
-        if (this.transitioning || this.p1Confirmed) return;
-        this.p1Index = i;
-        this.updateP1Display();
-        this.game.audioManager.play('ui_navigate');
+        if (this.transitioning) return;
+
+        if (!this.p1Confirmed) {
+          this.p1Index = i;
+          this.updateP1Display();
+          this.game.audioManager.play('ui_navigate');
+        } else if (this.p2SelectionMode && !this.p2Confirmed) {
+          this.p2Index = i;
+          this.updateP2Display();
+          this.game.audioManager.play('ui_navigate');
+        }
       });
 
       this.gridCells.push({ rect, nameText, x, y });
@@ -123,8 +148,12 @@ export class SelectScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     listoBtn.on('pointerdown', () => {
-      if (this.transitioning || this.p1Confirmed) return;
-      this.confirmP1();
+      if (this.transitioning) return;
+      if (!this.p1Confirmed) {
+        this.confirmP1();
+      } else if (this.p2SelectionMode && !this.p2Confirmed) {
+        this.confirmP2();
+      }
     });
 
     // P1 cursor (blue border)
@@ -132,11 +161,27 @@ export class SelectScene extends Phaser.Scene {
       .rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
       .setStrokeStyle(2, 0x3366ff);
 
+    this.p1CursorLabel = this.add.text(0, 0, 'P1', {
+      fontFamily: 'Arial Black',
+      fontSize: '10px',
+      color: '#3366ff',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5, 1);
+
     // P2 cursor (red border) - hidden until P2 selected
     this.p2Cursor = this.add
       .rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
       .setStrokeStyle(2, 0xff3333)
       .setVisible(false);
+
+    this.p2CursorLabel = this.add.text(0, 0, 'P2', {
+      fontFamily: 'Arial Black',
+      fontSize: '10px',
+      color: '#ff3333',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5, 1).setVisible(false);
 
     // Info panel - right side
     const panelX = 310;
@@ -167,6 +212,11 @@ export class SelectScene extends Phaser.Scene {
       .setDisplaySize(45, 45)
       .setVisible(false);
     this.p1Portrait = this.add.rectangle(panelX + 130, 70, 45, 45, 0x333333);
+    this.p1RandomText = this.add.text(panelX + 130, 70, '?', {
+      fontFamily: 'Arial Black',
+      fontSize: '24px',
+      color: '#ffffff'
+    }).setOrigin(0.5).setVisible(false);
 
     // P1 Stats
     this.p1StatLabels = [];
@@ -219,6 +269,11 @@ export class SelectScene extends Phaser.Scene {
       .setDisplaySize(45, 45)
       .setVisible(false);
     this.p2Portrait = this.add.rectangle(panelX + 130, 198, 45, 45, 0x333333);
+    this.p2RandomText = this.add.text(panelX + 130, 198, '?', {
+      fontFamily: 'Arial Black',
+      fontSize: '24px',
+      color: '#ffffff'
+    }).setOrigin(0.5).setVisible(false);
 
     // P2 Stats
     this.p2StatBars = [];
@@ -244,15 +299,7 @@ export class SelectScene extends Phaser.Scene {
       GAME_HEIGHT - 20,
       'VOLVER',
       () => {
-        if (this.p1Confirmed || this.transitioning) return;
-        this.game.audioManager.play('ui_cancel');
-        if (this.gameMode === 'online' && this.networkManager) {
-          this.networkManager.destroy();
-        }
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('TitleScene');
-        });
+        this.handleBack();
       },
       { width: 110, height: 20, fontSize: '9px' },
     );
@@ -273,6 +320,12 @@ export class SelectScene extends Phaser.Scene {
     this.input.keyboard.on('keydown', (event) => {
       if (this.transitioning) return;
 
+      // Handle Back/Cancel shortcuts
+      if (event.code === 'Escape' || event.code === 'Backspace') {
+        this.handleBack();
+        return;
+      }
+
       if (!this.p1Confirmed) {
         switch (event.code) {
           case 'ArrowLeft':
@@ -291,11 +344,30 @@ export class SelectScene extends Phaser.Scene {
             this.confirmP1();
             break;
         }
+      } else if (this.p2SelectionMode && !this.p2Confirmed) {
+        switch (event.code) {
+          case 'ArrowLeft':
+            this.moveP2Cursor(-1, 0);
+            break;
+          case 'ArrowRight':
+            this.moveP2Cursor(1, 0);
+            break;
+          case 'ArrowUp':
+            this.moveP2Cursor(0, -1);
+            break;
+          case 'ArrowDown':
+            this.moveP2Cursor(0, 1);
+            break;
+          case 'KeyZ':
+            this.confirmP2();
+            break;
+        }
       }
     });
 
     // Update display
     this.updateP1Display();
+    this.updateP2Display();
 
     // Room code display (online mode, bottom center)
     if (this.gameMode === 'online' && this.networkManager) {
@@ -347,7 +419,7 @@ export class SelectScene extends Phaser.Scene {
           const idx = this.fighters.findIndex((f) => f.id === autoId);
           if (idx >= 0) this.p1Index = idx;
         } else {
-          this.p1Index = Math.floor(Math.random() * this.fighters.length);
+          this.p1Index = Phaser.Math.Between(0, this.fighters.length - 2);
         }
         this.updateP1Display();
         this.confirmP1();
@@ -392,35 +464,108 @@ export class SelectScene extends Phaser.Scene {
     }
   }
 
+  moveP2Cursor(dx, dy) {
+    let col = this.p2Index % COLS;
+    let row = Math.floor(this.p2Index / COLS);
+
+    col = Phaser.Math.Clamp(col + dx, 0, COLS - 1);
+    row = Phaser.Math.Clamp(row + dy, 0, ROWS - 1);
+
+    const newIndex = row * COLS + col;
+    if (newIndex < this.fighters.length) {
+      this.p2Index = newIndex;
+      this.updateP2Display();
+      this.game.audioManager.play('ui_navigate');
+    }
+  }
+
   updateP1Display() {
     const cell = this.gridCells[this.p1Index];
     this.p1Cursor.setPosition(cell.x, cell.y);
+    this.p1CursorLabel.setPosition(cell.x, cell.y - CELL_H / 2 - 2);
 
     const fighter = this.fighters[this.p1Index];
     this.p1NameText.setText(fighter.name);
     this.p1SubtitleText.setText(fighter.subtitle);
-    if (this.textures.exists(`portrait_${fighter.id}`)) {
+    const isRandom = fighter.id === 'random';
+
+    if (!isRandom && this.textures.exists(`portrait_${fighter.id}`)) {
       this.p1PortraitImg
         .setTexture(`portrait_${fighter.id}`)
         .setDisplaySize(45, 45)
         .setVisible(true);
       this.p1Portrait.setVisible(false);
+      this.p1RandomText.setVisible(false);
     } else {
       this.p1PortraitImg.setVisible(false);
       this.p1Portrait.setVisible(true);
       this.p1Portrait.setFillStyle(parseInt(fighter.color, 16));
+      this.p1RandomText.setVisible(isRandom);
     }
 
     const statNames = ['speed', 'power', 'defense', 'special'];
+    const panelX = 310;
+
     statNames.forEach((stat, i) => {
-      const val = fighter.stats[stat];
+      const val = isRandom ? 0 : fighter.stats[stat];
       this.p1StatBars[i].width = (val / 5) * 60;
+
+      // Add or update stat value text if it doesn't exist
+      if (!this.p1StatValues) this.p1StatValues = [];
+      if (!this.p1StatValues[i]) {
+        const sy = 100 + i * 14;
+        this.p1StatValues[i] = this.add.text(panelX + 95, sy, '', {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: '#ffffff',
+        }).setOrigin(0.5);
+      }
+      this.p1StatValues[i].setText(isRandom ? '???' : val.toString());
+    });
+  }
+
+  updateP2Display() {
+    this._showP2Selection(this.p2Index);
+  }
+
+  handleBack() {
+    if (this.transitioning) return;
+
+    if (this.p2SelectionMode && !this.p2Confirmed) {
+      this.p2SelectionMode = false;
+      this.p1Confirmed = false;
+      this.p2Cursor.setVisible(false);
+      this.p2CursorLabel.setVisible(false);
+      this.headerText.setText('ELIGE TU LUCHADOR: JUGADOR 1');
+      this.p1Cursor.setAlpha(1);
+      this.p1CursorLabel.setAlpha(1);
+      this.p1Cursor.setStrokeStyle(2, 0x3366ff);
+      this.confirmedText.setText('');
+      this.game.audioManager.play('ui_cancel');
+      return;
+    }
+
+    if (this.p1Confirmed) return;
+
+    this.game.audioManager.play('ui_cancel');
+    if (this.gameMode === 'online' && this.networkManager) {
+      this.networkManager.destroy();
+    }
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('TitleScene');
     });
   }
 
   confirmP1() {
     this.game.audioManager.play('ui_confirm');
     this.p1Confirmed = true;
+
+    // Resolve Random for P1 before locking in
+    if (this.fighters[this.p1Index].id === 'random') {
+      this.p1Index = Phaser.Math.Between(0, this.fighters.length - 2);
+      this.updateP1Display();
+    }
 
     // Highlight confirmed cell
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
@@ -479,21 +624,54 @@ export class SelectScene extends Phaser.Scene {
         this._showOpponentSelection(this.opponentFighterId);
       }
     } else {
-      // Local mode: auto-select P2 as random different fighter
+      // Local mode logic
+      this.p2SelectionMode = true;
+      this.headerText.setText('ELIGE TU OPONENTE: JUGADOR 2');
+      this.p1Cursor.setAlpha(0.5); // Dim P1 cursor
+      this.p1CursorLabel.setAlpha(0.5);
+      this.p2Cursor.setVisible(true);
+      this.p2CursorLabel.setVisible(true);
+      this.p2Index = this.fighters.length - 1; // Default P2 cursor to Random
+      this.updateP2Display();
+      this.confirmedText.setText('Jugador 1 Listo. Esperando Jugador 2...');
+
+      // Autoplay: auto-select P2 and confirm
+      if (this.game.autoplay?.enabled) {
+        let p2Idx;
+        do {
+          p2Idx = Phaser.Math.Between(0, this.fighters.length - 2);
+        } while (p2Idx === this.p1Index);
+        this.p2Index = p2Idx;
+        this.updateP2Display();
+        this.confirmP2();
+      }
+    }
+  }
+
+  confirmP2() {
+    this.game.audioManager.play('ui_confirm');
+    this.p2Confirmed = true;
+
+    // Highlight confirmed cell
+    this.p2Cursor.setStrokeStyle(3, 0xff8800);
+
+    // If random, pick a real fighter
+    if (this.fighters[this.p2Index].id === 'random') {
       let p2Idx;
       do {
-        p2Idx = Phaser.Math.Between(0, this.fighters.length - 1);
+        p2Idx = Phaser.Math.Between(0, this.fighters.length - 2); // Exclude 'random' itself
       } while (p2Idx === this.p1Index);
       this.p2Index = p2Idx;
-
-      this._showP2Selection(p2Idx);
-      this.confirmedText.setText('Listo! Preparando combate...');
-
-      // Transition after short delay
-      this.time.delayedCall(1000, () => {
-        this.goToPreFight();
-      });
+      this.updateP2Display(); // Update display with the real fighter
     }
+
+    this.confirmedText.setText('Listo! Preparando combate...');
+
+    // Transition after short delay (skip delay in autoplay)
+    const delay = this.game.autoplay?.enabled ? 100 : 1000;
+    this.time.delayedCall(delay, () => {
+      this.goToPreFight();
+    });
   }
 
   _showOpponentSelection(fighterId) {
@@ -507,27 +685,46 @@ export class SelectScene extends Phaser.Scene {
     // Show P2 cursor
     const p2Cell = this.gridCells[idx];
     this.p2Cursor.setPosition(p2Cell.x, p2Cell.y).setVisible(true);
+    this.p2CursorLabel.setPosition(p2Cell.x, p2Cell.y - CELL_H / 2 - 2).setVisible(true);
 
     // Update P2 display
     const p2Fighter = this.fighters[idx];
     this.p2NameText.setText(p2Fighter.name);
     this.p2SubtitleText.setText(p2Fighter.subtitle);
-    if (this.textures.exists(`portrait_${p2Fighter.id}`)) {
+    const isRandom = p2Fighter.id === 'random';
+
+    if (!isRandom && this.textures.exists(`portrait_${p2Fighter.id}`)) {
       this.p2PortraitImg
         .setTexture(`portrait_${p2Fighter.id}`)
         .setDisplaySize(45, 45)
         .setVisible(true);
       this.p2Portrait.setVisible(false);
+      this.p2RandomText.setVisible(false);
     } else {
       this.p2PortraitImg.setVisible(false);
       this.p2Portrait.setVisible(true);
       this.p2Portrait.setFillStyle(parseInt(p2Fighter.color, 16));
+      this.p2RandomText.setVisible(isRandom);
     }
 
     const statNames = ['speed', 'power', 'defense', 'special'];
+    const panelX = 310;
+
     statNames.forEach((stat, i) => {
-      const val = p2Fighter.stats[stat];
+      const val = isRandom ? 0 : p2Fighter.stats[stat];
       this.p2StatBars[i].width = (val / 5) * 60;
+
+      // Add or update stat value text if it doesn't exist
+      if (!this.p2StatValues) this.p2StatValues = [];
+      if (!this.p2StatValues[i]) {
+        const sy = 228 + i * 14;
+        this.p2StatValues[i] = this.add.text(panelX + 95, sy, '', {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: '#ffffff',
+        }).setOrigin(0.5);
+      }
+      this.p2StatValues[i].setText(isRandom ? '???' : val.toString());
     });
   }
 
@@ -556,6 +753,7 @@ export class SelectScene extends Phaser.Scene {
         stageId,
         gameMode: this.gameMode,
         networkManager: this.networkManager,
+        matchContext: this.matchContext,
       });
     });
   }
