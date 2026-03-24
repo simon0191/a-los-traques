@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
+import stagesData from '../data/stages.json';
 
 export class BracketScene extends Phaser.Scene {
   constructor() {
@@ -183,10 +184,11 @@ export class BracketScene extends Phaser.Scene {
   goToMatch(matchData) {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
+      const stageIndex = Phaser.Math.Between(0, stagesData.length - 1);
       this.scene.start('PreFightScene', {
         p1Id: matchData.p1,
         p2Id: matchData.p2,
-        stageId: 'arena', // TODO: Randomize or cycle stages
+        stageId: stagesData[stageIndex].id,
         gameMode: 'tournament',
         tournament: this.tournament,
         playerFighterId: this.playerFighterId,

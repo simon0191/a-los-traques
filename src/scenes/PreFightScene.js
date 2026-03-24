@@ -36,7 +36,11 @@ export class PreFightScene extends Phaser.Scene {
 
     const p1 = fightersData.find((f) => f.id === this.p1Id);
     const p2 = fightersData.find((f) => f.id === this.p2Id);
-    const selectedStage = stagesData.find((s) => s.id === this.stageId);
+    let selectedStage = stagesData.find((s) => s.id === this.stageId);
+    if (!selectedStage) {
+      console.warn(`[PREFIGHT] Stage ${this.stageId} not found, falling back to first stage`);
+      selectedStage = stagesData[0];
+    }
 
     this.transitioning = false;
 
