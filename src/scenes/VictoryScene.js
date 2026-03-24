@@ -22,25 +22,11 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   create() {
-    // If tournament mode, update the bracket
+    // If tournament mode, update the match winner
     if (this.gameMode === 'tournament' && this.tournament) {
       const round = this.tournament.rounds[this.matchRound];
       const match = round[this.matchIndex];
       match.winner = this.winnerId;
-
-      // Advance winner to next round
-      const nextRound = this.tournament.rounds[this.matchRound + 1];
-      if (nextRound) {
-        const nextMatchIdx = Math.floor(this.matchIndex / 2);
-        const isP1 = this.matchIndex % 2 === 0;
-        if (isP1) {
-          nextRound[nextMatchIdx].p1 = this.winnerId;
-        } else {
-          nextRound[nextMatchIdx].p2 = this.winnerId;
-        }
-      } else {
-        this.tournament.complete = true;
-      }
     }
     // Signal match completion for E2E test orchestration
     if (this.game.autoplay?.enabled && window.__FIGHT_LOG) {

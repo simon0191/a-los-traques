@@ -24,6 +24,9 @@ export class BracketScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // Sync bracket state: advance any winners that haven't been moved yet
+    this._syncTournamentProgress();
+
     this._drawBrackets();
 
     const currentMatch = this._getCurrentPlayerMatch();
@@ -65,10 +68,47 @@ export class BracketScene extends Phaser.Scene {
       });
     } else {
       // All other matches are AI vs AI, simulate them
-      this._simulateAIMatches();
+      const simulated = this._simulateAIMatches();
+      if (simulated) {
+        // Re-sync progress after AI matches
+        this._syncTournamentProgress();
+      }
+
       this.time.delayedCall(1000, () => {
         this.scene.restart({ tournament: this.tournament, playerFighterId: this.playerFighterId });
       });
+    }
+  }
+
+  _syncTournamentProgress() {
+    // Advance winners for all rounds except the last one
+    for (let r = 0; r < this.tournament.rounds.length - 1; r++) {
+      const currentRound = this.tournament.rounds[r];
+      const nextRound = this.tournament.rounds[r + 1];
+
+      currentRound.forEach((match, matchIdx) => {
+        if (match.winner) {
+          const nextMatchIdx = Math.floor(matchIdx / 2);
+          const isP1Slot = matchIdx % 2 === 0;
+
+          // Check if the winner is already in the next round slot
+          if (isP1Slot) {
+            if (nextRound[nextMatchIdx].p1 !== match.winner) {
+              this._advanceWinner(r, matchIdx, match.winner);
+            }
+          } else {
+            if (nextRound[nextMatchIdx].p2 !== match.winner) {
+              this._advanceWinner(r, matchIdx, match.winner);
+            }
+          }
+        }
+      });
+    }
+
+    // Check if tournament is complete
+    const lastRound = this.tournament.rounds[this.tournament.rounds.length - 1];
+    if (lastRound[0].winner) {
+      this.tournament.complete = true;
     }
   }
 
@@ -157,16 +197,12 @@ export class BracketScene extends Phaser.Scene {
           if (match.p1 !== this.playerFighterId && match.p2 !== this.playerFighterId) {
             // AI vs AI: pick random winner
             match.winner = Math.random() > 0.5 ? match.p1 : match.p2;
-            this._advanceWinner(r, m, match.winner);
             simulated = true;
           }
         }
       }
     }
-
-    if (!simulated && !this._getCurrentPlayerMatch()) {
-      this.tournament.complete = true;
-    }
+    return simulated;
   }
 
   _advanceWinner(roundIdx, matchIdx, winner) {
