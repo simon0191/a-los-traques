@@ -3,12 +3,20 @@
  * Both peers run identical simulations locally with zero perceived input lag.
  * When confirmed input arrives and differs from prediction, the game restores
  * a snapshot and re-simulates forward.
+ *
+ * Uses SimulationEngine.tick() which operates on FighterSim/CombatSim objects
+ * and returns immutable state snapshots.
  */
 
+import {
+  captureGameState,
+  hashGameState,
+  restoreCombatState,
+  restoreFighterState,
+  tick,
+} from '../simulation/SimulationEngine.js';
 import { ONLINE_INPUT_DELAY } from './FixedPoint.js';
-import { captureGameState, hashGameState, restoreGameState } from './GameState.js';
 import { EMPTY_INPUT, encodeInput, inputsEqual, predictInput } from './InputBuffer.js';
-import { simulateFrame } from './SimulationStep.js';
 
 /** How many past inputs to include in each packet for redundancy */
 const INPUT_REDUNDANCY = 2;
@@ -42,7 +50,7 @@ export class RollbackManager {
     this.remoteInputHistory = new Map(); // confirmed remote inputs
     this.predictedRemoteInputs = new Map();
 
-    // State snapshots (frame → GameStateSnapshot)
+    // State snapshots (frame → immutable GameState from tick())
     this.stateSnapshots = new Map();
 
     // For prediction: last confirmed remote input
@@ -71,18 +79,19 @@ export class RollbackManager {
   }
 
   /**
-   * Main rollback loop — call once per visual frame.
-   * Returns { roundEvent } where roundEvent is a deferred round event
-   * descriptor from the current frame's simulation, or null.
-   * Round events during rollback re-simulation are intentionally discarded.
+   * Main rollback loop — call once per fixed timestep.
+   *
+   * Uses SimulationEngine.tick() on p1.sim / p2.sim / combat.sim.
+   * scene._muteEffects is set during rollback resim to suppress Fighter audio
+   * (temporary — removed in Phase 3 when events replace muteEffects).
+   *
    * @param {object} rawLocalInput - { left, right, up, down, lp, hp, lk, hk, sp }
-   * @param {object} scene - FightScene (for _muteEffects flag)
    * @param {import('../entities/Fighter.js').Fighter} p1
    * @param {import('../entities/Fighter.js').Fighter} p2
    * @param {import('./CombatSystem.js').CombatSystem} combat
    * @returns {{ roundEvent: { type: 'ko'|'timeup', winnerIndex: number } | null }}
    */
-  advance(rawLocalInput, scene, p1, p2, combat) {
+  advance(rawLocalInput, p1, p2, combat) {
     const encodedLocal = encodeInput(rawLocalInput);
 
     // 1. Store local input at (currentFrame + inputDelay)
@@ -101,8 +110,7 @@ export class RollbackManager {
 
     // 3. Drain confirmed remote inputs from NetworkManager
     const confirmed = this.nm.drainConfirmedInputs();
-    // Encode and store confirmed inputs; build list for misprediction check
-    const confirmedEncoded = []; // [frame, encodedInput]
+    const confirmedEncoded = [];
     for (const [frame, inputState] of confirmed) {
       const encoded = encodeInput(inputState);
       this.remoteInputHistory.set(frame, encoded);
@@ -124,13 +132,15 @@ export class RollbackManager {
       }
     }
 
+    // Get sim objects for tick()
+    const p1Sim = p1.sim || p1;
+    const p2Sim = p2.sim || p2;
+    const combatSim = combat.sim || combat;
+
     // 5. Rollback and re-simulate if misprediction detected
     if (rollbackFrame >= 0) {
-      // If the ideal rollback target is too far back, use the oldest available snapshot.
-      // This is better than silently ignoring the misprediction, which causes permanent divergence.
       let actualRollbackFrame = rollbackFrame;
       if (!this.stateSnapshots.has(actualRollbackFrame)) {
-        // Find the oldest snapshot we still have
         const available = [...this.stateSnapshots.keys()].filter((f) => f >= rollbackFrame);
         if (available.length > 0) {
           actualRollbackFrame = Math.min(...available);
@@ -143,20 +153,25 @@ export class RollbackManager {
         if (depth > this.maxRollbackDepth) this.maxRollbackDepth = depth;
         this._onRollback?.(actualRollbackFrame, depth);
 
-        // Restore snapshot at rollback frame
-        restoreGameState(this.stateSnapshots.get(actualRollbackFrame), p1, p2, combat);
+        // Restore snapshot into live sim objects
+        const snap = this.stateSnapshots.get(actualRollbackFrame);
+        restoreFighterState(p1Sim, snap.p1);
+        restoreFighterState(p2Sim, snap.p2);
+        restoreCombatState(combatSim, snap.combat);
 
-        // Re-simulate from rollbackFrame to currentFrame
-        scene._muteEffects = true;
+        // Mute presentation effects during resim
+        const scene = p1.scene;
+        if (scene) scene._muteEffects = true;
+
         for (let f = actualRollbackFrame; f < this.currentFrame; f++) {
           const p1Input = this._getInputForFrame(f, true);
           const p2Input = this._getInputForFrame(f, false);
-          simulateFrame(p1, p2, combat, p1Input, p2Input, { muteEffects: true });
-
-          // Save corrected snapshot
-          this.stateSnapshots.set(f + 1, captureGameState(f + 1, p1, p2, combat));
+          // tick() mutates sim objects and returns immutable snapshot
+          const { state } = tick(p1Sim, p2Sim, combatSim, p1Input, p2Input, f);
+          this.stateSnapshots.set(f + 1, state);
         }
-        scene._muteEffects = false;
+
+        if (scene) scene._muteEffects = false;
       }
     }
 
@@ -167,24 +182,38 @@ export class RollbackManager {
     }
 
     // 7. Save snapshot for currentFrame (before simulating)
-    this.stateSnapshots.set(this.currentFrame, captureGameState(this.currentFrame, p1, p2, combat));
+    this.stateSnapshots.set(
+      this.currentFrame,
+      captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim),
+    );
 
-    // 8. Simulate currentFrame — capture round event from current frame
+    // 8. Simulate currentFrame via tick()
     const p1Input = this._getInputForFrame(this.currentFrame, true);
     const p2Input = this._getInputForFrame(this.currentFrame, false);
     this._onConfirmedInputs?.(this.currentFrame, p1Input, p2Input);
-    const roundEvent = simulateFrame(p1, p2, combat, p1Input, p2Input);
+    const { state, roundEvent } = tick(
+      p1Sim,
+      p2Sim,
+      combatSim,
+      p1Input,
+      p2Input,
+      this.currentFrame,
+    );
 
-    // 9. Advance frame
+    // Store the post-tick snapshot (immutable)
+    this.stateSnapshots.set(this.currentFrame + 1, state);
+
+    // 9. Sync Phaser sprites from sim state
+    if (p1.syncSprite) p1.syncSprite();
+    if (p2.syncSprite) p2.syncSprite();
+
+    // 10. Advance frame
     this.currentFrame++;
 
-    // 10. Prune old data beyond rollback window
+    // 11. Prune old data beyond rollback window
     this._pruneOldData();
 
-    // 11. Periodic checksum exchange for desync detection
-    // Compare a frame that is maxRollbackFrames behind current, where all inputs
-    // should be confirmed on both peers. Comparing recent frames produces false
-    // positives because predicted (unconfirmed) remote inputs may differ.
+    // 12. Periodic checksum exchange for desync detection
     if (this.currentFrame > 0 && this.currentFrame % CHECKSUM_INTERVAL === 0) {
       const checksumFrame = this.currentFrame - this.maxRollbackFrames - 1;
       const snapshot = this.stateSnapshots.get(checksumFrame);
@@ -196,7 +225,7 @@ export class RollbackManager {
       }
     }
 
-    // 12. Adaptive input delay recalculation
+    // 13. Adaptive input delay recalculation
     if (
       this._adaptiveDelayEnabled &&
       this.currentFrame > 0 &&
@@ -205,18 +234,16 @@ export class RollbackManager {
       this._recalculateInputDelay();
     }
 
-    // 13. Return deferred round event for caller to handle
+    // 14. Return deferred round event for caller to handle
     return { roundEvent };
   }
 
   /**
    * Handle a remote checksum message. Compare against local hash for that frame.
-   * @param {number} frame
-   * @param {number} remoteHash
    */
   handleRemoteChecksum(frame, remoteHash) {
     const localHash = this._localChecksums.get(frame);
-    if (localHash === undefined) return; // We don't have this frame's hash yet
+    if (localHash === undefined) return;
     if (localHash !== remoteHash) {
       this.desyncCount++;
       if (this._onDesync) {
@@ -227,30 +254,30 @@ export class RollbackManager {
 
   /**
    * Apply an authoritative state snapshot from P1 to resync after desync.
-   * Resets all rollback state and continues simulation from the snapshot's frame.
-   * @param {object} snapshot - Full game state snapshot from captureGameState()
-   * @param {import('../entities/Fighter.js').Fighter} p1
-   * @param {import('../entities/Fighter.js').Fighter} p2
-   * @param {import('./CombatSystem.js').CombatSystem} combat
    */
   applyResync(snapshot, p1, p2, combat) {
-    // Ignore stale resync snapshots
     if (snapshot.frame <= this.currentFrame - this.maxRollbackFrames) return;
 
-    restoreGameState(snapshot, p1, p2, combat);
+    const p1Sim = p1.sim || p1;
+    const p2Sim = p2.sim || p2;
+    const combatSim = combat.sim || combat;
+
+    restoreFighterState(p1Sim, snapshot.p1);
+    restoreFighterState(p2Sim, snapshot.p2);
+    restoreCombatState(combatSim, snapshot.combat);
     this.currentFrame = snapshot.frame;
 
-    // Clear all stale histories
     this.stateSnapshots.clear();
     this.localInputHistory.clear();
     this.remoteInputHistory.clear();
     this.predictedRemoteInputs.clear();
     this._localChecksums.clear();
 
-    // Save restored state as new baseline
-    this.stateSnapshots.set(this.currentFrame, captureGameState(this.currentFrame, p1, p2, combat));
+    this.stateSnapshots.set(
+      this.currentFrame,
+      captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim),
+    );
 
-    // Reset prediction state
     this.lastConfirmedRemoteInput = EMPTY_INPUT;
     this.lastConfirmedRemoteFrame = this.currentFrame - 1;
 
@@ -260,22 +287,19 @@ export class RollbackManager {
 
   /**
    * Capture the latest available snapshot for resync.
-   * Called by P1 when it needs to send authoritative state.
-   * @param {import('../entities/Fighter.js').Fighter} p1
-   * @param {import('../entities/Fighter.js').Fighter} p2
-   * @param {import('./CombatSystem.js').CombatSystem} combat
-   * @returns {object} game state snapshot
    */
   captureResyncSnapshot(p1, p2, combat) {
     const latestFrame = this.currentFrame - 1;
     const existing = this.stateSnapshots.get(latestFrame);
     if (existing) return existing;
-    return captureGameState(this.currentFrame, p1, p2, combat);
+    const p1Sim = p1.sim || p1;
+    const p2Sim = p2.sim || p2;
+    const combatSim = combat.sim || combat;
+    return captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
   }
 
   /**
    * Whether a resync request should be sent (cooldown check).
-   * @returns {boolean}
    */
   shouldRequestResync() {
     if (this._resyncPending) return false;
@@ -290,48 +314,34 @@ export class RollbackManager {
 
   /**
    * Get the input for a given frame for a given side.
-   * @param {number} frame
-   * @param {boolean} isP1 - true for P1, false for P2
-   * @returns {number} encoded input
    */
   _getInputForFrame(frame, isP1) {
     const isLocal = (isP1 && this.localSlot === 0) || (!isP1 && this.localSlot === 1);
 
     if (isLocal) {
       return this.localInputHistory.get(frame) || EMPTY_INPUT;
-    } else {
-      // Remote: use confirmed if available, otherwise predicted
-      if (this.remoteInputHistory.has(frame)) {
-        return this.remoteInputHistory.get(frame);
-      }
-      if (this.predictedRemoteInputs.has(frame)) {
-        return this.predictedRemoteInputs.get(frame);
-      }
-      return predictInput(this.lastConfirmedRemoteInput);
     }
+    if (this.remoteInputHistory.has(frame)) {
+      return this.remoteInputHistory.get(frame);
+    }
+    if (this.predictedRemoteInputs.has(frame)) {
+      return this.predictedRemoteInputs.get(frame);
+    }
+    return predictInput(this.lastConfirmedRemoteInput);
   }
 
-  /**
-   * Recalculate input delay based on smoothed RTT.
-   * Adjusts gradually to avoid jarring jumps.
-   */
   _recalculateInputDelay() {
     const rtt = this.nm.rtt || 0;
     const oneWayFrames = Math.ceil(rtt / 2 / 16.667);
     const optimal = Math.max(1, Math.min(5, oneWayFrames + 1));
-    // Only increase by 1 per check to avoid jarring jumps
     if (optimal > this.inputDelay) {
       this.inputDelay = Math.min(this.inputDelay + 1, optimal);
     } else {
       this.inputDelay = optimal;
     }
-    // Scale rollback window with delay
     this.maxRollbackFrames = Math.max(7, this.inputDelay * 2 + 1);
   }
 
-  /**
-   * Prune old snapshots, inputs, and predictions beyond the rollback window.
-   */
   _pruneOldData() {
     const minFrame = this.currentFrame - this.maxRollbackFrames - 2;
     if (minFrame < 0) return;

@@ -1166,7 +1166,6 @@ export class FightScene extends Phaser.Scene {
     // Run rollback advance (handles input sending, prediction, rollback, simulation)
     const { roundEvent } = this.rollbackManager.advance(
       localInput,
-      this,
       this.p1Fighter,
       this.p2Fighter,
       this.combat,
