@@ -1,37 +1,51 @@
-import { ROUND_TIME, ROUNDS_TO_WIN } from '../config.js';
-import { calculateDamage, comboScaledDamage } from './combat-math.js';
-import {
-  FIGHTER_BODY_WIDTH_FP,
-  FP_SCALE,
-  fpClamp,
-  fpRectsOverlap,
-  GROUND_Y_FP,
-  MAX_SPECIAL_FP,
-  STAGE_LEFT_FP,
-  STAGE_RIGHT_FP,
-} from './FixedPoint.js';
+import { ROUNDS_TO_WIN } from '../config.js';
+import { CombatSim } from '../simulation/CombatSim.js';
+import { FP_SCALE } from './FixedPoint.js';
 
 export { calculateDamage } from './combat-math.js';
+
+/**
+ * CombatSim state fields proxied to CombatSystem.
+ */
+const SIM_FIELDS = [
+  'roundNumber',
+  'p1RoundsWon',
+  'p2RoundsWon',
+  'timer',
+  'roundActive',
+  'matchOver',
+  '_timerAccumulator',
+  'transitionTimer',
+  'suppressRoundEvents',
+];
 
 export class CombatSystem {
   constructor(scene) {
     this.scene = scene;
-    this.roundNumber = 1;
-    this.p1RoundsWon = 0;
-    this.p2RoundsWon = 0;
-    this.timer = ROUND_TIME;
-    this.roundActive = false;
-    this.matchOver = false;
+
+    // Pure simulation state — canonical source of truth
+    this.sim = new CombatSim();
+
+    // Proxy all simulation fields
+    for (const field of SIM_FIELDS) {
+      Object.defineProperty(this, field, {
+        get() {
+          return this.sim[field];
+        },
+        set(v) {
+          this.sim[field] = v;
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    }
+
+    // Phaser timer event (local mode only)
     this.timerEvent = null;
-    this._timerAccumulator = 0;
-    this.suppressRoundEvents = false;
-    this.transitionTimer = 0; // frame-based countdown between rounds (online mode)
   }
 
   startRound() {
-    this.timer = ROUND_TIME;
-    this._timerAccumulator = 0;
-    this.roundActive = true;
+    this.sim.startRound();
 
     if (this.scene.gameMode === 'online') return;
 
@@ -40,8 +54,8 @@ export class CombatSystem {
       delay: 1000,
       callback: () => {
         if (!isSpectator) {
-          this.timer--;
-          if (this.timer <= 0) this.timeUp();
+          this.sim.timer--;
+          if (this.sim.timer <= 0) this.timeUp();
         }
       },
       loop: true,
@@ -49,7 +63,7 @@ export class CombatSystem {
   }
 
   stopRound() {
-    this.roundActive = false;
+    this.sim.stopRound();
     if (this.timerEvent) {
       this.timerEvent.remove();
       this.timerEvent = null;
@@ -58,134 +72,98 @@ export class CombatSystem {
 
   /**
    * Frame-counted timer tick for deterministic simulation.
-   * Called once per simulation frame. Decrements timer every 60 frames.
-   * Returns { timeup: true } when timer reaches 0, null otherwise.
-   * In local mode (!suppressRoundEvents), also fires timeUp() directly.
    * @param {{ muteEffects?: boolean }} [options]
    * @returns {{ timeup: true } | null}
    */
   tickTimer({ muteEffects = false } = {}) {
-    this._timerAccumulator++;
-    if (this._timerAccumulator >= 60) {
-      this._timerAccumulator = 0;
-      this.timer--;
-      if (this.timer <= 0) {
-        if (!muteEffects && !this.suppressRoundEvents) this.timeUp();
-        return { timeup: true };
-      }
+    const result = this.sim.tickTimer();
+    if (result?.timeup && !muteEffects && !this.sim.suppressRoundEvents) {
+      this.timeUp();
     }
-    return null;
+    return result;
   }
 
   /**
-   * Check if attacker's hitbox overlaps defender's hurtbox and apply damage.
-   * Returns { hit: true, ko: boolean } on hit, false on miss.
+   * Check hit and apply damage with side effects.
    * @returns {{ hit: true, ko: boolean } | false}
    */
   checkHit(attacker, defender, { muteEffects = false } = {}) {
-    if (!attacker.currentAttack || attacker.state !== 'attacking') return false;
-    if (attacker.hitConnected) return false;
+    // Use the attacker/defender's sim if available, otherwise use directly
+    const atkSim = attacker.sim || attacker;
+    const defSim = defender.sim || defender;
 
-    const hitbox = attacker.getAttackHitbox();
-    const hurtbox = defender.getHurtbox();
-    if (!hitbox || !hurtbox) return false;
-
-    // Normalize hitbox (w could be negative if facing left)
-    const hx = hitbox.w < 0 ? hitbox.x + hitbox.w : hitbox.x;
-    const hw = Math.abs(hitbox.w);
-
-    if (fpRectsOverlap(hx, hitbox.y, hw, hitbox.h, hurtbox.x, hurtbox.y, hurtbox.w, hurtbox.h)) {
-      const ko = this.applyDamage(attacker, defender, { muteEffects });
-      attacker.hitConnected = true;
-      return { hit: true, ko: !!ko };
-    }
-    return false;
-  }
-
-  applyDamage(attacker, defender, { muteEffects = false } = {}) {
-    if (this.scene.devConsole?.godMode && defender.playerIndex === 0) {
-      return;
-    }
-
-    const move = attacker.currentAttack;
-    let damage = calculateDamage(
-      move.damage,
-      attacker.data.stats.power,
-      defender.data.stats.defense,
-    );
-
-    // Combo scaling: if defender is already in hitstun/knockdown, apply scaling
-    const isComboHit = defender.state === 'hurt' || defender.state === 'knockdown';
-    if (isComboHit) {
-      attacker.comboCount++;
-      damage = comboScaledDamage(damage, attacker.comboCount);
-    } else {
-      attacker.comboCount = 0;
-    }
-
-    // Attacker gains special meter (0.2 * FP_SCALE = 200)
-    attacker.special = Math.min(MAX_SPECIAL_FP, attacker.special + damage * 200);
-
-    const isSpecial = move.type === 'special';
-    const isHeavy = move.type && (move.type.startsWith('heavy') || damage >= 12);
-    const intensity = isSpecial ? 'special' : isHeavy ? 'heavy' : 'light';
+    const result = this.sim.checkHit(atkSim, defSim);
+    if (!result) return false;
 
     if (!muteEffects) {
-      const audio = this.scene.game.audioManager;
-      if (defender.state === 'blocking') {
-        audio.play('hit_block');
-      } else if (isSpecial) {
-        audio.play('hit_special');
-      } else if (isHeavy) {
-        audio.play('hit_heavy');
-      } else {
-        audio.play('hit_light');
-      }
+      this._playHitEffects(attacker, defender, result);
     }
 
-    // Determine stun frames from move data
-    const stunFrames =
-      defender.state === 'blocking' ? move.blockstun || undefined : move.hitstun || undefined;
-
-    // Defender takes damage (pass attacker's simX for knockback direction)
-    const ko = defender.takeDamage(damage, attacker.simX, stunFrames);
-
-    if (!muteEffects) {
-      // Hit spark at pixel position (convert from FP for display)
-      const hitX = (attacker.simX + defender.simX) / 2 / FP_SCALE;
-      const hitY = defender.simY / FP_SCALE - 35;
-      if (this.scene.spawnHitSpark) {
-        this.scene.spawnHitSpark(hitX, hitY, intensity);
-      }
-
-      if (intensity === 'special') {
-        this.scene.cameras.main.shake(200, 0.012);
-      } else if (intensity === 'heavy') {
-        this.scene.cameras.main.shake(100, 0.006);
-      } else {
-        this.scene.cameras.main.shake(50, 0.002);
-      }
-
-      if (attacker.sprite?.setTint) {
-        attacker.sprite.setTint(0xffffff);
-        this.scene.time.delayedCall(80, () => {
-          if (attacker.sprite?.clearTint) attacker.sprite.clearTint();
-        });
-      }
-      if (defender.sprite?.setTint) {
-        defender.sprite.setTint(0xff4444);
-        this.scene.time.delayedCall(150, () => {
-          if (defender.sprite?.clearTint) defender.sprite.clearTint();
-        });
-      }
-    }
-
-    if (ko && !muteEffects && !this.suppressRoundEvents) {
+    if (result.ko && !muteEffects && !this.sim.suppressRoundEvents) {
       this.handleKO(attacker, defender);
     }
 
-    return ko;
+    return { hit: true, ko: result.ko };
   }
+
+  _playHitEffects(attacker, defender, hitResult) {
+    const audio = this.scene.game.audioManager;
+    const defSim = defender.sim || defender;
+
+    if (defSim.state === 'blocking') {
+      audio.play('hit_block');
+    } else if (hitResult.intensity === 'special') {
+      audio.play('hit_special');
+    } else if (hitResult.intensity === 'heavy') {
+      audio.play('hit_heavy');
+    } else {
+      audio.play('hit_light');
+    }
+
+    // Hit spark
+    const atkSim = attacker.sim || attacker;
+    const hitX = (atkSim.simX + defSim.simX) / 2 / FP_SCALE;
+    const hitY = defSim.simY / FP_SCALE - 35;
+    if (this.scene.spawnHitSpark) {
+      this.scene.spawnHitSpark(hitX, hitY, hitResult.intensity);
+    }
+
+    // Camera shake
+    if (hitResult.intensity === 'special') {
+      this.scene.cameras.main.shake(200, 0.012);
+    } else if (hitResult.intensity === 'heavy') {
+      this.scene.cameras.main.shake(100, 0.006);
+    } else {
+      this.scene.cameras.main.shake(50, 0.002);
+    }
+
+    // Flash tints
+    const atkSprite = attacker.sprite;
+    const defSprite = defender.sprite;
+    if (atkSprite?.setTint) {
+      atkSprite.setTint(0xffffff);
+      this.scene.time.delayedCall(80, () => {
+        if (atkSprite?.clearTint) atkSprite.clearTint();
+      });
+    }
+    if (defSprite?.setTint) {
+      defSprite.setTint(0xff4444);
+      this.scene.time.delayedCall(150, () => {
+        if (defSprite?.clearTint) defSprite.clearTint();
+      });
+    }
+  }
+
+  /**
+   * Resolve body collision. Delegates to CombatSim.
+   */
+  resolveBodyCollision(f1, f2) {
+    const s1 = f1.sim || f1;
+    const s2 = f2.sim || f2;
+    this.sim.resolveBodyCollision(s1, s2);
+  }
+
+  // --- Side-effect methods (audio, camera, scene callbacks) ---
 
   timeUp() {
     this.stopRound();
@@ -193,9 +171,11 @@ export class CombatSystem {
     this._lastEndReason = 'timeup';
     const p1 = this.scene.p1Fighter;
     const p2 = this.scene.p2Fighter;
-    if (p1.hp > p2.hp) {
+    const p1Hp = p1.sim ? p1.sim.hp : p1.hp;
+    const p2Hp = p2.sim ? p2.sim.hp : p2.hp;
+    if (p1Hp > p2Hp) {
       this.roundWin(0);
-    } else if (p2.hp > p1.hp) {
+    } else if (p2Hp > p1Hp) {
       this.roundWin(1);
     } else {
       this.roundWin(0);
@@ -213,18 +193,6 @@ export class CombatSystem {
     this.roundWin(winnerIndex);
   }
 
-  /**
-   * Handle a round-ending event from deferred round event detection.
-   * Used by online mode where round events are captured from simulateFrame()
-   * return values instead of firing directly inside the simulation.
-   * @param {{ type: 'ko'|'timeup', winnerIndex: number }} roundEvent
-   */
-  /**
-   * Handle round-ending side effects (audio, camera, UI).
-   * In online mode, simulation state (roundsWon, roundNumber, matchOver)
-   * is already updated by simulateFrame() — this only fires effects and
-   * triggers scene callbacks.
-   */
   handleRoundEnd(roundEvent) {
     this.stopRound();
     if (roundEvent.type === 'ko') {
@@ -237,8 +205,7 @@ export class CombatSystem {
       this.scene.game.audioManager.play('announce_timeup');
       this._lastEndReason = 'timeup';
     }
-    // Scene callbacks (UI transitions, fighter reset, match-over flow)
-    if (this.matchOver) {
+    if (this.sim.matchOver) {
       this.scene.onMatchOver(roundEvent.winnerIndex);
     } else {
       this.scene.onRoundOver(roundEvent.winnerIndex);
@@ -246,71 +213,20 @@ export class CombatSystem {
   }
 
   roundWin(playerIndex) {
-    if (playerIndex === 0) this.p1RoundsWon++;
-    else this.p2RoundsWon++;
+    if (playerIndex === 0) this.sim.p1RoundsWon++;
+    else this.sim.p2RoundsWon++;
 
-    if (this.p1RoundsWon >= ROUNDS_TO_WIN || this.p2RoundsWon >= ROUNDS_TO_WIN) {
-      this.matchOver = true;
+    if (this.sim.p1RoundsWon >= ROUNDS_TO_WIN || this.sim.p2RoundsWon >= ROUNDS_TO_WIN) {
+      this.sim.matchOver = true;
       this.scene.onMatchOver(playerIndex);
     } else {
-      this.roundNumber++;
+      this.sim.roundNumber++;
       this.scene.onRoundOver(playerIndex);
     }
   }
 
-  /**
-   * Resolve body collision between two fighters so they cannot overlap.
-   * Uses FP simulation coordinates (simX/simY).
-   */
-  resolveBodyCollision(f1, f2) {
-    const airThreshold = GROUND_Y_FP - 20 * FP_SCALE;
-    if (f1.simY < airThreshold || f2.simY < airThreshold) return;
-
-    const halfW = FIGHTER_BODY_WIDTH_FP / 2;
-    const f1x = f1.simX;
-    const f2x = f2.simX;
-
-    const overlap = halfW + halfW - Math.abs(f1x - f2x);
-    if (overlap <= 0) return;
-
-    const pushEach = Math.trunc(overlap / 2);
-    const sign = f1x < f2x ? -1 : 1;
-
-    let newF1x = f1x + sign * pushEach;
-    let newF2x = f2x - sign * pushEach;
-
-    newF1x = fpClamp(newF1x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
-    newF2x = fpClamp(newF2x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
-
-    const remainingOverlap = halfW + halfW - Math.abs(newF1x - newF2x);
-    if (remainingOverlap > 0) {
-      if (newF1x <= STAGE_LEFT_FP + 1 * FP_SCALE) {
-        newF2x = newF1x + FIGHTER_BODY_WIDTH_FP;
-      } else if (newF1x >= STAGE_RIGHT_FP - 1 * FP_SCALE) {
-        newF2x = newF1x - FIGHTER_BODY_WIDTH_FP;
-      } else if (newF2x <= STAGE_LEFT_FP + 1 * FP_SCALE) {
-        newF1x = newF2x + FIGHTER_BODY_WIDTH_FP;
-      } else if (newF2x >= STAGE_RIGHT_FP - 1 * FP_SCALE) {
-        newF1x = newF2x - FIGHTER_BODY_WIDTH_FP;
-      }
-      newF1x = fpClamp(newF1x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
-      newF2x = fpClamp(newF2x, STAGE_LEFT_FP, STAGE_RIGHT_FP);
-    }
-
-    f1.simX = newF1x;
-    f2.simX = newF2x;
-  }
-
   reset() {
-    this.roundNumber = 1;
-    this.p1RoundsWon = 0;
-    this.p2RoundsWon = 0;
-    this.timer = ROUND_TIME;
-    this.roundActive = false;
-    this.matchOver = false;
-    this._timerAccumulator = 0;
-    this.transitionTimer = 0;
-    this.suppressRoundEvents = false;
+    this.sim.reset();
     if (this.timerEvent) {
       this.timerEvent.remove();
       this.timerEvent = null;

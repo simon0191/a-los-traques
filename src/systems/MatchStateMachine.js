@@ -187,7 +187,7 @@ export class MatchStateMachine {
    */
   canTransition(event) {
     const stateTransitions = TRANSITIONS[this._state];
-    return !!(stateTransitions && stateTransitions[event]);
+    return !!stateTransitions?.[event];
   }
 
   /**
