@@ -277,12 +277,17 @@ export class PreFightScene extends Phaser.Scene {
       this.goToFight();
     });
   }
+goToFight() {
+  if (this.transitioning) return;
+  this.transitioning = true;
+  console.log('[PREFIGHT] Transitioning to FightScene with:', {
+    p1Id: this.p1Id,
+    p2Id: this.p2Id,
+    gameMode: this.gameMode,
+  });
 
-  goToFight() {
-    if (this.transitioning) return;
-    this.transitioning = true;
-
-    if (this.autoTimer) {
+  if (this.autoTimer) {
+...
       this.autoTimer.remove();
     }
     if (this.cycleTimer) {

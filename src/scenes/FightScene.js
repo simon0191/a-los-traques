@@ -63,6 +63,7 @@ export class FightScene extends Phaser.Scene {
   // INIT - receive data from character select (or use defaults)
   // =========================================================================
   init(data) {
+    console.log('[FIGHT] Init with data:', data);
     // Accept both string IDs (from PreFightScene) and numeric indices
     if (data?.p1Id) {
       this.p1Id = data.p1Id;
@@ -85,12 +86,15 @@ export class FightScene extends Phaser.Scene {
   // CREATE
   // =========================================================================
   create() {
+    console.log('[FIGHT] Create starting');
     // -- Load fighter data by ID --
     this.p1Data = fightersData.find((f) => f.id === this.p1Id) || fightersData[0];
     this.p2Data = fightersData.find((f) => f.id === this.p2Id) || fightersData[1];
+    console.log('[FIGHT] Fighters:', this.p1Id, 'vs', this.p2Id);
 
     // -- Draw background --
     this._createBackground();
+    console.log('[FIGHT] BG created');
 
     // -- Create Fighter entities --
     const p1Tex = this.textures.exists(`fighter_${this.p1Id}_idle`)
@@ -101,9 +105,11 @@ export class FightScene extends Phaser.Scene {
       : 'fighter_p2';
     this.p1Fighter = new Fighter(this, GAME_WIDTH * 0.3, GROUND_Y, p1Tex, this.p1Data, 0);
     this.p2Fighter = new Fighter(this, GAME_WIDTH * 0.7, GROUND_Y, p2Tex, this.p2Data, 1);
+    console.log('[FIGHT] Fighter entities created');
 
     // -- Systems --
     this.combat = new CombatSystem(this);
+    console.log('[FIGHT] Systems created');
 
     // -- Mute effects flag (used during rollback re-simulation) --
     this._muteEffects = false;
@@ -116,6 +122,7 @@ export class FightScene extends Phaser.Scene {
 
     // -- Build HUD --
     this._createHUD();
+    console.log('[FIGHT] HUD created');
 
     if (this.gameMode === 'spectator') {
       // Spectator: no input, no AI, no dev console
