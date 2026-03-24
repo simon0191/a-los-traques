@@ -180,7 +180,16 @@ export default class FightRoom {
     if (data.type === 'rejoin') {
       const rejoinSlot = data.slot;
       if (rejoinSlot !== 0 && rejoinSlot !== 1) return;
-      if (!this._graceTimers[rejoinSlot]) return;
+      if (!this._graceTimers[rejoinSlot]) {
+        // No grace period active — connection restored before server saw disconnect.
+        // Update connection ID so stale onClose for the old connection won't
+        // match this slot and erroneously start a grace period.
+        if (this.players[rejoinSlot]) {
+          this.players[rejoinSlot].id = connection.id;
+        }
+        connection.send(JSON.stringify({ type: 'rejoin_ack', state: this.roomState }));
+        return;
+      }
       clearTimeout(this._graceTimers[rejoinSlot]);
       this._graceTimers[rejoinSlot] = null;
       this.players[rejoinSlot].id = connection.id;
@@ -210,6 +219,7 @@ export default class FightRoom {
         this._sendToOther(rejoinSlot, { type: 'opponent_reconnected' });
         this._broadcastToSpectators({ type: 'opponent_reconnected' });
       }
+      connection.send(JSON.stringify({ type: 'rejoin_ack', state: this.roomState }));
       return;
     }
 

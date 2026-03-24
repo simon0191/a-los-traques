@@ -290,6 +290,112 @@ describe('TransportManager', () => {
     });
   });
 
+  describe('queueWebRTCInit / flushPendingWebRTCInit', () => {
+    it('queueWebRTCInit stores slot but does not init WebRTC', () => {
+      globalThis.RTCPeerConnection = class {};
+      const signaling = makeSignaling();
+      const tm = new TransportManager(signaling);
+
+      tm.queueWebRTCInit(0);
+
+      expect(tm._webrtc).toBeNull();
+      expect(tm._pendingWebRTCInit).toBe(0);
+    });
+
+    it('flushPendingWebRTCInit inits WebRTC with queued slot', () => {
+      globalThis.RTCPeerConnection = class {};
+      const signaling = makeSignaling();
+      const tm = new TransportManager(signaling);
+
+      tm.queueWebRTCInit(0);
+      tm.flushPendingWebRTCInit();
+
+      expect(tm._webrtc).not.toBeNull();
+      expect(tm._pendingWebRTCInit).toBeNull();
+    });
+
+    it('flushPendingWebRTCInit is no-op when nothing queued', () => {
+      globalThis.RTCPeerConnection = class {};
+      const signaling = makeSignaling();
+      const tm = new TransportManager(signaling);
+
+      tm.flushPendingWebRTCInit(); // should not throw
+
+      expect(tm._webrtc).toBeNull();
+    });
+
+    it('queueWebRTCInit overwrites previous pending slot', () => {
+      globalThis.RTCPeerConnection = class {};
+      const signaling = makeSignaling();
+      const tm = new TransportManager(signaling);
+
+      tm.queueWebRTCInit(0);
+      tm.queueWebRTCInit(1);
+      tm.flushPendingWebRTCInit();
+
+      // Should have used slot 1 (answerer, no startOffer)
+      expect(tm._webrtc).not.toBeNull();
+      expect(tm._webrtc.state).toBe('idle'); // P2 = answerer
+    });
+
+    it('destroyWebRTC clears pending init', () => {
+      const signaling = makeSignaling();
+      const tm = new TransportManager(signaling);
+
+      tm.queueWebRTCInit(0);
+      tm.destroyWebRTC();
+
+      expect(tm._pendingWebRTCInit).toBeNull();
+    });
+  });
+
+  describe('transport degraded / restored events', () => {
+    it('emits transportDegraded when open DataChannel closes', () => {
+      globalThis.RTCPeerConnection = class {};
+      const signaling = makeSignaling();
+      const tm = new TransportManager(signaling);
+      const degraded = vi.fn();
+      tm.onTransportDegraded(degraded);
+
+      tm.initWebRTC(0);
+      tm._webrtc._simulateOpen();
+      tm._webrtc._simulateClose();
+
+      expect(degraded).toHaveBeenCalledOnce();
+    });
+
+    it('does not emit transportDegraded when DC was never open', () => {
+      globalThis.RTCPeerConnection = class {};
+      const signaling = makeSignaling();
+      const tm = new TransportManager(signaling);
+      const degraded = vi.fn();
+      tm.onTransportDegraded(degraded);
+
+      tm.initWebRTC(0);
+      tm._webrtc._simulateFailed();
+
+      expect(degraded).not.toHaveBeenCalled();
+    });
+
+    it('emits transportRestored when DC reopens after degradation', () => {
+      globalThis.RTCPeerConnection = class {};
+      const signaling = makeSignaling();
+      const tm = new TransportManager(signaling);
+      const restored = vi.fn();
+      tm.onTransportRestored(restored);
+
+      tm.initWebRTC(0);
+      tm._webrtc._simulateOpen();
+      tm._webrtc._simulateClose(); // degraded
+
+      // Re-init and reopen
+      tm.initWebRTC(0);
+      tm._webrtc._simulateOpen();
+
+      expect(restored).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('destroy', () => {
     it('destroys WebRTC and unregisters signaling handlers', () => {
       globalThis.RTCPeerConnection = class {};

@@ -33,14 +33,34 @@ describe('ReconnectionManager', () => {
       expect(onPause).toHaveBeenCalledOnce();
     });
 
-    it('is idempotent when already reconnecting', () => {
+    it('resets timer when already reconnecting without re-firing onPause', () => {
       const onPause = vi.fn();
       rm.onPause(onPause);
 
       rm.handleConnectionLost();
-      rm.handleConnectionLost();
+      clock.value = 3000; // 2000ms elapsed
+      rm.handleConnectionLost(); // re-entrant: resets timer
 
       expect(onPause).toHaveBeenCalledOnce();
+      expect(rm.elapsed()).toBe(0); // timer reset to current time
+    });
+
+    it('re-entrant timer reset extends grace period from latest event', () => {
+      const onDisconnect = vi.fn();
+      rm.onDisconnect(onDisconnect);
+
+      rm.handleConnectionLost(); // t=1000
+      clock.value = 4000; // 3000ms elapsed
+      rm.handleConnectionLost(); // reset timer to t=4000
+
+      clock.value = 8999; // 4999ms since reset (< 5000)
+      rm.tick();
+      expect(rm.state).toBe('reconnecting');
+
+      clock.value = 9000; // 5000ms since reset (= gracePeriodMs)
+      rm.tick();
+      expect(rm.state).toBe('disconnected');
+      expect(onDisconnect).toHaveBeenCalledOnce();
     });
   });
 
@@ -55,14 +75,33 @@ describe('ReconnectionManager', () => {
       expect(onPause).toHaveBeenCalledOnce();
     });
 
-    it('is idempotent when already reconnecting', () => {
+    it('resets timer when already reconnecting without re-firing onPause', () => {
       const onPause = vi.fn();
       rm.onPause(onPause);
 
       rm.handleOpponentReconnecting();
+      clock.value = 3000;
       rm.handleOpponentReconnecting();
 
       expect(onPause).toHaveBeenCalledOnce();
+      expect(rm.elapsed()).toBe(0);
+    });
+
+    it('simultaneous disconnect: grace period runs from latest event', () => {
+      const onDisconnect = vi.fn();
+      rm.onDisconnect(onDisconnect);
+
+      rm.handleConnectionLost(); // t=1000
+      clock.value = 3000;
+      rm.handleOpponentReconnecting(); // reset timer to t=3000
+
+      clock.value = 7999; // 4999ms since reset
+      rm.tick();
+      expect(rm.state).toBe('reconnecting');
+
+      clock.value = 8000; // 5000ms since reset
+      rm.tick();
+      expect(rm.state).toBe('disconnected');
     });
   });
 

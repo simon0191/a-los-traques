@@ -38,7 +38,12 @@ export class ReconnectionManager {
 
   handleConnectionLost() {
     if (this._destroyed) return;
-    if (this._state !== 'connected') return;
+    if (this._state === 'disconnected') return;
+    if (this._state === 'reconnecting') {
+      // Re-entrant: reset timer without re-firing onPause
+      this._reconnectStartTime = this._now();
+      return;
+    }
     this._enterReconnecting();
   }
 
@@ -51,7 +56,12 @@ export class ReconnectionManager {
 
   handleOpponentReconnecting() {
     if (this._destroyed) return;
-    if (this._state !== 'connected') return;
+    if (this._state === 'disconnected') return;
+    if (this._state === 'reconnecting') {
+      // Re-entrant: reset timer without re-firing onPause
+      this._reconnectStartTime = this._now();
+      return;
+    }
     this._enterReconnecting();
   }
 

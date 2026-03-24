@@ -1,6 +1,6 @@
 # RFC 0001: Networking Redesign
 
-**Status:** In Progress — Phases 1, 2A, 2B, 3 complete. Phase 4 ready for implementation.
+**Status:** In Progress — Phases 1, 2A, 2B, 3, 4 complete. Phase 5 optional.
 **Date:** 2026-03-22
 **Author:** Architecture Team
 
@@ -581,7 +581,7 @@ The 762-line `NetworkManager` monolith was decomposed into 5 focused modules + a
 
 ---
 
-### Phase 4: Hardened Reconnection (Depends on Phase 3)
+### Phase 4: Hardened Reconnection (Depends on Phase 3) — COMPLETE ✓
 
 **Goal:** Fix race conditions in the reconnection flow so WiFi drops mid-fight recover cleanly.
 

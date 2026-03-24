@@ -438,15 +438,36 @@ describe('FightRoom', () => {
       expect(c2Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(false);
     });
 
-    it('rejoin with no active timer is ignored', () => {
+    it('rejoin with no active timer sends rejoin_ack with current state', () => {
       // No disconnect happened
       const conn1b = makeConnection('c1b');
       conn2.send.mockClear();
 
       room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
 
+      // Should not notify opponent
       const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c2Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(false);
+
+      // Should send rejoin_ack to the rejoining connection
+      const c1bMsgs = conn1b.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1bMsgs.some((m) => m.type === 'rejoin_ack' && m.state === room.roomState)).toBe(true);
+    });
+
+    it('no-grace rejoin updates connection ID so stale onClose is ignored', () => {
+      const conn1b = makeConnection('c1b');
+      party.getConnections = () => [conn1b, conn2, conn3];
+
+      // Rejoin before server saw disconnect (no grace timer)
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+      expect(room.players[0].id).toBe('c1b');
+
+      // Stale onClose for OLD connection — should NOT start grace
+      conn2.send.mockClear();
+      room.onClose(conn1);
+      expect(room.roomState).not.toBe('reconnecting');
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'opponent_reconnecting')).toBe(false);
     });
 
     it('new connection during grace period receives rejoin_available', () => {
@@ -546,6 +567,39 @@ describe('FightRoom', () => {
       const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c1Msgs.some((m) => m.type === 'spectator_count')).toBe(true);
       expect(c1Msgs.some((m) => m.type === 'opponent_reconnecting')).toBe(false);
+    });
+
+    it('successful rejoin during grace sends rejoin_ack to rejoiner', () => {
+      room.onClose(conn1);
+
+      const conn1b = makeConnection('c1b');
+      party.getConnections = () => [conn1b, conn2, conn3];
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+
+      const c1bMsgs = conn1b.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1bMsgs.some((m) => m.type === 'rejoin_ack')).toBe(true);
+    });
+
+    it('duplicate rejoin messages are idempotent', () => {
+      room.onClose(conn1);
+
+      const conn1b = makeConnection('c1b');
+      party.getConnections = () => [conn1b, conn2, conn3];
+
+      // First rejoin clears grace timer
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+      conn1b.send.mockClear();
+      conn2.send.mockClear();
+
+      // Second rejoin — no grace timer, gets rejoin_ack
+      room.onMessage(JSON.stringify({ type: 'rejoin', slot: 0 }), conn1b);
+
+      const c1bMsgs = conn1b.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1bMsgs.some((m) => m.type === 'rejoin_ack')).toBe(true);
+
+      // Should not send opponent_reconnected again
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'opponent_reconnected')).toBe(false);
     });
 
     it('both players disconnect simultaneously: independent grace timers', () => {

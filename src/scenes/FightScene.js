@@ -893,16 +893,19 @@ export class FightScene extends Phaser.Scene {
     this.reconnectionManager.onPause(() => {
       this._reconnecting = true;
       this._showReconnectingOverlay();
+      this.recorder?.recordNetworkEvent('reconnection_pause', {});
     });
 
     this.reconnectionManager.onResume(() => {
       this._reconnecting = false;
       this._hideReconnectingOverlay();
+      this.recorder?.recordNetworkEvent('reconnection_resume', {});
     });
 
     this.reconnectionManager.onDisconnect(() => {
       this._reconnecting = false;
       this._hideReconnectingOverlay();
+      this.recorder?.recordNetworkEvent('reconnection_disconnect', {});
       this.combat.roundActive = false;
       this._onlineDisconnected = true;
       this.centerText.setText('DESCONECTADO');
@@ -912,14 +915,28 @@ export class FightScene extends Phaser.Scene {
     });
 
     // Wire NetworkManager socket events → ReconnectionManager
-    nm.onSocketClose(() => this.reconnectionManager.handleConnectionLost());
+    nm.onSocketClose(() => {
+      this.reconnectionManager.handleConnectionLost();
+      this.recorder?.recordNetworkEvent('socket_close', {});
+    });
     nm.onSocketOpen(() => {
       this.reconnectionManager.handleConnectionRestored();
+      nm.queueWebRTCInit(); // queue until rejoin_ack confirms signaling stable
       nm.sendRejoin(nm.getPlayerSlot());
+      this.recorder?.recordNetworkEvent('socket_open', {});
     });
     nm.onOpponentReconnecting(() => this.reconnectionManager.handleOpponentReconnecting());
     nm.onOpponentReconnected(() => this.reconnectionManager.handleOpponentReconnected());
     nm.onDisconnect(() => this.reconnectionManager.handleOpponentDisconnected());
+
+    // Transport degradation: DataChannel dropped but WebSocket still works
+    nm.onTransportDegraded(() => {
+      if (this._transportText) {
+        this._transportText.setText('WS');
+        this._transportText.setColor('#ffcc00');
+      }
+      this.recorder?.recordNetworkEvent('transport_degraded', {});
+    });
 
     // Grace expired during fight — return to fighter select
     nm.onReturnToSelect(() => {

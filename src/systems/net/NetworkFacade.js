@@ -92,6 +92,13 @@ export class NetworkFacade {
     this.signaling.on('rejoin_available', (msg) => {
       if (this._onRejoinAvailable) this._onRejoinAvailable(msg.slot);
     });
+    this.signaling.on('rejoin_ack', () => {
+      this.transport.flushPendingWebRTCInit();
+      // rejoin_ack confirms our rejoin succeeded. The server only sends
+      // opponent_reconnected to the OTHER peer, so we must resume our own
+      // ReconnectionManager here.
+      if (this._onOpponentReconnected) this._onOpponentReconnected();
+    });
 
     // Room lifecycle callbacks
     this._onOpponentReady = null;
@@ -250,6 +257,12 @@ export class NetworkFacade {
   onSocketOpen(cb) {
     this._onSocketOpen = cb;
   }
+  onTransportDegraded(cb) {
+    this.transport.onTransportDegraded(cb);
+  }
+  onTransportRestored(cb) {
+    this.transport.onTransportRestored(cb);
+  }
 
   // --- Public API: send messages ---
 
@@ -290,6 +303,13 @@ export class NetworkFacade {
     const msg = { type: 'rejoin', slot };
     if (reset) msg.reset = true;
     this.signaling.send(msg);
+  }
+  /**
+   * Queue WebRTC init for after signaling confirms stable (rejoin_ack).
+   * Called by the reconnecting peer before sendRejoin.
+   */
+  queueWebRTCInit() {
+    this.transport.queueWebRTCInit(this.signaling.playerSlot);
   }
   sendPing() {
     this.monitor.sendPing();
@@ -339,6 +359,8 @@ export class NetworkFacade {
       'return_to_select',
       'rejoin_available',
     ]);
+    // Cancel any pending WebRTC init from reconnection flow
+    this.transport.cancelPendingWebRTCInit();
     // Note: WebRTC is intentionally preserved across reselect
   }
 

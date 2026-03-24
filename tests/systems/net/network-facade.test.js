@@ -436,6 +436,39 @@ describe('NetworkFacade', () => {
     });
   });
 
+  describe('rejoin_ack flushes pending WebRTC init', () => {
+    it('rejoin_ack flushes pending WebRTC init', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nf = makeFacade();
+      emitMsg(nf, { type: 'assign', player: 0 });
+
+      nf.queueWebRTCInit();
+      expect(nf.transport._webrtc).toBeNull();
+
+      emitMsg(nf, { type: 'rejoin_ack', state: 'fighting' });
+      expect(nf.transport._webrtc).not.toBeNull();
+    });
+
+    it('rejoin_ack fires onOpponentReconnected callback', () => {
+      const nf = makeFacade();
+      const reconnected = vi.fn();
+      nf.onOpponentReconnected(reconnected);
+
+      emitMsg(nf, { type: 'rejoin_ack', state: 'fighting' });
+
+      expect(reconnected).toHaveBeenCalledOnce();
+    });
+
+    it('rejoin_ack without pending init is no-op', () => {
+      globalThis.RTCPeerConnection = class {};
+      const nf = makeFacade();
+      emitMsg(nf, { type: 'assign', player: 0 });
+
+      emitMsg(nf, { type: 'rejoin_ack', state: 'fighting' });
+      expect(nf.transport._webrtc).toBeNull();
+    });
+  });
+
   describe('B4: message queuing', () => {
     it('queues messages when disconnected, flushes on reconnect', () => {
       const nf = makeFacade();
