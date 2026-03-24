@@ -70,9 +70,10 @@ export class CombatSim {
     const hw = Math.abs(hitbox.w);
 
     if (fpRectsOverlap(hx, hitbox.y, hw, hitbox.h, hurtbox.x, hurtbox.y, hurtbox.w, hurtbox.h)) {
+      const wasBlocking = defender.state === 'blocking';
       const { ko, damage, intensity } = this.applyDamage(attacker, defender);
       attacker.hitConnected = true;
-      return { hit: true, ko: !!ko, damage, isBlocking: defender.state === 'blocking', intensity };
+      return { hit: true, ko: !!ko, damage, isBlocking: wasBlocking, intensity };
     }
     return false;
   }
