@@ -3,6 +3,20 @@
 Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape Safari target.
 480x270 internal resolution, Phaser 3 + Vite, ES6 modules, all UI text in Spanish.
 
+## Authentication & Persistence
+
+Supabase-based account system for persistent statistics and profiles.
+
+- **Supabase Client**: `src/services/supabase.js` (Auth, Database, RPC).
+- **Global State**: Authenticated user object stored in `window.game.registry.get('user')`.
+- **Login Flow**: `BootScene` -> `LoginScene` (if credentials present and not in E2E/autoplay) -> `TitleScene`.
+- **Database Schema**: 
+    - `profiles` table (id, nickname, wins, losses).
+    - SQL Migrations in `supabase/migrations/`.
+    - Row Level Security (RLS) enabled for all tables.
+- **Atomic Stats**: `increment_stat(user_id, column_name)` RPC function for thread-safe win/loss tracking.
+- **Graceful Degradation**: If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` are missing, the game bypasses `LoginScene` and operates in "Guest Mode" automatically.
+
 ## Build & Run
 
 ```bash

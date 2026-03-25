@@ -3,11 +3,17 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+export const authEnabled = !!(supabaseUrl && supabaseAnonKey);
+
+if (!authEnabled) {
   console.warn('Supabase credentials missing. Auth features will be disabled.');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// Create client with dummy strings if missing to avoid resolving to current host
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder',
+);
 
 /**
  * Sign up a new user with email, password and nickname

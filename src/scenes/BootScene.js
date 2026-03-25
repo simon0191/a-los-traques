@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { FIGHTER_COLORS, FIGHTER_HEIGHT, FIGHTER_WIDTH } from '../config.js';
-import stages from '../data/stages.json';
+import { authEnabled } from '../services/supabase.js';
 
 // Auto-discover fight music MP3s at build time via Vite glob
 const fightMusicFiles = Object.keys(import.meta.glob('/public/assets/audio/fights/*.mp3')).map(
@@ -169,6 +169,9 @@ export class BootScene extends Phaser.Scene {
     } else if (this.game.autoplay?.enabled && this.game.autoplay.createRoom) {
       // Autoplay mode: create a new room automatically
       this.scene.start('LobbyScene', {});
+    } else if (!authEnabled || this.game.autoplay?.enabled) {
+      // Bypass login if Supabase not configured or in E2E/autoplay mode
+      this.scene.start('TitleScene');
     } else {
       this.scene.start('LoginScene');
     }

@@ -69,5 +69,4 @@ new AudioManager(window.game);
 onAuthStateChange((event, session) => {
   console.log(`Auth event: ${event}`);
   window.game.registry.set('user', session?.user || null);
-  window.game.registry.set('session', session || null);
 });

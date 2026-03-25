@@ -70,6 +70,8 @@ export class LoginScene extends Phaser.Scene {
     this.form.addListener('click');
 
     this.form.on('click', async (event) => {
+      if (this._isLoading) return; // Debounce
+
       if (event.target.id === 'loginBtn') {
         const email = this.form.getChildByID('email').value;
         const password = this.form.getChildByID('password').value;
@@ -83,7 +85,6 @@ export class LoginScene extends Phaser.Scene {
           const { session } = await logIn(email, password);
           if (session) {
             this.game.registry.set('user', session.user);
-            this.game.registry.set('session', session);
           }
           this.scene.start('TitleScene');
         } catch (e) {
@@ -94,7 +95,6 @@ export class LoginScene extends Phaser.Scene {
         this._showSignupForm();
       } else if (event.target.id === 'guestBtn') {
         this.game.registry.set('user', null);
-        this.game.registry.set('session', null);
         this.scene.start('TitleScene');
       }
     });
@@ -124,6 +124,8 @@ export class LoginScene extends Phaser.Scene {
     this.form.addListener('click');
 
     this.form.on('click', async (event) => {
+      if (this._isLoading && event.target.id !== 'backBtn') return; // Debounce
+
       if (event.target.id === 'signupBtn') {
         const nickname = this.form.getChildByID('nickname').value;
         const email = this.form.getChildByID('email').value;
@@ -137,6 +139,11 @@ export class LoginScene extends Phaser.Scene {
 
         if (password !== passwordVerify) {
           this._setErrorMessage('Las contraseñas no coinciden');
+          return;
+        }
+
+        if (password.length < 6) {
+          this._setErrorMessage('La contraseña debe tener al menos 6 caracteres');
           return;
         }
 
@@ -183,6 +190,7 @@ export class LoginScene extends Phaser.Scene {
   }
 
   _setLoading(isLoading) {
+    this._isLoading = isLoading;
     const msg = isLoading ? 'Conectando...' : 'A LOS TRAQUES';
     const color = isLoading ? '#ffcc00' : '#aaaacc';
 
