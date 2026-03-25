@@ -55,6 +55,7 @@ export class LoginScene extends Phaser.Scene {
 
     const html = `
       <div id="login-card" style="color: white; font-family: Arial; font-size: 12px; display: flex; flex-direction: column; gap: 8px; width: 200px; background: #1a1a3a; padding: 15px; border: 1px solid #4444aa; border-radius: 5px;">
+        <div id="form-status" style="text-align: center; font-size: 10px; min-height: 12px; color: #aaaacc; margin-bottom: 4px;">Inicia sesión para jugar</div>
         <input type="email" id="email" placeholder="Email" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
         <input type="password" id="password" placeholder="Contraseña" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
         <div style="display: flex; gap: 5px; margin-top: 5px;">
@@ -108,6 +109,7 @@ export class LoginScene extends Phaser.Scene {
     const html = `
       <div id="signup-card" style="color: white; font-family: Arial; font-size: 12px; display: flex; flex-direction: column; gap: 8px; width: 200px; background: #1a1a3a; padding: 15px; border: 1px solid #4444aa; border-radius: 5px;">
         <h3 style="margin: 0 0 5px 0; text-align: center; color: #ffcc00; font-size: 14px;">NUEVA CUENTA</h3>
+        <div id="form-status" style="text-align: center; font-size: 10px; min-height: 12px; color: #aaaacc;">Completa los datos</div>
         <input type="text" id="nickname" placeholder="Apodo (ej: Simo)" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
         <input type="email" id="email" placeholder="Email" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
         <input type="password" id="password" placeholder="Contraseña" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
@@ -164,10 +166,10 @@ export class LoginScene extends Phaser.Scene {
             msg.toLowerCase().includes('too many requests')
           ) {
             msg = 'Demasiados intentos. Espera unos minutos o revisa tu email.';
-          } else if (
-msg.includes('User already registered') || msg.includes('already exists')) {
+          } else if (msg.includes('User already registered') || msg.includes('already exists')) {
             msg = 'Email o Apodo ya están en uso';
-          } else if (msg.includes('Database error saving new user')) {
+          } else if (
+msg.includes('Database error saving new user')) {
             // This usually happens when the trigger fails (e.g. nickname unique constraint)
             msg = 'El Apodo ya está registrado';
           }
@@ -181,14 +183,30 @@ msg.includes('User already registered') || msg.includes('already exists')) {
   }
 
   _setLoading(isLoading) {
-    if (isLoading) {
-      this.statusText.setText('Conectando...').setColor('#ffcc00');
-    } else {
-      // Don't reset to generic title if we have an error or success message
+    const msg = isLoading ? 'Conectando...' : 'A LOS TRAQUES';
+    const color = isLoading ? '#ffcc00' : '#aaaacc';
+
+    this.statusText.setText(msg).setColor(color);
+
+    // Also update internal form status if it exists
+    if (this.form) {
+      const statusDiv = this.form.getChildByID('form-status');
+      if (statusDiv) {
+        statusDiv.innerText = isLoading ? 'Procesando...' : '';
+        statusDiv.style.color = '#ffcc00';
+      }
     }
   }
 
   _setErrorMessage(msg) {
     this.statusText.setText(msg).setColor('#ff4444');
+
+    if (this.form) {
+      const statusDiv = this.form.getChildByID('form-status');
+      if (statusDiv) {
+        statusDiv.innerText = msg;
+        statusDiv.style.color = '#ff4444';
+      }
+    }
   }
 }
