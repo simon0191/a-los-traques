@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { getProfile } from '../services/supabase.js';
 import { createButton } from '../services/UIService.js';
 
 export class TitleScene extends Phaser.Scene {
@@ -66,7 +67,8 @@ export class TitleScene extends Phaser.Scene {
     // User greeting & Logout (Top Left)
     const user = this.game.registry.get('user');
     const userName = user?.user_metadata?.nickname || (user ? user.email : 'Invitado');
-    this.add
+
+    const greeting = this.add
       .text(5, 5, `Hola, ${userName}`, {
         fontFamily: 'Arial',
         fontSize: '10px',
@@ -75,8 +77,16 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0, 0);
 
     if (user) {
+      const statsText = this.add
+        .text(5, 17, 'Cargando estadísticas...', {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: '#888899',
+        })
+        .setOrigin(0, 0);
+
       const logoutBtn = this.add
-        .text(5, 17, 'CERRAR SESIÓN', {
+        .text(5, 29, 'CERRAR SESIÓN', {
           fontFamily: 'Arial',
           fontSize: '9px',
           color: '#ff4444',
@@ -95,6 +105,20 @@ export class TitleScene extends Phaser.Scene {
           console.error('Logout failed', e);
         }
       });
+
+      // Fetch real stats
+      getProfile(user.id)
+        .then((profile) => {
+          if (profile) {
+            greeting.setText(`Hola, ${profile.nickname || userName}`);
+            statsText.setText(`W: ${profile.wins} | L: ${profile.losses}`);
+            statsText.setColor('#44cc88');
+          }
+        })
+        .catch((e) => {
+          console.warn('Could not fetch profile', e);
+          statsText.setText('Stats no disponibles');
+        });
     }
 
     // Mode buttons
