@@ -157,7 +157,15 @@ export class LoginScene extends Phaser.Scene {
           }
         } catch (e) {
           let msg = e.message;
-          if (msg.includes('User already registered') || msg.includes('already exists')) {
+          // Check for Rate Limit (HTTP 429) or generic "Too Many Requests"
+          if (
+            e.status === 429 ||
+            msg.toLowerCase().includes('rate limit') ||
+            msg.toLowerCase().includes('too many requests')
+          ) {
+            msg = 'Demasiados intentos. Espera unos minutos o revisa tu email.';
+          } else if (
+msg.includes('User already registered') || msg.includes('already exists')) {
             msg = 'Email o Apodo ya están en uso';
           } else if (msg.includes('Database error saving new user')) {
             // This usually happens when the trigger fails (e.g. nickname unique constraint)
