@@ -116,7 +116,7 @@ export class LoginScene extends Phaser.Scene {
         <input type="password" id="passwordVerify" placeholder="Repetir Contraseña" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
         
         <button id="signupBtn" style="margin-top: 5px; padding: 8px; background: #44cc88; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold;">CREAR CUENTA</button>
-        <button id="backBtn" style="padding: 5px; background: none; color: #aaaacc; border: none; cursor: pointer; font-size: 10px;">VOLVER AL INICIO</button>
+        <button id="backBtn" style="padding: 5px; background: none; color: #aaaacc; border: none; cursor: pointer; font-size: 10px; width: 100%;">VOLVER AL INICIO</button>
       </div>
     `;
 

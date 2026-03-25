@@ -119,6 +119,21 @@ export class TitleScene extends Phaser.Scene {
           console.warn('Could not fetch profile', e);
           statsText.setText('Stats no disponibles');
         });
+    } else {
+      const loginBtn = this.add
+        .text(5, 17, 'INICIAR SESIÓN', {
+          fontFamily: 'Arial',
+          fontSize: '9px',
+          color: '#ffcc00',
+          backgroundColor: '#222244',
+          padding: { x: 4, y: 2 },
+        })
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+
+      loginBtn.on('pointerdown', () => {
+        this.scene.start('LoginScene');
+      });
     }
 
     // Mode buttons
