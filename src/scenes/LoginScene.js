@@ -8,6 +8,7 @@ export class LoginScene extends Phaser.Scene {
   }
 
   async create() {
+    this._isLoading = false; // Ensure flag is reset on every scene entry
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
     this.add
