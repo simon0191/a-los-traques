@@ -63,6 +63,40 @@ export class TitleScene extends Phaser.Scene {
     // Decorative line
     this.add.rectangle(GAME_WIDTH / 2, cy + 5, 200, 2, 0xccccff, 0.6);
 
+    // User greeting & Logout (Top Left)
+    const user = this.game.registry.get('user');
+    const userName = user?.user_metadata?.nickname || (user ? user.email : 'Invitado');
+    this.add
+      .text(5, 5, `Hola, ${userName}`, {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: '#aaaacc',
+      })
+      .setOrigin(0, 0);
+
+    if (user) {
+      const logoutBtn = this.add
+        .text(5, 17, 'CERRAR SESIÓN', {
+          fontFamily: 'Arial',
+          fontSize: '9px',
+          color: '#ff4444',
+          backgroundColor: '#221111',
+          padding: { x: 4, y: 2 },
+        })
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+
+      logoutBtn.on('pointerdown', async () => {
+        const { logOut } = await import('../services/supabase.js');
+        try {
+          await logOut();
+          this.scene.start('LoginScene');
+        } catch (e) {
+          console.error('Logout failed', e);
+        }
+      });
+    }
+
     // Mode buttons
     const btnGap = 22;
     createButton(this, GAME_WIDTH / 2, cy + 30, 'VS MAQUINA', () => {
@@ -227,7 +261,7 @@ export class TitleScene extends Phaser.Scene {
     });
 
     // ENTRAR button
-    const entrarBtn = UIService.createButton(
+    const entrarBtn = createButton(
       this,
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2 + 20,
@@ -252,7 +286,7 @@ export class TitleScene extends Phaser.Scene {
     this._joinOverlay.add([entrarBtn.bg, entrarBtn.text]);
 
     // CANCELAR button
-    const cancelBtn = UIService.createButton(
+    const cancelBtn = createButton(
       this,
       GAME_WIDTH / 2,
       GAME_HEIGHT / 2 + 48,

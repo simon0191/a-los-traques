@@ -10,12 +10,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
 /**
- * Sign up a new user with email and password
+ * Sign up a new user with email, password and nickname
  */
-export async function signUp(email, password) {
+export async function signUp(email, password, nickname) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        nickname: nickname,
+      },
+    },
   });
   if (error) throw error;
   return data;
