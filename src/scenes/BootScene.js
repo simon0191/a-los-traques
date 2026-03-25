@@ -170,7 +170,7 @@ export class BootScene extends Phaser.Scene {
       // Autoplay mode: create a new room automatically
       this.scene.start('LobbyScene', {});
     } else {
-      this.scene.start('TitleScene');
+      this.scene.start('LoginScene');
     }
   }
 
