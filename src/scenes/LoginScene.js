@@ -35,7 +35,7 @@ export class LoginScene extends Phaser.Scene {
         // Update registry immediately to avoid race conditions in TitleScene
         this.game.registry.set('user', session.user);
         this.game.registry.set('session', session);
-        
+
         this.time.delayedCall(1000, () => this.scene.start('TitleScene'));
         return;
       }
@@ -76,7 +76,7 @@ export class LoginScene extends Phaser.Scene {
           this._setErrorMessage('Introduce email y contraseña');
           return;
         }
-        
+
         this._setLoading(true);
         try {
           const { session } = await logIn(email, password);
@@ -141,9 +141,20 @@ export class LoginScene extends Phaser.Scene {
         this._setLoading(true);
         try {
           await signUp(email, password, nickname);
-          this._setErrorMessage('¡Éxito! Revisa tu email para activar.');
+          this._setErrorMessage('¡REGISTRO ÉXITO! Revisa tu email para verificar la cuenta.');
           this.statusText.setColor('#44cc88');
-          this.time.delayedCall(5000, () => this._showLoginForm());
+          // Give more time to read the message (10s) and show a "BACK" button
+          if (this.form) {
+            const signupCard = this.form.getChildByID('signup-card');
+            if (signupCard) {
+              signupCard.innerHTML = `
+                <h3 style="margin: 0 0 5px 0; text-align: center; color: #44cc88; font-size: 14px;">¡CUENTA CREADA!</h3>
+                <p style="text-align: center; font-size: 11px; margin: 10px 0;">Hemos enviado un correo de verificación a <b>${email}</b>.</p>
+                <p style="text-align: center; font-size: 10px; color: #aaaacc;">Debes activarla antes de entrar.</p>
+                <button id="backBtn" style="margin-top: 10px; padding: 8px; background: #3366ff; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; width: 100%;">VOLVER AL LOGIN</button>
+              `;
+            }
+          }
         } catch (e) {
           this._setErrorMessage(e.message);
           this._setLoading(false);
