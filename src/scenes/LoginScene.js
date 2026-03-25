@@ -156,7 +156,14 @@ export class LoginScene extends Phaser.Scene {
             }
           }
         } catch (e) {
-          this._setErrorMessage(e.message);
+          let msg = e.message;
+          if (msg.includes('User already registered') || msg.includes('already exists')) {
+            msg = 'Email o Apodo ya están en uso';
+          } else if (msg.includes('Database error saving new user')) {
+            // This usually happens when the trigger fails (e.g. nickname unique constraint)
+            msg = 'El Apodo ya está registrado';
+          }
+          this._setErrorMessage(msg);
           this._setLoading(false);
         }
       } else if (event.target.id === 'backBtn') {
