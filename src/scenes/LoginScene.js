@@ -104,19 +104,19 @@ export class LoginScene extends Phaser.Scene {
     if (this.form) this.form.destroy();
 
     const x = GAME_WIDTH / 2;
-    const y = GAME_HEIGHT / 2 + 10;
+    const y = GAME_HEIGHT / 2; // Center exactly
 
     const html = `
-      <div id="signup-card" style="color: white; font-family: Arial; font-size: 12px; display: flex; flex-direction: column; gap: 8px; width: 200px; max-height: 280px; overflow-y: auto; background: #1a1a3a; padding: 15px; border: 1px solid #4444aa; border-radius: 5px;">
-        <h3 style="margin: 0 0 5px 0; text-align: center; color: #ffcc00; font-size: 14px;">NUEVA CUENTA</h3>
-        <div id="form-status" style="text-align: center; font-size: 10px; min-height: 12px; color: #aaaacc;">Completa los datos</div>
-        <input type="text" id="nickname" placeholder="Apodo (ej: Simo)" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
-        <input type="email" id="email" placeholder="Email" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
-        <input type="password" id="password" placeholder="Contraseña" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
-        <input type="password" id="passwordVerify" placeholder="Repetir Contraseña" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
+      <div id="signup-card" style="color: white; font-family: Arial; font-size: 11px; display: flex; flex-direction: column; gap: 6px; width: 190px; max-height: 240px; overflow-y: auto; background: #1a1a3a; padding: 12px; border: 1px solid #4444aa; border-radius: 5px; box-sizing: border-box;">
+        <h3 style="margin: 0 0 4px 0; text-align: center; color: #ffcc00; font-size: 13px;">NUEVA CUENTA</h3>
+        <div id="form-status" style="text-align: center; font-size: 9px; min-height: 11px; color: #aaaacc; margin-bottom: 2px;">Completa los datos</div>
+        <input type="text" id="nickname" placeholder="Apodo (ej: Simo)" style="padding: 4px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white; font-size: 11px;">
+        <input type="email" id="email" placeholder="Email" style="padding: 4px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white; font-size: 11px;">
+        <input type="password" id="password" placeholder="Contraseña" style="padding: 4px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white; font-size: 11px;">
+        <input type="password" id="passwordVerify" placeholder="Repetir Contraseña" style="padding: 4px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white; font-size: 11px;">
         
-        <button id="signupBtn" style="margin-top: 5px; padding: 8px; background: #44cc88; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold;">CREAR CUENTA</button>
-        <button id="backBtn" style="padding: 5px; background: none; color: #aaaacc; border: none; cursor: pointer; font-size: 10px; width: 100%;">VOLVER AL INICIO</button>
+        <button id="signupBtn" style="margin-top: 4px; padding: 6px; background: #44cc88; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 11px;">CREAR CUENTA</button>
+        <button id="backBtn" style="padding: 4px; background: none; color: #aaaacc; border: none; cursor: pointer; font-size: 9px; width: 100%;">VOLVER AL INICIO</button>
       </div>
     `;
 
