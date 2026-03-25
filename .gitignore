@@ -8,4 +8,7 @@ assets/photos/
 test-results/
 .claude/worktrees
 .vercel
+
+# Environment variables
 .env
+.env.local
