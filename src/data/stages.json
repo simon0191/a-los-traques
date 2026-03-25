@@ -16,6 +16,30 @@
     "texture": "stages_jekos_house"
   },
   {
+    "id": "chikis_house",
+    "name": "Casa de los Chikis",
+    "bgColor": "#3a1a1a",
+    "groundColor": "#2a1a1a",
+    "description": "A very chiki place to fight",
+    "texture": "stages_chikis_house"
+  },
+  {
+    "id": "ogham",
+    "name": "Ogham",
+    "bgColor": "#1a2a1a",
+    "groundColor": "#0a1a0a",
+    "description": "Mystic Irish pub vibes",
+    "texture": "stages_ogham"
+  },
+  {
+    "id": "mont",
+    "name": "Mont",
+    "bgColor": "#1a1a4a",
+    "groundColor": "#0a0a2a",
+    "description": "The peak of the mountain",
+    "texture": "stages_mont"
+  },
+  {
     "id": "metro",
     "name": "El Metro",
     "bgColor": "#2a2a3a",
