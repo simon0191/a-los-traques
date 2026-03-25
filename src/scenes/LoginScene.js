@@ -107,7 +107,7 @@ export class LoginScene extends Phaser.Scene {
     const y = GAME_HEIGHT / 2 + 10;
 
     const html = `
-      <div id="signup-card" style="color: white; font-family: Arial; font-size: 12px; display: flex; flex-direction: column; gap: 8px; width: 200px; background: #1a1a3a; padding: 15px; border: 1px solid #4444aa; border-radius: 5px;">
+      <div id="signup-card" style="color: white; font-family: Arial; font-size: 12px; display: flex; flex-direction: column; gap: 8px; width: 200px; max-height: 280px; overflow-y: auto; background: #1a1a3a; padding: 15px; border: 1px solid #4444aa; border-radius: 5px;">
         <h3 style="margin: 0 0 5px 0; text-align: center; color: #ffcc00; font-size: 14px;">NUEVA CUENTA</h3>
         <div id="form-status" style="text-align: center; font-size: 10px; min-height: 12px; color: #aaaacc;">Completa los datos</div>
         <input type="text" id="nickname" placeholder="Apodo (ej: Simo)" style="padding: 5px; border-radius: 3px; border: 1px solid #444; background: #0a0a1a; color: white;">
