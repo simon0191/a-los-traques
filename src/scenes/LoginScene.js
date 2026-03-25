@@ -157,6 +157,7 @@ export class LoginScene extends Phaser.Scene {
               `;
             }
           }
+          this._setLoading(false);
         } catch (e) {
           let msg = e.message;
           // Check for Rate Limit (HTTP 429) or generic "Too Many Requests"
@@ -168,8 +169,7 @@ export class LoginScene extends Phaser.Scene {
             msg = 'Demasiados intentos. Espera unos minutos o revisa tu email.';
           } else if (msg.includes('User already registered') || msg.includes('already exists')) {
             msg = 'Email o Apodo ya están en uso';
-          } else if (
-msg.includes('Database error saving new user')) {
+          } else if (msg.includes('Database error saving new user')) {
             // This usually happens when the trigger fails (e.g. nickname unique constraint)
             msg = 'El Apodo ya está registrado';
           }
@@ -188,23 +188,39 @@ msg.includes('Database error saving new user')) {
 
     this.statusText.setText(msg).setColor(color);
 
-    // Also update internal form status if it exists
     if (this.form) {
       const statusDiv = this.form.getChildByID('form-status');
       if (statusDiv) {
-        statusDiv.innerText = isLoading ? 'Procesando...' : '';
-        statusDiv.style.color = '#ffcc00';
+        // If it's starting to load, we show "Procesando..."
+        // If it's finishing loading (isLoading=false), we only clear it if it was "Procesando..."
+        // to avoid clearing an error or success message.
+        if (isLoading) {
+          statusDiv.innerText = 'Procesando...';
+          statusDiv.style.color = '#ffcc00';
+        } else if (statusDiv.innerText === 'Procesando...') {
+          statusDiv.innerText = '';
+        }
       }
     }
   }
 
   _setErrorMessage(msg) {
-    this.statusText.setText(msg).setColor('#ff4444');
+    // Translate some common Supabase errors
+    let userMsg = msg;
+    if (msg === 'Invalid login credentials') {
+      userMsg = 'Email o contraseña incorrectos';
+    } else if (msg === 'Email not confirmed') {
+      userMsg = 'Email no verificado. Revisa tu correo.';
+    } else if (msg === 'User not found') {
+      userMsg = 'Usuario no encontrado';
+    }
+
+    this.statusText.setText(userMsg).setColor('#ff4444');
 
     if (this.form) {
       const statusDiv = this.form.getChildByID('form-status');
       if (statusDiv) {
-        statusDiv.innerText = msg;
+        statusDiv.innerText = userMsg;
         statusDiv.style.color = '#ff4444';
       }
     }
