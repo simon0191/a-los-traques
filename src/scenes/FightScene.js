@@ -22,6 +22,7 @@ import {
   ONLINE_INPUT_DELAY,
 } from '../systems/FixedPoint.js';
 import { InputManager } from '../systems/InputManager.js';
+import { MatchEvent, MatchState, MatchStateMachine } from '../systems/MatchStateMachine.js';
 import { ReconnectionManager } from '../systems/ReconnectionManager.js';
 import { ReplayInputSource } from '../systems/ReplayInputSource.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
@@ -52,6 +53,10 @@ const STAMINA_P2_X = GAME_WIDTH - 16 - STAMINA_BAR_W;
 export class FightScene extends Phaser.Scene {
   constructor() {
     super({ key: 'FightScene' });
+  }
+
+  get isPaused() {
+    return this.matchState?.state === MatchState.PAUSED;
   }
 
   // =========================================================================
@@ -180,13 +185,15 @@ export class FightScene extends Phaser.Scene {
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     // -- Pause system --
-    this.isPaused = false;
     this._pauseOverlay = null;
     this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.escKey.on('down', () => this._togglePause());
 
     // -- Fixed-timestep accumulator for simulation --
     this._simAccumulator = 0;
+
+    // -- Match state machine (RFC 0002 §2B.1) --
+    this.matchState = new MatchStateMachine(MatchState.ROUND_INTRO);
 
     // -- Start first round intro --
     if (this._replayP1) {
@@ -197,6 +204,7 @@ export class FightScene extends Phaser.Scene {
       this.combat.timer = 60;
       this.combat._timerAccumulator = 0;
       this.combat.roundActive = true;
+      this.matchState.transition(MatchEvent.INTRO_COMPLETE);
       console.log(
         `[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`,
       );
@@ -205,6 +213,7 @@ export class FightScene extends Phaser.Scene {
       // The simulation must not depend on wall-clock Phaser timers.
       this.combat.startRound();
       this._showRoundIntroVisual();
+      this.matchState.transition(MatchEvent.INTRO_COMPLETE);
     } else {
       this._showRoundIntro();
     }
@@ -222,7 +231,7 @@ export class FightScene extends Phaser.Scene {
     }
 
     // Skip game loop while reconnecting
-    if (this._reconnecting) {
+    if (this.matchState.state === MatchState.RECONNECTING) {
       this._updateReconnectingOverlay();
       return;
     }
@@ -250,18 +259,14 @@ export class FightScene extends Phaser.Scene {
       return;
     }
 
-    if (!this.combat.roundActive) {
-      // Replay mode: don't bail out — the fixed-timestep loop handles round transitions
-      if (this._replayP1 && this._replayP2) {
-        // fall through to the fixed-timestep loop below
-      } else if (this.gameMode === 'online') {
-        // Online mode: keep simulation running during round transitions so both
-        // peers stay in lockstep. The frame-based transitionTimer in simulateFrame
-        // handles deterministic round reset.
-      } else {
-        // Allow restart after match over (Space key or tap)
+    {
+      const ms = this.matchState.state;
+      // Simulation runs during ROUND_ACTIVE and ROUND_END (online transitionTimer / replay cooldown)
+      const simulating = ms === MatchState.ROUND_ACTIVE || ms === MatchState.ROUND_END;
+      if (!simulating) {
+        // Allow restart after match over (Space key or tap) in local mode
         if (
-          this.combat.matchOver &&
+          ms === MatchState.MATCH_END &&
           this.spaceKey &&
           Phaser.Input.Keyboard.JustDown(this.spaceKey)
         ) {
@@ -888,26 +893,30 @@ export class FightScene extends Phaser.Scene {
 
     // --- Graceful reconnection ---
     this.reconnectionManager = new ReconnectionManager({ gracePeriodMs: 20000 });
-    this._reconnecting = false;
 
     this.reconnectionManager.onPause(() => {
-      this._reconnecting = true;
+      if (this.matchState.canTransition(MatchEvent.CONNECTION_LOST)) {
+        this.matchState.transition(MatchEvent.CONNECTION_LOST);
+      }
       this._showReconnectingOverlay();
       this.recorder?.recordNetworkEvent('reconnection_pause', {});
     });
 
     this.reconnectionManager.onResume(() => {
-      this._reconnecting = false;
+      if (this.matchState.canTransition(MatchEvent.OPPONENT_RECONNECTED)) {
+        this.matchState.transition(MatchEvent.OPPONENT_RECONNECTED);
+      }
       this._hideReconnectingOverlay();
       this.recorder?.recordNetworkEvent('reconnection_resume', {});
     });
 
     this.reconnectionManager.onDisconnect(() => {
-      this._reconnecting = false;
+      if (this.matchState.canTransition(MatchEvent.GRACE_EXPIRED)) {
+        this.matchState.transition(MatchEvent.GRACE_EXPIRED);
+      }
       this._hideReconnectingOverlay();
       this.recorder?.recordNetworkEvent('reconnection_disconnect', {});
       this.combat.roundActive = false;
-      this._onlineDisconnected = true;
       this.centerText.setText('DESCONECTADO');
       this.subtitleText.setText('Oponente abandono la pelea');
       this.localFighter.stop();
@@ -940,7 +949,6 @@ export class FightScene extends Phaser.Scene {
 
     // Grace expired during fight — return to fighter select
     nm.onReturnToSelect(() => {
-      this._reconnecting = false;
       this._hideReconnectingOverlay();
       this.combat.roundActive = false;
       this.centerText.setText('DESCONECTADO');
@@ -999,6 +1007,8 @@ export class FightScene extends Phaser.Scene {
           this.combat.timer = 60;
           this.combat._timerAccumulator = 0;
           this.combat.roundActive = true;
+          this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
+          this.matchState.transition(MatchEvent.INTRO_COMPLETE);
           this.centerText.setText('');
           this.subtitleText.setText('');
         }
@@ -1179,6 +1189,10 @@ export class FightScene extends Phaser.Scene {
 
     // Detect simulation-driven round reset (transitionTimer expired → roundActive became true)
     if (!wasRoundActive && this.combat.roundActive) {
+      if (this.matchState.canTransition(MatchEvent.TRANSITION_COMPLETE)) {
+        this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
+        this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+      }
       // Sync sprites to new positions after reset
       this.p1Fighter.syncSprite();
       this.p2Fighter.syncSprite();
@@ -1545,7 +1559,9 @@ export class FightScene extends Phaser.Scene {
   }
 
   _pauseGame() {
-    this.isPaused = true;
+    if (this.matchState.canTransition(MatchEvent.PAUSE)) {
+      this.matchState.transition(MatchEvent.PAUSE);
+    }
     this.time.paused = true;
     this.tweens.pauseAll();
 
@@ -1626,7 +1642,9 @@ export class FightScene extends Phaser.Scene {
   }
 
   _resumeGame() {
-    this.isPaused = false;
+    if (this.matchState.canTransition(MatchEvent.RESUME)) {
+      this.matchState.transition(MatchEvent.RESUME);
+    }
     this.time.paused = false;
     this.tweens.resumeAll();
     if (this._pauseOverlay) {
@@ -1758,6 +1776,7 @@ export class FightScene extends Phaser.Scene {
         this.centerText.setText('');
         this.subtitleText.setText('');
         this.combat.startRound();
+        this.matchState.transition(MatchEvent.INTRO_COMPLETE);
       });
     });
   }
@@ -1767,6 +1786,8 @@ export class FightScene extends Phaser.Scene {
    * @param {number} winnerIndex - 0 for P1, 1 for P2
    */
   onRoundOver(winnerIndex) {
+    this.matchState.transition(MatchEvent.ROUND_OVER);
+
     // Host sends round event to guest
     this._sendRoundEvent('ko', winnerIndex);
 
@@ -1814,6 +1835,7 @@ export class FightScene extends Phaser.Scene {
         this.p1Fighter.reset(GAME_WIDTH * 0.3);
         this.p2Fighter.reset(GAME_WIDTH * 0.7);
         this._updateHUD();
+        this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
         this._showRoundIntro();
       });
     });
@@ -1824,6 +1846,11 @@ export class FightScene extends Phaser.Scene {
    * @param {number} winnerIndex - 0 for P1, 1 for P2
    */
   onMatchOver(winnerIndex) {
+    if (this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
+      this.matchState.transition(MatchEvent.ROUND_OVER);
+    }
+    this.matchState.transition(MatchEvent.MATCH_OVER);
+
     // Host sends match-over event to guest
     this._sendRoundEvent('ko', winnerIndex);
 
@@ -1946,6 +1973,7 @@ export class FightScene extends Phaser.Scene {
     if (this.aiController) this.aiController.destroy();
     if (this.touchControls) this.touchControls.destroy();
     if (this.reconnectionManager) this.reconnectionManager.destroy();
+    this.matchState = null;
     // Destroy projectiles
     for (const proj of this.projectiles) {
       proj.destroy();

@@ -1,6 +1,6 @@
 # RFC 0002: Multiplayer Architecture Redesign
 
-**Status:** In Progress — Phase 1 complete, Phase 2A.1–2A.2 complete, Phase 2B.2 complete
+**Status:** In Progress — Phase 1 complete, Phase 2A.1–2A.2 complete, Phase 2B.1–2B.2 complete
 **Date:** 2026-03-24
 **Updated:** 2026-03-25
 **Author:** Architecture Team
@@ -11,14 +11,14 @@
 
 ### What's Next
 
-The next high-impact task is **2B.1: Wire MatchStateMachine into FightScene**. This is the largest remaining refactor — FightScene is ~1,939 lines with boolean flags (`_reconnecting`, `_onlineDisconnected`, `combat.roundActive` as flow control) that should be replaced by state machine transitions. Each MatchState maps to a block in the update loop, eliminating the 3-way `online`/`local`/`spectator` branching.
+**2B.1 is done.** FightScene now uses `MatchStateMachine` for flow control: `isPaused` is a getter on SM state, `_reconnecting` and `_onlineDisconnected` booleans are eliminated, and the update loop guards on SM state instead of `combat.roundActive`. 14 new integration tests in `tests/scenes/fight-scene-states.test.js`.
 
-Once 2B.1 is done, 2B.3 (SYNCHRONIZING state), 2B.4 (ReconnectionManager → state machine), and 2A.4 (frame-0 sync exchange) are unblocked. After all of Phase 2, Phase 3 (event-driven presentation: AudioBridge, VFXBridge, remove `_muteEffects`) can begin.
+The next tasks are **2B.3 (SYNCHRONIZING state)** and **2B.4 (ReconnectionManager → state machine)**. Both are now unblocked:
+- **2B.3:** Add frame-0 sync exchange. FightScene already initializes SM at ROUND_INTRO; add a SYNCHRONIZING state before it for online mode.
+- **2B.4:** Wire ReconnectionManager callbacks to fire SM transitions directly instead of going through FightScene callbacks. Currently the callbacks use `canTransition` guards.
+- **2A.4:** Frame-0 sync exchange (depends on 2B.3).
 
-**Key files to read before starting 2B.1:**
-- `src/systems/MatchStateMachine.js` — the FSM to integrate (15 states, validated transitions)
-- `src/scenes/FightScene.js` — the refactor target (~1,939 lines)
-- `tests/systems/match-state-machine.test.js` — 29 tests documenting all valid transitions
+After all of Phase 2, Phase 3 (event-driven presentation: AudioBridge, VFXBridge, remove `_muteEffects`) can begin.
 
 ---
 
@@ -703,7 +703,7 @@ flowchart TD
 
 | # | Task | Status | Details |
 |---|------|--------|---------|
-| 2B.1 | Wire `MatchStateMachine` into FightScene | Pending | Large refactor (~1,939 lines). Replace boolean flags with state machine transitions. Each state maps to a block in `update()`. |
+| 2B.1 | Wire `MatchStateMachine` into FightScene | **Done** | FightScene uses SM for flow control. `isPaused` getter, `_reconnecting`/`_onlineDisconnected` eliminated, update loop guards on SM state. 14 integration tests in `tests/scenes/fight-scene-states.test.js`. |
 | 2B.2 | Formalize server state machine | **Done** | `RoomState` enum + `_transition()` validator. Added EMPTY and READY_CHECK states. Messages validated against current state. 6 new tests. Merged with PR #42's `rejoin_ack` and no-grace rejoin path. |
 | 2B.3 | Add SYNCHRONIZING state flow | Pending | Depends on 2B.1 (FightScene must use MatchStateMachine). |
 | 2B.4 | Update ReconnectionManager | Pending | Blocked by 2B.1. Wire `connection_lost`/`grace_expired`/`opponent_reconnected` to MatchStateMachine transitions. |
