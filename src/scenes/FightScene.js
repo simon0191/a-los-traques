@@ -259,14 +259,18 @@ export class FightScene extends Phaser.Scene {
       return;
     }
 
-    {
-      const ms = this.matchState.state;
-      // Simulation runs during ROUND_ACTIVE and ROUND_END (online transitionTimer / replay cooldown)
-      const simulating = ms === MatchState.ROUND_ACTIVE || ms === MatchState.ROUND_END;
-      if (!simulating) {
-        // Allow restart after match over (Space key or tap) in local mode
+    if (!this.combat.roundActive) {
+      // Replay mode: don't bail out — the fixed-timestep loop handles round transitions
+      if (this._replayP1 && this._replayP2) {
+        // fall through to the fixed-timestep loop below
+      } else if (this.gameMode === 'online') {
+        // Online mode: keep simulation running during round transitions so both
+        // peers stay in lockstep. The frame-based transitionTimer in simulateFrame
+        // handles deterministic round reset.
+      } else {
+        // Allow restart after match over (Space key or tap)
         if (
-          ms === MatchState.MATCH_END &&
+          this.combat.matchOver &&
           this.spaceKey &&
           Phaser.Input.Keyboard.JustDown(this.spaceKey)
         ) {
