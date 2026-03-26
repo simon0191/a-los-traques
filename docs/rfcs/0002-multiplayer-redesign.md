@@ -1,8 +1,8 @@
 # RFC 0002: Multiplayer Architecture Redesign
 
-**Status:** In Progress — Phase 1 complete, Phase 2A.1–2A.2 complete, Phase 2B.1–2B.2 complete
+**Status:** In Progress — Phase 1 complete, Phase 2A.1–2A.2 complete, Phase 2B.1–2B.4 complete
 **Date:** 2026-03-24
-**Updated:** 2026-03-25
+**Updated:** 2026-03-26
 **Author:** Architecture Team
 **Predecessor:** [RFC 0001: Networking Redesign](0001-networking-redesign.md) (Phases 1–4 complete)
 **PR:** [#49](https://github.com/simon0191/a-los-traques/pull/49)
@@ -11,14 +11,15 @@
 
 ### What's Next
 
-**2B.1 is done.** FightScene now uses `MatchStateMachine` for flow control: `isPaused` is a getter on SM state, `_reconnecting` and `_onlineDisconnected` booleans are eliminated, and the update loop guards on SM state instead of `combat.roundActive`. 14 new integration tests in `tests/scenes/fight-scene-states.test.js`.
+**Phase 2B is complete.** All session management tasks done:
+- **2B.1:** FightScene uses `MatchStateMachine` for flow control.
+- **2B.2:** Server has formalized room state machine.
+- **2B.3:** Frame-0 synchronization — online mode starts in SYNCHRONIZING state, both peers exchange frame-0 hashes via `frame_sync` WebSocket messages before simulation begins. 5s timeout → DISCONNECTED.
+- **2B.4:** ReconnectionManager callbacks fire SM transitions via `canTransition` guards (done as part of 2B.1).
 
-The next tasks are **2B.3 (SYNCHRONIZING state)** and **2B.4 (ReconnectionManager → state machine)**. Both are now unblocked:
-- **2B.3:** Add frame-0 sync exchange. FightScene already initializes SM at ROUND_INTRO; add a SYNCHRONIZING state before it for online mode.
-- **2B.4:** Wire ReconnectionManager callbacks to fire SM transitions directly instead of going through FightScene callbacks. Currently the callbacks use `canTransition` guards.
-- **2A.4:** Frame-0 sync exchange (depends on 2B.3).
+Remaining Phase 2 tasks: **2A.3** (tag snapshots confirmed/predicted), **2A.4** (frame-0 sync exchange in RollbackManager — depends on 2B.3, now unblocked), **2A.5** (snapshot version field).
 
-After all of Phase 2, Phase 3 (event-driven presentation: AudioBridge, VFXBridge, remove `_muteEffects`) can begin.
+After Phase 2, Phase 3 (event-driven presentation: AudioBridge, VFXBridge, remove `_muteEffects`) can begin.
 
 ---
 
@@ -705,8 +706,8 @@ flowchart TD
 |---|------|--------|---------|
 | 2B.1 | Wire `MatchStateMachine` into FightScene | **Done** | FightScene uses SM for flow control. `isPaused` getter, `_reconnecting`/`_onlineDisconnected` eliminated, update loop guards on SM state. 14 integration tests in `tests/scenes/fight-scene-states.test.js`. |
 | 2B.2 | Formalize server state machine | **Done** | `RoomState` enum + `_transition()` validator. Added EMPTY and READY_CHECK states. Messages validated against current state. 6 new tests. Merged with PR #42's `rejoin_ack` and no-grace rejoin path. |
-| 2B.3 | Add SYNCHRONIZING state flow | Pending | Depends on 2B.1 (FightScene must use MatchStateMachine). |
-| 2B.4 | Update ReconnectionManager | Pending | Blocked by 2B.1. Wire `connection_lost`/`grace_expired`/`opponent_reconnected` to MatchStateMachine transitions. |
+| 2B.3 | Add SYNCHRONIZING state flow | **Done** | Online mode starts SM at SYNCHRONIZING. Both peers exchange frame-0 hashes via `frame_sync` WebSocket message. On match → SYNC_CONFIRMED → ROUND_INTRO → ROUND_ACTIVE. 5s timeout → DISCONNECTED. Server relays `frame_sync` from both slots. |
+| 2B.4 | Update ReconnectionManager | **Done** | ReconnectionManager callbacks fire SM transitions via `canTransition` guards (implemented as part of 2B.1). |
 
 **Dependencies:** Phase 1 (`MatchStateMachine` must exist).
 
