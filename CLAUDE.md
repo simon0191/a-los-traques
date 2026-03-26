@@ -55,6 +55,8 @@ tests/
 - `gameMode`: `'local'` (vs AI) or `'online'` (vs player) passed through scene chain
 - Scenes pass data via `scene.start('SceneName', { p1Id, p2Id, stageId, gameMode, networkManager })`
 - FightScene uses `MatchStateMachine` for flow control: `isPaused` is a getter on SM state, `_reconnecting`/`_onlineDisconnected` eliminated, update loop guards on `matchState.state` instead of `combat.roundActive`
+- **Before every commit**: run `bun run lint:fix` to auto-fix formatting/lint issues, then verify with `bun run lint`. CI runs Biome lint and will fail on any error.
+- **Atomic commits**: make a separate commit for each logical change. Don't bundle unrelated changes into one commit.
 
 ## Asset Pipeline
 
