@@ -1288,7 +1288,7 @@ export class FightScene extends Phaser.Scene {
     const nm = this.networkManager;
 
     // Receive authoritative state syncs from host
-    nm.onFrameZeroSync((msg) => {
+    nm.onSync((msg) => {
       this.p1Fighter.hp = msg.p1hp;
       this.p1Fighter.special = msg.p1sp;
       this.p2Fighter.hp = msg.p2hp;
@@ -1740,17 +1740,29 @@ export class FightScene extends Phaser.Scene {
 
     // Listen for peer's hash
     nm.onFrameZeroSync((msg) => {
+      console.log(`[SYNC] Received peer hash: ${msg.hash}`);
       this._syncRemoteHash = msg.hash;
       this._checkFrameZeroSync();
     });
 
-    // Send our hash
+    // Send our hash immediately and retry every 500ms until confirmed
+    console.log(`[SYNC] Sending frame-0 hash: ${localHash}`);
     nm.sendFrameZeroSync(localHash);
+    this._syncRetryTimer = this.time.addEvent({
+      delay: 500,
+      loop: true,
+      callback: () => {
+        if (this.matchState.state === MatchState.SYNCHRONIZING) {
+          nm.sendFrameZeroSync(localHash);
+        }
+      },
+    });
 
     // Timeout: 5 seconds
     this._syncTimeout = this.time.delayedCall(5000, () => {
       if (this.matchState.state === MatchState.SYNCHRONIZING) {
         console.warn('[SYNC] Frame-0 sync timed out');
+        this._cleanupSyncTimers();
         this.matchState.transition(MatchEvent.SYNC_TIMEOUT);
         this.centerText.setText('DESCONECTADO');
         this.subtitleText.setText('Sincronización fallida');
@@ -1759,33 +1771,34 @@ export class FightScene extends Phaser.Scene {
     });
   }
 
+  _cleanupSyncTimers() {
+    if (this._syncTimeout) {
+      this._syncTimeout.destroy();
+      this._syncTimeout = null;
+    }
+    if (this._syncRetryTimer) {
+      this._syncRetryTimer.destroy();
+      this._syncRetryTimer = null;
+    }
+  }
+
   _checkFrameZeroSync() {
     if (this.matchState.state !== MatchState.SYNCHRONIZING) return;
     if (this._syncRemoteHash === null) return;
 
+    this._cleanupSyncTimers();
+
     if (this._syncLocalHash === this._syncRemoteHash) {
-      // Hashes match — proceed to fight
-      if (this._syncTimeout) {
-        this._syncTimeout.destroy();
-        this._syncTimeout = null;
-      }
-      this.matchState.transition(MatchEvent.SYNC_CONFIRMED);
-      this._showRoundIntroVisual();
-      this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+      console.log('[SYNC] Frame-0 sync confirmed');
     } else {
-      // Mismatch — log and retry with P1's authoritative state
       console.warn(
-        `[SYNC] Frame-0 hash mismatch: local=${this._syncLocalHash}, remote=${this._syncRemoteHash}`,
+        `[SYNC] Frame-0 hash mismatch: local=${this._syncLocalHash}, remote=${this._syncRemoteHash}. Proceeding anyway.`,
       );
-      // For now, proceed anyway — the rollback system will handle desyncs
-      if (this._syncTimeout) {
-        this._syncTimeout.destroy();
-        this._syncTimeout = null;
-      }
-      this.matchState.transition(MatchEvent.SYNC_CONFIRMED);
-      this._showRoundIntroVisual();
-      this.matchState.transition(MatchEvent.INTRO_COMPLETE);
     }
+
+    this.matchState.transition(MatchEvent.SYNC_CONFIRMED);
+    this._showRoundIntroVisual();
+    this.matchState.transition(MatchEvent.INTRO_COMPLETE);
   }
 
   _showRoundIntroVisual() {
@@ -2051,10 +2064,7 @@ export class FightScene extends Phaser.Scene {
     if (this.aiController) this.aiController.destroy();
     if (this.touchControls) this.touchControls.destroy();
     if (this.reconnectionManager) this.reconnectionManager.destroy();
-    if (this._syncTimeout) {
-      this._syncTimeout.destroy();
-      this._syncTimeout = null;
-    }
+    this._cleanupSyncTimers();
     this.matchState = null;
     // Destroy projectiles
     for (const proj of this.projectiles) {
