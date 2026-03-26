@@ -923,6 +923,25 @@ describe('FightRoom', () => {
       expect(c3Msgs.some((m) => m.type === 'sync')).toBe(true);
     });
 
+    it('frame_sync relayed to opponent from both slots (no spectators)', () => {
+      room.onMessage(JSON.stringify({ type: 'frame_sync', hash: 123 }), conn1);
+
+      const c2Msgs = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Msgs.some((m) => m.type === 'frame_sync')).toBe(true);
+
+      const c3Msgs = conn3.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c3Msgs.some((m) => m.type === 'frame_sync')).toBe(false);
+
+      conn2.send.mockClear();
+      conn3.send.mockClear();
+
+      // P2 (slot 1) can also send frame_sync
+      room.onMessage(JSON.stringify({ type: 'frame_sync', hash: 456 }), conn2);
+
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'frame_sync')).toBe(true);
+    });
+
     it('round_event relayed to opponent and spectators', () => {
       room.onMessage(JSON.stringify({ type: 'round_event', event: 'ko' }), conn1);
 
