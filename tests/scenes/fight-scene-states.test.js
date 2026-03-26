@@ -172,7 +172,11 @@ describe('FightScene state machine transitions', () => {
       sm.transition(MatchEvent.ROUND_OVER);
 
       expect(transitions).toEqual([
-        { from: MatchState.ROUND_INTRO, to: MatchState.ROUND_ACTIVE, event: MatchEvent.INTRO_COMPLETE },
+        {
+          from: MatchState.ROUND_INTRO,
+          to: MatchState.ROUND_ACTIVE,
+          event: MatchEvent.INTRO_COMPLETE,
+        },
         { from: MatchState.ROUND_ACTIVE, to: MatchState.ROUND_END, event: MatchEvent.ROUND_OVER },
       ]);
     });
