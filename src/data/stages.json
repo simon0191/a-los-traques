@@ -54,5 +54,13 @@
     "groundColor": "#101010",
     "description": "Epaaa hpta",
     "texture": "stages_input"
+  },
+  {
+    "id": "djGartner",
+    "name": "DjGartner",
+    "bgColor": "#000000",
+    "groundColor": "#101010",
+    "description": "Sobelooo",
+    "texture": "stages_djGartner"
   }
 ]
