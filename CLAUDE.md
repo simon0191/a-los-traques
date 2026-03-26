@@ -54,6 +54,9 @@ tests/
 - Placeholder textures: colored rectangles generated in BootScene, used when no real sprites exist
 - `gameMode`: `'local'` (vs AI) or `'online'` (vs player) passed through scene chain
 - Scenes pass data via `scene.start('SceneName', { p1Id, p2Id, stageId, gameMode, networkManager })`
+- FightScene uses `MatchStateMachine` for flow control: `isPaused` is a getter on SM state, `_reconnecting`/`_onlineDisconnected` eliminated, update loop guards on `matchState.state` instead of `combat.roundActive`
+- **Before every commit**: run `bun run lint:fix` to auto-fix formatting/lint issues, then verify with `bun run lint`. CI runs Biome lint and will fail on any error.
+- **Atomic commits**: make a separate commit for each logical change. Don't bundle unrelated changes into one commit.
 
 ## Asset Pipeline
 
@@ -134,6 +137,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/room-state-machine.md` — Server room state (`roomState` transitions, `return_to_select` vs `disconnect`)
 - `docs/e2e-testing.md` — E2E multiplayer testing framework (autoplay, FightRecorder, Playwright)
 - `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phases 1-4 complete, Phase 5 optional)
+- `docs/rfcs/0002-multiplayer-redesign.md` — Multiplayer architecture redesign (Phase 1 complete, Phase 2 in progress)
 
 ## Online Multiplayer
 
