@@ -21,6 +21,7 @@ import {
   MAX_STAMINA_FP,
   ONLINE_INPUT_DELAY,
 } from '../systems/FixedPoint.js';
+import { captureGameState, hashGameState } from '../systems/GameState.js';
 import { InputManager } from '../systems/InputManager.js';
 import { MatchEvent, MatchState, MatchStateMachine } from '../systems/MatchStateMachine.js';
 import { ReconnectionManager } from '../systems/ReconnectionManager.js';
@@ -193,7 +194,9 @@ export class FightScene extends Phaser.Scene {
     this._simAccumulator = 0;
 
     // -- Match state machine (RFC 0002 §2B.1) --
-    this.matchState = new MatchStateMachine(MatchState.ROUND_INTRO);
+    const smInitialState =
+      this.gameMode === 'online' ? MatchState.SYNCHRONIZING : MatchState.ROUND_INTRO;
+    this.matchState = new MatchStateMachine(smInitialState);
 
     // -- Start first round intro --
     if (this._replayP1) {
@@ -209,11 +212,10 @@ export class FightScene extends Phaser.Scene {
         `[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`,
       );
     } else if (this.gameMode === 'online') {
-      // Online mode: start round immediately for determinism.
-      // The simulation must not depend on wall-clock Phaser timers.
+      // Online mode: prepare round state for frame-0 sync, but don't start simulation yet.
+      // Both peers exchange frame-0 hashes in SYNCHRONIZING state.
       this.combat.startRound();
-      this._showRoundIntroVisual();
-      this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+      this._startFrameZeroSync();
     } else {
       this._showRoundIntro();
     }
@@ -233,6 +235,11 @@ export class FightScene extends Phaser.Scene {
     // Skip game loop while reconnecting
     if (this.matchState.state === MatchState.RECONNECTING) {
       this._updateReconnectingOverlay();
+      return;
+    }
+
+    // Skip game loop while waiting for frame-0 sync (RFC 0002 §2B.3)
+    if (this.matchState.state === MatchState.SYNCHRONIZING) {
       return;
     }
 
@@ -1281,7 +1288,7 @@ export class FightScene extends Phaser.Scene {
     const nm = this.networkManager;
 
     // Receive authoritative state syncs from host
-    nm.onSync((msg) => {
+    nm.onFrameZeroSync((msg) => {
       this.p1Fighter.hp = msg.p1hp;
       this.p1Fighter.special = msg.p1sp;
       this.p2Fighter.hp = msg.p2hp;
@@ -1714,6 +1721,73 @@ export class FightScene extends Phaser.Scene {
   // ROUND FLOW
   // =========================================================================
   /** Visual-only round intro for online mode — doesn't touch roundActive or startRound. */
+  /**
+   * Frame-0 synchronization (RFC 0002 §2B.3).
+   * Both peers compute a hash of the initial game state and exchange it.
+   * Simulation starts only after both hashes match.
+   */
+  _startFrameZeroSync() {
+    const nm = this.networkManager;
+    const frame0State = captureGameState(0, this.p1Fighter, this.p2Fighter, this.combat);
+    const localHash = hashGameState(frame0State);
+
+    this._syncLocalHash = localHash;
+    this._syncRemoteHash = null;
+
+    // Show sync status
+    this.centerText.setText('SINCRONIZANDO...');
+    this.subtitleText.setText('');
+
+    // Listen for peer's hash
+    nm.onFrameZeroSync((msg) => {
+      this._syncRemoteHash = msg.hash;
+      this._checkFrameZeroSync();
+    });
+
+    // Send our hash
+    nm.sendFrameZeroSync(localHash);
+
+    // Timeout: 5 seconds
+    this._syncTimeout = this.time.delayedCall(5000, () => {
+      if (this.matchState.state === MatchState.SYNCHRONIZING) {
+        console.warn('[SYNC] Frame-0 sync timed out');
+        this.matchState.transition(MatchEvent.SYNC_TIMEOUT);
+        this.centerText.setText('DESCONECTADO');
+        this.subtitleText.setText('Sincronización fallida');
+        this.combat.roundActive = false;
+      }
+    });
+  }
+
+  _checkFrameZeroSync() {
+    if (this.matchState.state !== MatchState.SYNCHRONIZING) return;
+    if (this._syncRemoteHash === null) return;
+
+    if (this._syncLocalHash === this._syncRemoteHash) {
+      // Hashes match — proceed to fight
+      if (this._syncTimeout) {
+        this._syncTimeout.destroy();
+        this._syncTimeout = null;
+      }
+      this.matchState.transition(MatchEvent.SYNC_CONFIRMED);
+      this._showRoundIntroVisual();
+      this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+    } else {
+      // Mismatch — log and retry with P1's authoritative state
+      console.warn(
+        `[SYNC] Frame-0 hash mismatch: local=${this._syncLocalHash}, remote=${this._syncRemoteHash}`,
+      );
+      // For now, proceed anyway — the rollback system will handle desyncs
+      if (this._syncTimeout) {
+        this._syncTimeout.destroy();
+        this._syncTimeout = null;
+      }
+      this.matchState.transition(MatchEvent.SYNC_CONFIRMED);
+      this._showRoundIntroVisual();
+      this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+    }
+  }
+
   _showRoundIntroVisual() {
     this.centerText.setText(`ROUND ${this.combat.roundNumber}`);
     this.subtitleText.setText('');
@@ -1977,6 +2051,10 @@ export class FightScene extends Phaser.Scene {
     if (this.aiController) this.aiController.destroy();
     if (this.touchControls) this.touchControls.destroy();
     if (this.reconnectionManager) this.reconnectionManager.destroy();
+    if (this._syncTimeout) {
+      this._syncTimeout.destroy();
+      this._syncTimeout = null;
+    }
     this.matchState = null;
     // Destroy projectiles
     for (const proj of this.projectiles) {

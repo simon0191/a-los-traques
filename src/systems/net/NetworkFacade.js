@@ -242,6 +242,9 @@ export class NetworkFacade {
   onRejoinAvailable(cb) {
     this._onRejoinAvailable = cb;
   }
+  onFrameZeroSync(cb) {
+    this.signaling.on('frame_sync', cb);
+  }
   onChecksum(cb) {
     this.inputSync.onChecksum(cb);
   }
@@ -271,6 +274,9 @@ export class NetworkFacade {
   }
   sendInput(frame, inputState, history) {
     this.inputSync.sendInput(frame, inputState, history);
+  }
+  sendFrameZeroSync(hash) {
+    this.signaling.send({ type: 'frame_sync', hash });
   }
   sendChecksum(frame, hash) {
     this.inputSync.sendChecksum(frame, hash);
