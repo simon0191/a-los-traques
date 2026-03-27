@@ -12,6 +12,9 @@ import { decodeInput } from '../systems/InputBuffer.js';
 const P1_START_X = GAME_WIDTH * 0.3;
 const P2_START_X = GAME_WIDTH * 0.7;
 
+/** Snapshot format version — increment when snapshot shape changes. */
+export const SNAPSHOT_VERSION = 1;
+
 /**
  * Apply decoded input to a FighterSim.
  */
@@ -39,7 +42,7 @@ export function applyInputToFighter(fighter, inputState) {
 /**
  * Clone a fighter's mutable state into a plain object.
  */
-function cloneFighterState(f) {
+export function captureFighterState(f) {
   return {
     simX: f.simX,
     simY: f.simY,
@@ -71,7 +74,7 @@ function cloneFighterState(f) {
 /**
  * Clone combat state into a plain object.
  */
-function cloneCombatState(c) {
+export function captureCombatState(c) {
   return {
     roundNumber: c.roundNumber,
     p1RoundsWon: c.p1RoundsWon,
@@ -133,10 +136,11 @@ export function restoreCombatState(combat, snap) {
  */
 export function captureGameState(frame, p1, p2, combat) {
   return {
+    version: SNAPSHOT_VERSION,
     frame,
-    p1: cloneFighterState(p1),
-    p2: cloneFighterState(p2),
-    combat: cloneCombatState(combat),
+    p1: captureFighterState(p1),
+    p2: captureFighterState(p2),
+    combat: captureCombatState(combat),
   };
 }
 

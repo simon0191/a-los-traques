@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SNAPSHOT_VERSION } from '../../src/simulation/SimulationEngine.js';
 import { FP_SCALE, GROUND_Y_FP, MAX_STAMINA_FP } from '../../src/systems/FixedPoint.js';
 import { decodeInput, EMPTY_INPUT } from '../../src/systems/InputBuffer.js';
 import { RollbackManager } from '../../src/systems/RollbackManager.js';
@@ -279,6 +280,161 @@ describe('RollbackManager', () => {
 
       expect(muteEffectsDuringResim).toBe(true);
       expect(scene._muteEffects).toBe(false);
+    });
+  });
+
+  describe('applyResync version validation', () => {
+    it('rejects snapshot with wrong version', () => {
+      rm.advance(noInput, p1, p2, combat);
+      const frameBefore = rm.currentFrame;
+      const snapshot = { version: 999, frame: 0, p1: {}, p2: {}, combat: {} };
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm.currentFrame).toBe(frameBefore);
+    });
+
+    it('accepts snapshot with matching version', () => {
+      rm.advance(noInput, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
+      const snapshot = rm.stateSnapshots.get(1);
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm.currentFrame).toBe(snapshot.frame);
+    });
+
+    it('accepts snapshot with no version (backward compat)', () => {
+      rm.advance(noInput, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
+      const snapshot = { ...rm.stateSnapshots.get(1) };
+      delete snapshot.version;
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm.currentFrame).toBe(snapshot.frame);
+    });
+
+    it('snapshots include version field', () => {
+      rm.advance(noInput, p1, p2, combat);
+      const snapshot = rm.stateSnapshots.get(0);
+      expect(snapshot.version).toBe(SNAPSHOT_VERSION);
+    });
+  });
+
+  describe('snapshot confirmation tags', () => {
+    it('snapshots are predicted when no remote input confirmed', () => {
+      rm.advance(noInput, p1, p2, combat);
+      const snapshot = rm.stateSnapshots.get(0);
+      expect(snapshot.confirmed).toBe(false);
+    });
+
+    it('snapshots tagged confirmed when both inputs present', () => {
+      // Frame 0: provide confirmed remote input for frame 0+inputDelay=2
+      nm.drainConfirmedInputs.mockReturnValueOnce([[0, noInput]]);
+      rm.advance(noInput, p1, p2, combat);
+      // localInputHistory has frame 2 (0 + inputDelay=2)
+      // remoteInputHistory now has frame 0
+      // Frame 0 snapshot: local has frame 2, remote has frame 0
+      // The pre-tick snapshot at frame 0 checks _isFrameConfirmed(0):
+      //   local has 0? No (local stored at frame 2). So still predicted.
+      // But post-tick state at frame 1 checks _isFrameConfirmed(0):
+      //   same result.
+      // To get a confirmed snapshot, we need both local and remote for the SAME frame.
+      // Local stores at currentFrame + inputDelay. With inputDelay=2:
+      //   advance(frame=0) stores local at frame 2
+      //   advance(frame=1) stores local at frame 3
+      //   advance(frame=2) stores local at frame 4
+      // So for frame 2 to be confirmed, we need remote input at frame 2.
+      nm.drainConfirmedInputs.mockReturnValueOnce([[2, noInput]]);
+      rm.advance(noInput, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
+
+      // Frame 2's pre-tick snapshot should be confirmed (local has 2 from advance(0), remote has 2)
+      const snapshot = rm.stateSnapshots.get(2);
+      expect(snapshot).toBeDefined();
+      expect(snapshot.confirmed).toBe(true);
+    });
+
+    it('_isFrameConfirmed returns true only when both inputs exist', () => {
+      // No inputs at all
+      expect(rm._isFrameConfirmed(0)).toBe(false);
+
+      // Only local
+      rm.localInputHistory.set(5, 0);
+      expect(rm._isFrameConfirmed(5)).toBe(false);
+
+      // Both local and remote
+      rm.remoteInputHistory.set(5, 0);
+      expect(rm._isFrameConfirmed(5)).toBe(true);
+    });
+
+    it('captureResyncSnapshot prefers confirmed over predicted', () => {
+      // Advance several frames with no remote input (all predicted)
+      for (let i = 0; i < 5; i++) {
+        rm.advance(noInput, p1, p2, combat);
+      }
+
+      // Manually mark one earlier snapshot as confirmed
+      const snap2 = rm.stateSnapshots.get(2);
+      snap2.confirmed = true;
+
+      const resyncSnap = rm.captureResyncSnapshot(p1, p2, combat);
+      expect(resyncSnap.confirmed).toBe(true);
+      expect(resyncSnap.frame).toBe(2);
+    });
+
+    it('captureResyncSnapshot falls back to latest when none confirmed', () => {
+      for (let i = 0; i < 3; i++) {
+        rm.advance(noInput, p1, p2, combat);
+      }
+
+      const resyncSnap = rm.captureResyncSnapshot(p1, p2, combat);
+      expect(resyncSnap).toBeDefined();
+      expect(resyncSnap.frame).toBe(rm.currentFrame - 1);
+    });
+
+    it('applyResync tags baseline snapshot as confirmed', () => {
+      rm.advance(noInput, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
+      const snapshot = rm.stateSnapshots.get(1);
+      rm.applyResync(snapshot, p1, p2, combat);
+      const baselineSnap = rm.stateSnapshots.get(rm.currentFrame);
+      expect(baselineSnap.confirmed).toBe(true);
+    });
+  });
+
+  describe('frame-0 sync', () => {
+    it('getFrame0SyncHash returns a numeric hash', () => {
+      const hash = rm.getFrame0SyncHash(p1, p2, combat);
+      expect(typeof hash).toBe('number');
+    });
+
+    it('getFrame0SyncHash stores frame-0 snapshot with confirmed tag', () => {
+      rm.getFrame0SyncHash(p1, p2, combat);
+      const snap = rm.stateSnapshots.get(0);
+      expect(snap).toBeDefined();
+      expect(snap.confirmed).toBe(true);
+      expect(snap.frame).toBe(0);
+    });
+
+    it('getFrame0SyncHash is deterministic', () => {
+      const hash1 = rm.getFrame0SyncHash(p1, p2, combat);
+      const hash2 = rm.getFrame0SyncHash(p1, p2, combat);
+      expect(hash1).toBe(hash2);
+    });
+
+    it('getFrame0SyncHash resets currentFrame to 0', () => {
+      rm.currentFrame = 10;
+      rm.getFrame0SyncHash(p1, p2, combat);
+      expect(rm.currentFrame).toBe(0);
+    });
+
+    it('validateFrame0Hash detects matching hashes', () => {
+      const hash = rm.getFrame0SyncHash(p1, p2, combat);
+      const result = rm.validateFrame0Hash(hash, p1, p2, combat);
+      expect(result.match).toBe(true);
+      expect(result.localHash).toBe(result.remoteHash);
+    });
+
+    it('validateFrame0Hash detects mismatched hashes', () => {
+      const result = rm.validateFrame0Hash(999999, p1, p2, combat);
+      expect(result.match).toBe(false);
+      expect(result.remoteHash).toBe(999999);
     });
   });
 });

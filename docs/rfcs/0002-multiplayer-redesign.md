@@ -1,8 +1,8 @@
 # RFC 0002: Multiplayer Architecture Redesign
 
-**Status:** In Progress — Phase 1 complete, Phase 2A.1–2A.2 complete, Phase 2B.1–2B.4 complete
+**Status:** In Progress — Phases 1, 2A, 2B complete
 **Date:** 2026-03-24
-**Updated:** 2026-03-26
+**Updated:** 2026-03-27
 **Author:** Architecture Team
 **Predecessor:** [RFC 0001: Networking Redesign](0001-networking-redesign.md) (Phases 1–4 complete)
 **PR:** [#49](https://github.com/simon0191/a-los-traques/pull/49)
@@ -11,15 +11,15 @@
 
 ### What's Next
 
-**Phase 2B is complete.** All session management tasks done:
-- **2B.1:** FightScene uses `MatchStateMachine` for flow control.
-- **2B.2:** Server has formalized room state machine.
-- **2B.3:** Frame-0 synchronization — online mode starts in SYNCHRONIZING state, both peers exchange frame-0 hashes via `frame_sync` WebSocket messages before simulation begins. 5s timeout → DISCONNECTED.
-- **2B.4:** ReconnectionManager callbacks fire SM transitions via `canTransition` guards (done as part of 2B.1).
+**Phase 2 (A+B) is complete.** All rollback engine and session management tasks done.
 
-Remaining Phase 2 tasks: **2A.3** (tag snapshots confirmed/predicted), **2A.4** (frame-0 sync exchange in RollbackManager — depends on 2B.3, now unblocked), **2A.5** (snapshot version field).
+Key changes in final Phase 2A batch:
+- **Consolidation:** `GameState.js` is now a pure re-export from `SimulationEngine.js` (single source of truth). `syncSprite()` side effect removed from `restoreFighterState` — presentation layer calls it explicitly.
+- **2A.3:** Snapshots carry a `confirmed` boolean. `captureResyncSnapshot()` prefers confirmed snapshots.
+- **2A.4:** `RollbackManager.getFrame0SyncHash()` / `validateFrame0Hash()` own frame-0 state capture. FightScene delegates to these instead of calling `captureGameState`/`hashGameState` directly.
+- **2A.5:** All snapshots include `version: SNAPSHOT_VERSION`. `applyResync()` rejects mismatched versions.
 
-After Phase 2, Phase 3 (event-driven presentation: AudioBridge, VFXBridge, remove `_muteEffects`) can begin.
+**Next: Phase 3** (event-driven presentation: AudioBridge, VFXBridge, remove `_muteEffects`).
 
 ---
 
@@ -683,9 +683,9 @@ flowchart TD
 |---|------|--------|---------|
 | 2A.1 | Update `advance()` signature | **Done** | Removed `scene` parameter. `advance(rawLocalInput, p1, p2, combat)`. `_muteEffects` accessed via `p1.scene` during rollback (temporary until Phase 3). |
 | 2A.2 | Use `SimulationEngine.tick()` | **Done** | RollbackManager uses `tick()` for both normal frames and resimulation. Snapshots from `captureGameState`/`restoreFighterState`/`restoreCombatState` in SimulationEngine. |
-| 2A.3 | Tag snapshots confirmed/predicted | Pending | |
-| 2A.4 | Implement frame-0 sync exchange | Pending | Depends on 2B.3 (SYNCHRONIZING state in FightScene). |
-| 2A.5 | Add snapshot version field | Pending | |
+| 2A.3 | Tag snapshots confirmed/predicted | **Done** | Snapshots carry `confirmed` boolean. `_isFrameConfirmed(frame)` checks both input histories. `captureResyncSnapshot()` prefers confirmed snapshots. 6 unit tests. |
+| 2A.4 | Implement frame-0 sync exchange | **Done** | `getFrame0SyncHash()` / `validateFrame0Hash()` in RollbackManager. FightScene delegates instead of using `captureGameState`/`hashGameState` directly. 6 unit tests. |
+| 2A.5 | Add snapshot version field | **Done** | `SNAPSHOT_VERSION = 1` in `captureGameState()`. `applyResync()` rejects mismatched versions, accepts versionless (backward compat). 4 unit tests. Also consolidated `GameState.js` → re-exports from `SimulationEngine.js`. |
 
 **Dependencies:** Phase 1 (`SimulationEngine` must exist).
 
@@ -841,7 +841,7 @@ src/
     CombatSim.js            # Pure combat resolution
   systems/
     RollbackManager.js      # REFACTORED — uses SimulationEngine
-    GameState.js            # UNCHANGED — capture/restore/hash
+    GameState.js            # REFACTORED — re-exports from SimulationEngine (single source)
     InputBuffer.js          # UNCHANGED — encode/decode/predict
     FixedPoint.js           # UNCHANGED — FP constants
     CombatSystem.js         # REFACTORED — delegates to CombatSim, owns side effects

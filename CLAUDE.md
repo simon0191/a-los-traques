@@ -137,7 +137,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/room-state-machine.md` — Server room state (`roomState` transitions, `return_to_select` vs `disconnect`)
 - `docs/e2e-testing.md` — E2E multiplayer testing framework (autoplay, FightRecorder, Playwright)
 - `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phases 1-4 complete, Phase 5 optional)
-- `docs/rfcs/0002-multiplayer-redesign.md` — Multiplayer architecture redesign (Phase 1 complete, Phase 2 in progress)
+- `docs/rfcs/0002-multiplayer-redesign.md` — Multiplayer architecture redesign (Phases 1, 2A, 2B complete, Phase 3 next)
 
 ## Online Multiplayer
 
