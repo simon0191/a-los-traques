@@ -32,6 +32,28 @@ jobs:
       - run: npx playwright install-deps chromium
         if: steps.playwright-cache.outputs.cache-hit == 'true'
       - run: bun run test:e2e
+      - name: Print test results to CI logs
+        if: always()
+        run: |
+          if [ -d test-results ]; then
+            echo "=== E2E Test Results ==="
+            for f in test-results/*.md test-results/*.log test-results/*.json; do
+              [ -f "$f" ] || continue
+              echo ""
+              echo "--- $f ---"
+              cat "$f"
+              echo ""
+            done
+            # Also print Playwright attachment logs
+            find test-results -path '*/attachments/*' -type f | sort | while read -r f; do
+              echo ""
+              echo "--- $f ---"
+              cat "$f"
+              echo ""
+            done
+          else
+            echo "No test-results directory found"
+          fi
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
