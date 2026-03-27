@@ -169,6 +169,7 @@ export class RollbackManager {
           const p2Input = this._getInputForFrame(f, false);
           // tick() mutates sim objects and returns immutable snapshot
           const { state } = tick(p1Sim, p2Sim, combatSim, p1Input, p2Input, f);
+          state.confirmed = this._isFrameConfirmed(f);
           this.stateSnapshots.set(f + 1, state);
         }
 
@@ -183,10 +184,9 @@ export class RollbackManager {
     }
 
     // 7. Save snapshot for currentFrame (before simulating)
-    this.stateSnapshots.set(
-      this.currentFrame,
-      captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim),
-    );
+    const preTickSnap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
+    preTickSnap.confirmed = this._isFrameConfirmed(this.currentFrame);
+    this.stateSnapshots.set(this.currentFrame, preTickSnap);
 
     // 8. Simulate currentFrame via tick()
     const p1Input = this._getInputForFrame(this.currentFrame, true);
@@ -202,6 +202,7 @@ export class RollbackManager {
     );
 
     // Store the post-tick snapshot (immutable)
+    state.confirmed = this._isFrameConfirmed(this.currentFrame);
     this.stateSnapshots.set(this.currentFrame + 1, state);
 
     // 9. Sync Phaser sprites from sim state
@@ -280,10 +281,9 @@ export class RollbackManager {
     this.predictedRemoteInputs.clear();
     this._localChecksums.clear();
 
-    this.stateSnapshots.set(
-      this.currentFrame,
-      captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim),
-    );
+    const resyncSnap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
+    resyncSnap.confirmed = true; // authoritative snapshot
+    this.stateSnapshots.set(this.currentFrame, resyncSnap);
 
     this.lastConfirmedRemoteInput = EMPTY_INPUT;
     this.lastConfirmedRemoteFrame = this.currentFrame - 1;
@@ -296,13 +296,22 @@ export class RollbackManager {
    * Capture the latest available snapshot for resync.
    */
   captureResyncSnapshot(p1, p2, combat) {
+    // Prefer latest confirmed snapshot for authoritative resync
+    const frames = [...this.stateSnapshots.keys()].sort((a, b) => b - a);
+    for (const frame of frames) {
+      const snap = this.stateSnapshots.get(frame);
+      if (snap.confirmed) return snap;
+    }
+    // Fallback: return latest snapshot even if predicted
     const latestFrame = this.currentFrame - 1;
     const existing = this.stateSnapshots.get(latestFrame);
     if (existing) return existing;
     const p1Sim = p1.sim || p1;
     const p2Sim = p2.sim || p2;
     const combatSim = combat.sim || combat;
-    return captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
+    const snap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
+    snap.confirmed = false;
+    return snap;
   }
 
   /**
@@ -317,6 +326,13 @@ export class RollbackManager {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Check whether both local and remote inputs for a frame are confirmed.
+   */
+  _isFrameConfirmed(frame) {
+    return this.localInputHistory.has(frame) && this.remoteInputHistory.has(frame);
   }
 
   /**
