@@ -329,6 +329,31 @@ export class RollbackManager {
   }
 
   /**
+   * Capture frame-0 state and return its hash for sync exchange.
+   * Stores the frame-0 snapshot (tagged confirmed) and resets currentFrame.
+   * @returns {number} 32-bit hash of the frame-0 state
+   */
+  getFrame0SyncHash(p1, p2, combat) {
+    const p1Sim = p1.sim || p1;
+    const p2Sim = p2.sim || p2;
+    const combatSim = combat.sim || combat;
+    const snapshot = captureGameState(0, p1Sim, p2Sim, combatSim);
+    snapshot.confirmed = true; // frame 0 has no inputs — always confirmed
+    this.stateSnapshots.set(0, snapshot);
+    this.currentFrame = 0;
+    return hashGameState(snapshot);
+  }
+
+  /**
+   * Validate a remote peer's frame-0 hash against local state.
+   * @returns {{ match: boolean, localHash: number, remoteHash: number }}
+   */
+  validateFrame0Hash(remoteHash, p1, p2, combat) {
+    const localHash = this.getFrame0SyncHash(p1, p2, combat);
+    return { match: localHash === remoteHash, localHash, remoteHash };
+  }
+
+  /**
    * Check whether both local and remote inputs for a frame are confirmed.
    */
   _isFrameConfirmed(frame) {

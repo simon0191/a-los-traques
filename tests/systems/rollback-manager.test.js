@@ -397,4 +397,44 @@ describe('RollbackManager', () => {
       expect(baselineSnap.confirmed).toBe(true);
     });
   });
+
+  describe('frame-0 sync', () => {
+    it('getFrame0SyncHash returns a numeric hash', () => {
+      const hash = rm.getFrame0SyncHash(p1, p2, combat);
+      expect(typeof hash).toBe('number');
+    });
+
+    it('getFrame0SyncHash stores frame-0 snapshot with confirmed tag', () => {
+      rm.getFrame0SyncHash(p1, p2, combat);
+      const snap = rm.stateSnapshots.get(0);
+      expect(snap).toBeDefined();
+      expect(snap.confirmed).toBe(true);
+      expect(snap.frame).toBe(0);
+    });
+
+    it('getFrame0SyncHash is deterministic', () => {
+      const hash1 = rm.getFrame0SyncHash(p1, p2, combat);
+      const hash2 = rm.getFrame0SyncHash(p1, p2, combat);
+      expect(hash1).toBe(hash2);
+    });
+
+    it('getFrame0SyncHash resets currentFrame to 0', () => {
+      rm.currentFrame = 10;
+      rm.getFrame0SyncHash(p1, p2, combat);
+      expect(rm.currentFrame).toBe(0);
+    });
+
+    it('validateFrame0Hash detects matching hashes', () => {
+      const hash = rm.getFrame0SyncHash(p1, p2, combat);
+      const result = rm.validateFrame0Hash(hash, p1, p2, combat);
+      expect(result.match).toBe(true);
+      expect(result.localHash).toBe(result.remoteHash);
+    });
+
+    it('validateFrame0Hash detects mismatched hashes', () => {
+      const result = rm.validateFrame0Hash(999999, p1, p2, combat);
+      expect(result.match).toBe(false);
+      expect(result.remoteHash).toBe(999999);
+    });
+  });
 });

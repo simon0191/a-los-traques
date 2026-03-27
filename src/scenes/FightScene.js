@@ -21,7 +21,6 @@ import {
   MAX_STAMINA_FP,
   ONLINE_INPUT_DELAY,
 } from '../systems/FixedPoint.js';
-import { captureGameState, hashGameState } from '../systems/GameState.js';
 import { InputManager } from '../systems/InputManager.js';
 import { MatchEvent, MatchState, MatchStateMachine } from '../systems/MatchStateMachine.js';
 import { ReconnectionManager } from '../systems/ReconnectionManager.js';
@@ -1728,8 +1727,11 @@ export class FightScene extends Phaser.Scene {
    */
   _startFrameZeroSync() {
     const nm = this.networkManager;
-    const frame0State = captureGameState(0, this.p1Fighter, this.p2Fighter, this.combat);
-    const localHash = hashGameState(frame0State);
+    const localHash = this.rollbackManager.getFrame0SyncHash(
+      this.p1Fighter,
+      this.p2Fighter,
+      this.combat,
+    );
 
     this._syncLocalHash = localHash;
     this._syncRemoteHash = null;
