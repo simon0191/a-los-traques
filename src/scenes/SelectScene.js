@@ -424,7 +424,12 @@ export class SelectScene extends Phaser.Scene {
         const { size, seed } = this.matchContext.tournamentState;
         const playerFighterId = this.fighters[this.p1Index].id;
 
-        const tournamentManager = TournamentManager.generate(fighterIds, size, playerFighterId, seed);
+        const tournamentManager = TournamentManager.generate(
+          fighterIds,
+          size,
+          playerFighterId,
+          seed,
+        );
         this.matchContext.tournamentState = tournamentManager.serialize();
 
         this.cameras.main.fadeOut(400, 0, 0, 0);

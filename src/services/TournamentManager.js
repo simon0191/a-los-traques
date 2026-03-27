@@ -3,8 +3,10 @@
  * @param {number} a - Seed
  */
 function mulberry32(a) {
-  return function () {
-    let t = (a += 0x6d2b79f5);
+  let seed = a;
+  return () => {
+    seed += 0x6d2b79f5;
+    let t = seed;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -83,7 +85,7 @@ export class TournamentManager {
 
     // Initialize empty future rounds
     for (let r = 1; r < numRounds; r++) {
-      const matchesInRound = size / Math.pow(2, r + 1);
+      const matchesInRound = size / 2 ** (r + 1);
       const round = [];
       for (let m = 0; m < matchesInRound; m++) {
         round.push({ p1: null, p2: null, winner: null });
@@ -188,7 +190,10 @@ export class TournamentManager {
       const round = this.rounds[r];
       for (let m = 0; m < round.length; m++) {
         const match = round[m];
-        if (!match.winner && (match.p1 === this.playerFighterId || match.p2 === this.playerFighterId)) {
+        if (
+          !match.winner &&
+          (match.p1 === this.playerFighterId || match.p2 === this.playerFighterId)
+        ) {
           // Ensure opponent is known before returning
           if (match.p1 && match.p2) {
             return { roundIndex: r, matchIndex: m, ...match };
