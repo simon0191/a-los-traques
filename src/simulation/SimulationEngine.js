@@ -12,6 +12,9 @@ import { decodeInput } from '../systems/InputBuffer.js';
 const P1_START_X = GAME_WIDTH * 0.3;
 const P2_START_X = GAME_WIDTH * 0.7;
 
+/** Snapshot format version — increment when snapshot shape changes. */
+export const SNAPSHOT_VERSION = 1;
+
 /**
  * Apply decoded input to a FighterSim.
  */
@@ -133,6 +136,7 @@ export function restoreCombatState(combat, snap) {
  */
 export function captureGameState(frame, p1, p2, combat) {
   return {
+    version: SNAPSHOT_VERSION,
     frame,
     p1: captureFighterState(p1),
     p2: captureFighterState(p2),

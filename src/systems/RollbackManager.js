@@ -13,6 +13,7 @@ import {
   hashGameState,
   restoreCombatState,
   restoreFighterState,
+  SNAPSHOT_VERSION,
   tick,
 } from '../simulation/SimulationEngine.js';
 import { ONLINE_INPUT_DELAY } from './FixedPoint.js';
@@ -257,6 +258,12 @@ export class RollbackManager {
    */
   applyResync(snapshot, p1, p2, combat) {
     if (snapshot.frame <= this.currentFrame - this.maxRollbackFrames) return;
+    if (snapshot.version !== undefined && snapshot.version !== SNAPSHOT_VERSION) {
+      console.warn(
+        `[RESYNC] Rejected snapshot: version ${snapshot.version} !== ${SNAPSHOT_VERSION}`,
+      );
+      return;
+    }
 
     const p1Sim = p1.sim || p1;
     const p2Sim = p2.sim || p2;

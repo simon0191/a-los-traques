@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SNAPSHOT_VERSION } from '../../src/simulation/SimulationEngine.js';
 import { FP_SCALE, GROUND_Y_FP, MAX_STAMINA_FP } from '../../src/systems/FixedPoint.js';
 import { decodeInput, EMPTY_INPUT } from '../../src/systems/InputBuffer.js';
 import { RollbackManager } from '../../src/systems/RollbackManager.js';
@@ -279,6 +280,39 @@ describe('RollbackManager', () => {
 
       expect(muteEffectsDuringResim).toBe(true);
       expect(scene._muteEffects).toBe(false);
+    });
+  });
+
+  describe('applyResync version validation', () => {
+    it('rejects snapshot with wrong version', () => {
+      rm.advance(noInput, p1, p2, combat);
+      const frameBefore = rm.currentFrame;
+      const snapshot = { version: 999, frame: 0, p1: {}, p2: {}, combat: {} };
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm.currentFrame).toBe(frameBefore);
+    });
+
+    it('accepts snapshot with matching version', () => {
+      rm.advance(noInput, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
+      const snapshot = rm.stateSnapshots.get(1);
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm.currentFrame).toBe(snapshot.frame);
+    });
+
+    it('accepts snapshot with no version (backward compat)', () => {
+      rm.advance(noInput, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
+      const snapshot = { ...rm.stateSnapshots.get(1) };
+      delete snapshot.version;
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm.currentFrame).toBe(snapshot.frame);
+    });
+
+    it('snapshots include version field', () => {
+      rm.advance(noInput, p1, p2, combat);
+      const snapshot = rm.stateSnapshots.get(0);
+      expect(snapshot.version).toBe(SNAPSHOT_VERSION);
     });
   });
 });

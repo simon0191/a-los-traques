@@ -10,4 +10,5 @@ export {
   restoreCombatState,
   restoreFighterState,
   restoreGameState,
+  SNAPSHOT_VERSION,
 } from '../simulation/SimulationEngine.js';

@@ -7,6 +7,7 @@ import {
   restoreCombatState,
   restoreFighterState,
   restoreGameState,
+  SNAPSHOT_VERSION,
 } from '../../src/systems/GameState.js';
 
 function makeFighter(overrides = {}) {
@@ -177,5 +178,14 @@ describe('captureGameState / restoreGameState', () => {
     expect(p1.hp).toBe(90);
     expect(p2.hp).toBe(60);
     expect(combat.timer).toBe(45);
+  });
+
+  it('includes version field in snapshot', () => {
+    const p1 = makeFighter();
+    const p2 = makeFighter();
+    const combat = makeCombat();
+
+    const snapshot = captureGameState(0, p1, p2, combat);
+    expect(snapshot.version).toBe(SNAPSHOT_VERSION);
   });
 });
