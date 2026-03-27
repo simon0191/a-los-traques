@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
+import { TournamentManager } from '../services/TournamentManager.js';
 
 export class VictoryScene extends Phaser.Scene {
   constructor() {
@@ -15,19 +16,17 @@ export class VictoryScene extends Phaser.Scene {
     this.stageId = data.stageId;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
-    this.tournament = data.tournament || null;
-    this.playerFighterId = data.playerFighterId || null;
-    this.matchRound = data.matchRound;
-    this.matchIndex = data.matchIndex;
+    this.matchContext = data.matchContext || null;
   }
 
   create() {
-    // If tournament mode, update the match winner
-    if (this.gameMode === 'tournament' && this.tournament) {
-      const round = this.tournament.rounds[this.matchRound];
-      const match = round[this.matchIndex];
-      match.winner = this.winnerId;
+    // If tournament mode, update the match winner via TournamentManager
+    if (this.matchContext?.type === 'tournament' && this.matchContext.tournamentState) {
+      const manager = new TournamentManager(this.matchContext.tournamentState);
+      manager.advance(this.winnerId);
+      this.matchContext.tournamentState = manager.serialize();
     }
+
     // Signal match completion for E2E test orchestration
     if (this.game.autoplay?.enabled && window.__FIGHT_LOG) {
       window.__FIGHT_LOG.matchComplete = true;
@@ -47,7 +46,6 @@ export class VictoryScene extends Phaser.Scene {
     const loser = fightersData.find((f) => f.id === this.loserId);
 
     const winnerColor = parseInt(winner.color, 16);
-    const _loserColor = parseInt(loser.color, 16);
 
     // Background
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1a);
@@ -134,13 +132,13 @@ export class VictoryScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Buttons
-    if (this.gameMode === 'tournament') {
+    if (this.matchContext?.type === 'tournament') {
       this.createButton(GAME_WIDTH / 2 - 60, 252, 'CONTINUAR TORNEO', () => {
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start('BracketScene', {
-            tournament: this.tournament,
-            playerFighterId: this.playerFighterId,
+            gameMode: this.gameMode,
+            matchContext: this.matchContext,
           });
         });
       });
@@ -164,7 +162,6 @@ export class VictoryScene extends Phaser.Scene {
             })
             .setOrigin(0.5);
 
-          // If we already received a rematch request
           if (this._rematchReceived) {
             this._goToFight();
           }
@@ -196,7 +193,7 @@ export class VictoryScene extends Phaser.Scene {
       });
     }
 
-    // In online mode, listen for rematch/leave from opponent even before pressing button
+    // In online mode, listen for rematch/leave from opponent
     if (this.gameMode === 'online' && this.networkManager) {
       this._rematchReceived = false;
       this.networkManager.onRematch(() => {
@@ -208,7 +205,7 @@ export class VictoryScene extends Phaser.Scene {
 
       this.networkManager.onLeave(() => {
         if (this._rematchText) this._rematchText.destroy();
-        const _msg = this.add
+        this.add
           .text(GAME_WIDTH / 2, 235, 'Oponente quiere cambiar luchador...', {
             fontFamily: 'Arial',
             fontSize: '8px',
@@ -258,6 +255,7 @@ export class VictoryScene extends Phaser.Scene {
         stageId: this.stageId,
         gameMode: this.gameMode,
         networkManager: this.networkManager,
+        matchContext: this.matchContext,
       });
     });
   }

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
+import { TournamentManager } from '../services/TournamentManager.js';
 
 const COLS = 6;
 const ROWS = 3;
@@ -19,7 +20,7 @@ export class SelectScene extends Phaser.Scene {
   init(data) {
     this.gameMode = data?.gameMode || 'local';
     this.networkManager = data?.networkManager || null;
-    this.tournamentSize = data?.tournamentSize || 8;
+    this.matchContext = data?.matchContext || null;
   }
 
   create() {
@@ -416,18 +417,21 @@ export class SelectScene extends Phaser.Scene {
     // Highlight confirmed cell
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
 
-    if (this.gameMode === 'tournament') {
+    if (this.matchContext?.type === 'tournament') {
       this.confirmedText.setText('Generando torneo...');
       this.time.delayedCall(800, () => {
-        const tournament = this._generateTournament(
-          this.fighters[this.p1Index].id,
-          this.tournamentSize,
-        );
+        const fighterIds = this.fighters.map((f) => f.id);
+        const { size, seed } = this.matchContext.tournamentState;
+        const playerFighterId = this.fighters[this.p1Index].id;
+
+        const tournamentManager = TournamentManager.generate(fighterIds, size, playerFighterId, seed);
+        this.matchContext.tournamentState = tournamentManager.serialize();
+
         this.cameras.main.fadeOut(400, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start('BracketScene', {
-            tournament,
-            playerFighterId: this.fighters[this.p1Index].id,
+            gameMode: this.gameMode,
+            matchContext: this.matchContext,
           });
         });
       });
@@ -484,52 +488,6 @@ export class SelectScene extends Phaser.Scene {
     if (idx === -1) return;
     this.p2Index = idx;
     this._showP2Selection(idx);
-  }
-
-  _generateTournament(playerFighterId, size) {
-    const fighters = [...fightersData].filter((f) => f.id !== 'random');
-    Phaser.Utils.Array.Shuffle(fighters);
-
-    // Pick (size - 1) AI opponents
-    const opponents = fighters.filter((f) => f.id !== playerFighterId).slice(0, size - 1);
-    const tournamentFighters = [playerFighterId, ...opponents.map((o) => o.id)];
-    Phaser.Utils.Array.Shuffle(tournamentFighters);
-
-    const rounds = [];
-    const numRounds = Math.log2(size);
-
-    // Generate rounds
-    for (let r = 0; r < numRounds; r++) {
-      const matchesInRound = size / 2 ** (r + 1);
-      const round = [];
-      for (let m = 0; m < matchesInRound; m++) {
-        round.push({ p1: null, p2: null, winner: null });
-      }
-      rounds.push(round);
-    }
-
-    // Fill first round
-    const playerIdxInTournament = tournamentFighters.indexOf(playerFighterId);
-    // Swap player to p1 position of their match if they are p2
-    if (playerIdxInTournament % 2 !== 0) {
-      const p1Idx = playerIdxInTournament - 1;
-      [tournamentFighters[p1Idx], tournamentFighters[playerIdxInTournament]] = [
-        tournamentFighters[playerIdxInTournament],
-        tournamentFighters[p1Idx],
-      ];
-    }
-
-    for (let i = 0; i < size; i++) {
-      const matchIdx = Math.floor(i / 2);
-      const isP1 = i % 2 === 0;
-      if (isP1) {
-        rounds[0][matchIdx].p1 = tournamentFighters[i];
-      } else {
-        rounds[0][matchIdx].p2 = tournamentFighters[i];
-      }
-    }
-
-    return { size, rounds, complete: false };
   }
 
   _showP2Selection(idx) {

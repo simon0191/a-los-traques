@@ -63,7 +63,6 @@ export class FightScene extends Phaser.Scene {
   // INIT - receive data from character select (or use defaults)
   // =========================================================================
   init(data) {
-    console.log('[FIGHT] Init with data:', data);
     // Accept both string IDs (from PreFightScene) and numeric indices
     if (data?.p1Id) {
       this.p1Id = data.p1Id;
@@ -76,21 +75,16 @@ export class FightScene extends Phaser.Scene {
     this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
     this.gameMode = data?.gameMode || 'local';
     this.networkManager = data?.networkManager || null;
-    this.tournament = data?.tournament || null;
-    this.playerFighterId = data?.playerFighterId || null;
-    this.matchRound = data?.matchRound;
-    this.matchIndex = data?.matchIndex;
+    this.matchContext = data?.matchContext || null;
   }
 
   // =========================================================================
   // CREATE
   // =========================================================================
   create() {
-    console.log('[FIGHT] Create starting');
     // -- Load fighter data by ID --
     this.p1Data = fightersData.find((f) => f.id === this.p1Id) || fightersData[0];
     this.p2Data = fightersData.find((f) => f.id === this.p2Id) || fightersData[1];
-    console.log('[FIGHT] Fighters:', this.p1Id, 'vs', this.p2Id);
 
     // -- Draw background --
     this._createBackground();
@@ -2011,10 +2005,7 @@ export class FightScene extends Phaser.Scene {
           stageId: this.stageId,
           gameMode: this.gameMode,
           networkManager: this.networkManager,
-          tournament: this.tournament,
-          playerFighterId: this.playerFighterId,
-          matchRound: this.matchRound,
-          matchIndex: this.matchIndex,
+          matchContext: this.matchContext,
         });
       });
     });

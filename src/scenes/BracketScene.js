@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
+import { TournamentManager } from '../services/TournamentManager.js';
 
 export class BracketScene extends Phaser.Scene {
   constructor() {
@@ -9,8 +10,9 @@ export class BracketScene extends Phaser.Scene {
   }
 
   init(data) {
-    this.tournament = data.tournament;
-    this.playerFighterId = data.playerFighterId;
+    this.gameMode = data.gameMode || 'local';
+    this.matchContext = data.matchContext;
+    this.manager = new TournamentManager(this.matchContext.tournamentState);
   }
 
   create() {
@@ -24,12 +26,15 @@ export class BracketScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Sync bracket state: advance any winners that haven't been moved yet
-    this._syncTournamentProgress();
+    // Run AI simulations if needed
+    const simulated = this.manager.simulateAI();
+    if (simulated) {
+      this.matchContext.tournamentState = this.manager.serialize();
+    }
 
     this._drawBrackets();
 
-    const currentMatch = this._getCurrentPlayerMatch();
+    const currentMatch = this.manager.getCurrentMatch();
     if (currentMatch) {
       this._createButton(GAME_WIDTH / 2 - 75, GAME_HEIGHT - 30, 'SIGUIENTE COMBATE', () => {
         this.goToMatch(currentMatch);
@@ -37,14 +42,13 @@ export class BracketScene extends Phaser.Scene {
       this._createButton(GAME_WIDTH / 2 + 75, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
         this.scene.start('TitleScene');
       });
-    } else if (this.tournament.complete) {
-      const winnerId = this.tournament.rounds[this.tournament.rounds.length - 1][0].winner;
-      const winner = fightersData.find((f) => f.id === winnerId);
+    } else if (this.manager.complete) {
+      const winner = fightersData.find((f) => f.id === this.manager.winnerId);
 
       // Display Champion Portrait
-      if (this.textures.exists(`portrait_${winnerId}`)) {
+      if (this.textures.exists(`portrait_${this.manager.winnerId}`)) {
         this.add
-          .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, `portrait_${winnerId}`)
+          .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, `portrait_${this.manager.winnerId}`)
           .setDisplaySize(80, 80);
       } else {
         this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 80, 80, parseInt(winner.color, 16));
@@ -67,53 +71,16 @@ export class BracketScene extends Phaser.Scene {
         this.scene.start('TitleScene');
       });
     } else {
-      // All other matches are AI vs AI, simulate them
-      const simulated = this._simulateAIMatches();
-      if (simulated) {
-        // Re-sync progress after AI matches
-        this._syncTournamentProgress();
-      }
-
-      this.time.delayedCall(1000, () => {
-        this.scene.restart({ tournament: this.tournament, playerFighterId: this.playerFighterId });
+      // If we got here but no player match and not complete, something might be stuck
+      // or we are waiting for an animation. Just in case, show back button.
+      this._createButton(GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
+        this.scene.start('TitleScene');
       });
-    }
-  }
-
-  _syncTournamentProgress() {
-    // Advance winners for all rounds except the last one
-    for (let r = 0; r < this.tournament.rounds.length - 1; r++) {
-      const currentRound = this.tournament.rounds[r];
-      const nextRound = this.tournament.rounds[r + 1];
-
-      currentRound.forEach((match, matchIdx) => {
-        if (match.winner) {
-          const nextMatchIdx = Math.floor(matchIdx / 2);
-          const isP1Slot = matchIdx % 2 === 0;
-
-          // Check if the winner is already in the next round slot
-          if (isP1Slot) {
-            if (nextRound[nextMatchIdx].p1 !== match.winner) {
-              this._advanceWinner(r, matchIdx, match.winner);
-            }
-          } else {
-            if (nextRound[nextMatchIdx].p2 !== match.winner) {
-              this._advanceWinner(r, matchIdx, match.winner);
-            }
-          }
-        }
-      });
-    }
-
-    // Check if tournament is complete
-    const lastRound = this.tournament.rounds[this.tournament.rounds.length - 1];
-    if (lastRound[0].winner) {
-      this.tournament.complete = true;
     }
   }
 
   _drawBrackets() {
-    const rounds = this.tournament.rounds;
+    const rounds = this.manager.rounds;
     const numRounds = rounds.length;
     const roundWidth = GAME_WIDTH / (numRounds + 1);
 
@@ -139,13 +106,13 @@ export class BracketScene extends Phaser.Scene {
     const p2Name = match.p2 ? fightersData.find((f) => f.id === match.p2).name : '???';
 
     const p1Color =
-      match.p1 === this.playerFighterId
+      match.p1 === this.manager.playerFighterId
         ? '#ff0000'
         : match.winner === match.p1 && match.p1
           ? '#00ff00'
           : '#ffffff';
     const p2Color =
-      match.p2 === this.playerFighterId
+      match.p2 === this.manager.playerFighterId
         ? '#ff0000'
         : match.winner === match.p2 && match.p2
           ? '#00ff00'
@@ -169,82 +136,23 @@ export class BracketScene extends Phaser.Scene {
     }
   }
 
-  _getCurrentPlayerMatch() {
-    for (let r = 0; r < this.tournament.rounds.length; r++) {
-      const round = this.tournament.rounds[r];
-      for (let m = 0; m < round.length; m++) {
-        const match = round[m];
-        if (
-          !match.winner &&
-          (match.p1 === this.playerFighterId || match.p2 === this.playerFighterId)
-        ) {
-          if (match.p1 && match.p2) {
-            return { round: r, match: m, ...match };
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  _simulateAIMatches() {
-    let simulated = false;
-    for (let r = 0; r < this.tournament.rounds.length; r++) {
-      const round = this.tournament.rounds[r];
-      for (let m = 0; m < round.length; m++) {
-        const match = round[m];
-        if (!match.winner && match.p1 && match.p2) {
-          if (match.p1 !== this.playerFighterId && match.p2 !== this.playerFighterId) {
-            // AI vs AI: pick random winner
-            match.winner = Math.random() > 0.5 ? match.p1 : match.p2;
-            simulated = true;
-          }
-        }
-      }
-    }
-    return simulated;
-  }
-
-  _advanceWinner(roundIdx, matchIdx, winner) {
-    const nextRound = this.tournament.rounds[roundIdx + 1];
-    if (nextRound) {
-      const nextMatchIdx = Math.floor(matchIdx / 2);
-      const isP1 = matchIdx % 2 === 0;
-
-      // If winner is player, force them to P1 slot for simplicity in FightScene/InputManager
-      if (winner === this.playerFighterId) {
-        // If we are advancing to a match where we should be P2, swap with the other side
-        if (!isP1) {
-          // Move whoever was in P1 to P2
-          nextRound[nextMatchIdx].p2 = nextRound[nextMatchIdx].p1;
-          nextRound[nextMatchIdx].p1 = winner;
-        } else {
-          nextRound[nextMatchIdx].p1 = winner;
-        }
-      } else {
-        // AI winner, just fill the slot
-        if (isP1) {
-          nextRound[nextMatchIdx].p1 = winner;
-        } else {
-          nextRound[nextMatchIdx].p2 = winner;
-        }
-      }
-    }
-  }
-
   goToMatch(matchData) {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       const stageIndex = Phaser.Math.Between(0, stagesData.length - 1);
+
+      // Update matchInfo in context before passing it
+      this.matchContext.matchInfo = {
+        roundIndex: matchData.roundIndex,
+        matchIndex: matchData.matchIndex,
+      };
+
       this.scene.start('PreFightScene', {
         p1Id: matchData.p1,
         p2Id: matchData.p2,
         stageId: stagesData[stageIndex].id,
-        gameMode: 'tournament',
-        tournament: this.tournament,
-        playerFighterId: this.playerFighterId,
-        matchRound: matchData.round,
-        matchIndex: matchData.match,
+        gameMode: this.gameMode,
+        matchContext: this.matchContext,
       });
     });
   }

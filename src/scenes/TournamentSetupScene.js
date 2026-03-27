@@ -31,7 +31,17 @@ export class TournamentSetupScene extends Phaser.Scene {
   }
 
   startTournament(size) {
-    this.scene.start('SelectScene', { gameMode: 'tournament', tournamentSize: size });
+    const seed = Math.floor(Math.random() * 1000000);
+    this.scene.start('SelectScene', {
+      gameMode: 'local',
+      matchContext: {
+        type: 'tournament',
+        tournamentState: {
+          size,
+          seed,
+        },
+      },
+    });
   }
 
   _createButton(x, y, label, callback) {
