@@ -181,4 +181,46 @@ describe('FightScene state machine transitions', () => {
       ]);
     });
   });
+
+  describe('frame-0 synchronization (2B.3)', () => {
+    it('online mode transitions SYNCHRONIZING → ROUND_INTRO → ROUND_ACTIVE', () => {
+      const sm = new MatchStateMachine(MatchState.SYNCHRONIZING);
+
+      sm.transition(MatchEvent.SYNC_CONFIRMED);
+      expect(sm.state).toBe(MatchState.ROUND_INTRO);
+
+      sm.transition(MatchEvent.INTRO_COMPLETE);
+      expect(sm.state).toBe(MatchState.ROUND_ACTIVE);
+    });
+
+    it('sync timeout transitions to DISCONNECTED', () => {
+      const sm = new MatchStateMachine(MatchState.SYNCHRONIZING);
+
+      sm.transition(MatchEvent.SYNC_TIMEOUT);
+      expect(sm.state).toBe(MatchState.DISCONNECTED);
+    });
+
+    it('full online lifecycle starts from SYNCHRONIZING', () => {
+      const sm = new MatchStateMachine(MatchState.SYNCHRONIZING);
+
+      // Sync confirmed → round starts
+      sm.transition(MatchEvent.SYNC_CONFIRMED);
+      sm.transition(MatchEvent.INTRO_COMPLETE);
+      expect(sm.state).toBe(MatchState.ROUND_ACTIVE);
+
+      // Round 1 ends
+      sm.transition(MatchEvent.ROUND_OVER);
+      expect(sm.state).toBe(MatchState.ROUND_END);
+
+      // Next round
+      sm.transition(MatchEvent.TRANSITION_COMPLETE);
+      sm.transition(MatchEvent.INTRO_COMPLETE);
+      expect(sm.state).toBe(MatchState.ROUND_ACTIVE);
+
+      // Match over
+      sm.transition(MatchEvent.ROUND_OVER);
+      sm.transition(MatchEvent.MATCH_OVER);
+      expect(sm.state).toBe(MatchState.MATCH_END);
+    });
+  });
 });

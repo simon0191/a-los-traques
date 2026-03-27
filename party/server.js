@@ -261,6 +261,9 @@ export default class FightRoom {
       case 'webrtc_ice':
         this._sendToOther(slot, data);
         break;
+      case 'frame_sync':
+        this._sendToOther(slot, data);
+        break;
       case 'sync':
       case 'round_event':
         if (slot !== 0) break;
