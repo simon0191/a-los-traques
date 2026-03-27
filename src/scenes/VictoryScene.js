@@ -139,6 +139,8 @@ export class VictoryScene extends Phaser.Scene {
           this.scene.start('BracketScene', {
             gameMode: this.gameMode,
             matchContext: this.matchContext,
+            fromMatch: true,
+            winnerId: this.winnerId,
           });
         });
       });

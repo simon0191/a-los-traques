@@ -15,51 +15,50 @@ function mulberry32(a) {
 
 /**
  * Pure JavaScript class to manage tournament bracket logic.
- * Decoupled from Phaser scenes for testability and serializability.
  */
 export class TournamentManager {
-  /**
-   * @param {Object} data - Initial state or serialized tournament data
-   */
   constructor(data) {
     this.id = data.id || `tournament-${Date.now()}`;
     this.size = data.size || 8;
     this.seed = data.seed || Math.floor(Math.random() * 1000000);
     this.playerFighterId = data.playerFighterId || null;
+    this.playerInitialIndex = data.playerInitialIndex !== undefined ? data.playerInitialIndex : -1;
     this.rounds = data.rounds || [];
     this.complete = data.complete || false;
     this.winnerId = data.winnerId || null;
+    this.prngCalls = data.prngCalls || 0;
 
-    // Initialize PRNG with the tournament seed
+    // Initialize PRNG and fast-forward to the saved state
     this._prng = mulberry32(this.seed);
+    for (let i = 0; i < this.prngCalls; i++) {
+      this._prng();
+    }
   }
 
   /**
-   * Generates a new tournament bracket.
-   * Ensures the player is in a valid slot (P1 slot for their matches).
-   * @param {Array<string>} fighterIds - Pool of available fighter IDs
-   * @param {number} size - 8 or 16
-   * @param {string} playerFighterId - ID of the human player's fighter
-   * @param {number} seed - Random seed for shuffling
-   * @returns {TournamentManager}
+   * Safe PRNG wrapper that tracks calls.
    */
+  _nextRand() {
+    this.prngCalls++;
+    return this._prng();
+  }
+
   static generate(fighterIds, size, playerFighterId, seed) {
-    const prng = mulberry32(seed);
+    const tempPrng = mulberry32(seed);
     const shuffle = (arr) => {
       for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(prng() * (i + 1));
+        const j = Math.floor(tempPrng() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
       }
       return arr;
     };
 
-    // Filter out 'random' if it exists and pick required number of AI opponents
     const available = fighterIds.filter((id) => id !== 'random' && id !== playerFighterId);
     shuffle(available);
     const tournamentFighters = [playerFighterId, ...available.slice(0, size - 1)];
     shuffle(tournamentFighters);
 
-    // Apply "P1 Slot Rule": If player is in a P2 slot (odd index), swap with P1 (even index)
+    // Initial P1 Slot Rule
     const playerIdx = tournamentFighters.indexOf(playerFighterId);
     if (playerIdx % 2 !== 0) {
       const p1Idx = playerIdx - 1;
@@ -71,8 +70,6 @@ export class TournamentManager {
 
     const rounds = [];
     const numRounds = Math.log2(size);
-
-    // Round 1 Initialization
     const round1 = [];
     for (let i = 0; i < size / 2; i++) {
       round1.push({
@@ -83,7 +80,6 @@ export class TournamentManager {
     }
     rounds.push(round1);
 
-    // Initialize empty future rounds
     for (let r = 1; r < numRounds; r++) {
       const matchesInRound = size / 2 ** (r + 1);
       const round = [];
@@ -97,94 +93,114 @@ export class TournamentManager {
       size,
       seed,
       playerFighterId,
+      playerInitialIndex: tournamentFighters.indexOf(playerFighterId),
       rounds,
+      prngCalls: 0,
     });
   }
 
   /**
-   * Simulates all AI vs AI matches in all rounds that are ready.
-   * Returns true if any changes were made.
+   * Checks if a specific match in a round is on the player's path.
    */
-  simulateAI() {
+  _isPlayerPath(roundIndex, matchIndex) {
+    if (this.playerInitialIndex === -1) return false;
+    const playerMatchIndex = Math.floor(this.playerInitialIndex / 2 ** (roundIndex + 1));
+    return matchIndex === playerMatchIndex;
+  }
+
+  /**
+   * Helper to set the winner in the next round with correct slotting.
+   */
+  _setWinnerInNextRound(currentRoundIdx, currentMatchIdx, winnerId) {
+    const nextRoundIdx = currentRoundIdx + 1;
+    if (nextRoundIdx >= this.rounds.length) {
+      this.complete = true;
+      this.winnerId = winnerId;
+      return;
+    }
+
+    const nextMatchIdx = Math.floor(currentMatchIdx / 2);
+    const nextMatch = this.rounds[nextRoundIdx][nextMatchIdx];
+    const isP1Slot = currentMatchIdx % 2 === 0;
+
+    // Special logic for matches leading into the player's path
+    if (this._isPlayerPath(nextRoundIdx, nextMatchIdx)) {
+      if (winnerId === this.playerFighterId) {
+        // Player always takes P1
+        nextMatch.p1 = winnerId;
+      } else {
+        // AI winner. Does it come from the "player's side" or "opponent's side"?
+        const isFromPlayerSide = this._isPlayerPath(currentRoundIdx, currentMatchIdx);
+        if (isFromPlayerSide) {
+          // This AI beat the player (or replaced them), takes P1
+          nextMatch.p1 = winnerId;
+        } else {
+          // This AI is the opponent from the other match, takes P2
+          nextMatch.p2 = winnerId;
+        }
+      }
+    } else {
+      // Normal AI branch: use natural slotting
+      if (isP1Slot) nextMatch.p1 = winnerId;
+      else nextMatch.p2 = winnerId;
+    }
+  }
+
+  simulateRound(roundIndex) {
     let changed = false;
+    const round = this.rounds[roundIndex];
+    if (!round) return false;
 
-    for (let r = 0; r < this.rounds.length; r++) {
-      const round = this.rounds[r];
-      const nextRound = this.rounds[r + 1];
-
-      for (let m = 0; m < round.length; m++) {
-        const match = round[m];
-
-        // Only simulate if match has both participants and no winner yet
-        if (match.p1 && match.p2 && !match.winner) {
-          // Skip if player is involved
-          if (match.p1 !== this.playerFighterId && match.p2 !== this.playerFighterId) {
-            match.winner = this._prng() > 0.5 ? match.p1 : match.p2;
-            changed = true;
-
-            // Advance winner to next round
-            if (nextRound) {
-              const nextMatchIdx = Math.floor(m / 2);
-              const isP1Slot = m % 2 === 0;
-              if (isP1Slot) nextRound[nextMatchIdx].p1 = match.winner;
-              else nextRound[nextMatchIdx].p2 = match.winner;
-            } else {
-              // Final match
-              this.complete = true;
-              this.winnerId = match.winner;
-            }
-          }
+    for (let m = 0; m < round.length; m++) {
+      const match = round[m];
+      // Only simulate if match is ready (both p1 and p2 present) and not decided
+      if (match.p1 && match.p2 && !match.winner) {
+        // Only simulate AI vs AI
+        if (match.p1 !== this.playerFighterId && match.p2 !== this.playerFighterId) {
+          match.winner = this._nextRand() > 0.5 ? match.p1 : match.p2;
+          this._setWinnerInNextRound(roundIndex, m, match.winner);
+          changed = true;
         }
       }
     }
-
     return changed;
   }
 
-  /**
-   * Advances the winner of the player's current match.
-   * @param {string} winnerId - ID of the fighter who won
-   */
-  advance(winnerId) {
-    const matchData = this.getCurrentMatch();
-    if (!matchData) return false;
-
-    const { roundIndex, matchIndex } = matchData;
-    const match = this.rounds[roundIndex][matchIndex];
-    match.winner = winnerId;
-
-    const nextRound = this.rounds[roundIndex + 1];
-    if (nextRound) {
-      const nextMatchIdx = Math.floor(matchIndex / 2);
-      const isP1Slot = matchIndex % 2 === 0;
-
-      // "P1 Slot Rule" for advancement: force player to P1 slot in next round
-      if (winnerId === this.playerFighterId) {
-        if (!isP1Slot) {
-          // If we advanced from P2 side, we swap whatever was in P1 to P2
-          // (AI vs AI from the other side might have already populated P1)
-          nextRound[nextMatchIdx].p2 = nextRound[nextMatchIdx].p1;
-          nextRound[nextMatchIdx].p1 = winnerId;
-        } else {
-          nextRound[nextMatchIdx].p1 = winnerId;
-        }
-      } else {
-        // AI winner, just fill the slot
-        if (isP1Slot) nextRound[nextMatchIdx].p1 = winnerId;
-        else nextRound[nextMatchIdx].p2 = winnerId;
+  simulateAllRemaining() {
+    let changed = false;
+    // We must simulate round by round to ensure participants propagate
+    for (let r = 0; r < this.rounds.length; r++) {
+      // A single pass might not be enough if round propagation is deep
+      // but round-by-round should work since we loop r from 0 to N
+      if (this.simulateRound(r)) {
+        changed = true;
       }
-    } else {
-      // Champion!
-      this.complete = true;
-      this.winnerId = winnerId;
     }
-
-    return true;
+    return changed;
   }
 
-  /**
-   * Finds the current pending match involving the player.
-   */
+  simulateAI() {
+    return this.simulateAllRemaining();
+  }
+
+  advance(winnerId) {
+    for (let r = 0; r < this.rounds.length; r++) {
+      const round = this.rounds[r];
+      for (let m = 0; m < round.length; m++) {
+        const match = round[m];
+        if (
+          !match.winner &&
+          (match.p1 === this.playerFighterId || match.p2 === this.playerFighterId)
+        ) {
+          match.winner = winnerId;
+          this._setWinnerInNextRound(r, m, winnerId);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   getCurrentMatch() {
     for (let r = 0; r < this.rounds.length; r++) {
       const round = this.rounds[r];
@@ -194,7 +210,6 @@ export class TournamentManager {
           !match.winner &&
           (match.p1 === this.playerFighterId || match.p2 === this.playerFighterId)
         ) {
-          // Ensure opponent is known before returning
           if (match.p1 && match.p2) {
             return { roundIndex: r, matchIndex: m, ...match };
           }
@@ -204,18 +219,17 @@ export class TournamentManager {
     return null;
   }
 
-  /**
-   * Returns a serializable version of the state.
-   */
   serialize() {
     return {
       id: this.id,
       size: this.size,
       seed: this.seed,
       playerFighterId: this.playerFighterId,
+      playerInitialIndex: this.playerInitialIndex,
       rounds: this.rounds,
       complete: this.complete,
       winnerId: this.winnerId,
+      prngCalls: this.prngCalls,
     };
   }
 }

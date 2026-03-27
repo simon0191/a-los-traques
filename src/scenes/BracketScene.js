@@ -13,6 +13,10 @@ export class BracketScene extends Phaser.Scene {
     this.gameMode = data.gameMode || 'local';
     this.matchContext = data.matchContext;
     this.manager = new TournamentManager(this.matchContext.tournamentState);
+
+    // Track if we just came from a match result
+    this.fromMatch = data.fromMatch || false;
+    this.lastMatchResult = data.winnerId || null;
   }
 
   create() {
@@ -26,10 +30,22 @@ export class BracketScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Run AI simulations if needed
-    const simulated = this.manager.simulateAI();
-    if (simulated) {
+    // Logic for revealing matches:
+    // 1. If we return from a match the player LOST, simulate EVERYTHING immediately.
+    // 2. If we return from a match the player WON, simulate only the OTHER matches of that same round.
+    // 3. If we are entering for the first time, don't simulate anything.
+    if (this.fromMatch) {
+      if (this.lastMatchResult !== this.manager.playerFighterId) {
+        // Player lost, show everything
+        this.manager.simulateAllRemaining();
+      } else {
+        // Player won, reveal only the peers of the round just completed
+        const completedRoundIdx = this.matchContext.matchInfo.roundIndex;
+        this.manager.simulateRound(completedRoundIdx);
+      }
+      // Update state in context and RE-INITIALIZE manager to reflect completion if it happened
       this.matchContext.tournamentState = this.manager.serialize();
+      this.manager = new TournamentManager(this.matchContext.tournamentState);
     }
 
     this._drawBrackets();
@@ -71,8 +87,6 @@ export class BracketScene extends Phaser.Scene {
         this.scene.start('TitleScene');
       });
     } else {
-      // If we got here but no player match and not complete, something might be stuck
-      // or we are waiting for an animation. Just in case, show back button.
       this._createButton(GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
         this.scene.start('TitleScene');
       });
@@ -102,8 +116,11 @@ export class BracketScene extends Phaser.Scene {
     // Draw match box
     this.add.rectangle(x, y, boxW, boxH, 0x222244).setStrokeStyle(1, 0x4444aa);
 
-    const p1Name = match.p1 ? fightersData.find((f) => f.id === match.p1).name : '???';
-    const p2Name = match.p2 ? fightersData.find((f) => f.id === match.p2).name : '???';
+    const p1 = match.p1 ? fightersData.find((f) => f.id === match.p1) : null;
+    const p2 = match.p2 ? fightersData.find((f) => f.id === match.p2) : null;
+
+    const p1Name = p1 ? p1.name : '???';
+    const p2Name = p2 ? p2.name : '???';
 
     const p1Color =
       match.p1 === this.manager.playerFighterId
