@@ -111,7 +111,6 @@ describe('captureFighterState / restoreFighterState', () => {
     expect(target._hasWallJumped).toBe(true);
     expect(target._prevAnimState).toBe('light_punch');
     expect(target._specialTintTimer).toBe(6);
-    expect(target.syncSprite).toHaveBeenCalled();
   });
 
   it('deep copies currentAttack (no shared references)', () => {

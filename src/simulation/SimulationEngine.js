@@ -39,7 +39,7 @@ export function applyInputToFighter(fighter, inputState) {
 /**
  * Clone a fighter's mutable state into a plain object.
  */
-function cloneFighterState(f) {
+export function captureFighterState(f) {
   return {
     simX: f.simX,
     simY: f.simY,
@@ -71,7 +71,7 @@ function cloneFighterState(f) {
 /**
  * Clone combat state into a plain object.
  */
-function cloneCombatState(c) {
+export function captureCombatState(c) {
   return {
     roundNumber: c.roundNumber,
     p1RoundsWon: c.p1RoundsWon,
@@ -134,9 +134,9 @@ export function restoreCombatState(combat, snap) {
 export function captureGameState(frame, p1, p2, combat) {
   return {
     frame,
-    p1: cloneFighterState(p1),
-    p2: cloneFighterState(p2),
-    combat: cloneCombatState(combat),
+    p1: captureFighterState(p1),
+    p2: captureFighterState(p2),
+    combat: captureCombatState(combat),
   };
 }
 
