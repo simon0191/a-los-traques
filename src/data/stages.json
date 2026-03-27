@@ -4,7 +4,7 @@
     "name": "Pareo y Bogatell",
     "bgColor": "#1a3a5a",
     "groundColor": "#c4a84a",
-    "description": "Sunset beach with waves and palm trees",
+    "description": "Cerveza beer pareo mojito fresh",
     "texture": "stages_beach"
   },
   {
@@ -12,8 +12,32 @@
     "name": "Casa de los Jekos",
     "bgColor": "#4a4a4a",
     "groundColor": "#3a3a3a",
-    "description": "The cozy, yet dangerous, home of Jekos",
+    "description": "El pisooo!",
     "texture": "stages_jekos_house"
+  },
+  {
+    "id": "chikis_house",
+    "name": "Casa de los Chikis",
+    "bgColor": "#3a1a1a",
+    "groundColor": "#2a1a1a",
+    "description": "Mira! una Lucy de la suerte!",
+    "texture": "stages_chikis_house"
+  },
+  {
+    "id": "ogham",
+    "name": "Ogham",
+    "bgColor": "#1a2a1a",
+    "groundColor": "#0a1a0a",
+    "description": "Se emborrachan",
+    "texture": "stages_ogham"
+  },
+  {
+    "id": "mont",
+    "name": "Mont",
+    "bgColor": "#1a1a4a",
+    "groundColor": "#0a0a2a",
+    "description": "Cuidado con los cuadros!",
+    "texture": "stages_mont"
   },
   {
     "id": "metro",
@@ -30,5 +54,13 @@
     "groundColor": "#101010",
     "description": "Epaaa hpta",
     "texture": "stages_input"
+  },
+  {
+    "id": "djGartner",
+    "name": "DjGartner",
+    "bgColor": "#000000",
+    "groundColor": "#101010",
+    "description": "Sobelooo",
+    "texture": "stages_djGartner"
   }
 ]
