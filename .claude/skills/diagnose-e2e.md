@@ -197,6 +197,31 @@ Present findings to the user:
    - `bun run test:e2e:headed` to watch visually
    - For targeted testing: open two browser tabs with autoplay URLs from the bundle's `urls` field
 
+### Optional: Generate explanation report
+
+If the user asks for a written report (or if the failure is complex enough to warrant one), generate a markdown document at `docs/e2e-diagnosis-<test-slug>.md`. The report should be accessible to the full engineering team including junior engineers who may not be familiar with rollback netcode.
+
+**Structure the report as follows:**
+
+1. **TL;DR** — one-sentence summary of the root cause
+2. **Background** — explain relevant concepts (local simulation, rollback netcode, host/guest roles) with Mermaid diagrams. Don't assume the reader knows the multiplayer stack.
+3. **What the E2E tests do** — brief explanation with a Mermaid flowchart of the Playwright orchestration
+4. **The failure** — stats comparison table, field-by-field diff of final states, what matched vs what didn't
+5. **Root cause** — sequence diagram showing the exact flow that causes the bug, with code snippets and `file:line` references
+6. **Contributing factors** — anything that amplified the issue (e.g. WebRTC failure causing asymmetric rollbacks)
+7. **The fix** — concrete code change with before/after
+8. **How to verify** — commands to run
+9. **Key takeaway** — the conceptual lesson for the team
+
+**Use Mermaid diagrams for:**
+- Architecture overviews (flowchart)
+- Sequence of events between P1 and P2 (sequenceDiagram)
+- Network topology / data flow (flowchart)
+
+**Tone:** technical but accessible. Explain jargon when first introduced. Use tables for data comparisons.
+
+See `.claude/skills/examples/e2e-diagnosis-deterministic-fighters.md` for a complete example of this report format.
+
 ## Common Patterns
 
 ### "Hash mismatch but all checksums match, frame counts differ by 3-6"
