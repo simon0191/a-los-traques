@@ -143,4 +143,4 @@ The architecture is designed to support **Online Tournaments** via PartyKit:
 | :--- | :--- |
 | **State Desync** | `BracketScene` re-validates the entire tree on every `init()` to ensure `rounds` are consistent with `winners`. |
 | **Large Brackets** | The UI will use a "Round-by-Round" view or horizontal scrolling for 16/32-size tournaments. |
-| **Scene Crashes** | If a scene crashes, the `TournamentManager` state will be backed up in `localStorage` for immediate recovery. |
+| **Scene Crashes** | If a scene crashes, the `TournamentManager` state can be backed up in `localStorage` for immediate recovery (Future work). |

@@ -156,13 +156,17 @@ export class BracketScene extends Phaser.Scene {
   goToMatch(matchData) {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      const stageIndex = Phaser.Math.Between(0, stagesData.length - 1);
+      // Deterministic stage selection using tournament seed
+      const stageIndex = Math.floor(this.manager.nextRand() * stagesData.length);
 
       // Update matchInfo in context before passing it
       this.matchContext.matchInfo = {
         roundIndex: matchData.roundIndex,
         matchIndex: matchData.matchIndex,
       };
+
+      // Persist the PRNG state after consumption
+      this.matchContext.tournamentState = this.manager.serialize();
 
       this.scene.start('PreFightScene', {
         p1Id: matchData.p1,

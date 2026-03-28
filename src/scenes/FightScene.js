@@ -114,13 +114,18 @@ export class FightScene extends Phaser.Scene {
     // -- Build HUD --
     this._createHUD();
 
+    // -- Dev console (backtick to toggle) --
+    DevConsole._AIController = AIController;
+    this.devConsole = new DevConsole(this);
+
+    // -- Space key for restart --
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
     if (this.gameMode === 'spectator') {
-      // Spectator: no input, no AI, no dev console
+      // Spectator: no input, no AI
       this.inputManager = null;
       this.touchControls = null;
       this.aiController = null;
-      this.devConsole = null;
-      this.spaceKey = null;
       this.frameCounter = 0;
       this._setupSpectatorMode();
     } else {
@@ -156,6 +161,11 @@ export class FightScene extends Phaser.Scene {
               this.p1Fighter,
               this.aiDifficulty,
             );
+          } else {
+            console.error('[FightScene] Cannot initialize AI: fighters missing', {
+              p1: !!this.p1Fighter,
+              p2: !!this.p2Fighter,
+            });
           }
         }
       } else {
@@ -163,13 +173,6 @@ export class FightScene extends Phaser.Scene {
         this.frameCounter = 0;
         this._setupOnlineMode();
       }
-
-      // -- Dev console (backtick to toggle) --
-      DevConsole._AIController = AIController;
-      this.devConsole = new DevConsole(this);
-
-      // -- Space key for restart --
-      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
     // -- Audio --
@@ -1055,10 +1058,7 @@ export class FightScene extends Phaser.Scene {
                   stageId: this.stageId,
                   gameMode: this.gameMode,
                   networkManager: this.networkManager,
-                  tournament: this.tournament,
-                  playerFighterId: this.playerFighterId,
-                  matchRound: this.matchRound,
-                  matchIndex: this.matchIndex,
+                  matchContext: this.matchContext,
                 });
               });
             });

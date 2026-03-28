@@ -38,7 +38,7 @@ export class TournamentManager {
   /**
    * Safe PRNG wrapper that tracks calls.
    */
-  _nextRand() {
+  nextRand() {
     this.prngCalls++;
     return this._prng();
   }
@@ -157,7 +157,9 @@ export class TournamentManager {
       if (match.p1 && match.p2 && !match.winner) {
         // Only simulate AI vs AI
         if (match.p1 !== this.playerFighterId && match.p2 !== this.playerFighterId) {
-          match.winner = this._nextRand() > 0.5 ? match.p1 : match.p2;
+          // Pure coin-flip simulation for AI vs AI matches.
+          // Deterministic based on the tournament seed.
+          match.winner = this.nextRand() > 0.5 ? match.p1 : match.p2;
           this._setWinnerInNextRound(roundIndex, m, match.winner);
           changed = true;
         }
