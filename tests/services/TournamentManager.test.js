@@ -1,8 +1,25 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { TournamentManager } from '../../src/services/TournamentManager.js';
 
 describe('TournamentManager', () => {
-  const fighters = ['alv', 'angy', 'bozzi', 'cami', 'carito', 'cata', 'chicha', 'gartner', 'jeka', 'lini', 'mao', 'migue', 'peks', 'richi', 'simon', 'sun'];
+  const fighters = [
+    'alv',
+    'angy',
+    'bozzi',
+    'cami',
+    'carito',
+    'cata',
+    'chicha',
+    'gartner',
+    'jeka',
+    'lini',
+    'mao',
+    'migue',
+    'peks',
+    'richi',
+    'simon',
+    'sun',
+  ];
 
   describe('generate()', () => {
     it('produces correct bracket structure for size 8', () => {
@@ -38,7 +55,7 @@ describe('TournamentManager', () => {
       // Test multiple seeds to ensure rule holds regardless of initial shuffle
       for (let seed = 0; seed < 10; seed++) {
         const manager = TournamentManager.generate(fighters, size, player, seed);
-        const match = manager.rounds[0].find(m => m.p1 === player || m.p2 === player);
+        const match = manager.rounds[0].find((m) => m.p1 === player || m.p2 === player);
         expect(match.p1).toBe(player);
         expect(match.p2).not.toBe(player);
       }
@@ -57,13 +74,13 @@ describe('TournamentManager', () => {
       const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
       const currentMatch = manager.getCurrentMatch();
       expect(currentMatch.roundIndex).toBe(0);
-      
+
       // Simulate other matches so player has an opponent in round 1
       manager.simulateRound(0);
 
       const success = manager.advance('alv');
       expect(success).toBe(true);
-      
+
       const nextMatch = manager.getCurrentMatch();
       expect(nextMatch).not.toBeNull();
       expect(nextMatch.roundIndex).toBe(1);
@@ -73,27 +90,28 @@ describe('TournamentManager', () => {
 
     it('simulateRound() only simulates AI-vs-AI matches', () => {
       const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
-      const playerMatchBefore = manager.getCurrentMatch();
-      
+
       manager.simulateRound(0);
-      
+
       const playerMatchAfter = manager.getCurrentMatch();
       expect(playerMatchAfter.winner).toBeNull(); // Player match should NOT be simulated
-      
+
       // Other matches should have winners
-      const aiMatches = manager.rounds[0].filter(m => m.p1 !== 'alv' && m.p2 !== 'alv');
-      aiMatches.forEach(m => expect(m.winner).not.toBeNull());
+      const aiMatches = manager.rounds[0].filter((m) => m.p1 !== 'alv' && m.p2 !== 'alv');
+      for (const m of aiMatches) {
+        expect(m.winner).not.toBeNull();
+      }
     });
 
     it('simulateAllRemaining() propagates through all rounds', () => {
       const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
-      
+
       // Simulate until player wins the whole tournament
       while (!manager.complete) {
         manager.simulateAllRemaining();
         manager.advance('alv');
       }
-      
+
       expect(manager.complete).toBe(true);
       expect(manager.winnerId).toBe('alv');
     });
@@ -102,58 +120,83 @@ describe('TournamentManager', () => {
   describe('serialization and persistence', () => {
     it('restores PRNG state correctly from serialization', () => {
       const manager = TournamentManager.generate(fighters, 8, 'alv', 42);
-      
+
       // Consuming some random numbers
-      const r1 = manager.nextRand();
-      const r2 = manager.nextRand();
-      
+      manager.nextRand();
+      manager.nextRand();
+
       const state = manager.serialize();
       expect(state.prngCalls).toBe(2);
-      
+
       const restored = new TournamentManager(state);
       expect(restored.nextRand()).toBe(manager.nextRand());
     });
-    
+
     it('continuous execution matches state restore execution', () => {
-        const seed = 555;
-        const size = 8;
-        const player = 'alv';
+      const seed = 555;
+      const size = 8;
+      const player = 'alv';
 
-        // 1. Continuous execution
-        const m1 = TournamentManager.generate(fighters, size, player, seed);
-        m1.simulateRound(0);
-        m1.advance(player);
-        m1.simulateRound(1);
-        const nextRand1 = m1.nextRand();
+      // 1. Continuous execution
+      const m1 = TournamentManager.generate(fighters, size, player, seed);
+      m1.simulateRound(0);
+      m1.advance(player);
+      m1.simulateRound(1);
+      const nextRand1 = m1.nextRand();
 
-        // 2. Partial execution -> serialize -> restore -> continue
-        const m2 = TournamentManager.generate(fighters, size, player, seed);
-        m2.simulateRound(0);
-        const state = m2.serialize();
-        
-        const m3 = new TournamentManager(state);
-        m3.advance(player);
-        m3.simulateRound(1);
-        const nextRand2 = m3.nextRand();
+      // 2. Partial execution -> serialize -> restore -> continue
+      const m2 = TournamentManager.generate(fighters, size, player, seed);
+      m2.simulateRound(0);
+      const state = m2.serialize();
 
-        expect(nextRand1).toBe(nextRand2);
-        expect(m1.serialize().rounds).toEqual(m3.serialize().rounds);
+      const m3 = new TournamentManager(state);
+      m3.advance(player);
+      m3.simulateRound(1);
+      const nextRand2 = m3.nextRand();
+
+      expect(nextRand1).toBe(nextRand2);
+      expect(m1.serialize().rounds).toEqual(m3.serialize().rounds);
     });
   });
 
   describe('winning the tournament', () => {
-      it('sets winnerId and complete when final match is decided', () => {
-          const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
-          
-          // Round 0
-          manager.simulateRound(0); // Simulates AI match
-          manager.advance('alv');  // Player wins
-          
-          // Round 1 (Final)
-          manager.advance('alv');
-          
-          expect(manager.complete).toBe(true);
-          expect(manager.winnerId).toBe('alv');
+    it('sets winnerId and complete when final match is decided', () => {
+      const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
+
+      // Round 0
+      manager.simulateRound(0); // Simulates AI match
+      manager.advance('alv'); // Player wins
+
+      // Round 1 (Final)
+      manager.advance('alv');
+
+      expect(manager.complete).toBe(true);
+      expect(manager.winnerId).toBe('alv');
+    });
+
+    it('fills out the entire bracket when player loses early', () => {
+      const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
+      const currentMatch = manager.getCurrentMatch();
+      const opponentId = currentMatch.p2;
+
+      // Player loses in Round 0
+      manager.advance(opponentId);
+
+      // Now simulate everything else
+      manager.simulateAllRemaining();
+
+      expect(manager.complete).toBe(true);
+      expect(manager.winnerId).not.toBeNull();
+      expect(manager.winnerId).not.toBe('alv');
+
+      // All matches should have winners
+      manager.rounds.forEach((round) => {
+        round.forEach((match) => {
+          if (match.p1 && match.p2) {
+            expect(match.winner).not.toBeNull();
+          }
+        });
       });
+    });
   });
 });
