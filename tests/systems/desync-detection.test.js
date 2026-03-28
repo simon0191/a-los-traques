@@ -419,21 +419,21 @@ describe('RollbackManager resync', () => {
     expect(rm._resyncPending).toBe(false);
   });
 
-  it('applyResync ignores very stale snapshots', () => {
+  it('applyResync accepts snapshots outside rollback window', () => {
     const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 20; i++) {
       rm.advance(noInput, p1, p2, combat);
     }
 
-    // Snapshot from frame 5 is too old (currentFrame=20, maxRollback=7, threshold=13)
+    // Snapshot from frame 5 is outside rollback window but should still be applied
     const snapshot = makeSnapshot({ p1: { hp: 50 } });
     snapshot.frame = 5;
     rm.applyResync(snapshot, p1, p2, combat);
 
-    // Should be ignored — frame counter unchanged
-    expect(rm.currentFrame).toBe(20);
-    expect(p1.hp).toBe(100); // not changed to 50
+    // Authoritative snapshot always applied — correctness over recency
+    expect(rm.currentFrame).toBe(5);
+    expect(p1.hp).toBe(50);
   });
 
   it('captureResyncSnapshot returns latest snapshot', () => {
