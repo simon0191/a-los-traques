@@ -2,6 +2,14 @@
 
 > **TL;DR:** The E2E test failed because P1 and P2 take their "final snapshot" of the game at different moments — P1 at the exact frame of the knockout, P2 six frames later when the network message arrives. The simulation itself was perfectly identical; only the timing of the observation differs.
 
+## Source Data
+
+This diagnosis was produced from the following E2E test artifacts (included alongside this file):
+
+- [`deterministic-fighters-bundle.json`](deterministic-fighters-bundle.json) — Full fight logs from both peers (inputs, checksums, final state snapshots)
+- [`deterministic-fighters-report.md`](deterministic-fighters-report.md) — Auto-generated test report summary
+- [`deterministic-fighters-console.txt`](deterministic-fighters-console.txt) — Browser console output from both peers
+
 ## Background: How Online Multiplayer Works
 
 In A Los Traques, two players fight over the internet. Each player's browser runs the **full game simulation locally** — there's no authoritative server computing the fight. This means both browsers must produce **exactly the same result** for every frame, or the players will see different things (a "desync").

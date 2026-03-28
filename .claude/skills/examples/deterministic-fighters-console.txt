@@ -1,0 +1,25 @@
+=== P1 Console (14 messages) ===
+[debug] [vite] connecting...
+[debug] [vite] connected.
+[log] %c %c %c %c %c Phaser v3.90.0 (WebGL | Web Audio) %c https://phaser.io/v390 background: #ff0000 background: #ffff00 background: #00ff00 background: #00ffff color: #ffffff; background: #000000 background: transparent
+[warning] [.WebGL-0x2c1c00130e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[warning] [.WebGL-0x2c1c00130e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[warning] [.WebGL-0x2c1c00130e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[warning] [.WebGL-0x2c1c00130e00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+[log] [TM] TURN credentials fetched (2 servers)
+[log] [TM] initWebRTC slot=0 offerer=true
+[log] [WebRTC P1] offer created
+[log] [WebRTC P1] failed (was connecting)
+[log] [SYNC] Sending frame-0 hash: 1219683208
+[log] [SYNC] Received peer hash: 1219683208
+[log] [SYNC] Frame-0 sync confirmed
+
+=== P2 Console (8 messages) ===
+[debug] [vite] connecting...
+[debug] [vite] connected.
+[log] %c %c %c %c %c Phaser v3.90.0 (WebGL | Web Audio) %c https://phaser.io/v390 background: #ff0000 background: #ffff00 background: #00ff00 background: #00ffff color: #ffffff; background: #000000 background: transparent
+[log] [TM] TURN credentials fetched (2 servers)
+[log] [TM] initWebRTC slot=1 offerer=false
+[log] [SYNC] Sending frame-0 hash: 1219683208
+[log] [SYNC] Received peer hash: 1219683208
+[log] [SYNC] Frame-0 sync confirmed
