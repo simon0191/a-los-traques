@@ -1016,8 +1016,10 @@ export class FightScene extends Phaser.Scene {
           this.combat.timer = 60;
           this.combat._timerAccumulator = 0;
           this.combat.roundActive = true;
-          this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
-          this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+          const nextState = this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
+          if (nextState === MatchState.ROUND_INTRO) {
+            this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+          }
           this.centerText.setText('');
           this.subtitleText.setText('');
         }
@@ -1213,8 +1215,10 @@ export class FightScene extends Phaser.Scene {
     // Detect simulation-driven round reset (transitionTimer expired → roundActive became true)
     if (!wasRoundActive && this.combat.roundActive) {
       if (this.matchState.canTransition(MatchEvent.TRANSITION_COMPLETE)) {
-        this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
-        this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+        const nextState = this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
+        if (nextState === MatchState.ROUND_INTRO) {
+          this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+        }
       }
       // Sync sprites to new positions after reset
       this.p1Fighter.syncSprite();
