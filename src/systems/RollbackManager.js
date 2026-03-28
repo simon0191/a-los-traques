@@ -258,7 +258,6 @@ export class RollbackManager {
    * Apply an authoritative state snapshot from P1 to resync after desync.
    */
   applyResync(snapshot, p1, p2, combat) {
-    if (snapshot.frame <= this.currentFrame - this.maxRollbackFrames) return;
     if (snapshot.version !== undefined && snapshot.version !== SNAPSHOT_VERSION) {
       console.warn(
         `[RESYNC] Rejected snapshot: version ${snapshot.version} !== ${SNAPSHOT_VERSION}`,
@@ -395,7 +394,6 @@ export class RollbackManager {
     if (minFrame < 0) return;
 
     for (const map of [
-      this.stateSnapshots,
       this.localInputHistory,
       this.remoteInputHistory,
       this.predictedRemoteInputs,

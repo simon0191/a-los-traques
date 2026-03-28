@@ -236,20 +236,20 @@ describe('RollbackManager', () => {
   });
 
   describe('pruning', () => {
-    it('prunes old data beyond rollback window', () => {
+    it('prunes old input/prediction data beyond rollback window', () => {
       for (let i = 0; i < 20; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
 
-      expect(rm.stateSnapshots.has(0)).toBe(false);
       expect(rm.predictedRemoteInputs.has(0)).toBe(false);
     });
 
-    it('keeps recent data within rollback window', () => {
+    it('keeps all snapshots (never pruned)', () => {
       for (let i = 0; i < 20; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
 
+      expect(rm.stateSnapshots.has(0)).toBe(true);
       expect(rm.stateSnapshots.has(19)).toBe(true);
     });
   });
@@ -307,6 +307,17 @@ describe('RollbackManager', () => {
       delete snapshot.version;
       rm.applyResync(snapshot, p1, p2, combat);
       expect(rm.currentFrame).toBe(snapshot.frame);
+    });
+
+    it('accepts snapshot outside rollback window', () => {
+      // Advance well past the rollback window
+      for (let i = 0; i < 20; i++) {
+        rm.advance(noInput, p1, p2, combat);
+      }
+      // Frame 0 snapshot is far outside maxRollbackFrames (7)
+      const snapshot = rm.stateSnapshots.get(0);
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm.currentFrame).toBe(0);
     });
 
     it('snapshots include version field', () => {
