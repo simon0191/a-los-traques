@@ -132,15 +132,4 @@ export class FightRecorder {
     this.log.finalStateHash = hashGameState(snapshot);
     this.log.completedAt = Date.now();
   }
-
-  /**
-   * Capture final game state from a pre-existing rollback snapshot.
-   * Used by P2 to snapshot at P1's authoritative KO frame instead of the
-   * current frame (which may be several frames ahead due to network delay).
-   */
-  captureEndStateFromSnapshot(snapshot) {
-    this.log.finalState = snapshot;
-    this.log.finalStateHash = hashGameState(snapshot);
-    this.log.completedAt = Date.now();
-  }
 }

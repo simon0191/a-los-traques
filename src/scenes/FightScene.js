@@ -892,21 +892,8 @@ export class FightScene extends Phaser.Scene {
       // Don't modify combat state here — simulateFrame handles it deterministically.
       // Only fire visual/audio effects via onRoundOver/onMatchOver.
       if (msg.event === 'ko' || msg.event === 'timeup') {
-        const eventFrame = msg.frame ?? this.rollbackManager?.currentFrame ?? this.frameCounter;
-        this.recorder?.recordRoundEvent(eventFrame, {
-          type: msg.event,
-          winnerIndex: msg.winnerIndex,
-        });
         if (msg.matchOver) {
           this._matchOverProcessed = true;
-          // Capture final state at P1's authoritative KO frame (not current frame)
-          // so both peers snapshot the same simulation state.
-          if (this.recorder && msg.frame != null && this.rollbackManager) {
-            const snapshot = this.rollbackManager.stateSnapshots.get(msg.frame);
-            if (snapshot) {
-              this.recorder.captureEndStateFromSnapshot(snapshot);
-            }
-          }
           this.onMatchOver(msg.winnerIndex);
         } else {
           this._lastProcessedRound = msg.roundNumber;
@@ -1205,9 +1192,21 @@ export class FightScene extends Phaser.Scene {
       this.combat,
     );
 
+    // Record round events for BOTH peers at the exact simulation frame
+    if (roundEvent) {
+      this.recorder?.recordRoundEvent(this.rollbackManager.currentFrame, roundEvent);
+      if (roundEvent.matchOver) {
+        this.recorder?.captureEndState(
+          this.p1Fighter,
+          this.p2Fighter,
+          this.combat,
+          this.rollbackManager.currentFrame,
+        );
+      }
+    }
+
     // P1 (host) handles round events: fire side effects + send to P2
     if (roundEvent && this.isHost) {
-      this.recorder?.recordRoundEvent(this.rollbackManager.currentFrame, roundEvent);
       this.combat.handleRoundEnd(roundEvent);
     }
 
@@ -1259,7 +1258,6 @@ export class FightScene extends Phaser.Scene {
       const payload = {
         event,
         winnerIndex,
-        frame: this.rollbackManager?.currentFrame ?? this.frameCounter,
         p1Rounds: this.combat.p1RoundsWon,
         p2Rounds: this.combat.p2RoundsWon,
         roundNumber: this.combat.roundNumber,
@@ -1958,16 +1956,6 @@ export class FightScene extends Phaser.Scene {
 
     // Host sends match-over event to guest
     this._sendRoundEvent('ko', winnerIndex);
-
-    // Capture final state for E2E testing (skip if P2 already captured from snapshot)
-    if (this.recorder && !this.recorder.log.finalState) {
-      this.recorder.captureEndState(
-        this.p1Fighter,
-        this.p2Fighter,
-        this.combat,
-        this.rollbackManager?.currentFrame ?? this.frameCounter,
-      );
-    }
 
     const winnerData = winnerIndex === 0 ? this.p1Data : this.p2Data;
     const loserData = winnerIndex === 0 ? this.p2Data : this.p1Data;
