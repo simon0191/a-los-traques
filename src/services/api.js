@@ -17,7 +17,7 @@ async function apiFetch(endpoint, options = {}) {
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-  } 
+  }
   // Local development bypass (only if not in production and no token)
   else if (import.meta.env.DEV && !token) {
     headers['X-Dev-User-Id'] = 'local-dev-user';
@@ -30,8 +30,8 @@ async function apiFetch(endpoint, options = {}) {
 
   const contentType = response.headers.get('content-type');
   let data = {};
-  
-  if (contentType && contentType.includes('application/json')) {
+
+  if (contentType?.includes('application/json')) {
     try {
       data = await response.json();
     } catch (e) {
@@ -44,7 +44,7 @@ async function apiFetch(endpoint, options = {}) {
       data = { message: text };
     }
   }
-  
+
   if (!response.ok) {
     throw new Error(data.error || data.message || `API Request Failed: ${response.status}`);
   }
