@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
 import { TournamentManager } from '../services/TournamentManager.js';
+import { createButton } from '../services/UIService.js';
 
 export class BracketScene extends Phaser.Scene {
   constructor() {
@@ -52,10 +53,10 @@ export class BracketScene extends Phaser.Scene {
 
     const currentMatch = this.manager.getCurrentMatch();
     if (currentMatch) {
-      this._createButton(GAME_WIDTH / 2 - 75, GAME_HEIGHT - 30, 'SIGUIENTE COMBATE', () => {
+      createButton(this, GAME_WIDTH / 2 - 75, GAME_HEIGHT - 30, 'SIGUIENTE COMBATE', () => {
         this.goToMatch(currentMatch);
       });
-      this._createButton(GAME_WIDTH / 2 + 75, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
+      createButton(this, GAME_WIDTH / 2 + 75, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
         this.scene.start('TitleScene');
       });
     } else if (this.manager.complete) {
@@ -83,11 +84,11 @@ export class BracketScene extends Phaser.Scene {
         })
         .setOrigin(0.5);
 
-      this._createButton(GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
+      createButton(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
         this.scene.start('TitleScene');
       });
     } else {
-      this._createButton(GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
+      createButton(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
         this.scene.start('TitleScene');
       });
     }
@@ -175,34 +176,6 @@ export class BracketScene extends Phaser.Scene {
         gameMode: this.gameMode,
         matchContext: this.matchContext,
       });
-    });
-  }
-
-  _createButton(x, y, label, callback) {
-    const bg = this.add
-      .rectangle(x, y, 140, 24, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'Arial',
-        fontSize: '12px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    bg.on('pointerover', () => {
-      bg.setFillStyle(0x333366);
-      text.setColor('#ffcc00');
-    });
-    bg.on('pointerout', () => {
-      bg.setFillStyle(0x222244);
-      text.setColor('#ffffff');
-    });
-    bg.on('pointerdown', () => {
-      this.game.audioManager.play('ui_confirm');
-      callback();
     });
   }
 }

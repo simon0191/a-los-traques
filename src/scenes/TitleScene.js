@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { createButton } from '../services/UIService.js';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -64,31 +65,31 @@ export class TitleScene extends Phaser.Scene {
 
     // Mode buttons
     const btnGap = 22;
-    this._createButton(GAME_WIDTH / 2, cy + 30, 'VS MAQUINA', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30, 'VS MAQUINA', () => {
       this.goToSelect();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap, 'TORNEO', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap, 'TORNEO', () => {
       this.goToTournamentSetup();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 2, 'EN LINEA', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 2, 'EN LINEA', () => {
       this.goToLobby();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'UNIRSE', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'UNIRSE', () => {
       this._showJoinOverlay();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'COMO JUGAR', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'COMO JUGAR', () => {
       this.goToLearning();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 5, 'INSPECTOR', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 5, 'INSPECTOR', () => {
       this.goToInspector();
     });
 
-    this._createButton(GAME_WIDTH / 2, cy + 30 + btnGap * 6, 'MUSICA', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 6, 'MUSICA', () => {
       this.goToMusic();
     });
 
@@ -155,34 +156,6 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('MusicScene');
-    });
-  }
-
-  _createButton(x, y, label, callback) {
-    const bg = this.add
-      .rectangle(x, y, 140, 24, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'Arial',
-        fontSize: '12px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    bg.on('pointerover', () => {
-      bg.setFillStyle(0x333366);
-      text.setColor('#ffcc00');
-    });
-    bg.on('pointerout', () => {
-      bg.setFillStyle(0x222244);
-      text.setColor('#ffffff');
-    });
-    bg.on('pointerdown', () => {
-      this.game.audioManager.play('ui_confirm');
-      callback();
     });
   }
 
@@ -254,68 +227,42 @@ export class TitleScene extends Phaser.Scene {
     });
 
     // ENTRAR button
-    const entrarBg = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 140, 24, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-    const entrarText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'ENTRAR', {
-        fontFamily: 'Arial',
-        fontSize: '12px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    entrarBg.on('pointerover', () => {
-      entrarBg.setFillStyle(0x333366);
-      entrarText.setColor('#ffcc00');
-    });
-    entrarBg.on('pointerout', () => {
-      entrarBg.setFillStyle(0x222244);
-      entrarText.setColor('#ffffff');
-    });
-    entrarBg.on('pointerdown', () => {
-      const code = this._joinInput.value
-        .toUpperCase()
-        .split('')
-        .filter((c) => VALID_CHARS.includes(c))
-        .join('');
-      if (code.length !== 4) return;
-      this.game.audioManager.play('ui_confirm');
-      this._hideJoinOverlay();
-      if (this.transitioning) return;
-      this.transitioning = true;
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('LobbyScene', { roomId: code });
-      });
-    });
-    this._joinOverlay.add([entrarBg, entrarText]);
+    const entrarBtn = UIService.createButton(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 + 20,
+      'ENTRAR',
+      () => {
+        const code = this._joinInput.value
+          .toUpperCase()
+          .split('')
+          .filter((c) => VALID_CHARS.includes(c))
+          .join('');
+        if (code.length !== 4) return;
+        this.game.audioManager.play('ui_confirm');
+        this._hideJoinOverlay();
+        if (this.transitioning) return;
+        this.transitioning = true;
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('LobbyScene', { roomId: code });
+        });
+      },
+    );
+    this._joinOverlay.add([entrarBtn.bg, entrarBtn.text]);
 
     // CANCELAR button
-    const cancelBg = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 48, 140, 24, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-    const cancelText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 48, 'CANCELAR', {
-        fontFamily: 'Arial',
-        fontSize: '12px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    cancelBg.on('pointerover', () => {
-      cancelBg.setFillStyle(0x333366);
-      cancelText.setColor('#ffcc00');
-    });
-    cancelBg.on('pointerout', () => {
-      cancelBg.setFillStyle(0x222244);
-      cancelText.setColor('#ffffff');
-    });
-    cancelBg.on('pointerdown', () => {
-      this.game.audioManager.play('ui_cancel');
-      this._hideJoinOverlay();
-    });
-    this._joinOverlay.add([cancelBg, cancelText]);
+    const cancelBtn = UIService.createButton(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2 + 48,
+      'CANCELAR',
+      () => {
+        this.game.audioManager.play('ui_cancel');
+        this._hideJoinOverlay();
+      },
+    );
+    this._joinOverlay.add([cancelBtn.bg, cancelBtn.text]);
   }
 
   _hideJoinOverlay() {

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import { TournamentManager } from '../services/TournamentManager.js';
+import { createButton } from '../services/UIService.js';
 
 export class VictoryScene extends Phaser.Scene {
   constructor() {
@@ -133,66 +134,101 @@ export class VictoryScene extends Phaser.Scene {
 
     // Buttons
     if (this.matchContext?.type === 'tournament') {
-      this.createButton(GAME_WIDTH / 2 - 60, 252, 'CONTINUAR TORNEO', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('BracketScene', {
-            gameMode: this.gameMode,
-            matchContext: this.matchContext,
-            fromMatch: true,
-            winnerId: this.winnerId,
-          });
-        });
-      });
-
-      this.createButton(GAME_WIDTH / 2 + 60, 252, 'SALIR AL MENÚ', () => {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('TitleScene');
-        });
-      });
-    } else {
-      this.createButton(GAME_WIDTH / 2 - 115, 252, 'REVANCHA', () => {
-        if (this.gameMode === 'online' && this.networkManager) {
-          this.networkManager.sendRematch();
-          this._waitingRematch = true;
-          this._rematchText = this.add
-            .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
-              fontFamily: 'Arial',
-              fontSize: '8px',
-              color: '#ffcc00',
-            })
-            .setOrigin(0.5);
-
-          if (this._rematchReceived) {
-            this._goToFight();
-          }
-        } else {
-          this._goToFight();
-        }
-      });
-
-      this.createButton(GAME_WIDTH / 2, 252, 'ELEGIR OTRO', () => {
-        if (this.gameMode === 'online' && this.networkManager) {
-          this.networkManager.sendLeave();
-          this._goToSelect();
-        } else {
+      createButton(
+        this,
+        GAME_WIDTH / 2 - 60,
+        252,
+        'CONTINUAR TORNEO',
+        () => {
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('SelectScene', { gameMode: 'local' });
+            this.scene.start('BracketScene', {
+              gameMode: this.gameMode,
+              matchContext: this.matchContext,
+              fromMatch: true,
+              winnerId: this.winnerId,
+            });
           });
-        }
-      });
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
 
-      this.createButton(GAME_WIDTH / 2 + 115, 252, 'MENU', () => {
-        if (this.gameMode === 'online' && this.networkManager) {
-          this.networkManager.destroy();
-        }
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('TitleScene');
-        });
-      });
+      createButton(
+        this,
+        GAME_WIDTH / 2 + 60,
+        252,
+        'SALIR AL MENÚ',
+        () => {
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('TitleScene');
+          });
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
+    } else {
+      createButton(
+        this,
+        GAME_WIDTH / 2 - 115,
+        252,
+        'REVANCHA',
+        () => {
+          if (this.gameMode === 'online' && this.networkManager) {
+            this.networkManager.sendRematch();
+            this._waitingRematch = true;
+            this._rematchText = this.add
+              .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
+                fontFamily: 'Arial',
+                fontSize: '8px',
+                color: '#ffcc00',
+              })
+              .setOrigin(0.5);
+
+            if (this._rematchReceived) {
+              this._goToFight();
+            }
+          } else {
+            this._goToFight();
+          }
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
+
+      createButton(
+        this,
+        GAME_WIDTH / 2,
+        252,
+        'ELEGIR OTRO',
+        () => {
+          if (this.gameMode === 'online' && this.networkManager) {
+            this.networkManager.sendLeave();
+            this._goToSelect();
+          } else {
+            this.cameras.main.fadeOut(300, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+              this.scene.start('SelectScene', { gameMode: 'local' });
+            });
+          }
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
+
+      createButton(
+        this,
+        GAME_WIDTH / 2 + 115,
+        252,
+        'MENU',
+        () => {
+          if (this.gameMode === 'online' && this.networkManager) {
+            this.networkManager.destroy();
+          }
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('TitleScene');
+          });
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
     }
 
     // In online mode, listen for rematch/leave from opponent
@@ -260,37 +296,5 @@ export class VictoryScene extends Phaser.Scene {
         matchContext: this.matchContext,
       });
     });
-  }
-
-  createButton(x, y, label, callback) {
-    const bg = this.add
-      .rectangle(x, y, 100, 22, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'Arial',
-        fontSize: '10px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    bg.on('pointerover', () => {
-      bg.setFillStyle(0x333366);
-      text.setColor('#ffcc00');
-    });
-
-    bg.on('pointerout', () => {
-      bg.setFillStyle(0x222244);
-      text.setColor('#ffffff');
-    });
-
-    bg.on('pointerdown', () => {
-      this.game.audioManager.play('ui_confirm');
-      callback();
-    });
-
-    return { bg, text };
   }
 }

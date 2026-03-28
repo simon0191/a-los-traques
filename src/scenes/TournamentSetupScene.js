@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { createButton } from '../services/UIService.js';
 
 export class TournamentSetupScene extends Phaser.Scene {
   constructor() {
@@ -17,17 +18,38 @@ export class TournamentSetupScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this._createButton(GAME_WIDTH / 2, 100, 'TORNEO CORTO (8)', () => {
-      this.startTournament(8);
-    });
+    createButton(
+      this,
+      GAME_WIDTH / 2,
+      100,
+      'TORNEO CORTO (8)',
+      () => {
+        this.startTournament(8);
+      },
+      { width: 180, height: 30, fontSize: '14px' },
+    );
 
-    this._createButton(GAME_WIDTH / 2, 140, 'TORNEO LARGO (16)', () => {
-      this.startTournament(16);
-    });
+    createButton(
+      this,
+      GAME_WIDTH / 2,
+      140,
+      'TORNEO LARGO (16)',
+      () => {
+        this.startTournament(16);
+      },
+      { width: 180, height: 30, fontSize: '14px' },
+    );
 
-    this._createButton(GAME_WIDTH / 2, 220, 'VOLVER', () => {
-      this.scene.start('TitleScene');
-    });
+    createButton(
+      this,
+      GAME_WIDTH / 2,
+      220,
+      'VOLVER',
+      () => {
+        this.scene.start('TitleScene');
+      },
+      { width: 180, height: 30, fontSize: '14px' },
+    );
   }
 
   startTournament(size) {
@@ -41,34 +63,6 @@ export class TournamentSetupScene extends Phaser.Scene {
           seed,
         },
       },
-    });
-  }
-
-  _createButton(x, y, label, callback) {
-    const bg = this.add
-      .rectangle(x, y, 180, 30, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'Arial',
-        fontSize: '14px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    bg.on('pointerover', () => {
-      bg.setFillStyle(0x333366);
-      text.setColor('#ffcc00');
-    });
-    bg.on('pointerout', () => {
-      bg.setFillStyle(0x222244);
-      text.setColor('#ffffff');
-    });
-    bg.on('pointerdown', () => {
-      this.game.audioManager.play('ui_confirm');
-      callback();
     });
   }
 }
