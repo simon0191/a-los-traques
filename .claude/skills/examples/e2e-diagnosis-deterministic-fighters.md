@@ -2,6 +2,14 @@
 
 > **TL;DR:** The E2E test failed because P1 and P2 take their "final snapshot" of the game at different moments — P1 at the exact frame of the knockout, P2 six frames later when the network message arrives. The simulation itself was perfectly identical; only the timing of the observation differs.
 
+## Source Data
+
+This diagnosis was produced from the following E2E test artifacts (included alongside this file):
+
+- [`deterministic-fighters-bundle.json`](deterministic-fighters-bundle.json) — Full fight logs from both peers (inputs, checksums, final state snapshots)
+- [`deterministic-fighters-report.md`](deterministic-fighters-report.md) — Auto-generated test report summary
+- [`deterministic-fighters-console.txt`](deterministic-fighters-console.txt) — Browser console output from both peers
+
 ## Background: How Online Multiplayer Works
 
 In A Los Traques, two players fight over the internet. Each player's browser runs the **full game simulation locally** — there's no authoritative server computing the fight. This means both browsers must produce **exactly the same result** for every frame, or the players will see different things (a "desync").
@@ -206,31 +214,76 @@ This asymmetry also explains the 6-frame delay in the round event message reachi
 
 ## The Fix
 
-**P2 should capture `finalState` at the KO frame, not when the network message arrives.**
+**P2 should capture `finalState` at P1's authoritative KO frame, not at whatever frame P2 happens to be on when the network message arrives.**
 
-The simplest approach: move the `captureEndState` call to happen for **both peers** when the KO is detected locally in `simulateFrame()`, before the host-only guard:
+P2's local KO detection can't be trusted either — it might fire on a predicted (not yet confirmed) frame that could be corrected by a future rollback. The safest approach is: P1 includes the frame number in its round event message, and P2 looks up the rollback system's stored snapshot at that exact frame.
+
+Three changes were needed:
+
+### 1. Include frame number in round event message (`FightScene.js:_sendRoundEvent`)
 
 ```javascript
-// FightScene.js — after rollbackManager.advance()
-const { roundEvent } = this.rollbackManager.advance(...);
+// Before: no frame number
+const payload = { event, winnerIndex, p1Rounds, p2Rounds, roundNumber, matchOver };
 
-if (roundEvent) {
-  // Record for BOTH peers at the exact simulation frame
-  this.recorder?.recordRoundEvent(this.rollbackManager.currentFrame, roundEvent);
-  if (roundEvent.matchOver) {
-    this.recorder?.captureEndState(
-      this.p1Fighter, this.p2Fighter, this.combat,
-      this.rollbackManager.currentFrame,
-    );
+// After: add authoritative frame
+const payload = {
+  event, winnerIndex,
+  frame: this.rollbackManager?.currentFrame ?? this.frameCounter,
+  p1Rounds, p2Rounds, roundNumber, matchOver,
+};
+```
+
+### 2. P2 captures from rollback snapshot at P1's frame (`FightScene.js:nm.onRoundEvent`)
+
+```javascript
+nm.onRoundEvent((msg) => {
+  if (this.isHost) return;
+  // ...dedup guards...
+  if (msg.event === 'ko' || msg.event === 'timeup') {
+    // Record round event on P2 side too (was previously empty)
+    this.recorder?.recordRoundEvent(eventFrame, { type: msg.event, winnerIndex: msg.winnerIndex });
+
+    if (msg.matchOver) {
+      // Look up the snapshot at P1's authoritative KO frame
+      if (this.recorder && msg.frame != null && this.rollbackManager) {
+        const snapshot = this.rollbackManager.stateSnapshots.get(msg.frame);
+        if (snapshot) {
+          this.recorder.captureEndStateFromSnapshot(snapshot);
+        }
+      }
+      this.onMatchOver(msg.winnerIndex);
+    }
   }
-}
+});
+```
 
-if (roundEvent && this.isHost) {
-  this.combat.handleRoundEnd(roundEvent); // visual effects, host-only
+The rollback system keeps snapshots for recent frames (within the rollback window). Since the KO frame is only a few frames behind the current frame, the snapshot is still in the buffer.
+
+### 3. Guard against double-capture (`FightScene.js:onMatchOver`)
+
+```javascript
+// Skip if P2 already captured from the authoritative snapshot
+if (this.recorder && !this.recorder.log.finalState) {
+  this.recorder.captureEndState(p1Fighter, p2Fighter, combat, currentFrame);
 }
 ```
 
-Then remove the `captureEndState` call from `onMatchOver()` (or guard it with `if (!this.recorder?.log.finalState)`).
+This acts as a fallback: if the snapshot was pruned from the rollback buffer (e.g., very high latency), P2 falls back to capturing from live state — the old behavior. It's not perfect, but it's better than crashing.
+
+### New method in FightRecorder
+
+```javascript
+captureEndStateFromSnapshot(snapshot) {
+  this.log.finalState = snapshot;
+  this.log.finalStateHash = hashGameState(snapshot);
+  this.log.completedAt = Date.now();
+}
+```
+
+### Why not just use P2's local KO detection?
+
+P2 also detects the KO locally in `simulateFrame()`, and it would be tempting to capture the snapshot there. But the local detection happens on a **predicted** frame — P2 may be simulating with predicted (possibly wrong) inputs. If a rollback later corrects this frame, the KO might not have happened at all at that exact frame. P1's message is the authoritative source of truth, and using P1's frame number to look up the already-computed snapshot in the rollback buffer gives us the correct confirmed state.
 
 ## How to Verify
 

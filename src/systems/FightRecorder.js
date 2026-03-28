@@ -124,7 +124,7 @@ export class FightRecorder {
   }
 
   /**
-   * Capture final game state at match end.
+   * Capture final game state at match end from live fighter/combat objects.
    */
   captureEndState(p1, p2, combat, frame) {
     const snapshot = captureGameState(frame, p1, p2, combat);
