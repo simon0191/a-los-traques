@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
-import { getProfile } from '../services/supabase.js';
+import { getProfile } from '../services/api.js';
+import { logOut } from '../services/supabase.js';
 import { createButton } from '../services/UIService.js';
 
 export class TitleScene extends Phaser.Scene {
@@ -97,7 +98,6 @@ export class TitleScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
 
       logoutBtn.on('pointerdown', async () => {
-        const { logOut } = await import('../services/supabase.js');
         try {
           await logOut();
           this.scene.start('LoginScene');
@@ -107,7 +107,7 @@ export class TitleScene extends Phaser.Scene {
       });
 
       // Fetch real stats
-      getProfile(user.id)
+      getProfile()
         .then((profile) => {
           if (profile) {
             greeting.setText(`Hola, ${profile.nickname || userName}`);
@@ -117,7 +117,7 @@ export class TitleScene extends Phaser.Scene {
         })
         .catch((e) => {
           console.warn('Could not fetch profile', e);
-          statsText.setText('Stats no disponibles');
+          statsText.setText('Estadísticas no disponibles');
         });
     } else {
       const loginBtn = this.add

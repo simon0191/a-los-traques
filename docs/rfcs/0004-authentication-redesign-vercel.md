@@ -1,17 +1,17 @@
 # RFC 0004: Comprehensive Authentication & Persistence Architecture
 
 ## Status
-Proposed
+Proposed (Updated with Implementation Learnings)
 
 ## Context
-The project is evolving from a client-side only interaction with Supabase to a more robust, decoupled architecture using a Vercel Functions backend. This RFC describes the complete authentication and persistence flow, covering all supported modes (Guest, Email/Password, and OAuth) and the new API layer.
+The project has moved from a client-side only interaction with Supabase to a decoupled architecture using a Vercel Functions backend. This RFC describes the complete, production-ready authentication and persistence flow, covering all supported modes (Guest, Email/Password, and OAuth), modern JWT security, and robust database connectivity.
 
 ## Objectives
--   **Decouple DB Access**: Use Vercel Functions as an API layer, keeping Supabase as an implementation detail for Auth only.
+-   **Decouple DB Access**: Use Vercel Functions as an API layer, keeping Supabase strictly for Authentication.
+-   **Universal JWT Support**: Support both Legacy (HS256) and Modern (ES256) Supabase JWT signing keys.
 -   **Unified Persistence**: Centralize all data storage (profiles, statistics) behind the Vercel API.
--   **Portable Migrations**: Use `dbmate` for pure Postgres migrations.
--   **Support All Modes**: Clearly define the behavior for Guest, Email/Password, and Google OAuth users.
--   **Local Development**: Enable a "dev bypass" for seamless local testing without external dependencies.
+-   **Portable Migrations**: Use `dbmate` for pure Postgres migrations, removing vendor-specific triggers.
+-   **Network Compatibility**: Ensure connectivity on IPv4-only networks (like Vercel and many local ISPs) via the Supabase Connection Pooler.
 
 ## Authentication Modes
 
@@ -29,58 +29,45 @@ graph TD
     F --> G[Local Play / Online Relay]
 ```
 
-### 2. Email/Password Authentication
-Standard registration and login flow using Supabase Auth.
+### 2. Authenticated Flow (Email/Password & OAuth)
+Standard registration and login flow using Supabase Auth, followed by a mandatory profile sync with the Vercel Backend.
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
     participant S as Supabase Auth
     participant V as Vercel API
-    participant D as Postgres
+    participant D as Postgres (Port 6543)
 
-    B->>S: SignUp / LogIn(email, pass)
-    S-->>B: JWT + User Session
+    Note over B,S: 1. Authentication
+    B->>S: signUp / logIn / OAuth
+    S-->>B: JWT (HS256 or ES256)
+    
+    Note over B,V: 2. Profile Sync
     B->>V: POST /api/profile (with JWT)
-    V->>V: Verify JWT
-    V->>D: Upsert Profile (ID, Nickname)
+    V->>V: Detect Algorithm (HS256/ES256)
+    alt is ES256
+        V->>S: Fetch JWKS (.well-known/jwks.json)
+        V->>V: Verify Asymmetric Signature
+    else is HS256
+        V->>V: Verify Symmetric Signature (Secret)
+    end
+    
+    V->>D: UPSERT profiles (ID, Nickname)
     D-->>V: Success
-    V-->>B: Profile Data
-```
-
-### 3. Google OAuth Authentication (Proposed)
-Streamlined login using Google identity.
-
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant S as Supabase Auth
-    participant G as Google IdP
-    participant V as Vercel API
-    participant D as Postgres
-
-    B->>S: signInWithOAuth(google)
-    S->>G: Redirect to Google
-    G-->>S: Auth Code / Token
-    S-->>B: JWT + User Session
-    B->>V: POST /api/profile (with JWT)
-    V->>V: Verify JWT
-    V->>D: Upsert Profile (ID, email_as_nickname)
-    D-->>V: Success
-    V-->>B: Profile Data
+    V-->>B: Profile Data + Stats
 ```
 
 ## Data Persistence Flow (Stats)
 
-All authenticated requests for data persistence (e.g., updating wins/losses) must flow through the Vercel API.
+All authenticated requests for data persistence (e.g., updating wins/losses) flow through the Vercel API using a "Bearer Token" pattern.
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
     participant V as Vercel API
-    participant D as Postgres
+    participant D as Postgres (Port 6543)
 
-    Note over B,V: Bearer Token in Authorization Header
     B->>V: POST /api/stats { isWin: true }
     V->>V: withAuth Middleware (Verify JWT)
     V->>D: UPDATE profiles SET wins = wins + 1 WHERE id = $userId
@@ -91,38 +78,28 @@ sequenceDiagram
 ## Technical Specification
 
 ### 1. Vercel Functions (`api/`)
--   `api/_lib/handler.js`: Shared logic for JWT verification (`jose`), database pooling (`pg`), and error handling.
--   `api/profile.js`: Handles `GET` (fetch profile) and `POST` (upsert profile on login).
--   `api/stats.js`: Handles `POST` (update stats).
+-   **`api/_lib/handler.js`**: Shared logic for JWT verification.
+    -   Uses `jose` for lightweight, edge-compatible verification.
+    -   Automatically handles **JWKS fetching** if the project uses asymmetric keys (`ES256`).
+    -   Provides a database client from a global pool.
+-   **`api/profile.js`**: Handles `GET` (fetch profile) and `POST` (upsert profile on login).
+-   **`api/stats.js`**: Handles atomic `POST` updates for wins/losses.
 
-### 2. Database (Postgres + dbmate)
-Migrations live in `db/migrations/`.
-```sql
--- Example: 20260327000000_create_profiles.sql
-CREATE TABLE profiles (
-    id UUID PRIMARY KEY,
-    nickname TEXT UNIQUE,
-    wins INTEGER DEFAULT 0,
-    losses INTEGER DEFAULT 0,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
+### 2. Database Connectivity (IPv4 / Supavisor)
+To ensure compatibility with environments like Vercel and local dev machines without IPv6 support, the system connects via the **Supabase Connection Pooler (Port 6543)**.
+-   **URL Pattern**: `postgresql://postgres.[ID]:[PASS]@[HOST]:6543/postgres?pgbouncer=true`
 
 ### 3. Client Services
--   `src/services/supabase.js`: Refactored to handle **only** `signUp`, `logIn`, `logOut`, and `getSession`.
--   `src/services/api.js` (New): Handles all communication with `/api/*` endpoints, including automatic attachment of the JWT.
+-   **`src/services/api.js`**: Handles all communication with `/api/*`. Includes automatic JWT attachment and a developer bypass (`X-Dev-User-Id`) for local testing without real tokens.
+-   **`src/services/supabase.js`**: Refactored to handle **only** authentication actions (login, logout, session management).
 
-### 4. Local Development Bypass
-In `NODE_ENV !== 'production'`, if `SUPABASE_JWT_SECRET` is not provided, the API will accept an `X-Dev-User-Id` header. This allows testing the backend logic without a real Supabase token.
+## Security & Reliability
+-   **XSS Protection**: All user-generated content (nicknames, emails) is rendered using `textContent` or `innerText` to prevent script injection.
+-   **Robust JSON Parsing**: The client-side `apiFetch` detects empty or non-JSON responses (like 404/502 HTML pages) and provides clear diagnostic errors instead of crashing during `JSON.parse`.
+-   **Local Development**: `vite.config.js` is configured with a proxy for `/api` to allow seamless development with `vercel dev`.
 
-## Security Considerations
--   **JWT Verification**: The backend *must* verify the Supabase JWT on every request using the `SUPABASE_JWT_SECRET`.
--   **XSS Protection**: User-provided strings (emails, nicknames) must be handled safely in the UI (using `textContent` instead of `innerHTML`).
--   **Input Validation**: The API must validate all incoming payloads (e.g., ensuring `isWin` is a boolean).
-
-## Implementation Plan
-1.  **Infrastructure**: Install dependencies (`jose`, `pg`, `dbmate`).
-2.  **Migrations**: Create initial `dbmate` migration.
-3.  **Backend**: Implement `api/_lib` and initial endpoints.
-4.  **Client**: Implement `src/services/api.js` and refactor `supabase.js`.
-5.  **UI**: Update `LoginScene`, `TitleScene`, and `VictoryScene` to use the new API.
+## Implementation Plan (Completed)
+1.  **Backend**: Edge-compatible handlers with dual-algorithm support.
+2.  **Migrations**: `dbmate` used for portable schema management.
+3.  **UI**: `LoginScene`, `TitleScene`, and `VictoryScene` updated to use the decoupled API.
+4.  **DevOps**: Added `dev:all` script to start both frontend and backend concurrently.

@@ -5,29 +5,32 @@ Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape
 
 ## Authentication & Persistence
 
-Supabase-based account system for persistent statistics and profiles.
+Decoupled architecture: Supabase for Auth (JWT) + Vercel Functions for data persistence.
 
-- **Supabase Client**: `src/services/supabase.js` (Auth, Database, RPC).
+- **Supabase Client**: `src/services/supabase.js` (Auth only).
+- **Backend API**: `api/` (Vercel Functions) - `profile.js`, `stats.js`.
+- **API Service**: `src/services/api.js` (Client-side communication with backend).
+- **JWT Protection**: Backend verifies Supabase JWT using `jose` library and `SUPABASE_JWT_SECRET`.
+- **Dev Bypass**: In non-production, backend accepts `X-Dev-User-Id` if secret is missing.
 - **Global State**: Authenticated user object stored in `window.game.registry.get('user')`.
-- **Login Flow**: `BootScene` -> `LoginScene` (if credentials present and not in E2E/autoplay) -> `TitleScene`.
 - **Database Schema**: 
+    - Managed via `dbmate` (pure Postgres).
+    - Migrations in `db/migrations/`.
     - `profiles` table (id, nickname, wins, losses).
-    - SQL Migrations in `supabase/migrations/`.
-    - Row Level Security (RLS) enabled for all tables.
-- **Atomic Stats**: `increment_stat(user_id, column_name)` RPC function for thread-safe win/loss tracking.
 - **Graceful Degradation**: If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` are missing, the game bypasses `LoginScene` and operates in "Guest Mode" automatically.
 
 ## Build & Run
 
 ```bash
-bun run dev          # Vite dev server
+bun run dev:all      # Run both Vite and Vercel Dev (recommended)
+bun run dev          # Vite dev server only
 bun run party:dev    # PartyKit dev server (port 1999)
-bunx vite build      # Production build (Phaser chunk size warning is expected)
+bunx vite build      # Production build
+dbmate up            # Run database migrations
 bun test             # Run tests in watch mode (Vitest)
 bun run test:run     # Run tests once (CI)
 bun run lint         # Lint + format check (Biome)
 bun run lint:fix     # Auto-fix lint + format issues
-bun run format       # Format only (auto-fix)
 ```
 
 ## Project Structure

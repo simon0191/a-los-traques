@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
-import { updateStats } from '../services/supabase.js';
+import { updateStats } from '../services/api.js';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 
@@ -292,7 +292,7 @@ export class VictoryScene extends Phaser.Scene {
     const didWin = this.winnerId === localPlayerId;
 
     try {
-      await updateStats(user.id, didWin);
+      await updateStats(didWin);
 
       const feedback = this.add
         .text(GAME_WIDTH / 2, 45, didWin ? '+1 VICTORIA' : '+1 DERROTA', {

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { syncProfile } from '../services/api.js';
 import { getSession, logIn, signUp } from '../services/supabase.js';
 
 export class LoginScene extends Phaser.Scene {
@@ -35,7 +36,13 @@ export class LoginScene extends Phaser.Scene {
         this.statusText.setText(`Bienvenido, ${name}`).setColor('#44cc88');
         // Update registry immediately to avoid race conditions in TitleScene
         this.game.registry.set('user', session.user);
-        this.game.registry.set('session', session);
+
+        // Sync profile with backend on every login/reconnect
+        try {
+          await syncProfile(session.user.user_metadata?.nickname);
+        } catch (e) {
+          console.error('Profile sync failed', e);
+        }
 
         this.time.delayedCall(1000, () => this.scene.start('TitleScene'));
         return;
@@ -86,6 +93,8 @@ export class LoginScene extends Phaser.Scene {
           const { session } = await logIn(email, password);
           if (session) {
             this.game.registry.set('user', session.user);
+            // Sync profile on successful login
+            await syncProfile(session.user.user_metadata?.nickname);
           }
           this.scene.start('TitleScene');
         } catch (e) {
@@ -151,7 +160,7 @@ export class LoginScene extends Phaser.Scene {
         this._setLoading(true);
         try {
           await signUp(email, password, nickname);
-          this._setErrorMessage('¡REGISTRO ÉXITO! Revisa tu email para verificar la cuenta.');
+          this._setErrorMessage('¡REGISTRO EXITOSO! Revisa tu email para verificar la cuenta.');
           this.statusText.setColor('#44cc88');
           // Give more time to read the message (10s) and show a "BACK" button
           if (this.form) {
@@ -159,10 +168,14 @@ export class LoginScene extends Phaser.Scene {
             if (signupCard) {
               signupCard.innerHTML = `
                 <h3 style="margin: 0 0 5px 0; text-align: center; color: #44cc88; font-size: 14px;">¡CUENTA CREADA!</h3>
-                <p style="text-align: center; font-size: 11px; margin: 10px 0;">Hemos enviado un correo de verificación a <b>${email}</b>.</p>
+                <p id="success-msg" style="text-align: center; font-size: 11px; margin: 10px 0;"></p>
                 <p style="text-align: center; font-size: 10px; color: #aaaacc;">Debes activarla antes de entrar.</p>
                 <button id="backBtn" style="margin-top: 10px; padding: 8px; background: #3366ff; color: white; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; width: 100%;">VOLVER AL LOGIN</button>
               `;
+              const msgEl = this.form.getChildByID('success-msg');
+              if (msgEl) {
+                msgEl.textContent = `Hemos enviado un correo de verificación a ${email}.`;
+              }
             }
           }
           this._setLoading(false);
