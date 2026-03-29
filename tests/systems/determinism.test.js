@@ -116,7 +116,7 @@ function createSimFighter(xPx, playerIndex, stats = { speed: 3, power: 3, defens
     playerIndex,
     data: { stats, moves },
     sprite: { x: xPx, y: 220, setFlipX() {}, clearTint() {}, setTint() {} },
-    scene: { _muteEffects: true, game: { audioManager: { play() {} } } },
+    scene: { game: { audioManager: { play() {} } } },
     hasAnims: false,
 
     update() {

@@ -138,7 +138,7 @@ export class FighterSim {
     this._prevAnimState = null;
   }
 
-  update() {
+  update(events) {
     // Attack cooldown
     if (this.attackCooldown > 0) {
       this.attackCooldown--;
@@ -147,6 +147,9 @@ export class FighterSim {
 
     // Attack completion
     if (this.attackCooldown <= 0 && this.state === 'attacking') {
+      if (!this.hitConnected && events) {
+        events.push({ type: 'whiff', playerIndex: this.playerIndex });
+      }
       this.state = 'idle';
       this.currentAttack = null;
     }
@@ -233,22 +236,30 @@ export class FighterSim {
     if (this.isOnGround) this.state = 'idle';
   }
 
-  jump() {
+  jump(events) {
     if (this.state === 'attacking' || this.state === 'hurt' || this.state === 'knockdown') return;
 
+    let jumped = false;
     if (this.isOnGround) {
       this.simVY = JUMP_VY_FP;
       this.state = 'jumping';
       this.isOnGround = false;
+      jumped = true;
     } else if (this._isTouchingWall && !this._hasWallJumped) {
       this._hasWallJumped = true;
       this.hasDoubleJumped = false;
       this.simVY = WALL_JUMP_Y_FP;
       this.simVX = -this._wallDir * WALL_JUMP_X_FP;
       this.state = 'jumping';
+      jumped = true;
     } else if (!this.hasDoubleJumped && this._airborneTime > DOUBLE_JUMP_AIRBORNE_THRESHOLD) {
       this.hasDoubleJumped = true;
       this.simVY = DOUBLE_JUMP_VY_FP;
+      jumped = true;
+    }
+
+    if (jumped && events) {
+      events.push({ type: 'jump', playerIndex: this.playerIndex });
     }
   }
 
@@ -259,7 +270,7 @@ export class FighterSim {
     this.simVX = 0;
   }
 
-  attack(type) {
+  attack(type, events) {
     // Normal-to-special cancel: allow cancelling a normal into special on hit
     if (this.attackCooldown > 0 && this.state === 'attacking') {
       if (type === 'special' && this.hitConnected && this.currentAttack?.type !== 'special') {
@@ -299,6 +310,9 @@ export class FighterSim {
     if (type === 'special') {
       this.special -= SPECIAL_COST_FP;
       this._specialTintTimer = Math.min(this.attackCooldown, SPECIAL_TINT_MAX_FRAMES);
+      if (events) {
+        events.push({ type: 'special_charge', playerIndex: this.playerIndex });
+      }
     }
 
     return true;

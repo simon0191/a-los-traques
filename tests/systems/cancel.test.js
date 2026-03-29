@@ -80,7 +80,7 @@ function createFighter(moves = {}) {
     _specialTintTimer: 0,
     data: { stats: { speed: 3, power: 3, defense: 3 }, moves: defaultMoves },
     sprite: { setTint() {}, clearTint() {} },
-    scene: { _muteEffects: true, game: { audioManager: { play() {} } } },
+    scene: { game: { audioManager: { play() {} } } },
     hasAnims: false,
   };
 }

@@ -22,8 +22,9 @@ bun run format       # Format only (auto-fix)
 src/
   scenes/          # Boot -> Title -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory
   services/        # TournamentManager.js, UIService.js
-  entities/        # Fighter.js (sprite + state machine + animation)
-  systems/         # CombatSystem, InputManager, TouchControls, AIController
+  entities/        # Fighter.js (Phaser wrapper), combat-block.js
+  simulation/      # Pure sim core (no Phaser): SimulationEngine, FighterSim, CombatSim
+  systems/         # CombatSystem, InputManager, TouchControls, AIController, AudioBridge, VFXBridge
     net/           # NetworkFacade, SignalingClient, TransportManager, InputSync, ConnectionMonitor, SpectatorRelay
   data/            # fighters.json (16 fighters), stages.json (5 stages)
   config.js        # Constants (dimensions, ground Y, fighter size 128x128)
@@ -102,7 +103,10 @@ idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), 
 
 ## Fighter Entity
 
-- Sprites face RIGHT natively. `setFlipX(!this.facingRight)` handles mirroring.
+- **Two layers**: `FighterSim` (pure state + logic, no Phaser) and `Fighter` (Phaser sprite wrapper, delegates to FighterSim via proxied fields)
+- Both local and online modes run `tick()` on `FighterSim` objects. `Fighter` is only for presentation.
+- `syncSprite()` updates position, flip (`setFlipX(!facingRight)`), and state-driven tints (block blue, special yellow). Called at visual rate after sim ticks.
+- `updateAnimation()` maps sim state to Phaser animations. Called at visual rate after `syncSprite()`.
 - Attack animation framerate is dynamic: `spriteFrames / attackDuration * 1000` fps, so animations complete within the gameplay cooldown window.
 - `_prevAnimState` tracks animation to avoid re-triggering. Set to `null` on attack to force replay.
 - `hasAnims` flag checked before playing animations (falls back to static sprite for placeholder fighters).
@@ -139,7 +143,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/room-state-machine.md` — Server room state (`roomState` transitions, `return_to_select` vs `disconnect`)
 - `docs/e2e-testing.md` — E2E multiplayer testing framework (autoplay, FightRecorder, Playwright)
 - `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phases 1-4 complete, Phase 5 optional)
-- `docs/rfcs/0002-multiplayer-redesign.md` — Multiplayer architecture redesign (Phases 1, 2A, 2B complete, Phase 3 next)
+- `docs/rfcs/0002-multiplayer-redesign.md` — Multiplayer architecture redesign (Phases 1, 2A, 2B, 3 complete, Phase 4 next)
 
 ## Online Multiplayer
 
@@ -147,16 +151,17 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - **Network modules** in `src/systems/net/`: SignalingClient (WebSocket), TransportManager (WebRTC + TURN), InputSync (buffers), ConnectionMonitor (ping/RTT), SpectatorRelay, NetworkFacade (composes all, same API as old NetworkManager)
 - **Cloudflare TURN**: TURN key created via Cloudflare dashboard, credentials stored as PartyKit env vars (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN`). Server endpoint `/turn-creds` generates short-lived ICE credentials. Enables P2P behind symmetric NAT (mobile carriers).
 - **Rollback netcode** (GGPO-style): both peers run identical simulations locally with zero perceived input lag
-- **Deferred round events**: `simulateFrame()` returns `{ type, winnerIndex }` descriptors instead of firing side effects. Both P1 and P2 set `suppressRoundEvents=true`. P1 handles events from `advance()` return via `combat.handleRoundEnd()`. P2 receives via `onRoundEvent` network handler.
+- **Event-driven presentation** (Phase 3): `tick()` returns `{ state, events, roundEvent }`. `AudioBridge` and `VFXBridge` consume events for audio/VFX — no direct `audioManager.play()` or `cameras.main.shake()` in simulation code. During rollback resimulation, events are discarded (no `_muteEffects` flag).
+- **Deferred round events**: `tick()` returns round events as part of the events array (`round_ko`, `round_timeup`). P1 handles from `advance()` return. P2 receives via `onRoundEvent` network handler. Both route through bridges.
 - Input prediction: repeat last movement, zero attack buttons. Rollback + re-simulate on misprediction (max 7 frames)
 - Fixed timestep: `FIXED_DELTA = 16.667ms` for deterministic online simulation
 - Input encoding: 9 booleans packed as single integer (bits 0-8) via `InputBuffer.js`
 - Fighter timers are deterministic (no `scene.time.delayedCall` in simulation path)
-- `CombatSystem.tickTimer({ muteEffects })` counts frames (60 frames = 1 second), returns `{ timeup: true }` instead of calling `timeUp()` directly
-- `CombatSystem.checkHit()` returns `{ hit, ko }` on hit instead of boolean
+- `CombatSystem.tickTimer()` counts frames (60 frames = 1 second), returns `{ timeup: true }` instead of calling `timeUp()` directly
+- `CombatSystem.checkHit()` returns `{ hit, ko }` on hit — pure delegation to CombatSim, no side effects
+- `Fighter.syncSprite()` handles position, flip, and state-driven tints (block blue, special yellow)
 - Checksum compares confirmed frames (`currentFrame - maxRollbackFrames - 1`) to avoid false positives from predicted inputs
 - WebSocket inputs always accepted regardless of DataChannel state (resilient to asymmetric WebRTC reconnection)
-- Audio/particles/camera shake suppressed during rollback re-simulation (`muteEffects`)
 - Spectators receive P1 sync snapshots (same as old model, no rollback)
 - URL join: `?room=XXXX` skips title, goes directly to LobbyScene
 - `bun run party:dev` for local dev, `bun run party:deploy` to deploy

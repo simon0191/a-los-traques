@@ -11,7 +11,9 @@ import {
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
 import { Fighter } from '../entities/Fighter.js';
+import { tick } from '../simulation/SimulationEngine.js';
 import { AIController } from '../systems/AIController.js';
+import { AudioBridge } from '../systems/AudioBridge.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
 import { DevConsole } from '../systems/DevConsole.js';
 import { FightRecorder } from '../systems/FightRecorder.js';
@@ -21,6 +23,7 @@ import {
   MAX_STAMINA_FP,
   ONLINE_INPUT_DELAY,
 } from '../systems/FixedPoint.js';
+import { encodeInput } from '../systems/InputBuffer.js';
 import { InputManager } from '../systems/InputManager.js';
 import { MatchEvent, MatchState, MatchStateMachine } from '../systems/MatchStateMachine.js';
 import { ReconnectionManager } from '../systems/ReconnectionManager.js';
@@ -28,6 +31,7 @@ import { ReplayInputSource } from '../systems/ReplayInputSource.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
 import { simulateFrame as simFrame } from '../systems/SimulationStep.js';
 import { TouchControls } from '../systems/TouchControls.js';
+import { VFXBridge } from '../systems/VFXBridge.js';
 
 // ---------------------------------------------------------------------------
 // HUD layout constants
@@ -102,8 +106,13 @@ export class FightScene extends Phaser.Scene {
     // -- Systems --
     this.combat = new CombatSystem(this);
 
-    // -- Mute effects flag (used during rollback re-simulation) --
-    this._muteEffects = false;
+    // -- Event bridges (Phase 3: events → audio/VFX) --
+    this.audioBridge = new AudioBridge(this.game.audioManager);
+    this.vfxBridge = new VFXBridge(
+      this,
+      () => this.p1Fighter,
+      () => this.p2Fighter,
+    );
 
     // -- Projectiles array --
     this.projectiles = [];
@@ -190,6 +199,7 @@ export class FightScene extends Phaser.Scene {
 
     // -- Fixed-timestep accumulator for simulation --
     this._simAccumulator = 0;
+    this._localFrame = 0;
 
     // -- Match state machine (RFC 0002 §2B.1) --
     const smInitialState =
@@ -264,26 +274,20 @@ export class FightScene extends Phaser.Scene {
       return;
     }
 
-    if (!this.combat.roundActive) {
-      // Replay mode: don't bail out — the fixed-timestep loop handles round transitions
-      if (this._replayP1 && this._replayP2) {
-        // fall through to the fixed-timestep loop below
-      } else if (this.gameMode === 'online') {
-        // Online mode: keep simulation running during round transitions so both
-        // peers stay in lockstep. The frame-based transitionTimer in simulateFrame
-        // handles deterministic round reset.
-      } else {
-        // Allow restart after match over (Space key or tap)
-        if (
-          this.combat.matchOver &&
-          this.spaceKey &&
-          Phaser.Input.Keyboard.JustDown(this.spaceKey)
-        ) {
-          this.scene.restart();
-        }
-        return;
+    if (!this.combat.roundActive && this.combat.matchOver) {
+      // Allow restart after match over (Space key or tap) — local mode only
+      if (
+        this.gameMode !== 'online' &&
+        this.spaceKey &&
+        Phaser.Input.Keyboard.JustDown(this.spaceKey)
+      ) {
+        this.scene.restart();
       }
+      // Online/spectator wait for VictoryScene transition; local stays for space key
+      if (this.gameMode !== 'online' && !this._replayP1) return;
     }
+    // When round is not active but match is not over, keep running tick()
+    // so the frame-based transitionTimer counts down and resets the round.
 
     // Fixed-timestep accumulator: gate simulation to exactly 60fps
     const FIXED_DELTA = 1000 / 60; // 16.667ms
@@ -305,9 +309,11 @@ export class FightScene extends Phaser.Scene {
       }
     }
 
-    // Sync sprites + HUD at visual rate (after all sim ticks)
+    // Sync sprites + animations + HUD at visual rate (after all sim ticks)
     this.p1Fighter.syncSprite();
     this.p2Fighter.syncSprite();
+    this.p1Fighter.updateAnimation();
+    this.p2Fighter.updateAnimation();
     this._updateHUD();
   }
 
@@ -719,47 +725,6 @@ export class FightScene extends Phaser.Scene {
   // =========================================================================
   // P1 INPUT
   // =========================================================================
-  _handleP1Input() {
-    // Skip keyboard input when dev console is open
-    if (this.devConsole?.visible) {
-      this.p1Fighter.stop();
-      return;
-    }
-
-    const input = this.inputManager;
-    const fighter = this.p1Fighter;
-    const speed = (80 + fighter.data.stats.speed * 20) * FP_SCALE;
-
-    // Movement
-    if (input.left) {
-      fighter.moveLeft(speed);
-    } else if (input.right) {
-      fighter.moveRight(speed);
-    } else {
-      fighter.stop();
-    }
-
-    // Jump (+ double jump if already airborne)
-    if (input.up) {
-      fighter.jump();
-    }
-
-    // Block (down while on ground)
-    if (input.block && fighter.isOnGround) {
-      fighter.block();
-    }
-
-    // Attacks
-    if (input.lightPunch) fighter.attack('lightPunch');
-    else if (input.heavyPunch) fighter.attack('heavyPunch');
-    else if (input.lightKick) fighter.attack('lightKick');
-    else if (input.heavyKick) fighter.attack('heavyKick');
-    else if (input.special) fighter.attack('special');
-
-    // Consume one-shot touch inputs
-    input.consumeTouch();
-  }
-
   // =========================================================================
   // ONLINE MODE
   // =========================================================================
@@ -769,7 +734,6 @@ export class FightScene extends Phaser.Scene {
 
     // Both peers are equal in rollback netcode (no host/guest distinction for gameplay)
     this.isHost = slot === 0;
-    this._muteEffects = false;
 
     // Suppress direct round event firing inside simulation for both P1 and P2.
     // P1 handles round events from advance() return value.
@@ -884,12 +848,33 @@ export class FightScene extends Phaser.Scene {
     // P2 suppresses local detection and waits for P1's authoritative message.
     nm.onRoundEvent((msg) => {
       if (this.isHost) return; // P1 already handled locally
-      if (msg.matchOver && this._matchOverProcessed) return;
-      if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) return;
+      if (msg.matchOver && this._matchOverProcessed) {
+        console.log(`[FightScene] P2 onRoundEvent ignored: matchOver already processed`);
+        return;
+      }
+      if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) {
+        console.log(
+          `[FightScene] P2 onRoundEvent ignored: round ${msg.roundNumber} already processed (last=${this._lastProcessedRound})`,
+        );
+        return;
+      }
+
+      console.log(
+        `[FightScene] P2 onRoundEvent: event=${msg.event} winner=P${msg.winnerIndex + 1} matchOver=${msg.matchOver} round=${msg.roundNumber} state=${this.matchState.state}`,
+      );
 
       // Don't modify combat state here — simulateFrame handles it deterministically.
-      // Only fire visual/audio effects via onRoundOver/onMatchOver.
+      // Fire round-end audio/VFX via bridges, then UI transitions.
       if (msg.event === 'ko' || msg.event === 'timeup') {
+        const syntheticEvents = [
+          {
+            type: msg.event === 'ko' ? 'round_ko' : 'round_timeup',
+            winnerIndex: msg.winnerIndex,
+            matchOver: msg.matchOver,
+          },
+        ];
+        this.audioBridge.processEvents(syntheticEvents);
+        this.vfxBridge.processEvents(syntheticEvents);
         if (msg.matchOver) {
           this._matchOverProcessed = true;
           this.onMatchOver(msg.winnerIndex);
@@ -1111,23 +1096,100 @@ export class FightScene extends Phaser.Scene {
       return;
     }
 
-    this.p1Fighter.update();
-    this.p2Fighter.update();
+    const wasRoundActive = this.combat.roundActive;
 
-    this._handleP1Input();
+    // Build P1 input from keyboard/touch
+    const input = this.inputManager;
+    const p1Input = this.devConsole?.visible
+      ? 0
+      : encodeInput({
+          left: input.left,
+          right: input.right,
+          up: input.up,
+          down: input.down,
+          lp: input.lightPunch,
+          hp: input.heavyPunch,
+          lk: input.lightKick,
+          hk: input.heavyKick,
+          sp: input.special,
+        });
+    input.consumeTouch();
 
+    // Build P2 input from AI
+    let p2Input = 0;
     if (this.aiController) {
       this.aiController.update(time, delta);
-      this.aiController.applyDecisions();
+      const d = this.aiController.decision;
+      p2Input = encodeInput({
+        left: d.moveDir < 0,
+        right: d.moveDir > 0,
+        up: d.jump,
+        down: d.block,
+        lp: d.attack === 'lightPunch',
+        hp: d.attack === 'heavyPunch',
+        lk: d.attack === 'lightKick',
+        hk: d.attack === 'heavyKick',
+        sp: d.attack === 'special',
+      });
+      // Consume one-shot decisions so they don't repeat
+      this.aiController.decision.jump = false;
+      this.aiController.decision.attack = null;
     }
 
-    this.combat.resolveBodyCollision(this.p1Fighter, this.p2Fighter);
+    // Run same tick() as online mode — deterministic simulation on sim objects
+    const { events, roundEvent } = tick(
+      this.p1Fighter.sim,
+      this.p2Fighter.sim,
+      this.combat.sim,
+      p1Input,
+      p2Input,
+      this._localFrame++,
+    );
 
-    this.p1Fighter.faceOpponent(this.p2Fighter);
-    this.p2Fighter.faceOpponent(this.p1Fighter);
+    // Route sim events to presentation bridges
+    if (events.length > 0) {
+      this.audioBridge.processEvents(events);
+      this.vfxBridge.processEvents(events);
+    }
 
-    this.combat.checkHit(this.p1Fighter, this.p2Fighter);
-    this.combat.checkHit(this.p2Fighter, this.p1Fighter);
+    // Handle round events (same flow as online P1/host)
+    if (roundEvent) {
+      console.log(
+        `[FightScene] Local roundEvent: type=${roundEvent.type} winner=P${roundEvent.winnerIndex + 1} matchOver=${this.combat.matchOver} frame=${this._localFrame} state=${this.matchState.state}`,
+      );
+      this.combat.stopRound();
+      if (this.combat.matchOver) {
+        this.onMatchOver(roundEvent.winnerIndex);
+      } else {
+        this.onRoundOver(roundEvent.winnerIndex);
+      }
+    }
+
+    // Detect simulation-driven round reset (transitionTimer expired → roundActive became true)
+    if (!wasRoundActive && this.combat.roundActive) {
+      if (this.matchState.canTransition(MatchEvent.TRANSITION_COMPLETE)) {
+        const nextState = this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
+        if (nextState === MatchState.ROUND_INTRO) {
+          this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+        }
+      }
+      this.p1Fighter.syncSprite();
+      this.p2Fighter.syncSprite();
+      if (this.p1Fighter.hasAnims) this.p1Fighter.sprite.play(`${this.p1Fighter.fighterId}_idle`);
+      if (this.p2Fighter.hasAnims) this.p2Fighter.sprite.play(`${this.p2Fighter.fighterId}_idle`);
+      this._updateHUD();
+      this.centerText.setText(`ROUND ${this.combat.roundNumber - 1}`);
+      this.subtitleText.setText('');
+      this.game.audioManager.play('announce_round');
+      this.time.delayedCall(800, () => {
+        this.centerText.setText('A PELEAR!');
+        this.game.audioManager.play('announce_fight');
+        this.time.delayedCall(500, () => {
+          this.centerText.setText('');
+          this.subtitleText.setText('');
+        });
+      });
+    }
   }
 
   _showDesyncWarning() {
@@ -1187,12 +1249,18 @@ export class FightScene extends Phaser.Scene {
     this.recorder?.recordInput(this.rollbackManager.currentFrame, localInput);
 
     // Run rollback advance (handles input sending, prediction, rollback, simulation)
-    const { roundEvent } = this.rollbackManager.advance(
+    const { roundEvent, events } = this.rollbackManager.advance(
       localInput,
       this.p1Fighter,
       this.p2Fighter,
       this.combat,
     );
+
+    // Route sim events to presentation bridges
+    if (events?.length > 0) {
+      this.audioBridge.processEvents(events);
+      this.vfxBridge.processEvents(events);
+    }
 
     // Record round events for BOTH peers at the exact simulation frame
     if (roundEvent) {
@@ -1207,9 +1275,18 @@ export class FightScene extends Phaser.Scene {
       }
     }
 
-    // P1 (host) handles round events: fire side effects + send to P2
+    // P1 (host) handles round events: stop round timer + UI transitions
+    // Audio/VFX already handled by bridges above via round_ko/round_timeup events
     if (roundEvent && this.isHost) {
-      this.combat.handleRoundEnd(roundEvent);
+      console.log(
+        `[FightScene] P1 roundEvent: type=${roundEvent.type} winner=P${roundEvent.winnerIndex + 1} matchOver=${this.combat.matchOver} frame=${this.rollbackManager.currentFrame} state=${this.matchState.state}`,
+      );
+      this.combat.stopRound();
+      if (this.combat.matchOver) {
+        this.onMatchOver(roundEvent.winnerIndex);
+      } else {
+        this.onRoundOver(roundEvent.winnerIndex);
+      }
     }
 
     // Detect simulation-driven round reset (transitionTimer expired → roundActive became true)
@@ -1326,6 +1403,17 @@ export class FightScene extends Phaser.Scene {
       this.combat.roundNumber = msg.roundNumber;
 
       if (msg.event === 'ko' || msg.event === 'timeup') {
+        // Route round-end audio/VFX through bridges
+        const syntheticEvents = [
+          {
+            type: msg.event === 'ko' ? 'round_ko' : 'round_timeup',
+            winnerIndex: msg.winnerIndex,
+            matchOver: msg.matchOver,
+          },
+        ];
+        this.audioBridge.processEvents(syntheticEvents);
+        this.vfxBridge.processEvents(syntheticEvents);
+
         if (msg.matchOver) {
           this.combat.matchOver = true;
           this.onMatchOver(msg.winnerIndex);
@@ -1896,6 +1984,15 @@ export class FightScene extends Phaser.Scene {
    * @param {number} winnerIndex - 0 for P1, 1 for P2
    */
   onRoundOver(winnerIndex) {
+    if (!this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
+      console.warn(
+        `[FightScene] onRoundOver ignored: cannot transition ROUND_OVER from state=${this.matchState.state}`,
+      );
+      return;
+    }
+    console.log(
+      `[FightScene] onRoundOver winner=P${winnerIndex + 1} state=${this.matchState.state} rounds=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+    );
     this.matchState.transition(MatchEvent.ROUND_OVER);
 
     // Host sends round event to guest
@@ -1918,36 +2015,12 @@ export class FightScene extends Phaser.Scene {
       ease: 'Back.easeOut',
     });
 
-    if (this.gameMode === 'online') {
-      // Online mode: simulation handles round reset via deterministic transitionTimer.
-      // Only show visual feedback here — don't modify fighter/combat state.
-      this.time.delayedCall(1500, () => {
-        this.centerText.setText(`${winnerName} GANA EL ROUND!`);
-        this.centerText.setScale(1).setAlpha(1);
-        this.subtitleText.setText(
-          `RONDAS: ${this.combat.p1RoundsWon} - ${this.combat.p2RoundsWon}`,
-        );
-      });
-      return;
-    }
-
-    // Local mode: manage round transition via Phaser timers
-    this.p1Fighter.stop();
-    this.p2Fighter.stop();
-
+    // Both online and local mode: simulation handles round reset via deterministic
+    // transitionTimer inside tick(). Only show visual feedback here.
     this.time.delayedCall(1500, () => {
       this.centerText.setText(`${winnerName} GANA EL ROUND!`);
       this.centerText.setScale(1).setAlpha(1);
       this.subtitleText.setText(`RONDAS: ${this.combat.p1RoundsWon} - ${this.combat.p2RoundsWon}`);
-
-      this.time.delayedCall(2000, () => {
-        // Reset fighters for next round (keep round score, reset HP/position)
-        this.p1Fighter.reset(GAME_WIDTH * 0.3);
-        this.p2Fighter.reset(GAME_WIDTH * 0.7);
-        this._updateHUD();
-        this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
-        this._showRoundIntro();
-      });
     });
   }
 
@@ -1956,6 +2029,20 @@ export class FightScene extends Phaser.Scene {
    * @param {number} winnerIndex - 0 for P1, 1 for P2
    */
   onMatchOver(winnerIndex) {
+    if (!this.matchState.canTransition(MatchEvent.MATCH_OVER)) {
+      // Already processed — can happen when duplicate round events arrive after reconnection
+      if (this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
+        // Still in ROUND_ACTIVE — need ROUND_OVER first, then check again
+      } else {
+        console.warn(
+          `[FightScene] onMatchOver ignored: cannot transition MATCH_OVER from state=${this.matchState.state}`,
+        );
+        return;
+      }
+    }
+    console.log(
+      `[FightScene] onMatchOver winner=P${winnerIndex + 1} state=${this.matchState.state} rounds=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+    );
     if (this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
       this.matchState.transition(MatchEvent.ROUND_OVER);
     }

@@ -49,17 +49,9 @@ export function applyInputToFighter(fighter, inputState) {
  * @param {import('./CombatSystem.js').CombatSystem} combat
  * @param {number} p1Input - Encoded input for P1
  * @param {number} p2Input - Encoded input for P2
- * @param {{ muteEffects?: boolean }} [options]
  * @returns {{ type: 'ko'|'timeup', winnerIndex: number } | null}
  */
-export function simulateFrame(
-  p1Fighter,
-  p2Fighter,
-  combat,
-  p1Input,
-  p2Input,
-  { muteEffects = false } = {},
-) {
+export function simulateFrame(p1Fighter, p2Fighter, combat, p1Input, p2Input) {
   // 1. Update fighters (gravity, cooldowns, timers, ground check)
   p1Fighter.update();
   p2Fighter.update();
@@ -80,14 +72,14 @@ export function simulateFrame(
   // 5. Hit detection + timer tick → capture round events (only when round is active)
   let roundEvent = null;
   if (combat.roundActive) {
-    const p1Hit = combat.checkHit(p1Fighter, p2Fighter, { muteEffects });
-    const p2Hit = combat.checkHit(p2Fighter, p1Fighter, { muteEffects });
+    const p1Hit = combat.checkHit(p1Fighter, p2Fighter);
+    const p2Hit = combat.checkHit(p2Fighter, p1Fighter);
 
     if (p1Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 0 };
     else if (p2Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 1 };
 
     // 6. Tick timer
-    const timerResult = combat.tickTimer({ muteEffects });
+    const timerResult = combat.tickTimer();
     if (!roundEvent && timerResult?.timeup) {
       roundEvent = {
         type: 'timeup',
@@ -96,11 +88,7 @@ export function simulateFrame(
     }
 
     // Update all round state on the frame that detects a round event.
-    // Both peers must reach identical state at the same simulation frame,
-    // regardless of when the network round-event message arrives at P2.
-    // handleRoundEnd() still fires for audio/visual effects, but all
-    // simulation state (roundActive, roundsWon, roundNumber, velocities)
-    // is set here so both peers agree.
+    // Both peers must reach identical state at the same simulation frame.
     if (roundEvent) {
       combat.roundActive = false;
       p1Fighter.simVX = 0;
@@ -130,10 +118,6 @@ export function simulateFrame(
       combat.roundActive = true;
     }
   }
-
-  // 7. Sync sprites (rendering only)
-  p1Fighter.syncSprite();
-  p2Fighter.syncSprite();
 
   return roundEvent;
 }

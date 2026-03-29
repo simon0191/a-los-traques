@@ -1,8 +1,8 @@
 # RFC 0002: Multiplayer Architecture Redesign
 
-**Status:** In Progress — Phases 1, 2A, 2B complete
+**Status:** In Progress — Phases 1, 2A, 2B, 3 complete
 **Date:** 2026-03-24
-**Updated:** 2026-03-27
+**Updated:** 2026-03-29
 **Author:** Architecture Team
 **Predecessor:** [RFC 0001: Networking Redesign](0001-networking-redesign.md) (Phases 1–4 complete)
 **PR:** [#49](https://github.com/simon0191/a-los-traques/pull/49)
@@ -11,15 +11,17 @@
 
 ### What's Next
 
-**Phase 2 (A+B) is complete.** All rollback engine and session management tasks done.
+**Phases 1, 2A, 2B, and 3 are complete.** Simulation core, rollback engine, session management, and event-driven presentation all done.
 
-Key changes in final Phase 2A batch:
-- **Consolidation:** `GameState.js` is now a pure re-export from `SimulationEngine.js` (single source of truth). `syncSprite()` side effect removed from `restoreFighterState` — presentation layer calls it explicitly.
-- **2A.3:** Snapshots carry a `confirmed` boolean. `captureResyncSnapshot()` prefers confirmed snapshots.
-- **2A.4:** `RollbackManager.getFrame0SyncHash()` / `validateFrame0Hash()` own frame-0 state capture. FightScene delegates to these instead of calling `captureGameState`/`hashGameState` directly.
-- **2A.5:** All snapshots include `version: SNAPSHOT_VERSION`. `applyResync()` rejects mismatched versions.
+Key changes in Phase 3:
+- **3.1:** `tick()` now returns `{ state, events, roundEvent }`. Events generated in pure sim objects (`FighterSim`, `CombatSim`) — hit, hit_blocked, whiff, jump, special_charge, round_ko, round_timeup.
+- **3.2:** `AudioBridge.js` and `VFXBridge.js` consume sim events for all audio/VFX. No direct `audioManager.play()` or `cameras.main.shake()` in simulation code.
+- **3.3:** `syncSprite()` now handles state-driven tints (block blue, special yellow) and flip. Removed from `SimulationStep.simulateFrame()`.
+- **3.4:** `_muteEffects` completely eliminated. During rollback resimulation, events from resim ticks are simply discarded — only current-frame events returned to caller.
+- **3.5:** `CombatSystem` stripped of `_playHitEffects`, `handleRoundEnd`, `handleKO`, `timeUp`, `roundWin`. Now a thin wrapper over `CombatSim`.
+- **3.6:** Spectator and P2 round events routed through bridges for consistent audio/VFX.
 
-**Next: Phase 3** (event-driven presentation: AudioBridge, VFXBridge, remove `_muteEffects`).
+**Next: Phase 4** (replay system: formalize replay bundle, headless ReplayRunner, CI determinism test).
 
 ---
 
@@ -724,14 +726,14 @@ flowchart TD
 
 **Tasks:**
 
-| # | Task | Details |
-|---|------|---------|
-| 3.1 | Create `AudioBridge.js` | Declarative mapping: `SimEvent[] → audioManager.play()`. Replaces all `this.scene.game.audioManager.play()` in Fighter (5 call sites) and CombatSystem (7 call sites). |
-| 3.2 | Create `VFXBridge.js` | Declarative mapping: `SimEvent[] → cameras.main.shake()`, hit sparks, tints. Replaces CombatSystem camera/tint code (5 call sites). |
-| 3.3 | Refactor FightScene update loop | Single loop: read state from `MatchStateMachine` → switch on state → delegate to appropriate handler. No 3-way mode branching. |
-| 3.4 | Move `syncSprite()` out of simulation | `SimulationEngine.tick()` no longer calls `syncSprite()`. FightScene calls `fighter.syncSprite()` after receiving new state from rollback manager. |
-| 3.5 | Spectator mode cleanup | Spectators receive `GameState` snapshots from P1. Apply state directly to `FighterSim` objects, sync to sprites. Events reconstructed from state deltas or sent explicitly. |
-| 3.6 | Remove `_muteEffects` | All `this.scene._muteEffects` checks in Fighter and CombatSystem are removed. The event-based architecture makes them unnecessary. |
+| # | Task | Status | Details |
+|---|------|--------|---------|
+| 3.1 | Create `AudioBridge.js` | **Done** | `src/systems/AudioBridge.js` — maps SimEvent[] to audioManager.play(). Handles hit, hit_blocked, whiff, jump, special_charge, round_ko, round_timeup. |
+| 3.2 | Create `VFXBridge.js` | **Done** | `src/systems/VFXBridge.js` — maps SimEvent[] to camera shake, hit sparks, tint flashes, screen flash. State-driven tints (block/special) handled by `syncSprite()`. |
+| 3.3 | Add events to `tick()` | **Done** | `tick()` returns `{ state, events, roundEvent }`. Events generated in `FighterSim` (whiff, jump, special_charge) and `CombatSim` (hit, hit_blocked). Round events added by `tick()`. 20 unit tests in `tests/systems/sim-events.test.js`. |
+| 3.4 | Move `syncSprite()` out of simulation | **Done** | Removed from `SimulationStep.simulateFrame()`. `Fighter.syncSprite()` now handles position, flip, and state-driven tints (block blue, special yellow). |
+| 3.5 | Spectator mode cleanup | **Done** | Spectator and P2 round events routed through AudioBridge/VFXBridge via synthetic events. |
+| 3.6 | Remove `_muteEffects` | **Done** | Zero `_muteEffects` references in `src/`. RollbackManager discards resim events instead of muting. CombatSystem stripped of `_playHitEffects`, `handleRoundEnd`, `handleKO`, `timeUp`, `roundWin`. |
 
 **Dependencies:** Phases 1, 2A, 2B.
 

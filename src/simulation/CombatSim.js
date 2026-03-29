@@ -56,9 +56,12 @@ export class CombatSim {
   /**
    * Check if attacker's hitbox overlaps defender's hurtbox and apply damage.
    * Pure — no audio/camera side effects.
+   * @param {import('./FighterSim.js').FighterSim} attacker
+   * @param {import('./FighterSim.js').FighterSim} defender
+   * @param {Array<object>} [events] - Optional events array to push sim events onto
    * @returns {{ hit: true, ko: boolean, damage: number, isBlocking: boolean, intensity: string } | false}
    */
-  checkHit(attacker, defender) {
+  checkHit(attacker, defender, events) {
     if (!attacker.currentAttack || attacker.state !== 'attacking') return false;
     if (attacker.hitConnected) return false;
 
@@ -73,6 +76,22 @@ export class CombatSim {
       const wasBlocking = defender.state === 'blocking';
       const { ko, damage, intensity } = this.applyDamage(attacker, defender);
       attacker.hitConnected = true;
+
+      if (Array.isArray(events)) {
+        const hitX = Math.trunc((attacker.simX + defender.simX) / 2);
+        const hitY = hurtbox.y + Math.trunc(hurtbox.h / 2);
+        events.push({
+          type: wasBlocking ? 'hit_blocked' : 'hit',
+          attackerIndex: attacker.playerIndex,
+          defenderIndex: defender.playerIndex,
+          intensity,
+          damage,
+          ko: !!ko,
+          hitX,
+          hitY,
+        });
+      }
+
       return { hit: true, ko: !!ko, damage, isBlocking: wasBlocking, intensity };
     }
     return false;

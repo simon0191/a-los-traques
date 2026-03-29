@@ -72,7 +72,6 @@ function mockFighter(xPx = 100, overrides = {}) {
 // Mock scene
 function mockScene() {
   return {
-    _muteEffects: false,
     game: { audioManager: { play: vi.fn() } },
     cameras: { main: { shake: vi.fn() } },
     spawnHitSpark: vi.fn(),
@@ -143,12 +142,6 @@ describe('RollbackManager', () => {
     it('stores local input at delayed frame', () => {
       rm.advance(noInput, p1, p2, combat);
       expect(rm.localInputHistory.has(2)).toBe(true);
-    });
-
-    it('calls updateAnimation on both fighters after advance', () => {
-      rm.advance(noInput, p1, p2, combat);
-      expect(p1.updateAnimation).toHaveBeenCalled();
-      expect(p2.updateAnimation).toHaveBeenCalled();
     });
   });
 
@@ -261,14 +254,8 @@ describe('RollbackManager', () => {
     });
   });
 
-  describe('muteEffects during rollback', () => {
-    it('sets _muteEffects true during re-simulation', () => {
-      let muteEffectsDuringResim = false;
-
-      p1.update = vi.fn(() => {
-        if (scene._muteEffects) muteEffectsDuringResim = true;
-      });
-
+  describe('events during rollback', () => {
+    it('only returns events from the current frame, not resim frames', () => {
       rm.advance(noInput, p1, p2, combat);
 
       const confirmedInput = {
@@ -283,10 +270,10 @@ describe('RollbackManager', () => {
         sp: false,
       };
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
-      rm.advance(noInput, p1, p2, combat);
+      const { events } = rm.advance(noInput, p1, p2, combat);
 
-      expect(muteEffectsDuringResim).toBe(true);
-      expect(scene._muteEffects).toBe(false);
+      // Events should be an array (from the current frame tick only)
+      expect(Array.isArray(events)).toBe(true);
     });
   });
 

@@ -290,7 +290,7 @@ export class AIController {
   // Apply the current decision to the fighter (called every frame)
   // ---------------------------------------------------------------------------
 
-  applyDecisions() {
+  applyDecisions(events) {
     const fighter = this.fighter;
     const speed = (80 + fighter.data.stats.speed * 20) * FP_SCALE;
 
@@ -311,7 +311,7 @@ export class AIController {
 
     // Jump (consume immediately so we don't re-jump every frame)
     if (this.decision.jump && fighter.isOnGround) {
-      fighter.jump();
+      fighter.jump(events);
       this.decision.jump = false;
     }
 
@@ -320,13 +320,13 @@ export class AIController {
       const wallJumpChance =
         this.difficulty === 'hard' ? 1.0 : this.difficulty === 'medium' ? 0.3 : 0;
       if (this._rng() < wallJumpChance) {
-        fighter.jump();
+        fighter.jump(events);
       }
     }
 
     // Attack (consume immediately)
     if (this.decision.attack) {
-      fighter.attack(this.decision.attack);
+      fighter.attack(this.decision.attack, events);
       this.decision.attack = null;
     }
   }
