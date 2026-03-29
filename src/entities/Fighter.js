@@ -212,9 +212,14 @@ export class Fighter {
     }
   }
 
+  updateAnimation() {
+    if (this.hasAnims) this._updateAnimation();
+  }
+
   syncSprite() {
     this.sprite.x = this.sim.simX / FP_SCALE;
     this.sprite.y = this.sim.simY / FP_SCALE;
+    this.sprite.setFlipX(!this.sim.facingRight);
   }
 
   reset(x) {

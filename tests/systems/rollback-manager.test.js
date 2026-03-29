@@ -64,6 +64,7 @@ function mockFighter(xPx = 100, overrides = {}) {
     getAttackHitbox: vi.fn(() => null),
     getHurtbox: vi.fn(() => null),
     syncSprite: vi.fn(),
+    updateAnimation: vi.fn(),
     ...overrides,
   };
 }
@@ -142,6 +143,12 @@ describe('RollbackManager', () => {
     it('stores local input at delayed frame', () => {
       rm.advance(noInput, p1, p2, combat);
       expect(rm.localInputHistory.has(2)).toBe(true);
+    });
+
+    it('calls updateAnimation on both fighters after advance', () => {
+      rm.advance(noInput, p1, p2, combat);
+      expect(p1.updateAnimation).toHaveBeenCalled();
+      expect(p2.updateAnimation).toHaveBeenCalled();
     });
   });
 

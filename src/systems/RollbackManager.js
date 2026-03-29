@@ -209,13 +209,17 @@ export class RollbackManager {
     if (p1.syncSprite) p1.syncSprite();
     if (p2.syncSprite) p2.syncSprite();
 
-    // 10. Advance frame
+    // 10. Update animations (presentation-only, after sim completes)
+    if (p1.updateAnimation) p1.updateAnimation();
+    if (p2.updateAnimation) p2.updateAnimation();
+
+    // 11. Advance frame
     this.currentFrame++;
 
-    // 11. Prune old data beyond rollback window
+    // 12. Prune old data beyond rollback window
     this._pruneOldData();
 
-    // 12. Periodic checksum exchange for desync detection
+    // 13. Periodic checksum exchange for desync detection
     if (this.currentFrame > 0 && this.currentFrame % CHECKSUM_INTERVAL === 0) {
       const checksumFrame = this.currentFrame - this.maxRollbackFrames - 1;
       const snapshot = this.stateSnapshots.get(checksumFrame);
