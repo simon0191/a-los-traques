@@ -31,6 +31,7 @@ bun test             # Run tests in watch mode (Vitest)
 bun run test:run     # Run tests once (CI)
 bun run lint         # Lint + format check (Biome)
 bun run lint:fix     # Auto-fix lint + format issues
+bun run format       # Format code only (Biome)
 ```
 
 ## Project Structure
