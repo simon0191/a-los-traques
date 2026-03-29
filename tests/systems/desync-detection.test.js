@@ -92,7 +92,6 @@ function mockFighter(xPx = 100) {
 
 function mockScene() {
   return {
-    _muteEffects: false,
     game: { audioManager: { play: vi.fn() } },
     cameras: { main: { shake: vi.fn() } },
     spawnHitSpark: vi.fn(),
