@@ -180,11 +180,11 @@ describe('hashGameState', () => {
 });
 
 describe('RollbackManager checksum exchange', () => {
-  let nm, scene, p1, p2, combat, rm;
+  let nm, _scene, p1, p2, combat, rm;
 
   beforeEach(() => {
     nm = mockNM();
-    scene = mockScene();
+    _scene = mockScene();
     p1 = mockFighter(144);
     p2 = mockFighter(336);
     combat = mockCombat();
@@ -251,7 +251,7 @@ describe('RollbackManager checksum exchange', () => {
 describe('RollbackManager input redundancy', () => {
   it('sends input history with each packet', () => {
     const nm = mockNM();
-    const scene = mockScene();
+    const _scene = mockScene();
     const p1 = mockFighter(144);
     const p2 = mockFighter(336);
     const combat = mockCombat();
@@ -278,7 +278,7 @@ describe('RollbackManager input redundancy', () => {
 describe('RollbackManager adaptive input delay', () => {
   it('increases delay for high RTT', () => {
     const nm = mockNM();
-    const scene = mockScene();
+    const _scene = mockScene();
     const p1 = mockFighter(144);
     const p2 = mockFighter(336);
     const combat = mockCombat();
@@ -299,7 +299,7 @@ describe('RollbackManager adaptive input delay', () => {
 
   it('decreases delay for low RTT', () => {
     const nm = mockNM();
-    const scene = mockScene();
+    const _scene = mockScene();
     const p1 = mockFighter(144);
     const p2 = mockFighter(336);
     const combat = mockCombat();
@@ -319,7 +319,7 @@ describe('RollbackManager adaptive input delay', () => {
 
   it('clamps delay to minimum of 1', () => {
     const nm = mockNM();
-    const scene = mockScene();
+    const _scene = mockScene();
     const p1 = mockFighter(144);
     const p2 = mockFighter(336);
     const combat = mockCombat();
@@ -337,7 +337,7 @@ describe('RollbackManager adaptive input delay', () => {
 
   it('scales maxRollbackFrames with delay', () => {
     const nm = mockNM();
-    const scene = mockScene();
+    const _scene = mockScene();
     const p1 = mockFighter(144);
     const p2 = mockFighter(336);
     const combat = mockCombat();
@@ -355,11 +355,11 @@ describe('RollbackManager adaptive input delay', () => {
 });
 
 describe('RollbackManager resync', () => {
-  let nm, scene, p1, p2, combat;
+  let nm, _scene, p1, p2, combat;
 
   beforeEach(() => {
     nm = mockNM();
-    scene = mockScene();
+    _scene = mockScene();
     p1 = mockFighter(144);
     p2 = mockFighter(336);
     combat = mockCombat();

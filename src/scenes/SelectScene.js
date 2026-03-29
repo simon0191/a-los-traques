@@ -161,13 +161,15 @@ export class SelectScene extends Phaser.Scene {
       .rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
       .setStrokeStyle(2, 0x3366ff);
 
-    this.p1CursorLabel = this.add.text(0, 0, 'P1', {
-      fontFamily: 'Arial Black',
-      fontSize: '10px',
-      color: '#3366ff',
-      stroke: '#000000',
-      strokeThickness: 2
-    }).setOrigin(0.5, 1);
+    this.p1CursorLabel = this.add
+      .text(0, 0, 'P1', {
+        fontFamily: 'Arial Black',
+        fontSize: '10px',
+        color: '#3366ff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 1);
 
     // P2 cursor (red border) - hidden until P2 selected
     this.p2Cursor = this.add
@@ -175,13 +177,16 @@ export class SelectScene extends Phaser.Scene {
       .setStrokeStyle(2, 0xff3333)
       .setVisible(false);
 
-    this.p2CursorLabel = this.add.text(0, 0, 'P2', {
-      fontFamily: 'Arial Black',
-      fontSize: '10px',
-      color: '#ff3333',
-      stroke: '#000000',
-      strokeThickness: 2
-    }).setOrigin(0.5, 1).setVisible(false);
+    this.p2CursorLabel = this.add
+      .text(0, 0, 'P2', {
+        fontFamily: 'Arial Black',
+        fontSize: '10px',
+        color: '#ff3333',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 1)
+      .setVisible(false);
 
     // Info panel - right side
     const panelX = 310;
@@ -212,11 +217,14 @@ export class SelectScene extends Phaser.Scene {
       .setDisplaySize(45, 45)
       .setVisible(false);
     this.p1Portrait = this.add.rectangle(panelX + 130, 70, 45, 45, 0x333333);
-    this.p1RandomText = this.add.text(panelX + 130, 70, '?', {
-      fontFamily: 'Arial Black',
-      fontSize: '24px',
-      color: '#ffffff'
-    }).setOrigin(0.5).setVisible(false);
+    this.p1RandomText = this.add
+      .text(panelX + 130, 70, '?', {
+        fontFamily: 'Arial Black',
+        fontSize: '24px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
 
     // P1 Stats
     this.p1StatLabels = [];
@@ -269,11 +277,14 @@ export class SelectScene extends Phaser.Scene {
       .setDisplaySize(45, 45)
       .setVisible(false);
     this.p2Portrait = this.add.rectangle(panelX + 130, 198, 45, 45, 0x333333);
-    this.p2RandomText = this.add.text(panelX + 130, 198, '?', {
-      fontFamily: 'Arial Black',
-      fontSize: '24px',
-      color: '#ffffff'
-    }).setOrigin(0.5).setVisible(false);
+    this.p2RandomText = this.add
+      .text(panelX + 130, 198, '?', {
+        fontFamily: 'Arial Black',
+        fontSize: '24px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
 
     // P2 Stats
     this.p2StatBars = [];
@@ -514,11 +525,13 @@ export class SelectScene extends Phaser.Scene {
       if (!this.p1StatValues) this.p1StatValues = [];
       if (!this.p1StatValues[i]) {
         const sy = 100 + i * 14;
-        this.p1StatValues[i] = this.add.text(panelX + 95, sy, '', {
-          fontFamily: 'Arial',
-          fontSize: '8px',
-          color: '#ffffff',
-        }).setOrigin(0.5);
+        this.p1StatValues[i] = this.add
+          .text(panelX + 95, sy, '', {
+            fontFamily: 'Arial',
+            fontSize: '8px',
+            color: '#ffffff',
+          })
+          .setOrigin(0.5);
       }
       this.p1StatValues[i].setText(isRandom ? '???' : val.toString());
     });
@@ -718,11 +731,13 @@ export class SelectScene extends Phaser.Scene {
       if (!this.p2StatValues) this.p2StatValues = [];
       if (!this.p2StatValues[i]) {
         const sy = 228 + i * 14;
-        this.p2StatValues[i] = this.add.text(panelX + 95, sy, '', {
-          fontFamily: 'Arial',
-          fontSize: '8px',
-          color: '#ffffff',
-        }).setOrigin(0.5);
+        this.p2StatValues[i] = this.add
+          .text(panelX + 95, sy, '', {
+            fontFamily: 'Arial',
+            fontSize: '8px',
+            color: '#ffffff',
+          })
+          .setOrigin(0.5);
       }
       this.p2StatValues[i].setText(isRandom ? '???' : val.toString());
     });

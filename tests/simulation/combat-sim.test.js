@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { ROUND_TIME } from '../../src/config.js';
 import { CombatSim, createCombatSim } from '../../src/simulation/CombatSim.js';
 import { FighterSim } from '../../src/simulation/FighterSim.js';
-import { FP_SCALE } from '../../src/systems/FixedPoint.js';
 
 describe('CombatSim', () => {
   describe('constructor', () => {

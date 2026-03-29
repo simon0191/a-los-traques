@@ -8,3 +8,4 @@ assets/photos/
 test-results/
 .claude/worktrees
 .vercel
+.env
