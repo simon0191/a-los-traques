@@ -78,25 +78,8 @@ export class Fighter {
 
   // --- Simulation methods: delegate to FighterSim, then apply presentation side effects ---
 
-  update() {
-    // Snapshot state before sim for detecting whiff/tint changes
-    const wasAttacking = this.sim.state === 'attacking';
-    const hadHitConnected = this.sim.hitConnected;
-    const prevTintTimer = this.sim._specialTintTimer;
-
-    this.sim.update();
-
-    // Presentation: whiff sound on attack completion without hit
-    if (wasAttacking && this.sim.state === 'idle' && !hadHitConnected) {
-      if (!this.scene._muteEffects) {
-        this.scene.game.audioManager.play('whiff');
-      }
-    }
-
-    // Presentation: clear tint when special tint timer expires
-    if (prevTintTimer > 0 && this.sim._specialTintTimer <= 0) {
-      if (this.sprite?.clearTint) this.sprite.clearTint();
-    }
+  update(events) {
+    this.sim.update(events);
 
     // Update animation
     if (this.hasAnims) {
@@ -105,49 +88,27 @@ export class Fighter {
   }
 
   moveLeft(speed) {
-    const wasBlocking = this.sim.state === 'blocking';
     this.sim.moveLeft(speed);
-    if (wasBlocking && this.sim.state === 'walking') this.sprite.clearTint();
   }
 
   moveRight(speed) {
-    const wasBlocking = this.sim.state === 'blocking';
     this.sim.moveRight(speed);
-    if (wasBlocking && this.sim.state === 'walking') this.sprite.clearTint();
   }
 
   stop() {
-    const wasBlocking = this.sim.state === 'blocking';
     this.sim.stop();
-    if (wasBlocking && this.sim.state !== 'blocking') this.sprite.clearTint();
   }
 
-  jump() {
-    const wasOnGround = this.sim.isOnGround;
-    const prevVY = this.sim.simVY;
-    this.sim.jump();
-    // Detect if a jump actually happened (velocity changed)
-    if (this.sim.simVY !== prevVY || (!this.sim.isOnGround && wasOnGround)) {
-      if (!this.scene._muteEffects) this.scene.game.audioManager.play('jump');
-    }
+  jump(events) {
+    this.sim.jump(events);
   }
 
   block() {
     this.sim.block();
-    this.sprite.setTint(0x6688ff);
   }
 
-  attack(type) {
-    const result = this.sim.attack(type);
-    if (result && type === 'special') {
-      if (!this.scene._muteEffects) {
-        this.scene.game.audioManager.play('special_charge');
-      }
-      if (!this.scene._muteEffects) {
-        this.sprite.setTint(0xffcc00);
-      }
-    }
-    return result;
+  attack(type, events) {
+    return this.sim.attack(type, events);
   }
 
   faceOpponent(opponent) {
@@ -166,9 +127,6 @@ export class Fighter {
   }
 
   takeDamage(amount, attackerSimX, stunFrames) {
-    if (this.sim.state === 'blocking') {
-      this.sprite.clearTint();
-    }
     return this.sim.takeDamage(amount, attackerSimX, stunFrames);
   }
 
@@ -220,6 +178,15 @@ export class Fighter {
     this.sprite.x = this.sim.simX / FP_SCALE;
     this.sprite.y = this.sim.simY / FP_SCALE;
     this.sprite.setFlipX(!this.sim.facingRight);
+
+    // State-driven tints
+    if (this.sim.state === 'blocking') {
+      this.sprite.setTint(0x6688ff);
+    } else if (this.sim._specialTintTimer > 0) {
+      this.sprite.setTint(0xffcc00);
+    } else {
+      this.sprite.clearTint();
+    }
   }
 
   reset(x) {
