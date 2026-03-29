@@ -51,10 +51,10 @@ The rollback system is transport-agnostic — `RollbackManager` reads from `remo
 
 ## Peer-Equal Model with Deferred Round Events
 
-Both peers run identical deterministic simulations with zero perceived input lag. Round-ending events (KO/timeup) are **deferred** — `simulateFrame()` returns a round event descriptor instead of firing side effects directly. This prevents corruption during rollback re-simulation.
+Both peers run identical deterministic simulations with zero perceived input lag. Round-ending events (KO/timeup) are **deferred** — `tick()` returns a round event descriptor instead of firing side effects directly. All audio and visual effects flow through an **event-driven presentation layer** (see [Event-Driven Presentation](#event-driven-presentation) below), so rollback re-simulation never produces ghost sounds or visual artifacts.
 
 Both P1 and P2 set `combat.suppressRoundEvents = true` in online mode:
-- **P1 (host):** Captures round events from `advance()` return value, fires side effects via `combat.handleRoundEnd(roundEvent)`, and sends the event to P2 + spectators
+- **P1 (host):** Captures round events from `advance()` return value, calls `onRoundOver()`/`onMatchOver()` for UI transitions, and sends the event to P2 + spectators
 - **P2 (guest):** Ignores local round event detection; receives authoritative round events from P1 via `onRoundEvent` network handler
 
 P1 has additional **non-gameplay** responsibilities:
@@ -65,17 +65,21 @@ P1 has additional **non-gameplay** responsibilities:
 
 ## Simulation Step
 
-Each frame, `simulateFrame()` runs these steps in order using fixed-point integer math (no floats) and returns an optional round event descriptor (`{ type: 'ko'|'timeup', winnerIndex }` or `null`):
+Each frame, `tick()` (in `SimulationEngine.js`) runs these steps in order using fixed-point integer math (no floats) and returns `{ state, events, roundEvent }`:
 
-1. `fighter.update()` — FP gravity, cooldown frame timers
-2. `applyInput()` — FP velocities, attack triggers
+1. `fighter.update(events)` — FP gravity, cooldown frame timers; emits `whiff` event on attack end without hit
+2. `applyInputToFighter(fighter, input, events)` — FP velocities, attack triggers; emits `jump`, `special_charge` events
 3. `resolveBodyCollision()` — FP coordinate push-back
 4. `faceOpponent()` — simX comparison
-5. `checkHit()` — `fpRectsOverlap()` hitbox detection; returns `{ hit, ko }` on hit
-6. `tickTimer({ muteEffects })` — frame-counted (60 frames = 1 second); returns `{ timeup: true }` when timer reaches 0
-7. `syncSprite()` — render positions from sim state
+5. `checkHit(attacker, defender, events)` — `fpRectsOverlap()` hitbox detection; emits `hit` or `hit_blocked` events
+6. `tickTimer()` — frame-counted (60 frames = 1 second); returns `{ timeup: true }` when timer reaches 0
+7. Round state update — if KO or timeup: stop round, increment rounds, check match over, emit `round_ko` or `round_timeup` event
+8. Transition timer — deterministic round reset countdown (both peers agree on frame)
+9. `captureGameState()` — return immutable snapshot for rollback window
 
-KO takes priority over timeup if both occur on the same frame. The return value is used by `RollbackManager.advance()` to defer round event handling.
+KO takes priority over timeup if both occur on the same frame. The caller (`RollbackManager.advance()` or the local update loop) feeds `events` to presentation bridges and uses `roundEvent` for game flow.
+
+> **Note:** Both local mode (vs AI) and online mode use the same `tick()` function. The only difference is input source (keyboard/AI vs network). This eliminates the class of bugs where local and online modes diverge.
 
 ## RollbackManager.advance() — Per Frame
 
@@ -84,19 +88,16 @@ flowchart TD
     A["1. Store local input at\nframe + inputDelay"] --> B["2. Send input + 2 frames\nof history to network"]
     B --> C["3. Drain confirmed\nremote inputs"]
     C --> D{4. Misprediction?}
-    D -- Yes --> E["5. Restore snapshot\nRe-simulate with\nmuteEffects=true"]
+    D -- Yes --> E["5. Restore snapshot\nRe-simulate\n(events discarded)"]
     E --> F["6. Predict remote input"]
     D -- No --> F["6. Predict remote input\n(repeat movement,\nzero attacks)"]
     F --> G["7. Save snapshot via\ncaptureGameState"]
-    G --> H["8. Simulate frame\ncurrentFrame++"]
-    H --> RE{"Round event\nreturned?"}
-    RE -- Yes --> RE_P1["P1: handleRoundEnd()\n+ send to P2"]
-    RE -- No --> I
-    RE_P1 --> I
-    I["9. Prune old snapshots\nbeyond rollback window"]
-    I --> J{"10. Frame %\n30 == 0?"}
+    G --> H["8. tick() → { state, events, roundEvent }\ncurrentFrame++"]
+    H --> EV["9. Return events + roundEvent\nto caller (FightScene)"]
+    EV --> I["10. Prune old snapshots\nbeyond rollback window"]
+    I --> J{"11. Frame %\n30 == 0?"}
     J -- Yes --> K["Send checksum for\nconfirmed frame\n(current - maxRollback - 1)"]
-    J -- No --> L{"11. Frame %\n180 == 0?"}
+    J -- No --> L{"12. Frame %\n180 == 0?"}
     K --> L
     L -- Yes --> M["Recalculate\ninputDelay from RTT"]
     L -- No --> N[Done]
@@ -229,18 +230,87 @@ stateDiagram-v2
 | `resync` | Slot 0 only | Other peer | No |
 | `resync` | Slot 1 | **Dropped** | No |
 
+## Event-Driven Presentation
+
+The simulation is **pure** — `tick()` never calls audio, camera, or sprite methods. Instead, it returns an `events` array describing what happened. Separate bridge modules consume these events and trigger the actual presentation effects.
+
+```mermaid
+flowchart LR
+    subgraph Simulation["Pure Simulation (no Phaser)"]
+        tick["tick()"] -->|"{ state, events, roundEvent }"| out[ ]
+    end
+
+    subgraph Presentation["Presentation (Phaser)"]
+        AB["AudioBridge\nhit_light, ko, whiff, jump..."]
+        VB["VFXBridge\ncamera shake, sparks, tints"]
+        SS["syncSprite()\nposition, flip, state tints"]
+        UA["updateAnimation()\nidle → attack → hurt..."]
+    end
+
+    out --> AB
+    out --> VB
+    tick -.->|"state applied to sims"| SS
+    SS --> UA
+```
+
+### Event types
+
+| Event | When | Key fields |
+|-------|------|------------|
+| `hit` | Attack connects | `attackerIndex`, `defenderIndex`, `intensity`, `damage`, `ko`, `hitX`, `hitY` |
+| `hit_blocked` | Defender is blocking | Same as `hit` |
+| `whiff` | Attack ends without hitting | `playerIndex` |
+| `jump` | Fighter leaves the ground | `playerIndex` |
+| `special_charge` | Special attack starts | `playerIndex` |
+| `round_ko` | Fighter's HP reaches 0 | `winnerIndex`, `matchOver` |
+| `round_timeup` | Round timer expires | `winnerIndex`, `matchOver` |
+
+### Why events instead of direct calls
+
+During **rollback re-simulation**, the game replays past frames with corrected inputs. If the simulation directly played sounds or shook the camera, every re-simulated frame would produce ghost effects. The event-based approach eliminates this entirely:
+
+- **Normal frame:** `tick()` returns events → bridges play audio/VFX
+- **Resim frame:** `tick()` returns events → **events discarded** (never passed to bridges)
+
+No flags, no guards, no risk of forgetting to check a mute condition.
+
+### State-driven vs one-shot presentation
+
+Not all visual effects are events. Some depend on the fighter's current state rather than a one-shot occurrence:
+
+| Effect | Type | Where |
+|--------|------|-------|
+| Block tint (blue) | State-driven | `Fighter.syncSprite()` — applied when `sim.state === 'blocking'` |
+| Special tint (yellow) | State-driven | `Fighter.syncSprite()` — applied when `sim._specialTintTimer > 0` |
+| Sprite flip (facing) | State-driven | `Fighter.syncSprite()` — from `sim.facingRight` |
+| Hit flash (white/red) | One-shot event | `VFXBridge` — 80ms/150ms via `scene.time.delayedCall()` |
+| Camera shake | One-shot event | `VFXBridge` — intensity varies by attack type |
+| Hit spark particles | One-shot event | `VFXBridge` — position from event's `hitX`/`hitY` |
+
 ## Key Files
 
 | File | Role |
 |------|------|
+| `SimulationEngine.js` | `tick()` — deterministic frame advance, returns `{ state, events, roundEvent }` |
+| `FighterSim.js` | Pure fighter state + logic (no Phaser). Emits `whiff`, `jump`, `special_charge` events |
+| `CombatSim.js` | Pure combat resolution. Emits `hit`, `hit_blocked` events |
+| `AudioBridge.js` | Maps sim events → `audioManager.play()` |
+| `VFXBridge.js` | Maps sim events → camera shake, hit sparks, tint flashes |
+
+| File | Role |
+|------|------|
 | `FixedPoint.js` | FP constants + helpers, `ONLINE_INPUT_DELAY` |
-| `GameState.js` | Snapshot/restore, `hashGameState()` for checksums |
+| `SimulationEngine.js` | `tick()` — deterministic frame advance, event generation, snapshot capture |
+| `GameState.js` | Re-exports from SimulationEngine (snapshot/restore, `hashGameState()`) |
 | `InputBuffer.js` | 9-bit input encoding/decoding |
-| `SimulationStep.js` | Single-frame deterministic advance |
+| `FighterSim.js` | Pure fighter state + logic (no Phaser) |
+| `CombatSim.js` | Pure combat resolution (no Phaser) |
 | `RollbackManager.js` | Orchestration: predict, rollback, re-simulate, checksum, adaptive delay, resync |
+| `AudioBridge.js` | Maps sim events → audio playback |
+| `VFXBridge.js` | Maps sim events → camera shake, sparks, tint flashes |
+| `Fighter.js` | Phaser sprite wrapper; delegates to FighterSim; `syncSprite()` + `updateAnimation()` |
+| `CombatSystem.js` | Phaser wrapper; delegates to CombatSim; timer management |
 | `WebRTCTransport.js` | P2P DataChannel transport (unreliable/unordered) |
 | `NetworkManager.js` | Dual transport: WebRTC primary, WebSocket fallback; send/receive input, checksum, resync |
-| `Fighter.js` | FP physics + frame-based timers |
-| `CombatSystem.js` | FP collision + hit detection |
-| `FightScene.js` | Integration: wires rollback + desync + resync + HUD |
+| `FightScene.js` | Integration: wires rollback + bridges + desync + resync + HUD |
 | `party/server.js` | Relay: routes messages between peers, enforces resync authority |
