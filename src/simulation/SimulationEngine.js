@@ -17,8 +17,11 @@ export const SNAPSHOT_VERSION = 1;
 
 /**
  * Apply decoded input to a FighterSim.
+ * @param {import('./FighterSim.js').FighterSim} fighter
+ * @param {object} inputState
+ * @param {Array<object>} [events] - Optional events array for sim event collection
  */
-export function applyInputToFighter(fighter, inputState) {
+export function applyInputToFighter(fighter, inputState, events) {
   const speed = (80 + fighter.data.stats.speed * 20) * FP_SCALE;
 
   if (inputState.left) {
@@ -29,14 +32,14 @@ export function applyInputToFighter(fighter, inputState) {
     fighter.stop();
   }
 
-  if (inputState.up) fighter.jump();
+  if (inputState.up) fighter.jump(events);
   if (inputState.down && fighter.isOnGround) fighter.block();
 
-  if (inputState.lp) fighter.attack('lightPunch');
-  else if (inputState.hp) fighter.attack('heavyPunch');
-  else if (inputState.lk) fighter.attack('lightKick');
-  else if (inputState.hk) fighter.attack('heavyKick');
-  else if (inputState.sp) fighter.attack('special');
+  if (inputState.lp) fighter.attack('lightPunch', events);
+  else if (inputState.hp) fighter.attack('heavyPunch', events);
+  else if (inputState.lk) fighter.attack('lightKick', events);
+  else if (inputState.hk) fighter.attack('heavyKick', events);
+  else if (inputState.sp) fighter.attack('special', events);
 }
 
 /**
@@ -199,18 +202,20 @@ export function hashGameState(snapshot) {
  * @param {number} p1Input - Encoded input for P1
  * @param {number} p2Input - Encoded input for P2
  * @param {number} frame - Current frame number
- * @returns {{ state: object, roundEvent: object | null }}
+ * @returns {{ state: object, events: Array<object>, roundEvent: object | null }}
  */
 export function tick(p1, p2, combat, p1Input, p2Input, frame) {
+  const events = [];
+
   // 1. Update fighters (gravity, cooldowns, timers, ground check)
-  p1.update();
-  p2.update();
+  p1.update(events);
+  p2.update(events);
 
   // 2. Apply inputs
   const p1State = decodeInput(p1Input);
   const p2State = decodeInput(p2Input);
-  applyInputToFighter(p1, p1State);
-  applyInputToFighter(p2, p2State);
+  applyInputToFighter(p1, p1State, events);
+  applyInputToFighter(p2, p2State, events);
 
   // 3. Resolve body collision
   combat.resolveBodyCollision(p1, p2);
@@ -222,8 +227,8 @@ export function tick(p1, p2, combat, p1Input, p2Input, frame) {
   // 5. Hit detection + timer tick (only when round is active)
   let roundEvent = null;
   if (combat.roundActive) {
-    const p1Hit = combat.checkHit(p1, p2);
-    const p2Hit = combat.checkHit(p2, p1);
+    const p1Hit = combat.checkHit(p1, p2, events);
+    const p2Hit = combat.checkHit(p2, p1, events);
 
     if (p1Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 0 };
     else if (p2Hit?.ko) roundEvent = { type: 'ko', winnerIndex: 1 };
@@ -250,6 +255,14 @@ export function tick(p1, p2, combat, p1Input, p2Input, frame) {
       if (!combat.matchOver) {
         combat.transitionTimer = ROUND_TRANSITION_FRAMES;
       }
+
+      // Add round event to events array for bridge consumption
+      const matchOver = combat.matchOver;
+      events.push({
+        type: roundEvent.type === 'ko' ? 'round_ko' : 'round_timeup',
+        winnerIndex: roundEvent.winnerIndex,
+        matchOver,
+      });
     }
   }
 
@@ -268,5 +281,5 @@ export function tick(p1, p2, combat, p1Input, p2Input, frame) {
   // 7. Return cloned state snapshot (immutable — caller keeps past states for rollback)
   const state = captureGameState(frame, p1, p2, combat);
 
-  return { state, roundEvent };
+  return { state, events, roundEvent };
 }
