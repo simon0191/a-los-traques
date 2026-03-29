@@ -300,41 +300,29 @@ export class TitleScene extends Phaser.Scene {
     });
 
     // ENTRAR button
-    const entrarBtn = createButton(
-      this,
-      GAME_WIDTH / 2,
-      GAME_HEIGHT / 2 + 20,
-      'ENTRAR',
-      () => {
-        const code = this._joinInput.value
-          .toUpperCase()
-          .split('')
-          .filter((c) => VALID_CHARS.includes(c))
-          .join('');
-        if (code.length !== 4) return;
-        this.game.audioManager.play('ui_confirm');
-        this._hideJoinOverlay();
-        if (this.transitioning) return;
-        this.transitioning = true;
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('LobbyScene', { roomId: code });
-        });
-      },
-    );
+    const entrarBtn = createButton(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'ENTRAR', () => {
+      const code = this._joinInput.value
+        .toUpperCase()
+        .split('')
+        .filter((c) => VALID_CHARS.includes(c))
+        .join('');
+      if (code.length !== 4) return;
+      this.game.audioManager.play('ui_confirm');
+      this._hideJoinOverlay();
+      if (this.transitioning) return;
+      this.transitioning = true;
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('LobbyScene', { roomId: code });
+      });
+    });
     this._joinOverlay.add([entrarBtn.bg, entrarBtn.text]);
 
     // CANCELAR button
-    const cancelBtn = createButton(
-      this,
-      GAME_WIDTH / 2,
-      GAME_HEIGHT / 2 + 48,
-      'CANCELAR',
-      () => {
-        this.game.audioManager.play('ui_cancel');
-        this._hideJoinOverlay();
-      },
-    );
+    const cancelBtn = createButton(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 48, 'CANCELAR', () => {
+      this.game.audioManager.play('ui_cancel');
+      this._hideJoinOverlay();
+    });
     this._joinOverlay.add([cancelBtn.bg, cancelBtn.text]);
   }
 

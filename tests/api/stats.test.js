@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import statsHandler from '../../api/stats.js';
-import pg from 'pg';
 
 const mockQuery = vi.fn();
 const mockConnect = vi.fn(async () => ({

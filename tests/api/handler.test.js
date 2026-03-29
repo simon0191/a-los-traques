@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { decodeProtectedHeader, jwtVerify } from 'jose';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { withAuth } from '../../api/_lib/handler.js';
-import { jwtVerify, decodeProtectedHeader } from 'jose';
-import pg from 'pg';
 
 const mockQuery = vi.fn();
 const mockConnect = vi.fn(async () => ({
@@ -80,7 +79,11 @@ describe('withAuth middleware', () => {
     await wrapped(req, res);
 
     expect(jwtVerify).toHaveBeenCalled();
-    expect(handler).toHaveBeenCalledWith(req, res, expect.objectContaining({ userId: 'auth-user' }));
+    expect(handler).toHaveBeenCalledWith(
+      req,
+      res,
+      expect.objectContaining({ userId: 'auth-user' }),
+    );
   });
 
   it('returns 401 on invalid token', async () => {
@@ -93,7 +96,9 @@ describe('withAuth middleware', () => {
     await wrapped(req, res);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Unauthorized: Invalid token' }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: 'Unauthorized: Invalid token' }),
+    );
     expect(handler).not.toHaveBeenCalled();
   });
 
@@ -105,6 +110,8 @@ describe('withAuth middleware', () => {
     await wrapped(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('Database configuration missing') }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.stringContaining('Database configuration missing') }),
+    );
   });
 });

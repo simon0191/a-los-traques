@@ -9,9 +9,7 @@ if (!authEnabled) {
   console.warn('Supabase credentials missing. Auth features will be disabled.');
 }
 
-export const supabase = authEnabled
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+export const supabase = authEnabled ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 /**
  * Sign up a new user with email, password and nickname

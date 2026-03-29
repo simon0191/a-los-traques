@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import profileHandler from '../../api/profile.js';
-import pg from 'pg';
 
 const mockQuery = vi.fn();
 const mockConnect = vi.fn(async () => ({
@@ -62,7 +61,7 @@ describe('Profile API', () => {
   it('POST creates new profile if missing', async () => {
     req.method = 'POST';
     req.body = { nickname: 'Newbie' };
-    
+
     mockQuery.mockResolvedValueOnce({
       rows: [{ id: 'test-user', nickname: 'Newbie', wins: 0, losses: 0 }],
     });
@@ -76,7 +75,7 @@ describe('Profile API', () => {
   it('POST returns existing profile on conflict', async () => {
     req.method = 'POST';
     req.body = { nickname: 'Newbie' };
-    
+
     mockQuery.mockResolvedValueOnce({ rows: [] });
     mockQuery.mockResolvedValueOnce({
       rows: [{ id: 'test-user', nickname: 'OldName', wins: 10, losses: 5 }],
