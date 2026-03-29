@@ -83,8 +83,7 @@ export class RollbackManager {
    * Main rollback loop — call once per fixed timestep.
    *
    * Uses SimulationEngine.tick() on p1.sim / p2.sim / combat.sim.
-   * scene._muteEffects is set during rollback resim to suppress Fighter audio
-   * (temporary — removed in Phase 3 when events replace muteEffects).
+   * Events from resim ticks are discarded; only current-frame events returned.
    *
    * @param {object} rawLocalInput - { left, right, up, down, lp, hp, lk, hk, sp }
    * @param {import('../entities/Fighter.js').Fighter} p1
@@ -160,10 +159,8 @@ export class RollbackManager {
         restoreFighterState(p2Sim, snap.p2);
         restoreCombatState(combatSim, snap.combat);
 
-        // Mute presentation effects during resim
-        const scene = p1.scene;
-        if (scene) scene._muteEffects = true;
-
+        // Resim: replay frames. Events from resim ticks are discarded —
+        // only the current-frame tick's events are returned to the caller.
         for (let f = actualRollbackFrame; f < this.currentFrame; f++) {
           const p1Input = this._getInputForFrame(f, true);
           const p2Input = this._getInputForFrame(f, false);
@@ -172,8 +169,6 @@ export class RollbackManager {
           state.confirmed = this._isFrameConfirmed(f);
           this.stateSnapshots.set(f + 1, state);
         }
-
-        if (scene) scene._muteEffects = false;
       }
     }
 
@@ -192,7 +187,7 @@ export class RollbackManager {
     const p1Input = this._getInputForFrame(this.currentFrame, true);
     const p2Input = this._getInputForFrame(this.currentFrame, false);
     this._onConfirmedInputs?.(this.currentFrame, p1Input, p2Input);
-    const { state, roundEvent } = tick(
+    const { state, events, roundEvent } = tick(
       p1Sim,
       p2Sim,
       combatSim,
@@ -205,15 +200,7 @@ export class RollbackManager {
     state.confirmed = this._isFrameConfirmed(this.currentFrame);
     this.stateSnapshots.set(this.currentFrame + 1, state);
 
-    // 9. Sync Phaser sprites from sim state
-    if (p1.syncSprite) p1.syncSprite();
-    if (p2.syncSprite) p2.syncSprite();
-
-    // 10. Update animations (presentation-only, after sim completes)
-    if (p1.updateAnimation) p1.updateAnimation();
-    if (p2.updateAnimation) p2.updateAnimation();
-
-    // 11. Advance frame
+    // 9. Advance frame (sprite sync + event consumption handled by caller)
     this.currentFrame++;
 
     // 12. Prune old data beyond rollback window
@@ -240,8 +227,8 @@ export class RollbackManager {
       this._recalculateInputDelay();
     }
 
-    // 14. Return deferred round event for caller to handle
-    return { roundEvent };
+    // 14. Return deferred round event + sim events for caller to handle
+    return { roundEvent, events };
   }
 
   /**
