@@ -848,8 +848,20 @@ export class FightScene extends Phaser.Scene {
     // P2 suppresses local detection and waits for P1's authoritative message.
     nm.onRoundEvent((msg) => {
       if (this.isHost) return; // P1 already handled locally
-      if (msg.matchOver && this._matchOverProcessed) return;
-      if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) return;
+      if (msg.matchOver && this._matchOverProcessed) {
+        console.log(`[FightScene] P2 onRoundEvent ignored: matchOver already processed`);
+        return;
+      }
+      if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) {
+        console.log(
+          `[FightScene] P2 onRoundEvent ignored: round ${msg.roundNumber} already processed (last=${this._lastProcessedRound})`,
+        );
+        return;
+      }
+
+      console.log(
+        `[FightScene] P2 onRoundEvent: event=${msg.event} winner=P${msg.winnerIndex + 1} matchOver=${msg.matchOver} round=${msg.roundNumber} state=${this.matchState.state}`,
+      );
 
       // Don't modify combat state here — simulateFrame handles it deterministically.
       // Fire round-end audio/VFX via bridges, then UI transitions.
@@ -1142,6 +1154,9 @@ export class FightScene extends Phaser.Scene {
 
     // Handle round events (same flow as online P1/host)
     if (roundEvent) {
+      console.log(
+        `[FightScene] Local roundEvent: type=${roundEvent.type} winner=P${roundEvent.winnerIndex + 1} matchOver=${this.combat.matchOver} frame=${this._localFrame} state=${this.matchState.state}`,
+      );
       this.combat.stopRound();
       if (this.combat.matchOver) {
         this.onMatchOver(roundEvent.winnerIndex);
@@ -1263,6 +1278,9 @@ export class FightScene extends Phaser.Scene {
     // P1 (host) handles round events: stop round timer + UI transitions
     // Audio/VFX already handled by bridges above via round_ko/round_timeup events
     if (roundEvent && this.isHost) {
+      console.log(
+        `[FightScene] P1 roundEvent: type=${roundEvent.type} winner=P${roundEvent.winnerIndex + 1} matchOver=${this.combat.matchOver} frame=${this.rollbackManager.currentFrame} state=${this.matchState.state}`,
+      );
       this.combat.stopRound();
       if (this.combat.matchOver) {
         this.onMatchOver(roundEvent.winnerIndex);
@@ -1966,6 +1984,15 @@ export class FightScene extends Phaser.Scene {
    * @param {number} winnerIndex - 0 for P1, 1 for P2
    */
   onRoundOver(winnerIndex) {
+    if (!this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
+      console.warn(
+        `[FightScene] onRoundOver ignored: cannot transition ROUND_OVER from state=${this.matchState.state}`,
+      );
+      return;
+    }
+    console.log(
+      `[FightScene] onRoundOver winner=P${winnerIndex + 1} state=${this.matchState.state} rounds=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+    );
     this.matchState.transition(MatchEvent.ROUND_OVER);
 
     // Host sends round event to guest
@@ -2002,6 +2029,20 @@ export class FightScene extends Phaser.Scene {
    * @param {number} winnerIndex - 0 for P1, 1 for P2
    */
   onMatchOver(winnerIndex) {
+    if (!this.matchState.canTransition(MatchEvent.MATCH_OVER)) {
+      // Already processed — can happen when duplicate round events arrive after reconnection
+      if (this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
+        // Still in ROUND_ACTIVE — need ROUND_OVER first, then check again
+      } else {
+        console.warn(
+          `[FightScene] onMatchOver ignored: cannot transition MATCH_OVER from state=${this.matchState.state}`,
+        );
+        return;
+      }
+    }
+    console.log(
+      `[FightScene] onMatchOver winner=P${winnerIndex + 1} state=${this.matchState.state} rounds=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+    );
     if (this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
       this.matchState.transition(MatchEvent.ROUND_OVER);
     }
