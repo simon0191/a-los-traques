@@ -312,9 +312,11 @@ export class FightScene extends Phaser.Scene {
       }
     }
 
-    // Sync sprites + HUD at visual rate (after all sim ticks)
+    // Sync sprites + animations + HUD at visual rate (after all sim ticks)
     this.p1Fighter.syncSprite();
     this.p2Fighter.syncSprite();
+    this.p1Fighter.updateAnimation();
+    this.p2Fighter.updateAnimation();
     this._updateHUD();
   }
 
