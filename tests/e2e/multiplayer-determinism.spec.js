@@ -108,7 +108,7 @@ async function runMatchAndReport(browser, testInfo, { p1Opts, p2Opts, testName }
 }
 
 test.describe('Multiplayer determinism', () => {
-  test.fixme('both peers reach identical final state (seeded)', async ({ browser }, testInfo) => {
+  test('both peers reach identical final state (seeded)', async ({ browser }, testInfo) => {
     const { logP1, logP2 } = await runMatchAndReport(browser, testInfo, {
       p1Opts: { fighter: 'simon', seed: 42 },
       p2Opts: { fighter: 'jeka', seed: 42 },
@@ -131,7 +131,7 @@ test.describe('Multiplayer determinism', () => {
 
   // Note: match with random fighters often fails desync/determinism check (flaky)
   // Tracked for investigation: certain fighter combinations (e.g. alv vs peks) diverge.
-  test.fixme('match completes with random fighters', async ({ browser }, testInfo) => {
+  test('match completes with random fighters', async ({ browser }, testInfo) => {
     const { logP1, logP2 } = await runMatchAndReport(browser, testInfo, {
       p1Opts: {},
       p2Opts: {},
