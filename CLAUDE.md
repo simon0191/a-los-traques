@@ -22,7 +22,8 @@ bun run format       # Format only (auto-fix)
 src/
   scenes/          # Boot -> Title -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory
   services/        # TournamentManager.js, UIService.js
-  entities/        # Fighter.js (sprite + state machine + animation)
+  entities/        # Fighter.js (Phaser wrapper), combat-block.js
+  simulation/      # Pure sim core (no Phaser): SimulationEngine, FighterSim, CombatSim
   systems/         # CombatSystem, InputManager, TouchControls, AIController, AudioBridge, VFXBridge
     net/           # NetworkFacade, SignalingClient, TransportManager, InputSync, ConnectionMonitor, SpectatorRelay
   data/            # fighters.json (16 fighters), stages.json (5 stages)
@@ -102,7 +103,10 @@ idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), 
 
 ## Fighter Entity
 
-- Sprites face RIGHT natively. `setFlipX(!this.facingRight)` handles mirroring.
+- **Two layers**: `FighterSim` (pure state + logic, no Phaser) and `Fighter` (Phaser sprite wrapper, delegates to FighterSim via proxied fields)
+- Both local and online modes run `tick()` on `FighterSim` objects. `Fighter` is only for presentation.
+- `syncSprite()` updates position, flip (`setFlipX(!facingRight)`), and state-driven tints (block blue, special yellow). Called at visual rate after sim ticks.
+- `updateAnimation()` maps sim state to Phaser animations. Called at visual rate after `syncSprite()`.
 - Attack animation framerate is dynamic: `spriteFrames / attackDuration * 1000` fps, so animations complete within the gameplay cooldown window.
 - `_prevAnimState` tracks animation to avoid re-triggering. Set to `null` on attack to force replay.
 - `hasAnims` flag checked before playing animations (falls back to static sprite for placeholder fighters).
