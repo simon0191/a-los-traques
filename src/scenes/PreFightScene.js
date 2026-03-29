@@ -140,10 +140,11 @@ export class PreFightScene extends Phaser.Scene {
         this.cycleTimer = null;
       }
       // Final selection
-      this.stagePreview.setTexture(selectedStage.texture);
+      const stage = selectedStage || stagesData[0];
+      this.stagePreview.setTexture(stage.texture);
       this.stagePreview.setDisplaySize(boxW, boxH);
-      this.stageNameText.setText(selectedStage.name.toUpperCase()).setColor('#ffcc00');
-      this.stageDescText.setText(selectedStage.description);
+      this.stageNameText.setText(stage.name.toUpperCase()).setColor('#ffcc00');
+      this.stageDescText.setText(stage.description);
 
       // Flash effect on settle
       this.tweens.add({

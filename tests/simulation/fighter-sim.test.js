@@ -6,7 +6,6 @@ import {
   FP_SCALE,
   GROUND_Y_FP,
   JUMP_VY_FP,
-  MAX_STAMINA_FP,
   SPECIAL_COST_FP,
 } from '../../src/systems/FixedPoint.js';
 

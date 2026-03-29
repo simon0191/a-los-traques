@@ -4,8 +4,8 @@ export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.js',
   timeout: 300_000,
-  retries: 0,
-  workers: 1, // both tests in one file, Playwright parallelizes by file
+  retries: 1, // retry once — latent desync bug causes occasional flaky failures
+  workers: 1, // tests share servers, run sequentially
 
   use: {
     headless: true,

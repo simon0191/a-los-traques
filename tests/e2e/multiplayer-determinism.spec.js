@@ -129,6 +129,8 @@ test.describe('Multiplayer determinism', () => {
     expect(logP2.desyncCount).toBe(0);
   });
 
+  // Note: match with random fighters often fails desync/determinism check (flaky)
+  // Tracked for investigation: certain fighter combinations (e.g. alv vs peks) diverge.
   test('match completes with random fighters', async ({ browser }, testInfo) => {
     const { logP1, logP2 } = await runMatchAndReport(browser, testInfo, {
       p1Opts: {},

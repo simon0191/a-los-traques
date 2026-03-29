@@ -47,7 +47,7 @@ describe('SimulationEngine', () => {
 
     it('applies input to fighters', () => {
       const { p1, p2, combat } = makeGame();
-      const before = p1.simX;
+      const _before = p1.simX;
       tick(p1, p2, combat, RIGHT, EMPTY, 0);
       // After one frame with right input, fighter should have moved
       expect(p1.simVX).toBeGreaterThan(0);
