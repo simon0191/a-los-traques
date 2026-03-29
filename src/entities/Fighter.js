@@ -219,6 +219,7 @@ export class Fighter {
   syncSprite() {
     this.sprite.x = this.sim.simX / FP_SCALE;
     this.sprite.y = this.sim.simY / FP_SCALE;
+    this.sprite.setFlipX(!this.sim.facingRight);
   }
 
   reset(x) {
