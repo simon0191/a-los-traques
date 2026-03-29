@@ -38,23 +38,21 @@ export class CombatSystem {
       });
     }
 
-    // Phaser timer event (local mode only)
+    // Phaser timer event (spectator mode only — local/online use tick())
     this.timerEvent = null;
   }
 
   startRound() {
     this.sim.startRound();
 
-    if (this.scene.gameMode === 'online') return;
+    // Only spectator mode needs a Phaser timer — local and online use
+    // frame-based tickTimer() inside tick() for deterministic simulation.
+    if (this.scene.gameMode !== 'spectator') return;
 
-    const isSpectator = this.scene.gameMode === 'spectator';
     this.timerEvent = this.scene.time.addEvent({
       delay: 1000,
       callback: () => {
-        if (!isSpectator) {
-          this.sim.timer--;
-          if (this.sim.timer <= 0) this.timeUp();
-        }
+        this.sim.timer--;
       },
       loop: true,
     });
@@ -84,7 +82,6 @@ export class CombatSystem {
    * @returns {{ hit: true, ko: boolean } | false}
    */
   checkHit(attacker, defender, events) {
-    // Use the attacker/defender's sim if available, otherwise use directly
     const atkSim = attacker.sim || attacker;
     const defSim = defender.sim || defender;
 
