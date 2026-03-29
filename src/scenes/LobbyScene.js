@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { createButton } from '../services/UIService.js';
 import { NetworkFacade as NetworkManager } from '../systems/net/NetworkFacade.js';
 
 // PartyKit host - auto-detect localhost for dev, override via ?partyHost=
@@ -102,10 +103,17 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Back button
-    this._createButton(60, GAME_HEIGHT - 20, 'VOLVER', () => {
-      if (this.network) this.network.destroy();
-      this.scene.start('TitleScene');
-    });
+    createButton(
+      this,
+      60,
+      GAME_HEIGHT - 20,
+      'VOLVER',
+      () => {
+        if (this.network) this.network.destroy();
+        this.scene.start('TitleScene');
+      },
+      { width: 110, height: 20, fontSize: '9px' },
+    );
 
     // Start connection
     if (this.isCreator) {
@@ -143,17 +151,31 @@ export class LobbyScene extends Phaser.Scene {
         navigator.clipboard.writeText(link).catch(() => {});
 
         // Add copy button
-        this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60, 'COPIAR ENLACE', () => {
-          navigator.clipboard.writeText(link).catch(() => {});
-          this.subText.setText('Enlace copiado!');
-        });
+        createButton(
+          this,
+          GAME_WIDTH / 2,
+          GAME_HEIGHT / 2 + 60,
+          'COPIAR ENLACE',
+          () => {
+            navigator.clipboard.writeText(link).catch(() => {});
+            this.subText.setText('Enlace copiado!');
+          },
+          { width: 110, height: 20, fontSize: '9px' },
+        );
 
         // Add spectator link button
         const spectatorLink = `${window.location.origin}${window.location.pathname}?room=${this.roomId}&spectate=1${partyHostParam}`;
-        this._createButton(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 82, 'ENLACE ESPECTADOR', () => {
-          navigator.clipboard.writeText(spectatorLink).catch(() => {});
-          this.subText.setText('Enlace espectador copiado!');
-        });
+        createButton(
+          this,
+          GAME_WIDTH / 2,
+          GAME_HEIGHT / 2 + 82,
+          'ENLACE ESPECTADOR',
+          () => {
+            navigator.clipboard.writeText(spectatorLink).catch(() => {});
+            this.subText.setText('Enlace espectador copiado!');
+          },
+          { width: 110, height: 20, fontSize: '9px' },
+        );
       } else {
         this.statusText.setText('Conectado! Esperando...');
       }
@@ -189,35 +211,5 @@ export class LobbyScene extends Phaser.Scene {
         networkManager: this.network,
       });
     });
-  }
-
-  _createButton(x, y, label, callback) {
-    const bg = this.add
-      .rectangle(x, y, 110, 20, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'Arial',
-        fontSize: '9px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    bg.on('pointerover', () => {
-      bg.setFillStyle(0x333366);
-      text.setColor('#ffcc00');
-    });
-    bg.on('pointerout', () => {
-      bg.setFillStyle(0x222244);
-      text.setColor('#ffffff');
-    });
-    bg.on('pointerdown', () => {
-      this.game.audioManager.play('ui_confirm');
-      callback();
-    });
-
-    return { bg, text };
   }
 }

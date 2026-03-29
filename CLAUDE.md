@@ -20,7 +20,8 @@ bun run format       # Format only (auto-fix)
 
 ```
 src/
-  scenes/          # Boot -> Title -> Select -> PreFight -> Fight -> Victory
+  scenes/          # Boot -> Title -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory
+  services/        # TournamentManager.js, UIService.js
   entities/        # Fighter.js (sprite + state machine + animation)
   systems/         # CombatSystem, InputManager, TouchControls, AIController
     net/           # NetworkFacade, SignalingClient, TransportManager, InputSync, ConnectionMonitor, SpectatorRelay
@@ -53,7 +54,8 @@ tests/
 - `fighters.json` uses string IDs, scenes look up by ID with `.find()`
 - Placeholder textures: colored rectangles generated in BootScene, used when no real sprites exist
 - `gameMode`: `'local'` (vs AI) or `'online'` (vs player) passed through scene chain
-- Scenes pass data via `scene.start('SceneName', { p1Id, p2Id, stageId, gameMode, networkManager })`
+- `matchContext`: payload containing competition logic (e.g. tournament state).
+- Scenes pass data via `scene.start('SceneName', { p1Id, p2Id, stageId, gameMode, networkManager, matchContext })`
 - FightScene uses `MatchStateMachine` for flow control: `isPaused` is a getter on SM state, `_reconnecting`/`_onlineDisconnected` eliminated, update loop guards on `matchState.state` instead of `combat.roundActive`
 - **Before every commit**: run `bun run lint:fix` to auto-fix formatting/lint issues, then verify with `bun run lint`. CI runs Biome lint and will fail on any error.
 - **Atomic commits**: make a separate commit for each logical change. Don't bundle unrelated changes into one commit.

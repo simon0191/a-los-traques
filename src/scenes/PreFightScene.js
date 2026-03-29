@@ -14,6 +14,7 @@ export class PreFightScene extends Phaser.Scene {
     this.stageId = data.stageId;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
+    this.matchContext = data.matchContext || null;
 
     // If no stage is provided, pick one randomly
     if (!this.stageId) {
@@ -32,7 +33,11 @@ export class PreFightScene extends Phaser.Scene {
 
     const p1 = fightersData.find((f) => f.id === this.p1Id);
     const p2 = fightersData.find((f) => f.id === this.p2Id);
-    const selectedStage = stagesData.find((s) => s.id === this.stageId);
+    let selectedStage = stagesData.find((s) => s.id === this.stageId);
+    if (!selectedStage) {
+      console.warn(`[PREFIGHT] Stage ${this.stageId} not found, falling back to first stage`);
+      selectedStage = stagesData[0];
+    }
 
     this.transitioning = false;
 
@@ -296,6 +301,7 @@ export class PreFightScene extends Phaser.Scene {
         stageId: this.stageId,
         gameMode: this.gameMode,
         networkManager: this.networkManager,
+        matchContext: this.matchContext,
       });
     });
   }

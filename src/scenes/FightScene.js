@@ -75,6 +75,7 @@ export class FightScene extends Phaser.Scene {
     this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
     this.gameMode = data?.gameMode || 'local';
     this.networkManager = data?.networkManager || null;
+    this.matchContext = data?.matchContext || null;
   }
 
   // =========================================================================
@@ -113,13 +114,18 @@ export class FightScene extends Phaser.Scene {
     // -- Build HUD --
     this._createHUD();
 
+    // -- Dev console (backtick to toggle) --
+    DevConsole._AIController = AIController;
+    this.devConsole = new DevConsole(this);
+
+    // -- Space key for restart --
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+
     if (this.gameMode === 'spectator') {
-      // Spectator: no input, no AI, no dev console
+      // Spectator: no input, no AI
       this.inputManager = null;
       this.touchControls = null;
       this.aiController = null;
-      this.devConsole = null;
-      this.spaceKey = null;
       this.frameCounter = 0;
       this._setupSpectatorMode();
     } else {
@@ -148,25 +154,25 @@ export class FightScene extends Phaser.Scene {
           this._replayRoundCooldown = 0;
           this.aiController = null;
         } else {
-          this.aiController = new AIController(
-            this,
-            this.p2Fighter,
-            this.p1Fighter,
-            this.aiDifficulty,
-          );
+          if (this.p1Fighter && this.p2Fighter) {
+            this.aiController = new AIController(
+              this,
+              this.p2Fighter,
+              this.p1Fighter,
+              this.aiDifficulty,
+            );
+          } else {
+            console.error('[FightScene] Cannot initialize AI: fighters missing', {
+              p1: !!this.p1Fighter,
+              p2: !!this.p2Fighter,
+            });
+          }
         }
       } else {
         this.aiController = null;
         this.frameCounter = 0;
         this._setupOnlineMode();
       }
-
-      // -- Dev console (backtick to toggle) --
-      DevConsole._AIController = AIController;
-      this.devConsole = new DevConsole(this);
-
-      // -- Space key for restart --
-      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
     // -- Audio --
@@ -176,13 +182,6 @@ export class FightScene extends Phaser.Scene {
     const trackIndex = Math.floor(Math.random() * fightMusicCount);
     audio.playMusic(`bgm_fight_${trackIndex}`);
     audio.createMuteButton(this);
-
-    // -- Dev console (backtick to toggle) --
-    DevConsole._AIController = AIController;
-    this.devConsole = new DevConsole(this);
-
-    // -- Space key for restart --
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     // -- Pause system --
     this._pauseOverlay = null;
@@ -1017,8 +1016,10 @@ export class FightScene extends Phaser.Scene {
           this.combat.timer = 60;
           this.combat._timerAccumulator = 0;
           this.combat.roundActive = true;
-          this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
-          this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+          const nextState = this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
+          if (nextState === MatchState.ROUND_INTRO) {
+            this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+          }
           this.centerText.setText('');
           this.subtitleText.setText('');
         }
@@ -1057,7 +1058,9 @@ export class FightScene extends Phaser.Scene {
                   p1Id: this.p1Id,
                   p2Id: this.p2Id,
                   stageId: this.stageId,
-                  gameMode: 'local',
+                  gameMode: this.gameMode,
+                  networkManager: this.networkManager,
+                  matchContext: this.matchContext,
                 });
               });
             });
@@ -1212,8 +1215,10 @@ export class FightScene extends Phaser.Scene {
     // Detect simulation-driven round reset (transitionTimer expired → roundActive became true)
     if (!wasRoundActive && this.combat.roundActive) {
       if (this.matchState.canTransition(MatchEvent.TRANSITION_COMPLETE)) {
-        this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
-        this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+        const nextState = this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
+        if (nextState === MatchState.ROUND_INTRO) {
+          this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+        }
       }
       // Sync sprites to new positions after reset
       this.p1Fighter.syncSprite();
@@ -2000,6 +2005,7 @@ export class FightScene extends Phaser.Scene {
           stageId: this.stageId,
           gameMode: this.gameMode,
           networkManager: this.networkManager,
+          matchContext: this.matchContext,
         });
       });
     });

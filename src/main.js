@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from './config.js';
 import { BootScene } from './scenes/BootScene.js';
+import { BracketScene } from './scenes/BracketScene.js';
 import { FightScene } from './scenes/FightScene.js';
 import { InspectorScene } from './scenes/InspectorScene.js';
 import { LearningScene } from './scenes/LearningScene.js';
@@ -10,6 +11,7 @@ import { PreFightScene } from './scenes/PreFightScene.js';
 import { SelectScene } from './scenes/SelectScene.js';
 import { SpectatorLobbyScene } from './scenes/SpectatorLobbyScene.js';
 import { TitleScene } from './scenes/TitleScene.js';
+import { TournamentSetupScene } from './scenes/TournamentSetupScene.js';
 import { VictoryScene } from './scenes/VictoryScene.js';
 import { AudioManager } from './systems/AudioManager.js';
 import { AutoplayController } from './systems/AutoplayController.js';
@@ -39,6 +41,8 @@ const config = {
   scene: [
     BootScene,
     TitleScene,
+    TournamentSetupScene,
+    BracketScene,
     LobbyScene,
     SpectatorLobbyScene,
     SelectScene,

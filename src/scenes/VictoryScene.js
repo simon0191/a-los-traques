@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
+import { TournamentManager } from '../services/TournamentManager.js';
+import { createButton } from '../services/UIService.js';
 
 export class VictoryScene extends Phaser.Scene {
   constructor() {
@@ -15,9 +17,17 @@ export class VictoryScene extends Phaser.Scene {
     this.stageId = data.stageId;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
+    this.matchContext = data.matchContext || null;
   }
 
   create() {
+    // If tournament mode, update the match winner via TournamentManager
+    if (this.matchContext?.type === 'tournament' && this.matchContext.tournamentState) {
+      const manager = new TournamentManager(this.matchContext.tournamentState);
+      manager.advance(this.winnerId);
+      this.matchContext.tournamentState = manager.serialize();
+    }
+
     // Signal match completion for E2E test orchestration
     if (this.game.autoplay?.enabled && window.__FIGHT_LOG) {
       window.__FIGHT_LOG.matchComplete = true;
@@ -37,7 +47,6 @@ export class VictoryScene extends Phaser.Scene {
     const loser = fightersData.find((f) => f.id === this.loserId);
 
     const winnerColor = parseInt(winner.color, 16);
-    const _loserColor = parseInt(loser.color, 16);
 
     // Background
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1a);
@@ -124,50 +133,105 @@ export class VictoryScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Buttons
-    this.createButton(GAME_WIDTH / 2 - 115, 252, 'REVANCHA', () => {
-      if (this.gameMode === 'online' && this.networkManager) {
-        this.networkManager.sendRematch();
-        this._waitingRematch = true;
-        this._rematchText = this.add
-          .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
-            fontFamily: 'Arial',
-            fontSize: '8px',
-            color: '#ffcc00',
-          })
-          .setOrigin(0.5);
+    if (this.matchContext?.type === 'tournament') {
+      createButton(
+        this,
+        GAME_WIDTH / 2 - 60,
+        252,
+        'CONTINUAR TORNEO',
+        () => {
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('BracketScene', {
+              gameMode: this.gameMode,
+              matchContext: this.matchContext,
+              fromMatch: true,
+              winnerId: this.winnerId,
+            });
+          });
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
 
-        // If we already received a rematch request
-        if (this._rematchReceived) {
-          this._goToFight();
-        }
-      } else {
-        this._goToFight();
-      }
-    });
+      createButton(
+        this,
+        GAME_WIDTH / 2 + 60,
+        252,
+        'SALIR AL MENÚ',
+        () => {
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('TitleScene');
+          });
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
+    } else {
+      createButton(
+        this,
+        GAME_WIDTH / 2 - 115,
+        252,
+        'REVANCHA',
+        () => {
+          if (this.gameMode === 'online' && this.networkManager) {
+            this.networkManager.sendRematch();
+            this._waitingRematch = true;
+            this._rematchText = this.add
+              .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
+                fontFamily: 'Arial',
+                fontSize: '8px',
+                color: '#ffcc00',
+              })
+              .setOrigin(0.5);
 
-    this.createButton(GAME_WIDTH / 2, 252, 'ELEGIR OTRO', () => {
-      if (this.gameMode === 'online' && this.networkManager) {
-        this.networkManager.sendLeave();
-        this._goToSelect();
-      } else {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('SelectScene', { gameMode: 'local' });
-        });
-      }
-    });
+            if (this._rematchReceived) {
+              this._goToFight();
+            }
+          } else {
+            this._goToFight();
+          }
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
 
-    this.createButton(GAME_WIDTH / 2 + 115, 252, 'MENU', () => {
-      if (this.gameMode === 'online' && this.networkManager) {
-        this.networkManager.destroy();
-      }
-      this.cameras.main.fadeOut(300, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('TitleScene');
-      });
-    });
+      createButton(
+        this,
+        GAME_WIDTH / 2,
+        252,
+        'ELEGIR OTRO',
+        () => {
+          if (this.gameMode === 'online' && this.networkManager) {
+            this.networkManager.sendLeave();
+            this._goToSelect();
+          } else {
+            this.cameras.main.fadeOut(300, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+              this.scene.start('SelectScene', { gameMode: 'local' });
+            });
+          }
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
 
-    // In online mode, listen for rematch/leave from opponent even before pressing button
+      createButton(
+        this,
+        GAME_WIDTH / 2 + 115,
+        252,
+        'MENU',
+        () => {
+          if (this.gameMode === 'online' && this.networkManager) {
+            this.networkManager.destroy();
+          }
+          this.cameras.main.fadeOut(300, 0, 0, 0);
+          this.cameras.main.once('camerafadeoutcomplete', () => {
+            this.scene.start('TitleScene');
+          });
+        },
+        { width: 100, height: 22, fontSize: '10px' },
+      );
+    }
+
+    // In online mode, listen for rematch/leave from opponent
     if (this.gameMode === 'online' && this.networkManager) {
       this._rematchReceived = false;
       this.networkManager.onRematch(() => {
@@ -179,7 +243,7 @@ export class VictoryScene extends Phaser.Scene {
 
       this.networkManager.onLeave(() => {
         if (this._rematchText) this._rematchText.destroy();
-        const _msg = this.add
+        this.add
           .text(GAME_WIDTH / 2, 235, 'Oponente quiere cambiar luchador...', {
             fontFamily: 'Arial',
             fontSize: '8px',
@@ -229,39 +293,8 @@ export class VictoryScene extends Phaser.Scene {
         stageId: this.stageId,
         gameMode: this.gameMode,
         networkManager: this.networkManager,
+        matchContext: this.matchContext,
       });
     });
-  }
-
-  createButton(x, y, label, callback) {
-    const bg = this.add
-      .rectangle(x, y, 100, 22, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'Arial',
-        fontSize: '10px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    bg.on('pointerover', () => {
-      bg.setFillStyle(0x333366);
-      text.setColor('#ffcc00');
-    });
-
-    bg.on('pointerout', () => {
-      bg.setFillStyle(0x222244);
-      text.setColor('#ffffff');
-    });
-
-    bg.on('pointerdown', () => {
-      this.game.audioManager.play('ui_confirm');
-      callback();
-    });
-
-    return { bg, text };
   }
 }
