@@ -1,3 +1,7 @@
+import { Logger } from '../Logger.js';
+
+const log = Logger.create('SpectatorRelay');
+
 /** Message types that SpectatorRelay buffers (B5 — handler may not be registered yet) */
 const BUFFERABLE_TYPES = new Set(['sync', 'round_event']);
 
@@ -140,6 +144,7 @@ export class SpectatorRelay {
     const pending = this._pendingMessages.get(type);
     if (pending && pending.length > 0) {
       const messages = pending.splice(0);
+      log.debug('Callback buffer flush (B5)', { type, count: messages.length });
       for (const msg of messages) {
         cb(msg);
       }

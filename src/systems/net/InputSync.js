@@ -1,4 +1,7 @@
 import { decodeInput } from '../InputBuffer.js';
+import { Logger } from '../Logger.js';
+
+const log = Logger.create('InputSync');
 
 const ATTACK_FLAGS = ['lp', 'hp', 'lk', 'hk', 'sp'];
 
@@ -79,7 +82,13 @@ export class InputSync {
       msg.history = history;
     }
 
-    if (this.transport?.isWebRTCReady()) {
+    const p2p = this.transport?.isWebRTCReady();
+    log.trace('Input send', {
+      frame,
+      transport: p2p ? 'p2p' : 'ws',
+      historyLen: history?.length ?? 0,
+    });
+    if (p2p) {
       // P2P: fast path for opponent
       this.transport.sendP2P(msg);
       // Server: spectator relay only
@@ -260,12 +269,19 @@ export class InputSync {
     } else {
       this.remoteInputBuffer[msg.frame] = msg.state;
       this.lastRemoteInput = msg.state;
+      const bufferDepth = Object.keys(this.remoteInputBuffer).length;
+      log.debug('Input arrival', { frame: msg.frame, bufferDepth });
       // Process redundant input history — fill gaps without overwriting confirmed data
       if (msg.history) {
+        let gapCount = 0;
         for (const [hFrame, encodedInput] of msg.history) {
           if (!(hFrame in this.remoteInputBuffer)) {
             this.remoteInputBuffer[hFrame] = decodeInput(encodedInput);
+            gapCount++;
           }
+        }
+        if (gapCount > 0) {
+          log.debug('Redundant history applied', { frame: msg.frame, gapCount });
         }
       }
     }
