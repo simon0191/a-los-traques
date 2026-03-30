@@ -144,8 +144,17 @@ export class BootScene extends Phaser.Scene {
     this.generateRect('special_bar_bg', 100, 8, 0x333333);
     this.generateRect('special_bar_fill', 100, 8, 0xffcc00);
 
-    // If URL has ?room=, go directly to lobby as joiner or spectator
+    // Parse debug mode URL param
     const params = new URLSearchParams(window.location.search);
+    if (params.get('debug') === '1') {
+      this.game.debugMode = true;
+      // Import Logger dynamically to avoid circular deps in BootScene
+      import('../systems/Logger.js').then(({ Logger, LogLevel }) => {
+        Logger.setGlobalLevel(LogLevel.DEBUG);
+      });
+    }
+
+    // If URL has ?room=, go directly to lobby as joiner or spectator
     const roomId = params.get('room');
     // Replay mode: load bundle from window global or sessionStorage
     if (this.game.autoplay?.replay) {
