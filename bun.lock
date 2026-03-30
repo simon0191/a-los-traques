@@ -15,6 +15,8 @@
       },
       "devDependencies": {
         "@biomejs/biome": "^2.4.8",
+        "@electric-sql/pglite": "^0.4.2",
+        "@electric-sql/pglite-socket": "^0.1.2",
         "@playwright/test": "^1.58.2",
         "concurrently": "^9.2.1",
         "vitest": "^4.1.0",
@@ -53,6 +55,10 @@
     "@cloudflare/workers-types": ["@cloudflare/workers-types@4.20240718.0", "", {}, "sha512-7RqxXIM9HyhjfZ9ztXjITuc7mL0w4s+zXgypqKmMuvuObC3DgXutJ3bOYbQ+Ss5QbywrzWSNMlmGdL/ldg/yZg=="],
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
+
+    "@electric-sql/pglite": ["@electric-sql/pglite@0.4.2", "", {}, "sha512-1GUUl/MZpy5QWgWisD3Epho3GkJrZ1MzVgQpo2pifQWUs96F9rXKZxeVLPhkwFYck34CH/kQ8lis6wX9ifn3kg=="],
+
+    "@electric-sql/pglite-socket": ["@electric-sql/pglite-socket@0.1.2", "", { "peerDependencies": { "@electric-sql/pglite": "0.4.2" }, "bin": { "pglite-server": "dist/scripts/server.js" } }, "sha512-Hz+IIentlbz9Zpln7Ft0iTDtbLvIfmmwIIC0CCU6ViklsDzbOIZV9xqcbvME21O3pqjjDNhERc57ynRCdshkZA=="],
 
     "@emnapi/core": ["@emnapi/core@1.9.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.0", "tslib": "^2.4.0" } }, "sha512-0DQ98G9ZQZOxfUcQn1waV2yS8aWdZ6kJMbYCJB3oUBecjWYO1fqJ+a1DRfPF3O5JEkwqwP1A9QEN/9mYm2Yd0w=="],
 

@@ -102,8 +102,8 @@ describe('withAuth middleware', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('fails if DATABASE_URL is missing', async () => {
-    delete process.env.DATABASE_URL;
+  it('fails if database connection fails', async () => {
+    mockConnect.mockRejectedValueOnce(new Error('Connection refused'));
     req.headers['x-dev-user-id'] = 'dev-user';
     const handler = vi.fn();
     const wrapped = withAuth(handler);
@@ -111,7 +111,7 @@ describe('withAuth middleware', () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.stringContaining('Database configuration missing') }),
+      expect.objectContaining({ error: expect.stringContaining('Database connection failed') }),
     );
   });
 });

@@ -20,7 +20,7 @@ async function apiFetch(endpoint, options = {}) {
   }
   // Local development bypass (only if not in production and no token)
   else if (import.meta.env.DEV && !token) {
-    headers['X-Dev-User-Id'] = 'local-dev-user';
+    headers['X-Dev-User-Id'] = '00000000-0000-0000-0000-000000000000';
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, {

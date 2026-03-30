@@ -9,6 +9,9 @@ test-results/
 .claude/worktrees
 .vercel
 
+# Local PGLite database
+.pglite/
+
 # Environment variables
 .env
 .env.local
