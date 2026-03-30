@@ -76,6 +76,7 @@ tests/
 - `matchContext`: payload containing competition logic (e.g. tournament state).
 - Scenes pass data via `scene.start('SceneName', { p1Id, p2Id, stageId, gameMode, networkManager, matchContext })`
 - FightScene uses `MatchStateMachine` for flow control: `isPaused` is a getter on SM state, `_reconnecting`/`_onlineDisconnected` eliminated, update loop guards on `matchState.state` instead of `combat.roundActive`
+- **Logging**: Use `Logger.create('ModuleName')` from `src/systems/Logger.js` instead of `console.log/warn/error`. Zero overhead when level is OFF (default). See RFC 0005.
 - **Before every commit**: run `bun run lint:fix` to auto-fix formatting/lint issues, then verify with `bun run lint`. CI runs Biome lint and will fail on any error.
 - **Atomic commits**: make a separate commit for each logical change. Don't bundle unrelated changes into one commit.
 
@@ -162,7 +163,8 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/e2e-testing.md` — E2E multiplayer testing framework (autoplay, FightRecorder, Playwright)
 - `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phases 1-4 complete, Phase 5 optional)
 - `docs/rfcs/0002-multiplayer-redesign.md` — Multiplayer architecture redesign (Phases 1, 2A, 2B, 3 complete, Phase 4 next)
-- `docs/rfcs/0004-multiplayer-debuggability.md` — Multiplayer debuggability (Phases 1-4 complete)
+- `docs/rfcs/0004-authentication-redesign-vercel.md` — Authentication & persistence (Supabase + Vercel)
+- `docs/rfcs/0005-multiplayer-debuggability.md` — Multiplayer debuggability (Phases 1-4 complete)
 
 ## Online Multiplayer
 
@@ -185,7 +187,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - URL join: `?room=XXXX` skips title, goes directly to LobbyScene
 - `bun run party:dev` for local dev, `bun run party:deploy` to deploy
 
-## Multiplayer Debuggability (RFC 0004)
+## Multiplayer Debuggability (RFC 0005)
 
 - **Logger** (`src/systems/Logger.js`): Static singleton with levels OFF/ERROR/WARN/INFO/DEBUG/TRACE, per-module tags, 256-entry ring buffer. Zero overhead when OFF. All net modules instrumented.
 - **MatchTelemetry** (`src/systems/MatchTelemetry.js`): Always-on counters (rollbacks, desyncs, RTT samples, transport changes). Wired in `_setupOnlineMode()`.

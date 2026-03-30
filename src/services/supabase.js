@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('Supabase');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -6,7 +9,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const authEnabled = !!(supabaseUrl && supabaseAnonKey);
 
 if (!authEnabled) {
-  console.warn('Supabase credentials missing. Auth features will be disabled.');
+  log.warn('Auth disabled: credentials missing');
 }
 
 export const supabase = authEnabled ? createClient(supabaseUrl, supabaseAnonKey) : null;

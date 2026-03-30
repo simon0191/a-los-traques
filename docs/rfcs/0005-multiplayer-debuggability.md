@@ -1,4 +1,4 @@
-# RFC 0004: Multiplayer Debuggability
+# RFC 0005: Multiplayer Debuggability
 
 **Status:** Implemented
 **Date:** 2026-03-30
