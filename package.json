@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:all": "concurrently \"vite\" \"vercel dev\"",
+    "dev:all": "concurrently \"vite\" \"vercel dev --yes\"",
     "build": "vite build",
     "preview": "vite preview",
     "party:dev": "bunx partykit dev",
