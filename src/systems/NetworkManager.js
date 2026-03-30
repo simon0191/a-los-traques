@@ -5,13 +5,14 @@ import { WebRTCTransport } from './WebRTCTransport.js';
 const PONG_TIMEOUT_MS = 6000;
 
 // Message types that support callback buffering (B5)
-const BUFFERABLE_TYPES = ['sync', 'round_event', 'start'];
+const BUFFERABLE_TYPES = ['sync', 'round_event', 'start', 'go_to_stage_select'];
 
 // Map message types to their callback property names
 const _TYPE_TO_CALLBACK = {
   sync: '_onSync',
   round_event: '_onRoundEvent',
   start: '_onStart',
+  go_to_stage_select: '_onGoToStageSelect',
 };
 
 export class NetworkManager {
@@ -33,6 +34,7 @@ export class NetworkManager {
     this._onAssign = null;
     this._onOpponentJoined = null;
     this._onOpponentReady = null;
+    this._onGoToStageSelect = null;
     this.__onStart = null;
     this._onRemoteInput = null;
     this._onDisconnect = null;
@@ -200,6 +202,13 @@ export class NetworkManager {
       case 'opponent_ready':
         if (this._onOpponentReady) this._onOpponentReady(msg.fighterId);
         break;
+      case 'go_to_stage_select':
+        if (this._onGoToStageSelect) {
+          this._onGoToStageSelect(msg);
+        } else {
+          this._pendingCallbackMessages.go_to_stage_select.push(msg);
+        }
+        break;
       case 'start':
         if (this._onStart) {
           this._onStart(msg);
@@ -325,6 +334,9 @@ export class NetworkManager {
   onOpponentReady(cb) {
     this._onOpponentReady = cb;
   }
+  onGoToStageSelect(cb) {
+    this._onGoToStageSelect = cb;
+  }
   onStart(cb) {
     this._onStart = cb;
   }
@@ -395,6 +407,10 @@ export class NetworkManager {
   // --- Public API: send messages ---
   sendReady(fighterId) {
     this._send({ type: 'ready', fighterId });
+  }
+
+  sendStageSelect(stageId, isRandomStage = false) {
+    this._send({ type: 'select_stage', stageId, isRandomStage });
   }
 
   sendInput(frame, inputState, history) {
@@ -615,6 +631,7 @@ export class NetworkManager {
     this.lastRemoteInputP2 = null;
     this.localFrame = 0;
     this._onOpponentReady = null;
+    this._onGoToStageSelect = null;
     this._onStart = null;
     this._onRemoteInput = null;
     this._onRematch = null;
@@ -630,6 +647,13 @@ export class NetworkManager {
     this._onChecksum = null;
     this._onResyncRequest = null;
     this._onResync = null;
+    
+    // Clear pending messages for bufferable types
+    for (const type of BUFFERABLE_TYPES) {
+      if (this._pendingCallbackMessages[type]) {
+        this._pendingCallbackMessages[type] = [];
+      }
+    }
   }
 
   destroy() {

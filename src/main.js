@@ -9,6 +9,7 @@ import { LobbyScene } from './scenes/LobbyScene.js';
 import { MusicScene } from './scenes/MusicScene.js';
 import { PreFightScene } from './scenes/PreFightScene.js';
 import { SelectScene } from './scenes/SelectScene.js';
+import { StageSelectScene } from './scenes/StageSelectScene.js';
 import { SpectatorLobbyScene } from './scenes/SpectatorLobbyScene.js';
 import { TitleScene } from './scenes/TitleScene.js';
 import { TournamentSetupScene } from './scenes/TournamentSetupScene.js';
@@ -46,6 +47,7 @@ const config = {
     LobbyScene,
     SpectatorLobbyScene,
     SelectScene,
+    StageSelectScene,
     PreFightScene,
     FightScene,
     VictoryScene,

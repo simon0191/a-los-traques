@@ -1,7 +1,7 @@
 import PartySocket from 'partysocket';
 
 /** Message types that support callback buffering (B5) — handler may not be registered yet when message arrives */
-const BUFFERABLE_TYPES = new Set(['sync', 'round_event', 'start', 'frame_sync']);
+const BUFFERABLE_TYPES = new Set(['sync', 'round_event', 'start', 'frame_sync', 'go_to_stage_select']);
 
 /**
  * WebSocket signaling client. Owns the PartySocket connection and provides
