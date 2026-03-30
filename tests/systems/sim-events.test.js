@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_WIDTH, MAX_HP } from '../../src/config.js';
 import { CombatSim, createCombatSim } from '../../src/simulation/CombatSim.js';
-import { createFighterSim, FighterSim } from '../../src/simulation/FighterSim.js';
+import { createFighterSim } from '../../src/simulation/FighterSim.js';
 import { tick } from '../../src/simulation/SimulationEngine.js';
 import { encodeInput } from '../../src/systems/InputBuffer.js';
 

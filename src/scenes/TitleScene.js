@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { getProfile } from '../services/api.js';
+import { logOut } from '../services/supabase.js';
 import { createButton } from '../services/UIService.js';
 
 export class TitleScene extends Phaser.Scene {
@@ -62,6 +64,77 @@ export class TitleScene extends Phaser.Scene {
 
     // Decorative line
     this.add.rectangle(GAME_WIDTH / 2, cy + 5, 200, 2, 0xccccff, 0.6);
+
+    // User greeting & Logout (Top Left)
+    const user = this.game.registry.get('user');
+    const userName = user?.user_metadata?.nickname || (user ? user.email : 'Invitado');
+
+    const greeting = this.add
+      .text(5, 5, `Hola, ${userName}`, {
+        fontFamily: 'Arial',
+        fontSize: '10px',
+        color: '#aaaacc',
+      })
+      .setOrigin(0, 0);
+
+    if (user) {
+      const statsText = this.add
+        .text(5, 17, 'Cargando estadísticas...', {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: '#888899',
+        })
+        .setOrigin(0, 0);
+
+      const logoutBtn = this.add
+        .text(5, 29, 'CERRAR SESIÓN', {
+          fontFamily: 'Arial',
+          fontSize: '9px',
+          color: '#ff4444',
+          backgroundColor: '#221111',
+          padding: { x: 4, y: 2 },
+        })
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+
+      logoutBtn.on('pointerdown', async () => {
+        try {
+          await logOut();
+          this.scene.start('LoginScene');
+        } catch (e) {
+          console.error('Logout failed', e);
+        }
+      });
+
+      // Fetch real stats
+      getProfile()
+        .then((profile) => {
+          if (profile) {
+            greeting.setText(`Hola, ${profile.nickname || userName}`);
+            statsText.setText(`W: ${profile.wins} | L: ${profile.losses}`);
+            statsText.setColor('#44cc88');
+          }
+        })
+        .catch((e) => {
+          console.warn('Could not fetch profile', e);
+          statsText.setText('Estadísticas no disponibles');
+        });
+    } else {
+      const loginBtn = this.add
+        .text(5, 17, 'INICIAR SESIÓN', {
+          fontFamily: 'Arial',
+          fontSize: '9px',
+          color: '#ffcc00',
+          backgroundColor: '#222244',
+          padding: { x: 4, y: 2 },
+        })
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+
+      loginBtn.on('pointerdown', () => {
+        this.scene.start('LoginScene');
+      });
+    }
 
     // Mode buttons
     const btnGap = 22;
@@ -227,41 +300,29 @@ export class TitleScene extends Phaser.Scene {
     });
 
     // ENTRAR button
-    const entrarBtn = UIService.createButton(
-      this,
-      GAME_WIDTH / 2,
-      GAME_HEIGHT / 2 + 20,
-      'ENTRAR',
-      () => {
-        const code = this._joinInput.value
-          .toUpperCase()
-          .split('')
-          .filter((c) => VALID_CHARS.includes(c))
-          .join('');
-        if (code.length !== 4) return;
-        this.game.audioManager.play('ui_confirm');
-        this._hideJoinOverlay();
-        if (this.transitioning) return;
-        this.transitioning = true;
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('LobbyScene', { roomId: code });
-        });
-      },
-    );
+    const entrarBtn = createButton(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'ENTRAR', () => {
+      const code = this._joinInput.value
+        .toUpperCase()
+        .split('')
+        .filter((c) => VALID_CHARS.includes(c))
+        .join('');
+      if (code.length !== 4) return;
+      this.game.audioManager.play('ui_confirm');
+      this._hideJoinOverlay();
+      if (this.transitioning) return;
+      this.transitioning = true;
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('LobbyScene', { roomId: code });
+      });
+    });
     this._joinOverlay.add([entrarBtn.bg, entrarBtn.text]);
 
     // CANCELAR button
-    const cancelBtn = UIService.createButton(
-      this,
-      GAME_WIDTH / 2,
-      GAME_HEIGHT / 2 + 48,
-      'CANCELAR',
-      () => {
-        this.game.audioManager.play('ui_cancel');
-        this._hideJoinOverlay();
-      },
-    );
+    const cancelBtn = createButton(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 48, 'CANCELAR', () => {
+      this.game.audioManager.play('ui_cancel');
+      this._hideJoinOverlay();
+    });
     this._joinOverlay.add([cancelBtn.bg, cancelBtn.text]);
   }
 
