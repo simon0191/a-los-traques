@@ -369,6 +369,52 @@ Expanded (tap):
 
 PartyKit runs on Cloudflare Workers. `console.log` in Workers goes to the real-time log stream (via `wrangler tail` or dashboard). The server gets structured JSON logging at key decision points -- always on since Workers logs are ephemeral and cost nothing.
 
+### 7. Client-Server Log Correlation
+
+Client and server logs are independent systems with different clocks and no shared identifiers beyond `roomId` and `playerSlot`. To correlate them during incident analysis, we introduce a **session ID**.
+
+**How it works:**
+
+1. Client generates a short random session ID on connection (e.g. `crypto.randomUUID().slice(0, 8)` → `"a3f7b2c1"`)
+2. Session ID is passed as a query parameter on the PartySocket connection: `new PartySocket({ query: { sessionId } })`
+3. Server extracts `sessionId` from the connection URL and stores it alongside `connection.id`
+4. All server logs include `{ roomId, slot, sessionId }` — all client logs include `{ roomId, slot, sessionId }`
+5. Debug bundles include the `sessionId` in their metadata
+
+**Correlation flow:**
+
+```mermaid
+sequenceDiagram
+    participant C as Client (sessionId: a3f7b2c1)
+    participant S as Server (wrangler tail)
+
+    C->>S: PartySocket connect ?sessionId=a3f7b2c1
+    S->>S: Log: {type: "connect", roomId: "ABCD", slot: 0, sessionId: "a3f7b2c1"}
+
+    Note over C: Client logs: [SignalingClient] {sessionId: "a3f7b2c1", ...}
+    Note over S: Server logs: {sessionId: "a3f7b2c1", ...}
+
+    C->>S: input message
+    S->>S: Log: {type: "relay", msgType: "input", sessionId: "a3f7b2c1"}
+
+    Note over C,S: To correlate: filter server logs by sessionId, <br/>match against client debug bundle by same sessionId
+```
+
+**What you can correlate:**
+
+| Scenario | Client-side evidence | Server-side evidence | Correlation key |
+|----------|---------------------|---------------------|-----------------|
+| Transport degradation | Logger: `[TransportManager] DataChannel closed` | Log: `{type: "relay", transport: "ws"}` (inputs now via WS) | `sessionId` + timestamp window |
+| Reconnection | Logger: `[SignalingClient] Socket close` → `Socket open` | Log: `{type: "disconnect"}` → `{type: "rejoin", sessionId}` | `sessionId` (new connection, same session ID) |
+| Grace period expiry | Logger: `[FightScene] Reconnection disconnect` | Log: `{type: "grace_expired", slot, sessionId}` | `sessionId` + `slot` |
+| Desync | Debug bundle: checksum mismatch at frame N | Log: `{type: "relay", msgType: "resync_request"}` | `roomId` + timestamp window |
+
+**Key properties:**
+- `sessionId` survives reconnections — client reuses the same ID across PartySocket auto-reconnects
+- Both peers in a room have different session IDs, so you can distinguish P1 vs P2 in server logs
+- The `sessionId` is not sensitive (short random string, no PII)
+- Correlation is manual (grep server logs by sessionId, compare with client bundle) — no automated join needed
+
 ---
 
 ## Module Instrumentation Plan
@@ -443,7 +489,8 @@ PartyKit runs on Cloudflare Workers. `console.log` in Workers goes to the real-t
 | 1.7 | Instrument `SpectatorRelay.js` | Add DEBUG log for buffer flush, sync sent. |
 | 1.8 | Instrument `NetworkFacade.js` | Add INFO/DEBUG logs for TURN fetch, WebRTC init, reconnect flow. |
 | 1.9 | Replace FightScene console calls | Replace `console.warn`/`console.log` calls in FightScene.js online multiplayer paths with structured `log.*()` calls. Keep replay-specific `[REPLAY]` logs as-is (different concern). |
-| 1.10 | Unit tests | Test Logger: level filtering, ring buffer overflow, per-module override, fast bail. Test MatchTelemetry: counter increments, RTT sampling. |
+| 1.10 | Generate session ID in `SignalingClient` | Generate `sessionId` via `crypto.randomUUID().slice(0, 8)` on construction. Pass as PartySocket query param. Include in all Logger entries as context. Persist in debug bundles. |
+| 1.11 | Unit tests | Test Logger: level filtering, ring buffer overflow, per-module override, fast bail. Test MatchTelemetry: counter increments, RTT sampling. |
 
 **Verification:**
 - All existing tests pass (no behavioral changes)
@@ -509,7 +556,7 @@ PartyKit runs on Cloudflare Workers. `console.log` in Workers goes to the real-t
 
 | # | Task | Details |
 |---|------|---------|
-| 4.1 | Structured logging in `party/server.js` | Log state transitions in `_transition()`. Log connect/disconnect in `onConnect()`/`onClose()`. Log rejoin flow in `_handleRejoin()`. Log rate limit triggers. Use `console.log(JSON.stringify({...}))` for structured output compatible with `wrangler tail`. |
+| 4.1 | Structured logging in `party/server.js` | Log state transitions in `_transition()`. Log connect/disconnect in `onConnect()`/`onClose()`. Log rejoin flow in `_handleRejoin()`. Log rate limit triggers. Use `console.log(JSON.stringify({...}))` for structured output compatible with `wrangler tail`. Extract `sessionId` from connection query params and include in all log entries for client-server correlation. |
 | 4.2 | Room diagnostic HTTP endpoint | `GET /parties/main/{roomId}/diagnostics` returns JSON: `{ roomState, players, spectatorCount, graceTimers, fightInfo }`. Protected by bearer token from env var (`DIAG_TOKEN`). |
 | 4.3 | Server-side ring buffer | In-memory array of last 50 server events (state transitions, connects, disconnects, errors). Included in diagnostic endpoint response. |
 | 4.4 | Replace existing server console.log | Replace 2 existing `console.log` calls at lines 131 and 147 with structured JSON format. |
