@@ -22,6 +22,60 @@ The system adds zero overhead when debug mode is off (always-on telemetry uses f
 
 ---
 
+## Debug Flow: How It Works in Practice
+
+### Manual testing (developer workflow)
+
+You're testing multiplayer: P1 on your laptop, P2 on your phone over 5G.
+
+**Today (no debug tools):**
+
+1. Open the game on both devices, create a room, play
+2. Something breaks -- freeze, desync, disconnect
+3. You have nothing. Maybe a `[DESYNC]` in the laptop's DevTools console if you had it open. The phone has no DevTools. You're guessing.
+
+**With this RFC:**
+
+1. Append `?debug=1` to both URLs:
+   - Laptop: `https://your-game.com/?debug=1&createRoom=1`
+   - Phone: `https://your-game.com/?debug=1&room=ABCD`
+2. Both show a small collapsed overlay at bottom-left: `RTT: 45ms P2P`
+3. Play the match. You can watch RTT and transport mode change in real time.
+4. Something breaks. Tap the overlay on the phone to expand:
+   ```
+   RTT: 820ms   WS
+   Rollbacks: 47  Max: 7
+   Desyncs: 2   Buf: 0
+   Estado: RECONNECTING
+   [Exportar Debug] [Exportar Todo]
+   ```
+   You already know: transport degraded from P2P to WebSocket, RTT spiked, rollbacks went deep, 2 desyncs, input buffer is empty (starved).
+5. Tap "Exportar Todo" on either device -- this collects debug bundles from **both peers and the server** into a single combined bundle, then copies it to clipboard.
+6. Paste the combined bundle into Slack/Discord. It contains:
+   - Both peers' Logger ring buffers (last ~40s of structured logs from every networking module)
+   - Both peers' FightRecorder data (inputs, checksums, rollback events, desync frames)
+   - Both peers' RTT samples, transport mode changes, match state transitions
+   - Server ring buffer (state transitions, message routing, grace period events)
+   - Device/connection info from both peers (`Navigator.connection` shows "5G, 30Mbps downlink" for the phone)
+   - Shared `sessionId` linking client logs to server logs
+7. Run `generateReport()` on the bundle or read the JSON directly. You can see:
+   - "RTT spiked from 40ms to 800ms at frame 340 on P2"
+   - "Transport degraded P2P→WS at frame 342"
+   - "`[TransportManager] DataChannel closed` at that exact timestamp"
+   - "`[InputSync] Buffer depth 0 for 4 frames` right before the desync"
+   - "Desync at frame 360, resync applied at frame 362"
+   - Server log: `{type: "relay", msgType: "input", transport: "ws"}` confirming WS fallback
+
+### When a player reports an issue
+
+1. Ask them to reload with `?debug=1` appended to the URL
+2. They reproduce the issue
+3. They tap the overlay → "Exportar Todo" (or "Exportar Debug" for just their own data)
+4. They paste the JSON into your chat
+5. You have everything you need to diagnose -- from both sides of the connection
+
+---
+
 ## Goals and Non-Goals
 
 ### Goals
@@ -356,7 +410,7 @@ Expanded (tap):
 │  Rollbacks: 12  Max: 3   │
 │  Desyncs: 0   Buf: 2     │
 │  Estado: ROUND_ACTIVE     │
-│  [Exportar Debug]         │
+│  [Exportar Debug] [Todo]  │
 └──────────────────────────┘
 ```
 
@@ -364,6 +418,8 @@ Expanded (tap):
 - Semi-transparent black background, monospace, depth 200
 - Only visible when `game.debugMode` is true
 - Reads from: `RollbackManager`, `ConnectionMonitor`, `TransportManager`, `InputSync`, `MatchStateMachine`
+- "Exportar Debug" exports only the local peer's bundle
+- "Todo" collects bundles from both peers + server (see section 8)
 
 ### 6. Server-Side Logging
 
@@ -414,6 +470,70 @@ sequenceDiagram
 - Both peers in a room have different session IDs, so you can distinguish P1 vs P2 in server logs
 - The `sessionId` is not sensitive (short random string, no PII)
 - Correlation is manual (grep server logs by sessionId, compare with client bundle) — no automated join needed
+
+### 8. 1-Click Bundle Collection ("Exportar Todo")
+
+Instead of asking both players to export bundles separately, either peer can collect **all debug data from both peers and the server** in one action.
+
+**Flow:**
+
+```mermaid
+sequenceDiagram
+    participant P1 as P1 (collector)
+    participant S as Server (PartyKit)
+    participant P2 as P2 (remote peer)
+
+    P1->>P1: Generate own debug bundle
+    par Collect remote data
+        P1->>S: send({type: 'debug_request'})
+        S->>P2: relay debug_request
+        P2->>P2: Generate own debug bundle
+        P2->>S: send({type: 'debug_response', bundle: {...}})
+        S->>P1: relay debug_response
+    and Collect server data
+        P1->>S: GET /diagnostics (HTTP)
+        S->>P1: {roomState, players, eventLog}
+    end
+    P1->>P1: Merge into combined bundle
+    P1->>P1: Copy to clipboard / download
+```
+
+**Server changes (`party/server.js`):**
+
+Two new message types in the `onMessage` switch — simple relay, same pattern as `checksum`/`resync_request`:
+
+```javascript
+case 'debug_request':
+case 'debug_response':
+  this._sendToOther(slot, data);
+  break;
+```
+
+**Client changes:**
+
+- `NetworkFacade` gets four new methods: `sendDebugRequest()`, `onDebugRequest(cb)`, `sendDebugResponse(bundle)`, `onDebugResponse(cb)`
+- `DebugBundleExporter.collectAll()` orchestrates the flow: generate local bundle, send request to peer, fetch `/diagnostics`, wait for response (3s timeout), merge
+
+**Combined bundle format:**
+
+```javascript
+{
+  version: 2,
+  source: 'debug-combined',
+  collectedBy: 'p1',                    // which peer initiated collection
+  local: { /* collector's full debug data */ },
+  remote: { /* other peer's debug data */ },  // null if peer unavailable
+  remoteError: null | 'timeout' | 'not_in_debug_mode',
+  server: { /* /diagnostics response */ },    // null if endpoint unavailable
+  serverError: null | 'fetch_failed' | 'unauthorized',
+}
+```
+
+**Edge cases:**
+- P2 not in debug mode → P2 receives `debug_request` but has no FightRecorder. Responds with a minimal bundle (environment info only, `debugMode: false`). Collector sees `remote.debugMode: false`.
+- P2 disconnected → `debug_response` never arrives. 3-second timeout, combined bundle has `remote: null, remoteError: 'timeout'`.
+- Server `/diagnostics` unavailable → `server: null, serverError: 'fetch_failed'`. Collection still succeeds with client-side data.
+- Both peers in debug mode → either can be the collector. The "Todo" button is available on both.
 
 ---
 
@@ -536,6 +656,10 @@ sequenceDiagram
 | 3.5 | Add MatchStateMachine transition logging | Record all transitions in an array: `{ ts, from, to, event }`. Capped at 100 entries. Feed into debug bundle. |
 | 3.6 | Collect environment info | `navigator.userAgent`, `navigator.platform`, `navigator.connection` (if available: `type`, `downlink`, `rtt`). Include in `diagnostics.environment`. |
 | 3.7 | E2E bundle backward compatibility | Ensure existing `generateBundle()` in `tests/e2e/helpers/bundle-generator.js` still works. New bundles are a superset. `generateReport()` handles both v1 and v2 bundles. |
+| 3.8 | Add `debug_request`/`debug_response` relay to server | Add both message types to `onMessage` switch in `party/server.js` — simple `_sendToOther(slot, data)` relay, same pattern as `checksum`. |
+| 3.9 | Add debug request/response to `NetworkFacade` | `sendDebugRequest()`, `onDebugRequest(cb)`, `sendDebugResponse(bundle)`, `onDebugResponse(cb)`. Wire `onDebugRequest` to auto-respond with local bundle. |
+| 3.10 | Add `collectAll()` to `DebugBundleExporter` | Orchestrates: generate local bundle → send `debug_request` to peer → fetch `GET /diagnostics` → wait for `debug_response` (3s timeout) → merge into combined bundle with `source: 'debug-combined'`. |
+| 3.11 | Add "Todo" button to debug overlay | "Exportar Todo" alongside "Exportar Debug". Calls `collectAll()`, shows "Recopilando..." while waiting, then "Copiado!" on success. |
 
 **Verification:**
 - Exported bundle is valid JSON
@@ -547,6 +671,9 @@ sequenceDiagram
 - Copy-to-clipboard works on Mobile Safari iPhone 15
 - File download works as fallback
 - Bundle size is reasonable (50-200KB for a typical match)
+- "Exportar Todo" collects data from both peers when both are connected and in debug mode
+- "Exportar Todo" gracefully handles P2 disconnected (combined bundle with `remote: null`)
+- "Exportar Todo" gracefully handles `/diagnostics` unavailable (combined bundle with `server: null`)
 
 ---
 
@@ -671,21 +798,38 @@ The following existing `console.log`/`console.warn` calls get replaced by Logger
 
 ---
 
-## Appendix: Example Debug Session
+## Appendix: Example Analysis of a Combined Debug Bundle
 
-A player reports "the game froze and then desynced" on their iPhone.
+A developer tests with laptop (P1) + phone on 5G (P2). The match desyncs. They tap "Todo" on the laptop to collect everything, paste the combined bundle, and open it:
 
-1. Team asks player to reload with `?debug=1` appended to URL
-2. Player reproduces the issue
-3. Player taps the collapsed overlay, taps "Exportar Debug"
-4. Player pastes the JSON bundle into Discord/WhatsApp
-5. Team runs `generateReport()` on the bundle -- sees:
-   - RTT spike from 40ms to 800ms at frame 340
-   - Transport degraded from P2P to WS at frame 342
-   - 6-frame rollback at frame 345 (normal max is 3)
-   - Desync detected at frame 360 (checksum mismatch)
-   - Resync applied at frame 362
-   - Logger shows: `[TransportManager] DataChannel closed` at the exact timestamp
-   - Logger shows: `[InputSync] Buffer depth 0 for 4 consecutive frames` preceding the desync
-6. Team identifies root cause: network handoff caused ICE failure, WebSocket fallback introduced enough latency to exceed rollback window
-7. Fix: increase max rollback window when transport degrades, or add proactive resync on transport degradation
+```
+combined.local (P1 - laptop):
+  RTT samples: [38, 42, 40, 45, 41, 820, 790, 650]   ← spike at sample 6
+  Transport: webrtc → websocket at frame 342
+  Rollbacks: 47 total, max depth 7
+  Desyncs: 2 (frames 360, 385)
+  Logger:
+    [TransportManager] DataChannel closed                 @ 1711814422340
+    [InputSync] Buffer depth 0, 4 consecutive frames      @ 1711814422400
+    [ConnectionMonitor] Pong RTT=820ms                    @ 1711814422500
+
+combined.remote (P2 - phone 5G):
+  Environment: iPhone, Safari 18.2, connection: { type: 'cellular', downlink: 30 }
+  RTT samples: [40, 38, 42, 800, 750, 680]              ← spike earlier on P2 side
+  Transport: webrtc → websocket at frame 340              ← P2 lost P2P first
+  Rollbacks: 52 total, max depth 7
+  Logger:
+    [TransportManager] DataChannel closed (ICE failed)    @ 1711814422100
+    [SignalingClient] Socket close                        @ 1711814422200
+    [SignalingClient] Socket open (reconnect)             @ 1711814422800
+
+combined.server:
+  Event log:
+    {type: "state_transition", from: "fighting", to: "reconnecting"} @ 1711814422250
+    {type: "relay", msgType: "input", slot: 1, transport: "ws"}      @ 1711814422900
+    {type: "state_transition", from: "reconnecting", to: "fighting"} @ 1711814422850
+```
+
+**Root cause:** 5G handoff on P2's phone caused ICE failure at frame 340. P2 lost DataChannel first, then WebSocket briefly. Server went to `reconnecting` state. After reconnect, all traffic on WebSocket relay added ~800ms latency, exceeding the rollback window and causing desyncs.
+
+**Fix direction:** Increase max rollback window when transport degrades, or proactively resync on transport degradation.
