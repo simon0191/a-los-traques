@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import { syncProfile } from '../services/api.js';
 import { getSession, logIn, signUp } from '../services/supabase.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('LoginScene');
 
 export class LoginScene extends Phaser.Scene {
   constructor() {
@@ -41,14 +44,14 @@ export class LoginScene extends Phaser.Scene {
         try {
           await syncProfile(session.user.user_metadata?.nickname);
         } catch (e) {
-          console.error('Profile sync failed', e);
+          log.warn('Profile sync failed', { err: e.message });
         }
 
         this.time.delayedCall(1000, () => this.scene.start('TitleScene'));
         return;
       }
     } catch (e) {
-      console.error('Session check failed', e);
+      log.warn('Session check failed', { err: e.message });
     }
 
     this.statusText.setText('Inicia sesión para guardar tus estadísticas');

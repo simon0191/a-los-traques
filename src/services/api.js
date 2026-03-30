@@ -1,4 +1,7 @@
+import { Logger } from '../systems/Logger.js';
 import { getSession } from './supabase.js';
+
+const log = Logger.create('API');
 
 const API_BASE = '/api';
 
@@ -35,7 +38,7 @@ async function apiFetch(endpoint, options = {}) {
     try {
       data = await response.json();
     } catch (e) {
-      console.error('Failed to parse JSON response', e);
+      log.warn('JSON parse error', { endpoint, err: e.message });
     }
   } else {
     // Handle non-JSON or empty responses

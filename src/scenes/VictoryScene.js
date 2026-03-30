@@ -4,6 +4,9 @@ import fightersData from '../data/fighters.json';
 import { updateStats } from '../services/api.js';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('VictoryScene');
 
 export class VictoryScene extends Phaser.Scene {
   constructor() {
@@ -313,7 +316,7 @@ export class VictoryScene extends Phaser.Scene {
         onComplete: () => feedback.destroy(),
       });
     } catch (e) {
-      console.error('Failed to update stats', e);
+      log.warn('Stats update failed', { err: e.message });
     }
   }
 

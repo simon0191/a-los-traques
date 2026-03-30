@@ -1,3 +1,7 @@
+import { Logger } from '../Logger.js';
+
+const log = Logger.create('ConnectionMonitor');
+
 const PONG_TIMEOUT_MS = 6000;
 const PING_INTERVAL_MS = 3000;
 
@@ -40,6 +44,10 @@ export class ConnectionMonitor {
         Date.now() - this._lastPongTime > PONG_TIMEOUT_MS
       ) {
         this._pongTimeoutFired = true;
+        log.warn('Pong timeout', {
+          lastPongTime: this._lastPongTime,
+          elapsed: Date.now() - this._lastPongTime,
+        });
         this.stop();
         if (this._onTimeout) this._onTimeout();
         return;
@@ -85,6 +93,7 @@ export class ConnectionMonitor {
     if (msg.t) {
       this.latency = Date.now() - msg.t;
       this.rtt = this.latency;
+      log.debug('Pong received', { rtt: this.rtt });
     }
   }
 }

@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from './config.js';
+import { Logger } from './systems/Logger.js';
+
+const log = Logger.create('Main');
+
 import { BootScene } from './scenes/BootScene.js';
 import { BracketScene } from './scenes/BracketScene.js';
 import { FightScene } from './scenes/FightScene.js';
@@ -67,6 +71,6 @@ new AudioManager(window.game);
 
 // Initialize Auth State
 onAuthStateChange((event, session) => {
-  console.log(`Auth event: ${event}`);
+  log.info('Auth state change', { event });
   window.game.registry.set('user', session?.user || null);
 });

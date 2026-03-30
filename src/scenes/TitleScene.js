@@ -3,6 +3,9 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import { getProfile } from '../services/api.js';
 import { logOut } from '../services/supabase.js';
 import { createButton } from '../services/UIService.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('TitleScene');
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -102,7 +105,7 @@ export class TitleScene extends Phaser.Scene {
           await logOut();
           this.scene.start('LoginScene');
         } catch (e) {
-          console.error('Logout failed', e);
+          log.warn('Logout failed', { err: e.message });
         }
       });
 
@@ -116,7 +119,7 @@ export class TitleScene extends Phaser.Scene {
           }
         })
         .catch((e) => {
-          console.warn('Could not fetch profile', e);
+          log.warn('Profile fetch failed', { err: e.message });
           statsText.setText('Estadísticas no disponibles');
         });
     } else {
