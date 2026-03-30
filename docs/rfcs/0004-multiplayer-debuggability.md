@@ -1,6 +1,6 @@
 # RFC 0004: Multiplayer Debuggability
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-03-30
 **Author:** Architecture Team
 **Predecessor:** [RFC 0002: Multiplayer Architecture Redesign](0002-multiplayer-redesign.md) (Phases 1–3 complete)

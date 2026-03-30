@@ -162,6 +162,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/e2e-testing.md` — E2E multiplayer testing framework (autoplay, FightRecorder, Playwright)
 - `docs/rfcs/0001-networking-redesign.md` — Full networking rewrite RFC (Phases 1-4 complete, Phase 5 optional)
 - `docs/rfcs/0002-multiplayer-redesign.md` — Multiplayer architecture redesign (Phases 1, 2A, 2B, 3 complete, Phase 4 next)
+- `docs/rfcs/0004-multiplayer-debuggability.md` — Multiplayer debuggability (Phases 1-4 complete)
 
 ## Online Multiplayer
 
@@ -183,6 +184,18 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - Spectators receive P1 sync snapshots (same as old model, no rollback)
 - URL join: `?room=XXXX` skips title, goes directly to LobbyScene
 - `bun run party:dev` for local dev, `bun run party:deploy` to deploy
+
+## Multiplayer Debuggability (RFC 0004)
+
+- **Logger** (`src/systems/Logger.js`): Static singleton with levels OFF/ERROR/WARN/INFO/DEBUG/TRACE, per-module tags, 256-entry ring buffer. Zero overhead when OFF. All net modules instrumented.
+- **MatchTelemetry** (`src/systems/MatchTelemetry.js`): Always-on counters (rollbacks, desyncs, RTT samples, transport changes). Wired in `_setupOnlineMode()`.
+- **Debug mode**: `?debug=1` URL param or triple-tap top-right corner. Activates FightRecorder for real matches, verbose logging, debug overlay.
+- **DebugOverlay** (`src/systems/DebugOverlay.js`): Bottom-left HUD showing RTT, transport mode, rollback stats, match state. Tap to expand. Spanish labels.
+- **DebugBundleExporter** (`src/systems/DebugBundleExporter.js`): Generates v2 bundles with FightRecorder data + Logger ring buffer + MatchTelemetry + environment info. Supports clipboard copy and file download.
+- **1-click bundle collection**: "Exportar Todo" collects bundles from both peers + server `/diagnostics` endpoint. Uses `debug_request`/`debug_response` message relay.
+- **Session ID**: Generated in SignalingClient, passed as PartySocket query param, included in all server logs and debug bundles for client-server correlation.
+- **Server logging**: `party/server.js` uses structured JSON logging (`_log()` method) with ring buffer. State transitions, connect/disconnect, rejoin, rate limits all logged.
+- **Server diagnostics**: `GET /parties/main/{roomId}/diagnostics` returns room state, players, event log. Token-protected via `DIAG_TOKEN` env var.
 
 ## CRITICAL: Keep this file updated
 
