@@ -154,7 +154,13 @@ describe('SignalingClient', () => {
 
     it('buffers start messages and replays when handler is set', () => {
       const sc = makeClient();
-      const startMsg = { type: 'start', p1Id: 'simon', p2Id: 'jeka', stageId: 'dojo', isRandomStage: false };
+      const startMsg = {
+        type: 'start',
+        p1Id: 'simon',
+        p2Id: 'jeka',
+        stageId: 'dojo',
+        isRandomStage: false,
+      };
 
       sc._handleMessage(startMsg);
 

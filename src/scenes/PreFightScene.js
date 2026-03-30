@@ -163,7 +163,7 @@ export class PreFightScene extends Phaser.Scene {
         targets: this.stagePreview,
         alpha: 1,
         duration: 500,
-        ease: 'Power2'
+        ease: 'Power2',
       });
     }
 

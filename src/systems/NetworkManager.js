@@ -647,7 +647,7 @@ export class NetworkManager {
     this._onChecksum = null;
     this._onResyncRequest = null;
     this._onResync = null;
-    
+
     // Clear pending messages for bufferable types
     for (const type of BUFFERABLE_TYPES) {
       if (this._pendingCallbackMessages[type]) {

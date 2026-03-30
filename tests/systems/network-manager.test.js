@@ -1061,7 +1061,13 @@ describe('NetworkManager', () => {
 
     it('buffers start messages and replays when callback is set', () => {
       const nm = makeManager();
-      const startMsg = { type: 'start', p1Id: 'simon', p2Id: 'jeka', stageId: 'dojo', isRandomStage: false };
+      const startMsg = {
+        type: 'start',
+        p1Id: 'simon',
+        p2Id: 'jeka',
+        stageId: 'dojo',
+        isRandomStage: false,
+      };
 
       nm._handleMessage(startMsg);
 

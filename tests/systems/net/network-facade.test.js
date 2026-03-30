@@ -207,7 +207,13 @@ describe('NetworkFacade', () => {
       const nf = makeFacade();
 
       // Message arrives before callback registered
-      emitMsg(nf, { type: 'start', p1Id: 'simon', p2Id: 'jeka', stageId: 'dojo', isRandomStage: false });
+      emitMsg(nf, {
+        type: 'start',
+        p1Id: 'simon',
+        p2Id: 'jeka',
+        stageId: 'dojo',
+        isRandomStage: false,
+      });
 
       const received = [];
       nf.onStart((msg) => received.push(msg));

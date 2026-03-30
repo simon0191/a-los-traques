@@ -71,17 +71,21 @@ export class StageSelectScene extends Phaser.Scene {
       const y = GRID_START_Y + row * (CELL_H + GRID_GAP);
 
       const stage = this.stages[i];
-      
+
       // Cell background
-      const rect = this.add.rectangle(x, y, CELL_W, CELL_H, 0x333333).setInteractive({ useHandCursor: this.isP1 });
-      
+      const rect = this.add
+        .rectangle(x, y, CELL_W, CELL_H, 0x333333)
+        .setInteractive({ useHandCursor: this.isP1 });
+
       if (stage.texture && this.textures.exists(stage.texture)) {
         this.add.image(x, y, stage.texture).setDisplaySize(CELL_W - 4, CELL_H - 4);
       } else {
         const color = Phaser.Display.Color.HexStringToColor(stage.bgColor || '#555555').color;
         this.add.rectangle(x, y, CELL_W - 4, CELL_H - 4, color);
         if (stage.id === 'random') {
-           this.add.text(x, y, '?', { fontSize: '24px', color: '#ffffff', fontFamily: 'Arial Black' }).setOrigin(0.5);
+          this.add
+            .text(x, y, '?', { fontSize: '24px', color: '#ffffff', fontFamily: 'Arial Black' })
+            .setOrigin(0.5);
         }
       }
 
@@ -103,18 +107,22 @@ export class StageSelectScene extends Phaser.Scene {
 
     // Selection Info
     this.infoContainer = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 60);
-    this.stageNameText = this.add.text(0, 0, '', {
-      fontFamily: 'Arial Black',
-      fontSize: '18px',
-      color: '#ffffff',
-    }).setOrigin(0.5);
-    this.stageDescText = this.add.text(0, 25, '', {
-      fontFamily: 'Arial',
-      fontSize: '12px',
-      color: '#aaaaaa',
-      align: 'center',
-      wordWrap: { width: GAME_WIDTH - 40 }
-    }).setOrigin(0.5);
+    this.stageNameText = this.add
+      .text(0, 0, '', {
+        fontFamily: 'Arial Black',
+        fontSize: '18px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    this.stageDescText = this.add
+      .text(0, 25, '', {
+        fontFamily: 'Arial',
+        fontSize: '12px',
+        color: '#aaaaaa',
+        align: 'center',
+        wordWrap: { width: GAME_WIDTH - 40 },
+      })
+      .setOrigin(0.5);
     this.infoContainer.add([this.stageNameText, this.stageDescText]);
 
     // Cursor
@@ -141,8 +149,8 @@ export class StageSelectScene extends Phaser.Scene {
           return;
         }
 
-        const row = Math.floor(this.selectedIndex / COLS);
-        const col = this.selectedIndex % COLS;
+        const _row = Math.floor(this.selectedIndex / COLS);
+        const _col = this.selectedIndex % COLS;
 
         if (event.code === 'ArrowRight') {
           if (this.selectedIndex < this.stages.length - 1) {
@@ -167,7 +175,7 @@ export class StageSelectScene extends Phaser.Scene {
         } else if (event.code === 'KeyZ' || event.code === 'Enter' || event.code === 'Space') {
           this.confirmSelection();
         }
-        
+
         this.updateSelection();
       });
     }
@@ -180,18 +188,28 @@ export class StageSelectScene extends Phaser.Scene {
       this.networkManager.onReturnToSelect(() => {
         this.handleBack(true);
       });
-      
+
       if (!this.isP1) {
         // P2 just waits for the 'start' message which contains the stageId
       }
     }
 
+    // Autoplay: auto-select first stage and confirm
+    if (this.game.autoplay?.enabled && this.isP1) {
+      this.time.delayedCall(500, () => {
+        if (!this.transitioning) {
+          this.selectedIndex = 0; // Pick first stage
+          this.updateSelection();
+          this.confirmSelection();
+        }
+      });
+    }
+
     this.updateSelection();
   }
-
   handleBack(remote = false) {
     if (this.transitioning && !remote) return;
-    
+
     const audio = this.game.audioManager;
     if (!remote) audio.play('ui_cancel');
 
@@ -214,7 +232,7 @@ export class StageSelectScene extends Phaser.Scene {
   updateSelection() {
     const stage = this.stages[this.selectedIndex];
     const cell = this.gridCells[this.selectedIndex];
-    
+
     this.cursor.setPosition(cell.rect.x, cell.rect.y);
     this.stageNameText.setText(stage.name.toUpperCase());
     this.stageDescText.setText(stage.description);
@@ -222,13 +240,13 @@ export class StageSelectScene extends Phaser.Scene {
 
   confirmSelection() {
     if (this.transitioning) return;
-    
+
     const audio = this.game.audioManager;
     audio.play('ui_confirm');
 
     let stageId = this.stages[this.selectedIndex].id;
     const isRandom = stageId === 'random';
-    
+
     if (isRandom) {
       const realStages = stagesData;
       stageId = realStages[Phaser.Math.Between(0, realStages.length - 1)].id;
