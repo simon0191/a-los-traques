@@ -142,8 +142,9 @@ export class FightScene extends Phaser.Scene {
       this.frameCounter = 0;
       this._setupSpectatorMode();
     } else {
+      const slot = this.gameMode === 'online' && this.networkManager ? this.networkManager.getPlayerSlot() : 0;
       this.inputManager = new InputManager(this);
-      this.touchControls = new TouchControls(this, this.inputManager);
+      this.touchControls = new TouchControls(this, this.inputManager, slot);
 
       // -- AI controller (local mode only) --
       if (this.gameMode !== 'online') {
@@ -521,6 +522,10 @@ export class FightScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x666666)
       .setFillStyle()
       .setDepth(depth + 2);
+    // 50% marker P1
+    this.add
+      .rectangle(SPECIAL_P1_X + SPECIAL_BAR_W / 2, SPECIAL_BAR_Y + SPECIAL_BAR_H / 2, 1, SPECIAL_BAR_H, 0xffffff, 0.3)
+      .setDepth(depth + 2);
 
     // P2 special
     this.spBgP2 = this.add
@@ -540,6 +545,10 @@ export class FightScene extends Phaser.Scene {
       )
       .setStrokeStyle(1, 0x666666)
       .setFillStyle()
+      .setDepth(depth + 2);
+    // 50% marker P2
+    this.add
+      .rectangle(SPECIAL_P2_X + SPECIAL_BAR_W / 2, SPECIAL_BAR_Y + SPECIAL_BAR_H / 2, 1, SPECIAL_BAR_H, 0xffffff, 0.3)
       .setDepth(depth + 2);
 
     // --- Player name labels ---
@@ -783,11 +792,30 @@ export class FightScene extends Phaser.Scene {
     this.spBarP1.width = SPECIAL_BAR_W * spRatioP1;
     this.spBarP2.width = SPECIAL_BAR_W * spRatioP2;
 
-    // Flash special bar when full
-    if (spRatioP1 >= 1) this.spBarP1.setFillStyle(0xffff00);
-    else this.spBarP1.setFillStyle(0xffcc00);
-    if (spRatioP2 >= 1) this.spBarP2.setFillStyle(0xffff00);
-    else this.spBarP2.setFillStyle(0xffcc00);
+    // Flash special bar when it's at least 50% (enough for a special)
+    const flashTimer = Math.floor(Date.now() / 150) % 2 === 0;
+    
+    if (spRatioP1 >= 0.5) {
+      if (spRatioP1 >= 1.0) {
+        this.spBarP1.setFillStyle(flashTimer ? 0xffff00 : 0xffcc00);
+      } else {
+        // Subtle pulse for 50%
+        this.spBarP1.setFillStyle(flashTimer ? 0xffdd00 : 0xffaa00);
+      }
+    } else {
+      this.spBarP1.setFillStyle(0xffcc00);
+    }
+
+    if (spRatioP2 >= 0.5) {
+      if (spRatioP2 >= 1.0) {
+        this.spBarP2.setFillStyle(flashTimer ? 0xffff00 : 0xffcc00);
+      } else {
+        // Subtle pulse for 50%
+        this.spBarP2.setFillStyle(flashTimer ? 0xffdd00 : 0xffaa00);
+      }
+    } else {
+      this.spBarP2.setFillStyle(0xffcc00);
+    }
 
     // Stamina bars
     const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA_FP, 0, 1);
