@@ -35,6 +35,7 @@ export class TouchControls {
     this.buttons = []; // { graphic, hitArea, label, key }[]
     this.activeButtonPointers = {}; // pointerId -> button key
     this.specialGlow = null;
+    this.specialParticles = null;
 
     this.createJoystick();
     this.createButtons();
@@ -113,6 +114,18 @@ export class TouchControls {
           .setVisible(false);
         this.specialGlow = glow;
         
+        // Particles for ES button
+        this.specialParticles = scene.add.particles(cx, cy, 'white_pixel', {
+          speed: { min: 10, max: 25 },
+          angle: { min: 0, max: 360 },
+          scale: { start: 1.2, end: 0 },
+          alpha: { start: 0.6, end: 0 },
+          lifespan: 500,
+          frequency: 80,
+          tint: 0xffcc00,
+          emitting: false
+        }).setDepth(100);
+
         // Add a pulsing tween for the glow
         scene.tweens.add({
           targets: glow,
@@ -354,6 +367,13 @@ export class TouchControls {
       const isAvailable = fighter.special >= SPECIAL_COST_FP;
       this.specialGlow.setVisible(isAvailable);
       
+      // Update ES button effects
+      if (isAvailable) {
+        this.specialParticles.emitting = true;
+      } else {
+        this.specialParticles.emitting = false;
+      }
+      
       // Also update the special button's text/border color when available
       const spBtn = this.buttons.find(b => b.key === 'special');
       if (spBtn) {
@@ -415,6 +435,7 @@ export class TouchControls {
     if (this.joystickBase) this.joystickBase.destroy();
     if (this.joystickBaseRing) this.joystickBaseRing.destroy();
     if (this.joystickThumb) this.joystickThumb.destroy();
+    if (this.specialParticles) this.specialParticles.destroy();
 
     for (const btn of this.buttons) {
       btn.graphic.destroy();
