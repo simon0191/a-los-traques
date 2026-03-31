@@ -139,11 +139,17 @@ export class RollbackManager {
       }
     }
 
-    // 4. Detect mispredictions and rollback if needed
+    // 4. Detect mispredictions and rollback if needed.
+    // Compare confirmed input against the remoteInput stored in the snapshot,
+    // not the predictedRemoteInputs map (which may be pruned). See RFC 0008.
     let rollbackFrame = -1;
     for (const [frame, confirmedInput] of confirmedEncoded) {
-      const predicted = this.predictedRemoteInputs.get(frame);
-      if (predicted !== undefined && !inputsEqual(predicted, confirmedInput)) {
+      const snap = this.stateSnapshots.get(frame);
+      if (
+        snap &&
+        snap.remoteInput !== undefined &&
+        !inputsEqual(snap.remoteInput, confirmedInput)
+      ) {
         if (rollbackFrame === -1 || frame < rollbackFrame) {
           rollbackFrame = frame;
         }
@@ -182,6 +188,9 @@ export class RollbackManager {
         for (let f = actualRollbackFrame; f < this.currentFrame; f++) {
           const p1Input = this._getInputForFrame(f, true);
           const p2Input = this._getInputForFrame(f, false);
+          // Update pre-tick snapshot with the (now corrected) remote input
+          const snapAtF = this.stateSnapshots.get(f);
+          if (snapAtF) snapAtF.remoteInput = this.localSlot === 0 ? p2Input : p1Input;
           // tick() mutates sim objects and returns immutable snapshot
           const { state } = tick(p1Sim, p2Sim, combatSim, p1Input, p2Input, f);
           state.confirmed = this._isFrameConfirmed(f);
@@ -196,9 +205,14 @@ export class RollbackManager {
       this.predictedRemoteInputs.set(this.currentFrame, predicted);
     }
 
-    // 7. Save snapshot for currentFrame (before simulating)
+    // 7. Save snapshot for currentFrame (before simulating).
+    // Store which remote input will be used (confirmed or predicted) so the
+    // misprediction check in step 4 can compare against it later. See RFC 0008.
     const preTickSnap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
     preTickSnap.confirmed = this._isFrameConfirmed(this.currentFrame);
+    preTickSnap.remoteInput = this.remoteInputHistory.has(this.currentFrame)
+      ? this.remoteInputHistory.get(this.currentFrame)
+      : this.predictedRemoteInputs.get(this.currentFrame);
     this.stateSnapshots.set(this.currentFrame, preTickSnap);
 
     // 8. Simulate currentFrame via tick()

@@ -182,7 +182,6 @@ describe('RollbackManager', () => {
   describe('misprediction detection', () => {
     it('detects misprediction when confirmed differs from predicted', () => {
       rm.advance(noInput, p1, p2, combat);
-      expect(rm.predictedRemoteInputs.get(0)).toBe(EMPTY_INPUT);
 
       const confirmedInput = {
         left: true,
@@ -209,6 +208,82 @@ describe('RollbackManager', () => {
       rm.advance(noInput, p1, p2, combat);
 
       expect(rm.rollbackCount).toBe(0);
+    });
+
+    it('snapshot stores remoteInput (predicted value)', () => {
+      rm.advance(noInput, p1, p2, combat);
+
+      const snap = rm.stateSnapshots.get(0);
+      expect(snap.remoteInput).toBe(EMPTY_INPUT);
+    });
+
+    it('snapshot stores remoteInput (confirmed value)', () => {
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+      nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
+      rm.advance(noInput, p1, p2, combat);
+
+      const snap = rm.stateSnapshots.get(0);
+      // encodeInput({ left: true }) = 1
+      expect(snap.remoteInput).toBe(1);
+    });
+
+    it('detects misprediction via snapshot.remoteInput even after predictedRemoteInputs cleared', () => {
+      rm.advance(noInput, p1, p2, combat);
+
+      // Simulate pruning by clearing the predictions map
+      rm.predictedRemoteInputs.clear();
+
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+      nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
+      rm.advance(noInput, p1, p2, combat);
+
+      // Misprediction detected via snapshot.remoteInput, not predictedRemoteInputs
+      expect(rm.rollbackCount).toBe(1);
+    });
+
+    it('resim updates snapshot.remoteInput with corrected input', () => {
+      rm.advance(noInput, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
+
+      // snapshot at frame 0 should have predicted remoteInput (EMPTY_INPUT)
+      expect(rm.stateSnapshots.get(0).remoteInput).toBe(EMPTY_INPUT);
+
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+      nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
+      rm.advance(noInput, p1, p2, combat);
+
+      // After rollback + resim, snapshot at frame 0 should have corrected remoteInput
+      expect(rm.stateSnapshots.get(0).remoteInput).toBe(1);
     });
   });
 
