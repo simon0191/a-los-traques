@@ -523,6 +523,29 @@ describe('NetworkFacade', () => {
     });
   });
 
+  describe('ConnectionMonitor integration', () => {
+    it('starts monitor when socket opens', () => {
+      const nf = makeFacade();
+      const startSpy = vi.spyOn(nf.monitor, 'start');
+
+      nf.signaling.socket._emit('open', {});
+
+      expect(startSpy).toHaveBeenCalledOnce();
+    });
+
+    it('starts monitor AND fires onSocketOpen callback together', () => {
+      const nf = makeFacade();
+      const startSpy = vi.spyOn(nf.monitor, 'start');
+      const openCb = vi.fn();
+      nf.onSocketOpen(openCb);
+
+      nf.signaling.socket._emit('open', {});
+
+      expect(startSpy).toHaveBeenCalledOnce();
+      expect(openCb).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('destroy', () => {
     it('destroys all sub-modules', () => {
       const nf = makeFacade();

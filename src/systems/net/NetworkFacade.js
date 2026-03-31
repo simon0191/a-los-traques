@@ -43,11 +43,6 @@ export class NetworkFacade {
     // Spectator messaging
     this.spectator = new SpectatorRelay(this.signaling);
 
-    // Wire socket lifecycle → monitor
-    this.signaling.onSocketOpen(() => {
-      this.monitor.start();
-    });
-
     // Store host for TURN credential fetching
     this._host = host;
 
@@ -129,6 +124,7 @@ export class NetworkFacade {
       if (this._onSocketClose) this._onSocketClose();
     });
     this.signaling.onSocketOpen(() => {
+      this.monitor.start();
       if (this._onSocketOpen) this._onSocketOpen();
     });
     this.signaling.onSocketError(() => {
