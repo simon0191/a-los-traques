@@ -113,7 +113,37 @@ handleRemoteChecksum(frame, remoteHash) {
 
 The peers never even get to compare hash values — they're stuck one step earlier. P1 sends a checksum **for frame 442**. P2 receives it and asks "do I have a local hash for frame 442?" — but P2 only computed a hash for frame 438. `_localChecksums.get(442)` returns `undefined`, and the function returns early without comparing anything. It doesn't treat "I don't have that frame" as a desync — it assumes the local computation hasn't happened yet and silently drops the message.
 
-With different offsets, **every** checksum message hits this early return. No hashes are ever compared. Desync detection is completely dead.
+### Why Does `handleRemoteChecksum` Silently Drop Unknown Frames?
+
+The `if (localHash === undefined) return` guard exists for a legitimate reason: **network timing**. Both peers compute checksums at the same frame numbers (30, 60, 90...), but a remote checksum message might arrive *before* the local peer has reached that frame. In that case, there's no local hash to compare against yet, and dropping the message is correct — the next checkpoint (30 frames later) will catch any divergence.
+
+```mermaid
+sequenceDiagram
+    participant P1 as P1 (frame 455)
+    participant P2 as P2 (frame 448)
+
+    rect rgb(230, 245, 255)
+    Note over P1,P2: Legitimate timing skip (harmless)
+    Note over P1: Frame 450: compute checksum<br/>for frame 437, send it
+    P1->>P2: checksum(frame=437, hash=0xAB)
+    Note over P2: P2 is still at frame 448<br/>hasn't reached frame 450 yet<br/>→ no local hash for frame 437
+    P2->>P2: localChecksums.get(437) → undefined
+    Note over P2: SKIP — legitimate, P2 hasn't<br/>computed this checkpoint yet.<br/>Next checkpoint in ~30 frames will catch up.
+    end
+
+    rect rgb(255, 230, 230)
+    Note over P1,P2: The bug: EVERY message skipped (fatal)
+    Note over P1: Frame 450: checksum frame 442<br/>(offset = maxRollback 7 + 1)
+    P1->>P2: checksum(frame=442, hash=0xAB)
+    Note over P2: Frame 450: P2 computed frame 438<br/>(offset = maxRollback 11 + 1)<br/>Has hash for 438, NOT 442
+    P2->>P2: localChecksums.get(442) → undefined
+    Note over P2: SKIP — but P2 IS at frame 450!<br/>It just used a different offset.<br/>This isn't a timing issue —<br/>the frames will NEVER align.
+    end
+```
+
+The guard is correct in principle — you can't compare what you don't have. The bug is that with **different offsets**, the guard triggers on *every* message, not just the occasional timing edge case. It turns a safety mechanism into a total bypass of desync detection.
+
+With the **fixed offset**, both peers always compute checksums for the same frame. The guard only triggers in the legitimate case: when one peer is a few frames behind and hasn't computed the checkpoint yet. Missing one comparison is harmless — the next one (30 frames later, ~500ms) will catch any divergence.
 
 ### Evidence from Debug Bundles
 

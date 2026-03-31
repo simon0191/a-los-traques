@@ -197,8 +197,8 @@ describe('RollbackManager checksum exchange', () => {
     // At frame 30 (after advancing 30 times, currentFrame becomes 30)
     expect(nm.sendChecksum).toHaveBeenCalledTimes(1);
     const [frame, hash] = nm.sendChecksum.mock.calls[0];
-    // Checksum frame is maxRollbackFrames+1 behind current: 30 - 7 - 1 = 22
-    expect(frame).toBe(22);
+    // Checksum frame uses fixed offset: 30 - 13 = 17 (see RFC 0007)
+    expect(frame).toBe(17);
     expect(typeof hash).toBe('number');
   });
 
@@ -244,6 +244,66 @@ describe('RollbackManager checksum exchange', () => {
   it('ignores remote checksum for unknown frames', () => {
     rm.handleRemoteChecksum(999, 12345);
     expect(rm.desyncCount).toBe(0);
+  });
+
+  it('checksum frame uses fixed offset regardless of maxRollbackFrames', () => {
+    // Create two managers with different maxRollbackFrames (simulates different RTT)
+    const nm1 = mockNM();
+    const nm2 = mockNM();
+    const rm1 = new RollbackManager(nm1, 0, { inputDelay: 2, maxRollbackFrames: 7 });
+    const rm2 = new RollbackManager(nm2, 1, { inputDelay: 2, maxRollbackFrames: 11 });
+
+    const s = mockScene();
+    const p1a = mockFighter(144);
+    const p2a = mockFighter(336);
+    const ca = mockCombat();
+    const p1b = mockFighter(144);
+    const p2b = mockFighter(336);
+    const cb = mockCombat();
+
+    for (let i = 0; i < 31; i++) {
+      rm1.advance(noInput, p1a, p2a, ca);
+      rm2.advance(noInput, p1b, p2b, cb);
+    }
+
+    // Both should checksum the same frame (30 - 13 = 17) despite different maxRollbackFrames
+    const [frame1] = nm1.sendChecksum.mock.calls[0];
+    const [frame2] = nm2.sendChecksum.mock.calls[0];
+    expect(frame1).toBe(frame2);
+    expect(frame1).toBe(17);
+  });
+
+  it('detects desync between peers with different maxRollbackFrames', () => {
+    // Simulate P1 with low RTT (maxRollback=7) and P2 with high RTT (maxRollback=11)
+    const nm1 = mockNM();
+    const nm2 = mockNM();
+    const rm1 = new RollbackManager(nm1, 0, { inputDelay: 2, maxRollbackFrames: 7 });
+    const rm2 = new RollbackManager(nm2, 1, { inputDelay: 2, maxRollbackFrames: 11 });
+    const desyncCb = vi.fn();
+    rm2._onDesync = desyncCb;
+
+    const p1a = mockFighter(144);
+    const p2a = mockFighter(336);
+    const ca = mockCombat();
+    const p1b = mockFighter(144);
+    const p2b = mockFighter(336);
+    const cb = mockCombat();
+
+    // Advance both to frame 30
+    for (let i = 0; i < 31; i++) {
+      rm1.advance(noInput, p1a, p2a, ca);
+      rm2.advance(noInput, p1b, p2b, cb);
+    }
+
+    // P1 sent checksum for frame 17
+    const [frame1, hash1] = nm1.sendChecksum.mock.calls[0];
+
+    // Feed P1's checksum to P2 — should find a matching local frame
+    rm2.handleRemoteChecksum(frame1, hash1 + 1); // deliberately wrong hash
+
+    // P2 should detect desync (it has a local hash for frame 17 too)
+    expect(rm2.desyncCount).toBe(1);
+    expect(desyncCb).toHaveBeenCalledOnce();
   });
 });
 

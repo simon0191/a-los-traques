@@ -28,6 +28,16 @@ const CHECKSUM_INTERVAL = 30;
 /** How often (in frames) to recalculate adaptive input delay */
 const ADAPTIVE_DELAY_INTERVAL = 180;
 
+/**
+ * Fixed offset for checksum frame calculation.
+ * Must be beyond the max possible rollback window for ANY peer so that the
+ * checksummed frame has confirmed inputs on both sides. inputDelay caps at 5
+ * → maxRollbackFrames = max(7, 5*2+1) = 11 → 11 + 2 safety margin = 13.
+ * Using a constant ensures both peers checksum the same frame regardless of
+ * their individual adaptive delay settings (see RFC 0007).
+ */
+const CHECKSUM_SAFE_OFFSET = 13;
+
 export class RollbackManager {
   /**
    * @param {import('./net/NetworkFacade.js').NetworkFacade} networkManager
@@ -208,7 +218,7 @@ export class RollbackManager {
 
     // 13. Periodic checksum exchange for desync detection
     if (this.currentFrame > 0 && this.currentFrame % CHECKSUM_INTERVAL === 0) {
-      const checksumFrame = this.currentFrame - this.maxRollbackFrames - 1;
+      const checksumFrame = this.currentFrame - CHECKSUM_SAFE_OFFSET;
       const snapshot = this.stateSnapshots.get(checksumFrame);
       if (snapshot && checksumFrame >= 0) {
         const hash = hashGameState(snapshot);
@@ -393,12 +403,21 @@ export class RollbackManager {
       this.localInputHistory,
       this.remoteInputHistory,
       this.predictedRemoteInputs,
-      this._localChecksums,
     ]) {
       for (const key of map.keys()) {
         if (key < minFrame) {
           map.delete(key);
         }
+      }
+    }
+
+    // Checksums need a wider retention window: they're computed at CHECKSUM_SAFE_OFFSET
+    // behind currentFrame and must survive until the remote peer's checksum arrives
+    // (up to one full CHECKSUM_INTERVAL later via network).
+    const checksumMinFrame = this.currentFrame - CHECKSUM_SAFE_OFFSET - CHECKSUM_INTERVAL;
+    for (const key of this._localChecksums.keys()) {
+      if (key < checksumMinFrame) {
+        this._localChecksums.delete(key);
       }
     }
   }
