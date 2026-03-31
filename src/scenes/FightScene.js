@@ -21,7 +21,7 @@ import {
   FP_SCALE,
   MAX_SPECIAL_FP,
   MAX_STAMINA_FP,
-  ONLINE_INPUT_DELAY,
+  ONLINE_INPUT_DELAY_FRAMES,
 } from '../systems/FixedPoint.js';
 import { encodeInput } from '../systems/InputBuffer.js';
 import { InputManager } from '../systems/InputManager.js';
@@ -870,7 +870,7 @@ export class FightScene extends Phaser.Scene {
     // system has room to absorb the increased frame production rate.
     const speed = this.game.autoplay?.speed || 1;
     this.rollbackManager = new RollbackManager(nm, slot, {
-      inputDelay: ONLINE_INPUT_DELAY * speed,
+      inputDelay: ONLINE_INPUT_DELAY_FRAMES * speed,
       maxRollbackFrames: 7 * speed,
     });
     // Disable adaptive delay when overclocked — it would clamp values back down
