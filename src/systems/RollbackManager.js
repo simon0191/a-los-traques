@@ -16,7 +16,7 @@ import {
   SNAPSHOT_VERSION,
   tick,
 } from '../simulation/SimulationEngine.js';
-import { ONLINE_INPUT_DELAY } from './FixedPoint.js';
+import { ONLINE_INPUT_DELAY_FRAMES } from './FixedPoint.js';
 import { EMPTY_INPUT, encodeInput, inputsEqual, predictInput } from './InputBuffer.js';
 
 /** How many past inputs to include in each packet for redundancy */
@@ -28,6 +28,12 @@ const CHECKSUM_INTERVAL = 30;
 /** How often (in frames) to recalculate adaptive input delay */
 const ADAPTIVE_DELAY_INTERVAL = 180;
 
+/**
+ * Maximum possible maxRollbackFrames when adaptive delay is active (speed=1).
+ * inputDelay caps at 5 → max(7, 5*2+1) = 11.
+ */
+const MAX_ADAPTIVE_ROLLBACK_FRAMES = 11;
+
 export class RollbackManager {
   /**
    * @param {import('./net/NetworkFacade.js').NetworkFacade} networkManager
@@ -37,7 +43,7 @@ export class RollbackManager {
   constructor(
     networkManager,
     localSlot,
-    { inputDelay = ONLINE_INPUT_DELAY, maxRollbackFrames = 7 } = {},
+    { inputDelay = ONLINE_INPUT_DELAY_FRAMES, maxRollbackFrames = 7 } = {},
   ) {
     this.nm = networkManager;
     this.localSlot = localSlot;
@@ -62,7 +68,11 @@ export class RollbackManager {
     this.rollbackCount = 0;
     this.maxRollbackDepth = 0;
 
-    // Desync detection
+    // Desync detection — checksum offset computed at construction so both peers
+    // agree on the same value (before adaptive delay diverges maxRollbackFrames).
+    // Must be beyond the max possible rollback window: max of the initial value
+    // (which accounts for speed multiplier) and the adaptive cap (11). See RFC 0007.
+    this._checksumSafeOffset = Math.max(maxRollbackFrames, MAX_ADAPTIVE_ROLLBACK_FRAMES) + 2;
     this._localChecksums = new Map(); // frame → hash
     this.desyncCount = 0;
     this._onDesync = null;
@@ -208,7 +218,7 @@ export class RollbackManager {
 
     // 13. Periodic checksum exchange for desync detection
     if (this.currentFrame > 0 && this.currentFrame % CHECKSUM_INTERVAL === 0) {
-      const checksumFrame = this.currentFrame - this.maxRollbackFrames - 1;
+      const checksumFrame = this.currentFrame - this._checksumSafeOffset;
       const snapshot = this.stateSnapshots.get(checksumFrame);
       if (snapshot && checksumFrame >= 0) {
         const hash = hashGameState(snapshot);
@@ -369,9 +379,14 @@ export class RollbackManager {
   }
 
   _recalculateInputDelay() {
-    const rtt = this.nm.rtt || 0;
-    const oneWayFrames = Math.ceil(rtt / 2 / 16.667);
-    const optimal = Math.max(1, Math.min(5, oneWayFrames + 1));
+    const rtt = this.nm.rtt;
+    if (!rtt) return; // No RTT data yet — don't adjust
+    // RTT is measured to the server. In relay mode (the common case), the actual
+    // input path is sender→server→receiver, so one-way relay latency ≈ full RTT.
+    // This overestimates for P2P (where inputs bypass the server), but the floor
+    // at ONLINE_INPUT_DELAY_FRAMES prevents the delay from going too low.
+    const oneWayFrames = Math.ceil(rtt / 16.667);
+    const optimal = Math.max(ONLINE_INPUT_DELAY_FRAMES, Math.min(5, oneWayFrames + 1));
     if (optimal > this.inputDelay) {
       this.inputDelay = Math.min(this.inputDelay + 1, optimal);
     } else {
@@ -388,12 +403,21 @@ export class RollbackManager {
       this.localInputHistory,
       this.remoteInputHistory,
       this.predictedRemoteInputs,
-      this._localChecksums,
     ]) {
       for (const key of map.keys()) {
         if (key < minFrame) {
           map.delete(key);
         }
+      }
+    }
+
+    // Checksums need a wider retention window: they're computed at CHECKSUM_SAFE_OFFSET
+    // behind currentFrame and must survive until the remote peer's checksum arrives
+    // (up to one full CHECKSUM_INTERVAL later via network).
+    const checksumMinFrame = this.currentFrame - this._checksumSafeOffset - CHECKSUM_INTERVAL;
+    for (const key of this._localChecksums.keys()) {
+      if (key < checksumMinFrame) {
+        this._localChecksums.delete(key);
       }
     }
   }

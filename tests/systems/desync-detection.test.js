@@ -197,8 +197,8 @@ describe('RollbackManager checksum exchange', () => {
     // At frame 30 (after advancing 30 times, currentFrame becomes 30)
     expect(nm.sendChecksum).toHaveBeenCalledTimes(1);
     const [frame, hash] = nm.sendChecksum.mock.calls[0];
-    // Checksum frame is maxRollbackFrames+1 behind current: 30 - 7 - 1 = 22
-    expect(frame).toBe(22);
+    // Checksum frame uses fixed offset: 30 - 13 = 17 (see RFC 0007)
+    expect(frame).toBe(17);
     expect(typeof hash).toBe('number');
   });
 
@@ -244,6 +244,66 @@ describe('RollbackManager checksum exchange', () => {
   it('ignores remote checksum for unknown frames', () => {
     rm.handleRemoteChecksum(999, 12345);
     expect(rm.desyncCount).toBe(0);
+  });
+
+  it('checksum frame uses fixed offset regardless of maxRollbackFrames', () => {
+    // Create two managers with different maxRollbackFrames (simulates different RTT)
+    const nm1 = mockNM();
+    const nm2 = mockNM();
+    const rm1 = new RollbackManager(nm1, 0, { inputDelay: 2, maxRollbackFrames: 7 });
+    const rm2 = new RollbackManager(nm2, 1, { inputDelay: 2, maxRollbackFrames: 11 });
+
+    const s = mockScene();
+    const p1a = mockFighter(144);
+    const p2a = mockFighter(336);
+    const ca = mockCombat();
+    const p1b = mockFighter(144);
+    const p2b = mockFighter(336);
+    const cb = mockCombat();
+
+    for (let i = 0; i < 31; i++) {
+      rm1.advance(noInput, p1a, p2a, ca);
+      rm2.advance(noInput, p1b, p2b, cb);
+    }
+
+    // Both should checksum the same frame (30 - 13 = 17) despite different maxRollbackFrames
+    const [frame1] = nm1.sendChecksum.mock.calls[0];
+    const [frame2] = nm2.sendChecksum.mock.calls[0];
+    expect(frame1).toBe(frame2);
+    expect(frame1).toBe(17);
+  });
+
+  it('detects desync between peers with different maxRollbackFrames', () => {
+    // Simulate P1 with low RTT (maxRollback=7) and P2 with high RTT (maxRollback=11)
+    const nm1 = mockNM();
+    const nm2 = mockNM();
+    const rm1 = new RollbackManager(nm1, 0, { inputDelay: 2, maxRollbackFrames: 7 });
+    const rm2 = new RollbackManager(nm2, 1, { inputDelay: 2, maxRollbackFrames: 11 });
+    const desyncCb = vi.fn();
+    rm2._onDesync = desyncCb;
+
+    const p1a = mockFighter(144);
+    const p2a = mockFighter(336);
+    const ca = mockCombat();
+    const p1b = mockFighter(144);
+    const p2b = mockFighter(336);
+    const cb = mockCombat();
+
+    // Advance both to frame 30
+    for (let i = 0; i < 31; i++) {
+      rm1.advance(noInput, p1a, p2a, ca);
+      rm2.advance(noInput, p1b, p2b, cb);
+    }
+
+    // P1 sent checksum for frame 17
+    const [frame1, hash1] = nm1.sendChecksum.mock.calls[0];
+
+    // Feed P1's checksum to P2 — should find a matching local frame
+    rm2.handleRemoteChecksum(frame1, hash1 + 1); // deliberately wrong hash
+
+    // P2 should detect desync (it has a local hash for frame 17 too)
+    expect(rm2.desyncCount).toBe(1);
+    expect(desyncCb).toHaveBeenCalledOnce();
   });
 });
 
@@ -291,12 +351,12 @@ describe('RollbackManager adaptive input delay', () => {
       rm.advance(noInput, p1, p2, combat);
     }
 
-    // oneWayFrames = ceil(75/16.667) = 5, optimal = min(5, 5+1) = 5
+    // oneWayFrames = ceil(150/16.667) = 9, optimal = max(3, min(5, 10)) = 5
     // Gradual increase: 3 -> 4 (max +1 per check)
     expect(rm.inputDelay).toBe(4);
   });
 
-  it('decreases delay for low RTT', () => {
+  it('does not decrease delay below ONLINE_INPUT_DELAY_FRAMES for low RTT', () => {
     const nm = mockNM();
     const _scene = mockScene();
     const p1 = mockFighter(144);
@@ -311,12 +371,12 @@ describe('RollbackManager adaptive input delay', () => {
       rm.advance(noInput, p1, p2, combat);
     }
 
-    // oneWayFrames = ceil(2.5/16.667) = 1, optimal = max(1, min(5, 1+1)) = 2
-    // Decrease is immediate: 3 -> 2
-    expect(rm.inputDelay).toBe(2);
+    // oneWayFrames = ceil(5/16.667) = 1, optimal = max(3, min(5, 1+1)) = 3
+    // Floor at ONLINE_INPUT_DELAY_FRAMES: stays at 3
+    expect(rm.inputDelay).toBe(3);
   });
 
-  it('clamps delay to minimum of 1', () => {
+  it('does not adjust delay when RTT is 0 (no data)', () => {
     const nm = mockNM();
     const _scene = mockScene();
     const p1 = mockFighter(144);
@@ -330,8 +390,8 @@ describe('RollbackManager adaptive input delay', () => {
       rm.advance(noInput, p1, p2, combat);
     }
 
-    // oneWayFrames = ceil(0) = 0, optimal = max(1, 0+1) = 1
-    expect(rm.inputDelay).toBeGreaterThanOrEqual(1);
+    // RTT=0 means no data — inputDelay stays unchanged
+    expect(rm.inputDelay).toBe(3);
   });
 
   it('scales maxRollbackFrames with delay', () => {
