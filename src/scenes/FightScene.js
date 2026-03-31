@@ -967,13 +967,21 @@ export class FightScene extends Phaser.Scene {
       this._showDesyncWarning();
 
       if (this.isHost) {
-        // P1 proactively sends authoritative state
-        const snapshot = this.rollbackManager.captureResyncSnapshot(
-          this.p1Fighter,
-          this.p2Fighter,
-          this.combat,
-        );
-        nm.sendResync(snapshot);
+        if (this.rollbackManager.shouldReverseResync()) {
+          // P1 suspects its own state is wrong — request resync from P2 (RFC 0008)
+          if (this.rollbackManager.shouldRequestResync()) {
+            this.rollbackManager._resyncPending = true;
+            nm.sendResyncRequest(frame);
+          }
+        } else {
+          // P1 proactively sends authoritative state
+          const snapshot = this.rollbackManager.captureResyncSnapshot(
+            this.p1Fighter,
+            this.p2Fighter,
+            this.combat,
+          );
+          nm.sendResync(snapshot);
+        }
       } else if (this.rollbackManager.shouldRequestResync()) {
         // P2 requests resync from P1
         this.rollbackManager._resyncPending = true;
@@ -981,9 +989,9 @@ export class FightScene extends Phaser.Scene {
       }
     };
 
-    // P1 responds to resync requests from P2
+    // Both peers respond to resync requests from the other.
+    // P1 responds when P2 requests; P2 responds when P1 requests (reverse resync).
     nm.onResyncRequest(() => {
-      if (!this.isHost) return;
       const snapshot = this.rollbackManager.captureResyncSnapshot(
         this.p1Fighter,
         this.p2Fighter,
@@ -992,9 +1000,10 @@ export class FightScene extends Phaser.Scene {
       nm.sendResync(snapshot);
     });
 
-    // P2 applies resync snapshots from P1
+    // Apply resync snapshots from the other peer.
+    // P2 always applies. P1 applies only when it requested a reverse resync.
     nm.onResync((msg) => {
-      if (this.isHost) return;
+      if (this.isHost && !this.rollbackManager._resyncPending) return;
       log.warn('Resync applied', { frame: msg.snapshot.frame });
       this.telemetry.recordResync();
       this.rollbackManager.applyResync(msg.snapshot, this.p1Fighter, this.p2Fighter, this.combat);

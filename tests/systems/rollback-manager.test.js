@@ -579,4 +579,60 @@ describe('RollbackManager', () => {
       expect(rm.maxRollbackFrames).toBe(9);
     });
   });
+
+  describe('reverse resync (P1 self-correction)', () => {
+    it('increments consecutiveDesyncCount on each desync', () => {
+      rm.getFrame0SyncHash(p1, p2, combat);
+      // Advance past checksum offset so local checksums exist
+      for (let i = 0; i < 30; i++) rm.advance(noInput, p1, p2, combat);
+
+      rm.handleRemoteChecksum(17, 999);
+      expect(rm._consecutiveDesyncCount).toBe(1);
+
+      rm.handleRemoteChecksum(17, 888);
+      expect(rm._consecutiveDesyncCount).toBe(2);
+    });
+
+    it('resets consecutiveDesyncCount on matching checksum', () => {
+      rm.getFrame0SyncHash(p1, p2, combat);
+      for (let i = 0; i < 30; i++) rm.advance(noInput, p1, p2, combat);
+
+      rm.handleRemoteChecksum(17, 999);
+      expect(rm._consecutiveDesyncCount).toBe(1);
+
+      // Get the actual local hash so it matches
+      const localHash = rm._localChecksums.get(17);
+      rm.handleRemoteChecksum(17, localHash);
+      expect(rm._consecutiveDesyncCount).toBe(0);
+    });
+
+    it('resets consecutiveDesyncCount on applyResync', () => {
+      rm._consecutiveDesyncCount = 3;
+      const snapshot = {
+        version: 1,
+        frame: 0,
+        p1: rm.stateSnapshots.get(0)?.p1 || {},
+        p2: rm.stateSnapshots.get(0)?.p2 || {},
+        combat: rm.stateSnapshots.get(0)?.combat || {},
+      };
+      rm.getFrame0SyncHash(p1, p2, combat);
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm._consecutiveDesyncCount).toBe(0);
+    });
+
+    it('shouldReverseResync returns false below threshold', () => {
+      rm._consecutiveDesyncCount = 1;
+      expect(rm.shouldReverseResync()).toBe(false);
+    });
+
+    it('shouldReverseResync returns true at threshold', () => {
+      rm._consecutiveDesyncCount = 2;
+      expect(rm.shouldReverseResync()).toBe(true);
+    });
+
+    it('shouldReverseResync returns true above threshold', () => {
+      rm._consecutiveDesyncCount = 5;
+      expect(rm.shouldReverseResync()).toBe(true);
+    });
+  });
 });

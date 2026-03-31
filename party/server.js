@@ -290,10 +290,7 @@ export default class FightRoom {
         break;
       case 'checksum':
       case 'resync_request':
-        this._sendToOther(slot, data);
-        break;
       case 'resync':
-        if (slot !== 0) break;
         this._sendToOther(slot, data);
         break;
       case 'webrtc_offer':

@@ -95,6 +95,7 @@ export class RollbackManager {
     this._resyncPending = false;
     this._lastResyncFrame = -1;
     this._resyncCooldown = 60; // min frames between resync attempts
+    this._consecutiveDesyncCount = 0;
   }
 
   /**
@@ -271,9 +272,12 @@ export class RollbackManager {
     if (localHash === undefined) return;
     if (localHash !== remoteHash) {
       this.desyncCount++;
+      this._consecutiveDesyncCount++;
       if (this._onDesync) {
         this._onDesync(frame, localHash, remoteHash);
       }
+    } else {
+      this._consecutiveDesyncCount = 0;
     }
   }
 
@@ -312,6 +316,7 @@ export class RollbackManager {
 
     this._resyncPending = false;
     this._lastResyncFrame = this.currentFrame;
+    this._consecutiveDesyncCount = 0;
   }
 
   /**
@@ -348,6 +353,16 @@ export class RollbackManager {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Whether P1 should request resync from P2 instead of sending its own state.
+   * Returns true when consecutive desyncs exceed the threshold, indicating
+   * that P1's authoritative state may itself be the source of divergence.
+   * See RFC 0008 Phase 3.
+   */
+  shouldReverseResync() {
+    return this._consecutiveDesyncCount >= 2;
   }
 
   /**
