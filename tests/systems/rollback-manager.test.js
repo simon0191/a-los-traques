@@ -442,4 +442,53 @@ describe('RollbackManager', () => {
       expect(result.remoteHash).toBe(999999);
     });
   });
+
+  describe('adaptive input delay', () => {
+    it('does not change inputDelay when RTT is 0', () => {
+      nm.rtt = 0;
+      rm.inputDelay = 3;
+      rm._recalculateInputDelay();
+      expect(rm.inputDelay).toBe(3);
+    });
+
+    it('does not change inputDelay when RTT is undefined', () => {
+      nm.rtt = undefined;
+      rm.inputDelay = 3;
+      rm._recalculateInputDelay();
+      expect(rm.inputDelay).toBe(3);
+    });
+
+    it('never reduces inputDelay below ONLINE_INPUT_DELAY_FRAMES (3)', () => {
+      nm.rtt = 10; // Very low RTT: 10ms → oneWay = ceil(10/16.667) = 1 → optimal = 3 (floored)
+      rm.inputDelay = 3;
+      rm._recalculateInputDelay();
+      expect(rm.inputDelay).toBe(3);
+    });
+
+    it('increases inputDelay for high RTT', () => {
+      // 80ms RTT → oneWay = ceil(80/16.667) = 5 → optimal = max(3, min(5, 6)) = 5
+      nm.rtt = 80;
+      rm.inputDelay = 3;
+      rm._recalculateInputDelay();
+      // Ramps up by 1 per recalculation: 3 → 4
+      expect(rm.inputDelay).toBe(4);
+    });
+
+    it('ramps up gradually to optimal over multiple recalculations', () => {
+      nm.rtt = 80; // optimal = 5
+      rm.inputDelay = 3;
+      rm._recalculateInputDelay(); // 3 → 4
+      rm._recalculateInputDelay(); // 4 → 5
+      rm._recalculateInputDelay(); // stays at 5 (optimal)
+      expect(rm.inputDelay).toBe(5);
+    });
+
+    it('updates maxRollbackFrames along with inputDelay', () => {
+      nm.rtt = 80; // optimal = 5
+      rm.inputDelay = 3;
+      rm._recalculateInputDelay(); // inputDelay → 4
+      // maxRollbackFrames = max(7, 4*2+1) = 9
+      expect(rm.maxRollbackFrames).toBe(9);
+    });
+  });
 });

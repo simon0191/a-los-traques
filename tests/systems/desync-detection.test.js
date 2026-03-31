@@ -291,12 +291,12 @@ describe('RollbackManager adaptive input delay', () => {
       rm.advance(noInput, p1, p2, combat);
     }
 
-    // oneWayFrames = ceil(75/16.667) = 5, optimal = min(5, 5+1) = 5
+    // oneWayFrames = ceil(150/16.667) = 9, optimal = max(3, min(5, 10)) = 5
     // Gradual increase: 3 -> 4 (max +1 per check)
     expect(rm.inputDelay).toBe(4);
   });
 
-  it('decreases delay for low RTT', () => {
+  it('does not decrease delay below ONLINE_INPUT_DELAY_FRAMES for low RTT', () => {
     const nm = mockNM();
     const _scene = mockScene();
     const p1 = mockFighter(144);
@@ -311,12 +311,12 @@ describe('RollbackManager adaptive input delay', () => {
       rm.advance(noInput, p1, p2, combat);
     }
 
-    // oneWayFrames = ceil(2.5/16.667) = 1, optimal = max(1, min(5, 1+1)) = 2
-    // Decrease is immediate: 3 -> 2
-    expect(rm.inputDelay).toBe(2);
+    // oneWayFrames = ceil(5/16.667) = 1, optimal = max(3, min(5, 1+1)) = 3
+    // Floor at ONLINE_INPUT_DELAY_FRAMES: stays at 3
+    expect(rm.inputDelay).toBe(3);
   });
 
-  it('clamps delay to minimum of 1', () => {
+  it('does not adjust delay when RTT is 0 (no data)', () => {
     const nm = mockNM();
     const _scene = mockScene();
     const p1 = mockFighter(144);
@@ -330,8 +330,8 @@ describe('RollbackManager adaptive input delay', () => {
       rm.advance(noInput, p1, p2, combat);
     }
 
-    // oneWayFrames = ceil(0) = 0, optimal = max(1, 0+1) = 1
-    expect(rm.inputDelay).toBeGreaterThanOrEqual(1);
+    // RTT=0 means no data — inputDelay stays unchanged
+    expect(rm.inputDelay).toBe(3);
   });
 
   it('scales maxRollbackFrames with delay', () => {

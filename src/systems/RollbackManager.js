@@ -16,7 +16,7 @@ import {
   SNAPSHOT_VERSION,
   tick,
 } from '../simulation/SimulationEngine.js';
-import { ONLINE_INPUT_DELAY } from './FixedPoint.js';
+import { ONLINE_INPUT_DELAY_FRAMES } from './FixedPoint.js';
 import { EMPTY_INPUT, encodeInput, inputsEqual, predictInput } from './InputBuffer.js';
 
 /** How many past inputs to include in each packet for redundancy */
@@ -37,7 +37,7 @@ export class RollbackManager {
   constructor(
     networkManager,
     localSlot,
-    { inputDelay = ONLINE_INPUT_DELAY, maxRollbackFrames = 7 } = {},
+    { inputDelay = ONLINE_INPUT_DELAY_FRAMES, maxRollbackFrames = 7 } = {},
   ) {
     this.nm = networkManager;
     this.localSlot = localSlot;
@@ -369,9 +369,14 @@ export class RollbackManager {
   }
 
   _recalculateInputDelay() {
-    const rtt = this.nm.rtt || 0;
-    const oneWayFrames = Math.ceil(rtt / 2 / 16.667);
-    const optimal = Math.max(1, Math.min(5, oneWayFrames + 1));
+    const rtt = this.nm.rtt;
+    if (!rtt) return; // No RTT data yet — don't adjust
+    // RTT is measured to the server. In relay mode (the common case), the actual
+    // input path is sender→server→receiver, so one-way relay latency ≈ full RTT.
+    // This overestimates for P2P (where inputs bypass the server), but the floor
+    // at ONLINE_INPUT_DELAY_FRAMES prevents the delay from going too low.
+    const oneWayFrames = Math.ceil(rtt / 16.667);
+    const optimal = Math.max(ONLINE_INPUT_DELAY_FRAMES, Math.min(5, oneWayFrames + 1));
     if (optimal > this.inputDelay) {
       this.inputDelay = Math.min(this.inputDelay + 1, optimal);
     } else {
