@@ -3,7 +3,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:all": "concurrently \"vite\" \"vercel dev --yes\"",
+    "dev:db": "node scripts/dev-db.js",
+    "dev:all": "concurrently \"node scripts/dev-db.js\" \"vite\" \"vercel dev --yes\"",
     "build": "vite build",
     "preview": "vite preview",
     "party:dev": "bunx partykit dev",
@@ -28,6 +29,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
+    "@electric-sql/pglite": "^0.4.2",
+    "@electric-sql/pglite-socket": "^0.1.2",
     "@playwright/test": "^1.58.2",
     "concurrently": "^9.2.1",
     "vitest": "^4.1.0"

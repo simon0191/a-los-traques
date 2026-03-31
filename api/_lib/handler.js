@@ -11,9 +11,7 @@ function getPool() {
   if (!pool) {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: process.env.NODE_ENV === 'production',
-      },
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
     });
   }
   return pool;
@@ -83,11 +81,6 @@ export function withAuth(handler) {
     }
 
     // 3. Database Access
-    if (!process.env.DATABASE_URL) {
-      console.error('DATABASE_URL is not configured');
-      return res.status(500).json({ error: 'Internal Server Error: Database configuration missing' });
-    }
-
     const dbPool = getPool();
     let client;
     try {
