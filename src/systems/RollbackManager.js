@@ -29,14 +29,10 @@ const CHECKSUM_INTERVAL = 30;
 const ADAPTIVE_DELAY_INTERVAL = 180;
 
 /**
- * Fixed offset for checksum frame calculation.
- * Must be beyond the max possible rollback window for ANY peer so that the
- * checksummed frame has confirmed inputs on both sides. inputDelay caps at 5
- * → maxRollbackFrames = max(7, 5*2+1) = 11 → 11 + 2 safety margin = 13.
- * Using a constant ensures both peers checksum the same frame regardless of
- * their individual adaptive delay settings (see RFC 0007).
+ * Maximum possible maxRollbackFrames when adaptive delay is active (speed=1).
+ * inputDelay caps at 5 → max(7, 5*2+1) = 11.
  */
-const CHECKSUM_SAFE_OFFSET = 13;
+const MAX_ADAPTIVE_ROLLBACK_FRAMES = 11;
 
 export class RollbackManager {
   /**
@@ -72,7 +68,11 @@ export class RollbackManager {
     this.rollbackCount = 0;
     this.maxRollbackDepth = 0;
 
-    // Desync detection
+    // Desync detection — checksum offset computed at construction so both peers
+    // agree on the same value (before adaptive delay diverges maxRollbackFrames).
+    // Must be beyond the max possible rollback window: max of the initial value
+    // (which accounts for speed multiplier) and the adaptive cap (11). See RFC 0007.
+    this._checksumSafeOffset = Math.max(maxRollbackFrames, MAX_ADAPTIVE_ROLLBACK_FRAMES) + 2;
     this._localChecksums = new Map(); // frame → hash
     this.desyncCount = 0;
     this._onDesync = null;
@@ -218,7 +218,7 @@ export class RollbackManager {
 
     // 13. Periodic checksum exchange for desync detection
     if (this.currentFrame > 0 && this.currentFrame % CHECKSUM_INTERVAL === 0) {
-      const checksumFrame = this.currentFrame - CHECKSUM_SAFE_OFFSET;
+      const checksumFrame = this.currentFrame - this._checksumSafeOffset;
       const snapshot = this.stateSnapshots.get(checksumFrame);
       if (snapshot && checksumFrame >= 0) {
         const hash = hashGameState(snapshot);
@@ -414,7 +414,7 @@ export class RollbackManager {
     // Checksums need a wider retention window: they're computed at CHECKSUM_SAFE_OFFSET
     // behind currentFrame and must survive until the remote peer's checksum arrives
     // (up to one full CHECKSUM_INTERVAL later via network).
-    const checksumMinFrame = this.currentFrame - CHECKSUM_SAFE_OFFSET - CHECKSUM_INTERVAL;
+    const checksumMinFrame = this.currentFrame - this._checksumSafeOffset - CHECKSUM_INTERVAL;
     for (const key of this._localChecksums.keys()) {
       if (key < checksumMinFrame) {
         this._localChecksums.delete(key);

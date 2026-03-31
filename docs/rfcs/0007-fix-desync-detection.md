@@ -197,54 +197,54 @@ sequenceDiagram
 
 ## Proposed Fix
 
-### Use a Fixed Checksum Offset
+### Compute Checksum Offset at Construction Time
 
 **File:** `src/systems/RollbackManager.js`
 
-Replace the peer-local offset with a **constant** that's safely beyond the maximum possible rollback window for any peer:
+Replace the peer-local offset with one computed **once at construction**, before adaptive delay can diverge `maxRollbackFrames` between peers:
 
 ```javascript
 // Before:
 const checksumFrame = this.currentFrame - this.maxRollbackFrames - 1;
 
-// After:
-const CHECKSUM_SAFE_OFFSET = 13; // Beyond max possible rollback window (inputDelay caps at 5 → maxRollback=11)
-const checksumFrame = this.currentFrame - CHECKSUM_SAFE_OFFSET;
+// After (in constructor):
+this._checksumSafeOffset = Math.max(maxRollbackFrames, MAX_ADAPTIVE_ROLLBACK_FRAMES) + 2;
+
+// In checksum code:
+const checksumFrame = this.currentFrame - this._checksumSafeOffset;
 ```
 
-### Why 13?
+### Why Compute at Construction Time?
 
 The checksum frame must be far enough back that **both peers have confirmed inputs** for it (no predictions). If a frame still contains predicted inputs on one peer, its state might differ from the other peer *not because of a desync*, but because one peer hasn't rolled back yet. Comparing such frames would produce false positives.
 
-The rollback window tells us how far back a peer might still be working with predictions:
+The offset must be:
+1. **The same for both peers** — otherwise we're back to the original bug
+2. **Beyond the max possible rollback window** for any peer at any point in the match
+
+Both peers construct their `RollbackManager` with the same parameters (same `maxRollbackFrames`, same speed). So computing the offset at construction gives both peers the same value. Later, adaptive delay may change `this.maxRollbackFrames` differently per peer — but `_checksumSafeOffset` stays fixed.
+
+The formula accounts for two scenarios:
+
+**Normal mode (speed=1):** adaptive delay is active. `inputDelay` can grow up to 5, giving `maxRollbackFrames = max(7, 5*2+1) = 11`. The constant `MAX_ADAPTIVE_ROLLBACK_FRAMES = 11` captures this cap.
 
 ```
-maxRollbackFrames = max(7, inputDelay * 2 + 1)
+_checksumSafeOffset = max(7, 11) + 2 = 13
 ```
 
-The adaptive delay clamps `inputDelay` to at most 5 (`Math.min(5, ...)`):
+**Overclocked mode (speed=2, E2E tests):** adaptive delay is disabled. `maxRollbackFrames = 7 * speed = 14` (fixed at construction). The `Math.max` picks the larger value:
 
 ```
-inputDelay max = 5  →  maxRollbackFrames = max(7, 5×2+1) = 11
+_checksumSafeOffset = max(14, 11) + 2 = 16
 ```
 
-So the worst case is `maxRollbackFrames = 11` — any frame more than 11 frames behind `currentFrame` is guaranteed to have both inputs confirmed on both peers. Adding a safety margin of 2:
-
-```
-CHECKSUM_SAFE_OFFSET = 11 + 2 = 13
-```
-
-This means:
-- Even when P1 has `maxRollbackFrames=7` and P2 has `maxRollbackFrames=11`, both compute `currentFrame - 13`
-- Frame `currentFrame - 13` is beyond BOTH peers' rollback windows → both peers have confirmed inputs for it
-- If the states differ at this frame, it's a real desync (not just a pending rollback)
-- Both peers compute `450 - 13 = 437` → same frame → checksums can be compared
+This ensures the checksum frame is always beyond both peers' rollback windows, regardless of speed or adaptive delay state.
 
 ```mermaid
 flowchart LR
-    subgraph "Fixed: both peers use offset 13"
-        P1["P1 frame 450<br/>checksumFrame = 437"]
-        P2["P2 frame 450<br/>checksumFrame = 437"]
+    subgraph "Fixed: both peers compute offset at construction"
+        P1["P1 frame 450<br/>offset=13, checksumFrame = 437"]
+        P2["P2 frame 450<br/>offset=13, checksumFrame = 437"]
         P1 --- SAME["Same frame! ✓"]
         P2 --- SAME
     end
