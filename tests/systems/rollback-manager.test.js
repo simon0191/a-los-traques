@@ -11,6 +11,7 @@ function mockNM(slot = 0) {
     sendInput: vi.fn(),
     drainConfirmedInputs: vi.fn(() => []),
     sendSync: vi.fn(),
+    sendChecksum: vi.fn(),
     rtt: 0,
   };
 }
@@ -212,7 +213,7 @@ describe('RollbackManager', () => {
   });
 
   describe('rollback window', () => {
-    it('does not rollback beyond maxRollbackFrames', () => {
+    it('deep rollback works when prediction still in retention window', () => {
       for (let i = 0; i < 10; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
@@ -231,26 +232,38 @@ describe('RollbackManager', () => {
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
 
       rm.advance(noInput, p1, p2, combat);
-      expect(rm.rollbackCount).toBe(0);
+      // With 120-frame retention, frame 0 prediction survives 10 frames
+      // and the misprediction triggers a deep rollback
+      expect(rm.rollbackCount).toBe(1);
     });
   });
 
   describe('pruning', () => {
-    it('prunes old input/prediction data beyond rollback window', () => {
-      for (let i = 0; i < 20; i++) {
+    it('prunes old data beyond 120-frame retention window', () => {
+      for (let i = 0; i < 125; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
 
       expect(rm.predictedRemoteInputs.has(0)).toBe(false);
     });
 
-    it('keeps all snapshots (never pruned)', () => {
+    it('retains data within 120-frame retention window', () => {
       for (let i = 0; i < 20; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
 
+      expect(rm.predictedRemoteInputs.has(0)).toBe(true);
       expect(rm.stateSnapshots.has(0)).toBe(true);
       expect(rm.stateSnapshots.has(19)).toBe(true);
+    });
+
+    it('prunes snapshots beyond 120-frame retention window', () => {
+      for (let i = 0; i < 125; i++) {
+        rm.advance(noInput, p1, p2, combat);
+      }
+
+      expect(rm.stateSnapshots.has(0)).toBe(false);
+      expect(rm.stateSnapshots.has(124)).toBe(true);
     });
   });
 

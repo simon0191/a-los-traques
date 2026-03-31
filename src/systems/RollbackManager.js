@@ -34,6 +34,14 @@ const ADAPTIVE_DELAY_INTERVAL = 180;
  */
 const MAX_ADAPTIVE_ROLLBACK_FRAMES = 11;
 
+/**
+ * How many frames of input/snapshot history to retain for deep rollback.
+ * Confirmed remote inputs can arrive well beyond maxRollbackFrames when
+ * asymmetric RTT causes one peer to run ahead. Retaining a wider window
+ * prevents silent misprediction loss. See RFC 0008.
+ */
+const HISTORY_RETENTION_FRAMES = 120;
+
 export class RollbackManager {
   /**
    * @param {import('./net/NetworkFacade.js').NetworkFacade} networkManager
@@ -396,13 +404,14 @@ export class RollbackManager {
   }
 
   _pruneOldData() {
-    const minFrame = this.currentFrame - this.maxRollbackFrames - 2;
+    const minFrame = this.currentFrame - HISTORY_RETENTION_FRAMES;
     if (minFrame < 0) return;
 
     for (const map of [
       this.localInputHistory,
       this.remoteInputHistory,
       this.predictedRemoteInputs,
+      this.stateSnapshots,
     ]) {
       for (const key of map.keys()) {
         if (key < minFrame) {
