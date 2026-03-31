@@ -113,18 +113,20 @@ export class TouchControls {
           .setDepth(100)
           .setVisible(false);
         this.specialGlow = glow;
-        
+
         // Particles for ES button
-        this.specialParticles = scene.add.particles(cx, cy, 'white_pixel', {
-          speed: { min: 10, max: 25 },
-          angle: { min: 0, max: 360 },
-          scale: { start: 1.2, end: 0 },
-          alpha: { start: 0.6, end: 0 },
-          lifespan: 500,
-          frequency: 80,
-          tint: 0xffcc00,
-          emitting: false
-        }).setDepth(100);
+        this.specialParticles = scene.add
+          .particles(cx, cy, 'white_pixel', {
+            speed: { min: 10, max: 25 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 1.2, end: 0 },
+            alpha: { start: 0.6, end: 0 },
+            lifespan: 500,
+            frequency: 80,
+            tint: 0xffcc00,
+            emitting: false,
+          })
+          .setDepth(100);
 
         // Add a pulsing tween for the glow
         scene.tweens.add({
@@ -133,7 +135,7 @@ export class TouchControls {
           scale: 1.1,
           duration: 600,
           yoyo: true,
-          loop: -1
+          loop: -1,
         });
       }
 
@@ -366,16 +368,16 @@ export class TouchControls {
     if (fighter && this.specialGlow) {
       const isAvailable = fighter.special >= SPECIAL_COST_FP;
       this.specialGlow.setVisible(isAvailable);
-      
+
       // Update ES button effects
       if (isAvailable) {
         this.specialParticles.emitting = true;
       } else {
         this.specialParticles.emitting = false;
       }
-      
+
       // Also update the special button's text/border color when available
-      const spBtn = this.buttons.find(b => b.key === 'special');
+      const spBtn = this.buttons.find((b) => b.key === 'special');
       if (spBtn) {
         if (isAvailable) {
           spBtn.graphic.setStrokeStyle(2, 0xffcc00, 0.8);
@@ -387,15 +389,11 @@ export class TouchControls {
       }
     }
 
-    // 2. The joystick is driven entirely by pointer events, so nothing extra needed
-    // here. But we re-check the active joystick pointer in case the event was
-    // missed (e.g. pointer moved outside canvas and came back).
+    // 2. Monitor joystick pointer life
     if (this.joystickActive) {
       const pointer = this.getPointerById(this.joystickPointerId);
-      if (pointer?.isDown) {
-        this.updateJoystickFromPointer(pointer);
-      } else {
-        // Lost the pointer
+      if (!pointer || !pointer.isDown) {
+        // Lost the pointer or it was released without trigger
         this.handlePointerUp({ id: this.joystickPointerId });
       }
     }
@@ -408,11 +406,6 @@ export class TouchControls {
     const mgr = this.scene.input.manager;
     for (let i = 1; i <= mgr.pointersTotal; i++) {
       const p = this.scene.input[`pointer${i}`] || mgr.pointers[i];
-      if (p && p.id === id) return p;
-    }
-    // Also check pointer1..pointer5 on the input plugin
-    for (let i = 1; i <= 5; i++) {
-      const p = this.scene.input[`pointer${i}`];
       if (p && p.id === id) return p;
     }
     return null;

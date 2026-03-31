@@ -208,7 +208,7 @@ export class DebugBundleExporter {
         throw new Error(`fetch_failed: ${response.status}`);
       }
       return await response.json();
-    } catch (err) {
+    } catch (_err) {
       throw new Error('fetch_failed');
     }
   }
