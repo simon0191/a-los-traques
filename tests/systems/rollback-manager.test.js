@@ -379,7 +379,7 @@ describe('RollbackManager', () => {
       rm.advance(noInput, p1, p2, combat);
       const snapshot = rm.stateSnapshots.get(1);
       rm.applyResync(snapshot, p1, p2, combat);
-      // RFC 0009: currentFrame stays at oldFrame, not snapshot.frame
+      // RFC 0010: currentFrame stays at oldFrame, not snapshot.frame
       expect(rm.currentFrame).toBe(2);
     });
 
@@ -389,7 +389,7 @@ describe('RollbackManager', () => {
       const snapshot = { ...rm.stateSnapshots.get(1) };
       delete snapshot.version;
       rm.applyResync(snapshot, p1, p2, combat);
-      // RFC 0009: currentFrame stays at oldFrame
+      // RFC 0010: currentFrame stays at oldFrame
       expect(rm.currentFrame).toBe(2);
     });
 
@@ -401,7 +401,7 @@ describe('RollbackManager', () => {
       // Frame 0 snapshot is far outside maxRollbackFrames (7) but within retention
       const snapshot = rm.stateSnapshots.get(0);
       rm.applyResync(snapshot, p1, p2, combat);
-      // RFC 0009: currentFrame stays at 20, not 0
+      // RFC 0010: currentFrame stays at 20, not 0
       expect(rm.currentFrame).toBe(20);
     });
 
@@ -460,7 +460,7 @@ describe('RollbackManager', () => {
     });
 
     it('captureResyncSnapshot returns current frame state', () => {
-      // RFC 0009: always captures current frame, not an older confirmed one
+      // RFC 0010: always captures current frame, not an older confirmed one
       for (let i = 0; i < 5; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
@@ -521,7 +521,7 @@ describe('RollbackManager', () => {
     });
   });
 
-  describe('resync as deep rollback (RFC 0009)', () => {
+  describe('resync as deep rollback (RFC 0010)', () => {
     it('does not rewind currentFrame after resync', () => {
       for (let i = 0; i < 10; i++) {
         rm.advance(noInput, p1, p2, combat);

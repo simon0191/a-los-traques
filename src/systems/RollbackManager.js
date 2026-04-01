@@ -285,7 +285,7 @@ export class RollbackManager {
    * Apply an authoritative state snapshot to resync after desync.
    * Treats resync as a deep rollback: restores snapshot state and resimulates
    * forward to currentFrame, keeping the frame counter in sync between peers.
-   * See RFC 0009.
+   * See RFC 0010.
    */
   applyResync(snapshot, p1, p2, combat) {
     if (snapshot.version !== undefined && snapshot.version !== SNAPSHOT_VERSION) {
@@ -344,7 +344,7 @@ export class RollbackManager {
       this.stateSnapshots.set(f + 1, state);
     }
 
-    // 4. currentFrame stays at oldFrame — no rewind, no frame gap (RFC 0009)
+    // 4. currentFrame stays at oldFrame — no rewind, no frame gap (RFC 0010)
 
     this._resyncPending = false;
     this._lastResyncFrame = this.currentFrame;
@@ -355,7 +355,7 @@ export class RollbackManager {
    * Capture the current simulation state for resync.
    * Returns a fresh snapshot at currentFrame rather than searching for an older
    * confirmed snapshot — a recent snapshot minimizes the resimulation window
-   * on the receiving peer. See RFC 0009.
+   * on the receiving peer. See RFC 0010.
    */
   captureResyncSnapshot(p1, p2, combat) {
     const p1Sim = p1.sim || p1;

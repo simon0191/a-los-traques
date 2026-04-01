@@ -1,4 +1,4 @@
-# RFC 0009: Resync Rewinds Frame Counter, Creating Escalating Frame Gap
+# RFC 0010: Resync Rewinds Frame Counter, Creating Escalating Frame Gap
 
 **Status:** Proposed
 **Date:** 2026-04-01
