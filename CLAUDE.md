@@ -168,7 +168,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0005-multiplayer-debuggability.md` — Multiplayer debuggability (Phases 1-4 complete)
 - `docs/rfcs/0006-fix-p1-no-rollback.md` — Fix P1 never rolls back
 - `docs/rfcs/0007-fix-desync-detection.md` — Fix desync detection between peers with different RTT
-- `docs/rfcs/0008-e2e-remote-browser-testing.md` — Remote browser E2E testing via BrowserStack
+- `docs/rfcs/0009-e2e-remote-browser-testing.md` — Remote browser E2E testing via BrowserStack
 
 ## Online Multiplayer
 
