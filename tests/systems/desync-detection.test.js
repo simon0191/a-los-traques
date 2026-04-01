@@ -424,7 +424,7 @@ describe('RollbackManager resync', () => {
     combat = mockCombat();
   });
 
-  it('applyResync restores state and resets frame counter', () => {
+  it('applyResync restores state and resimulates forward (RFC 0010)', () => {
     const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
 
     // Advance a few frames
@@ -439,12 +439,11 @@ describe('RollbackManager resync', () => {
 
     rm.applyResync(snapshot, p1, p2, combat);
 
-    expect(rm.currentFrame).toBe(8);
-    expect(p1.hp).toBe(75);
-    expect(combat.timer).toBe(55);
+    // RFC 0010: currentFrame stays at 10, state is resimulated forward
+    expect(rm.currentFrame).toBe(10);
   });
 
-  it('applyResync clears all histories', () => {
+  it('applyResync preserves input histories (RFC 0010)', () => {
     const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 5; i++) {
@@ -455,16 +454,16 @@ describe('RollbackManager resync', () => {
     expect(rm.localInputHistory.size).toBeGreaterThan(0);
     expect(rm.predictedRemoteInputs.size).toBeGreaterThan(0);
 
+    const localHistorySize = rm.localInputHistory.size;
     const snapshot = makeSnapshot();
-    snapshot.frame = 4;
+    snapshot.frame = 2;
     rm.applyResync(snapshot, p1, p2, combat);
 
-    // Only the baseline snapshot should remain
-    expect(rm.stateSnapshots.size).toBe(1);
-    expect(rm.stateSnapshots.has(4)).toBe(true);
-    expect(rm.localInputHistory.size).toBe(0);
-    expect(rm.predictedRemoteInputs.size).toBe(0);
-    expect(rm._localChecksums.size).toBe(0);
+    // RFC 0010: input histories are preserved, not cleared
+    expect(rm.localInputHistory.size).toBe(localHistorySize);
+    // Snapshots rebuilt during resimulation (frame 2 through 5)
+    expect(rm.stateSnapshots.has(2)).toBe(true);
+    expect(rm.stateSnapshots.has(5)).toBe(true);
   });
 
   it('applyResync resets resync pending flag', () => {
@@ -478,24 +477,23 @@ describe('RollbackManager resync', () => {
     expect(rm._resyncPending).toBe(false);
   });
 
-  it('applyResync accepts snapshots outside rollback window', () => {
+  it('applyResync accepts snapshots outside rollback window without rewinding (RFC 0010)', () => {
     const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 20; i++) {
       rm.advance(noInput, p1, p2, combat);
     }
 
-    // Snapshot from frame 5 is outside rollback window but should still be applied
+    // Snapshot from frame 5 is outside rollback window but within retention window
     const snapshot = makeSnapshot({ p1: { hp: 50 } });
     snapshot.frame = 5;
     rm.applyResync(snapshot, p1, p2, combat);
 
-    // Authoritative snapshot always applied — correctness over recency
-    expect(rm.currentFrame).toBe(5);
-    expect(p1.hp).toBe(50);
+    // RFC 0010: currentFrame stays at 20, state resimulated forward from frame 5
+    expect(rm.currentFrame).toBe(20);
   });
 
-  it('captureResyncSnapshot returns latest snapshot', () => {
+  it('captureResyncSnapshot returns current frame snapshot (RFC 0010)', () => {
     const rm = new RollbackManager(nm, 0, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 5; i++) {
@@ -504,7 +502,7 @@ describe('RollbackManager resync', () => {
 
     const snapshot = rm.captureResyncSnapshot(p1, p2, combat);
     expect(snapshot).toBeDefined();
-    expect(snapshot.frame).toBe(4); // currentFrame - 1
+    expect(snapshot.frame).toBe(5); // currentFrame (RFC 0010)
   });
 
   it('shouldRequestResync respects cooldown', () => {
@@ -530,7 +528,7 @@ describe('RollbackManager resync', () => {
     expect(rm.shouldRequestResync()).toBe(false);
   });
 
-  it('applyResync is idempotent for same frame', () => {
+  it('applyResync is idempotent for same frame (RFC 0010)', () => {
     const rm = new RollbackManager(nm, 1, { inputDelay: 2, maxRollbackFrames: 7 });
 
     for (let i = 0; i < 5; i++) {
@@ -541,12 +539,11 @@ describe('RollbackManager resync', () => {
     snapshot.frame = 4;
 
     rm.applyResync(snapshot, p1, p2, combat);
-    expect(rm.currentFrame).toBe(4);
-    expect(p1.hp).toBe(80);
+    // RFC 0010: currentFrame stays at 5
+    expect(rm.currentFrame).toBe(5);
 
     // Apply again — should succeed without error
     rm.applyResync(snapshot, p1, p2, combat);
-    expect(rm.currentFrame).toBe(4);
-    expect(p1.hp).toBe(80);
+    expect(rm.currentFrame).toBe(5);
   });
 });

@@ -1,4 +1,4 @@
-# RFC 0008: E2E Remote Browser Testing
+# RFC 0009: E2E Remote Browser Testing
 
 **Status:** Proposed
 **Date:** 2026-04-01
@@ -162,7 +162,7 @@ tests/e2e/remote/
   remote-helpers.js                # connectRemoteBrowser(), extractDebugBundle(), etc.
   remote-playwright.config.js      # Playwright config (no webServer, longer timeouts)
 .github/workflows/e2e-remote.yml  # CI workflow — triggered by /e2e remote PR comment
-docs/rfcs/0008-e2e-remote-browser-testing.md   # This RFC
+docs/rfcs/0009-e2e-remote-browser-testing.md   # This RFC
 ```
 
 ### Modified Files

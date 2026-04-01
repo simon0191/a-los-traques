@@ -238,7 +238,7 @@ A Vitest test (`tests/systems/replay.test.js`) validates the replay engine again
 
 ## Remote Browser Testing (BrowserStack)
 
-Run P1 and P2 on separate BrowserStack remote browsers for realistic cross-browser, cross-network testing. See [RFC 0008](rfcs/0008-e2e-remote-browser-testing.md) for full design.
+Run P1 and P2 on separate BrowserStack remote browsers for realistic cross-browser, cross-network testing. See [RFC 0009](rfcs/0009-e2e-remote-browser-testing.md) for full design.
 
 ```bash
 # Requires BrowserStack credentials
