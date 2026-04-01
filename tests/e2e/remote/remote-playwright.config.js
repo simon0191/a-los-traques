@@ -9,16 +9,16 @@ import { defineConfig } from '@playwright/test';
  * - Longer timeout (speed=1 + real network latency)
  */
 export default defineConfig({
-	testDir: '.',
-	testMatch: '**/*.spec.js',
-	timeout: 300_000, // 5 minutes per test
-	retries: 0, // remote sessions cost $, don't retry
-	workers: 1,
+  testDir: '.',
+  testMatch: '**/*.spec.js',
+  timeout: 300_000, // 5 minutes per test
+  retries: 0, // remote sessions cost $, don't retry
+  workers: 1,
 
-	use: {
-		headless: true,
-		viewport: { width: 960, height: 540 },
-	},
+  use: {
+    headless: true,
+    viewport: { width: 960, height: 540 },
+  },
 
-	// No webServer — remote tests hit deployed staging
+  // No webServer — remote tests hit deployed staging
 });
