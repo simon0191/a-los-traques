@@ -253,7 +253,7 @@ describe('RollbackManager checksum exchange', () => {
     const rm1 = new RollbackManager(nm1, 0, { inputDelay: 2, maxRollbackFrames: 7 });
     const rm2 = new RollbackManager(nm2, 1, { inputDelay: 2, maxRollbackFrames: 11 });
 
-    const s = mockScene();
+    const _s = mockScene();
     const p1a = mockFighter(144);
     const p2a = mockFighter(336);
     const ca = mockCombat();

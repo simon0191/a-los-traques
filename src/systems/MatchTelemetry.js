@@ -44,7 +44,7 @@ export class MatchTelemetry {
     }, RTT_SAMPLE_INTERVAL_MS);
   }
 
-  recordRollback(frame, depth) {
+  recordRollback(_frame, depth) {
     this.rollbackCount++;
     if (depth > this.maxRollbackDepth) {
       this.maxRollbackDepth = depth;

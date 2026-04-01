@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { SPECIAL_COST_FP } from './FixedPoint.js';
 
 /**
  * Virtual gamepad overlay for touch devices.
@@ -9,9 +10,10 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
  * Supports multi-touch so the player can move and attack simultaneously.
  */
 export class TouchControls {
-  constructor(scene, inputManager) {
+  constructor(scene, inputManager, playerIndex = 0) {
     this.scene = scene;
     this.input = inputManager;
+    this.playerIndex = playerIndex;
     this.enabled = false;
 
     // Only enable on touch devices
@@ -32,6 +34,8 @@ export class TouchControls {
     this.joystickThumb = null;
     this.buttons = []; // { graphic, hitArea, label, key }[]
     this.activeButtonPointers = {}; // pointerId -> button key
+    this.specialGlow = null;
+    this.specialParticles = null;
 
     this.createJoystick();
     this.createButtons();
@@ -75,21 +79,21 @@ export class TouchControls {
     const gap = 6;
 
     // Anchor point for button cluster: bottom-right area
-    // We position relative to GAME_WIDTH / GAME_HEIGHT so it scales with the canvas
-    const baseX = GAME_WIDTH - 70;
+    // Moved further toward the right edge (from 70 to 45)
+    const baseX = GAME_WIDTH - 45;
     const baseY = GAME_HEIGHT - 60;
 
     // Button definitions with positions relative to baseX/baseY
-    //   Top row:     [SP]
-    //   Middle row:  [LP] [LK]
-    //   Bottom row:  [HP] [HK]
+    //   Top row:           [ES]
+    //   Middle row:  [LP]  [LK]
+    //   Bottom row:  [HP]  [HK]
     const defs = [
       // key in touchState, label, dx, dy
       {
         key: 'special',
         label: 'ES',
-        dx: -(btnRadius + gap / 2),
-        dy: -(btnRadius * 2 + gap) * 1.15,
+        dx: 0, // Aligned with the right column
+        dy: -(btnRadius * 2 + gap) * 1.4, // Higher up
       },
       { key: 'lightPunch', label: 'PL', dx: -(btnRadius * 2 + gap), dy: 0 },
       { key: 'lightKick', label: 'PaL', dx: 0, dy: 0 },
@@ -100,6 +104,40 @@ export class TouchControls {
     for (const def of defs) {
       const cx = baseX + def.dx;
       const cy = baseY + def.dy;
+
+      // Special button glow (behind the button)
+      let glow = null;
+      if (def.key === 'special') {
+        glow = scene.add
+          .circle(cx, cy, btnRadius + 4, 0xffcc00, 0.4)
+          .setDepth(100)
+          .setVisible(false);
+        this.specialGlow = glow;
+
+        // Particles for ES button
+        this.specialParticles = scene.add
+          .particles(cx, cy, 'white_pixel', {
+            speed: { min: 10, max: 25 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 1.2, end: 0 },
+            alpha: { start: 0.6, end: 0 },
+            lifespan: 500,
+            frequency: 80,
+            tint: 0xffcc00,
+            emitting: false,
+          })
+          .setDepth(100);
+
+        // Add a pulsing tween for the glow
+        scene.tweens.add({
+          targets: glow,
+          alpha: 0.1,
+          scale: 1.1,
+          duration: 600,
+          yoyo: true,
+          loop: -1,
+        });
+      }
 
       // Button background circle
       const bg = scene.add
@@ -122,6 +160,7 @@ export class TouchControls {
       this.buttons.push({
         graphic: bg,
         text: txt,
+        glow: glow,
         key: def.key,
         cx,
         cy,
@@ -324,15 +363,37 @@ export class TouchControls {
   update() {
     if (!this.enabled) return;
 
-    // The joystick is driven entirely by pointer events, so nothing extra needed
-    // here. But we re-check the active joystick pointer in case the event was
-    // missed (e.g. pointer moved outside canvas and came back).
+    // 1. Monitor special meter for glow effect
+    const fighter = this.playerIndex === 0 ? this.scene.p1Fighter : this.scene.p2Fighter;
+    if (fighter && this.specialGlow) {
+      const isAvailable = fighter.special >= SPECIAL_COST_FP;
+      this.specialGlow.setVisible(isAvailable);
+
+      // Update ES button effects
+      if (isAvailable) {
+        this.specialParticles.emitting = true;
+      } else {
+        this.specialParticles.emitting = false;
+      }
+
+      // Also update the special button's text/border color when available
+      const spBtn = this.buttons.find((b) => b.key === 'special');
+      if (spBtn) {
+        if (isAvailable) {
+          spBtn.graphic.setStrokeStyle(2, 0xffcc00, 0.8);
+          spBtn.text.setColor('#ffcc00').setAlpha(1);
+        } else {
+          spBtn.graphic.setStrokeStyle(1.5, 0xffffff, 0.35);
+          spBtn.text.setColor('#ffffff').setAlpha(0.5);
+        }
+      }
+    }
+
+    // 2. Monitor joystick pointer life
     if (this.joystickActive) {
       const pointer = this.getPointerById(this.joystickPointerId);
-      if (pointer?.isDown) {
-        this.updateJoystickFromPointer(pointer);
-      } else {
-        // Lost the pointer
+      if (!pointer || !pointer.isDown) {
+        // Lost the pointer or it was released without trigger
         this.handlePointerUp({ id: this.joystickPointerId });
       }
     }
@@ -345,11 +406,6 @@ export class TouchControls {
     const mgr = this.scene.input.manager;
     for (let i = 1; i <= mgr.pointersTotal; i++) {
       const p = this.scene.input[`pointer${i}`] || mgr.pointers[i];
-      if (p && p.id === id) return p;
-    }
-    // Also check pointer1..pointer5 on the input plugin
-    for (let i = 1; i <= 5; i++) {
-      const p = this.scene.input[`pointer${i}`];
       if (p && p.id === id) return p;
     }
     return null;
@@ -372,10 +428,12 @@ export class TouchControls {
     if (this.joystickBase) this.joystickBase.destroy();
     if (this.joystickBaseRing) this.joystickBaseRing.destroy();
     if (this.joystickThumb) this.joystickThumb.destroy();
+    if (this.specialParticles) this.specialParticles.destroy();
 
     for (const btn of this.buttons) {
       btn.graphic.destroy();
       btn.text.destroy();
+      if (btn.glow) btn.glow.destroy();
     }
     this.buttons = [];
     this.activeButtonPointers = {};

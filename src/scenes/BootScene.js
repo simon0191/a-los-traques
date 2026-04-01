@@ -143,6 +143,7 @@ export class BootScene extends Phaser.Scene {
     this.generateRect('hp_bar_fill_p2', 150, 12, 0x00cc44);
     this.generateRect('special_bar_bg', 100, 8, 0x333333);
     this.generateRect('special_bar_fill', 100, 8, 0xffcc00);
+    this.generateRect('white_pixel', 2, 2, 0xffffff);
 
     // Parse debug mode URL param
     const params = new URLSearchParams(window.location.search);

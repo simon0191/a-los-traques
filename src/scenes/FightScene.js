@@ -142,8 +142,10 @@ export class FightScene extends Phaser.Scene {
       this.frameCounter = 0;
       this._setupSpectatorMode();
     } else {
+      const slot =
+        this.gameMode === 'online' && this.networkManager ? this.networkManager.getPlayerSlot() : 0;
       this.inputManager = new InputManager(this);
-      this.touchControls = new TouchControls(this, this.inputManager);
+      this.touchControls = new TouchControls(this, this.inputManager, slot);
 
       // -- AI controller (local mode only) --
       if (this.gameMode !== 'online') {
@@ -521,6 +523,17 @@ export class FightScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x666666)
       .setFillStyle()
       .setDepth(depth + 2);
+    // 50% marker P1
+    this.add
+      .rectangle(
+        SPECIAL_P1_X + SPECIAL_BAR_W / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+        1,
+        SPECIAL_BAR_H,
+        0xffffff,
+        0.3,
+      )
+      .setDepth(depth + 2);
 
     // P2 special
     this.spBgP2 = this.add
@@ -541,6 +554,45 @@ export class FightScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x666666)
       .setFillStyle()
       .setDepth(depth + 2);
+    // 50% marker P2
+    this.add
+      .rectangle(
+        SPECIAL_P2_X + SPECIAL_BAR_W / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+        1,
+        SPECIAL_BAR_H,
+        0xffffff,
+        0.3,
+      )
+      .setDepth(depth + 2);
+
+    // --- Special effects for HUD bars ---
+    // HUD Particle emitters
+    this.spParticlesP1 = this.add
+      .particles(0, 0, 'white_pixel', {
+        speed: { min: 10, max: 20 },
+        angle: { min: 260, max: 280 },
+        scale: { start: 1, end: 0 },
+        alpha: { start: 0.6, end: 0 },
+        lifespan: 400,
+        frequency: 100,
+        tint: 0xffcc00,
+        emitting: false,
+      })
+      .setDepth(depth - 1);
+
+    this.spParticlesP2 = this.add
+      .particles(0, 0, 'white_pixel', {
+        speed: { min: 10, max: 20 },
+        angle: { min: 260, max: 280 },
+        scale: { start: 1, end: 0 },
+        alpha: { start: 0.6, end: 0 },
+        lifespan: 400,
+        frequency: 100,
+        tint: 0xffcc00,
+        emitting: false,
+      })
+      .setDepth(depth - 1);
 
     // --- Player name labels ---
     const p1Color = this.p1Data.color.replace('0x', '#');
@@ -783,11 +835,48 @@ export class FightScene extends Phaser.Scene {
     this.spBarP1.width = SPECIAL_BAR_W * spRatioP1;
     this.spBarP2.width = SPECIAL_BAR_W * spRatioP2;
 
-    // Flash special bar when full
-    if (spRatioP1 >= 1) this.spBarP1.setFillStyle(0xffff00);
-    else this.spBarP1.setFillStyle(0xffcc00);
-    if (spRatioP2 >= 1) this.spBarP2.setFillStyle(0xffff00);
-    else this.spBarP2.setFillStyle(0xffcc00);
+    // Flash special bar when it's at least 50% (enough for a special)
+    const flashTimer = Math.floor(Date.now() / 150) % 2 === 0;
+
+    // Effects for P1
+    if (spRatioP1 >= 0.5) {
+      if (spRatioP1 >= 1.0) {
+        this.spBarP1.setFillStyle(flashTimer ? 0xffff00 : 0xffcc00);
+      } else {
+        // Subtle pulse for 50%
+        this.spBarP1.setFillStyle(flashTimer ? 0xffdd00 : 0xffaa00);
+      }
+
+      // HUD effects
+      this.spParticlesP1.emitting = true;
+      this.spParticlesP1.setPosition(
+        SPECIAL_P1_X + (SPECIAL_BAR_W * spRatioP1) / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+      );
+    } else {
+      this.spBarP1.setFillStyle(0xffcc00);
+      this.spParticlesP1.emitting = false;
+    }
+
+    // Effects for P2
+    if (spRatioP2 >= 0.5) {
+      if (spRatioP2 >= 1.0) {
+        this.spBarP2.setFillStyle(flashTimer ? 0xffff00 : 0xffcc00);
+      } else {
+        // Subtle pulse for 50%
+        this.spBarP2.setFillStyle(flashTimer ? 0xffdd00 : 0xffaa00);
+      }
+
+      // HUD effects
+      this.spParticlesP2.emitting = true;
+      this.spParticlesP2.setPosition(
+        SPECIAL_P2_X + SPECIAL_BAR_W - (SPECIAL_BAR_W * spRatioP2) / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+      );
+    } else {
+      this.spBarP2.setFillStyle(0xffcc00);
+      this.spParticlesP2.emitting = false;
+    }
 
     // Stamina bars
     const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA_FP, 0, 1);
