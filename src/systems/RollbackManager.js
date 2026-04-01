@@ -34,6 +34,14 @@ const ADAPTIVE_DELAY_INTERVAL = 180;
  */
 const MAX_ADAPTIVE_ROLLBACK_FRAMES = 11;
 
+/**
+ * How many frames of input/snapshot history to retain for deep rollback.
+ * Confirmed remote inputs can arrive well beyond maxRollbackFrames when
+ * asymmetric RTT causes one peer to run ahead. Retaining a wider window
+ * prevents silent misprediction loss. See RFC 0008.
+ */
+const HISTORY_RETENTION_FRAMES = 120;
+
 export class RollbackManager {
   /**
    * @param {import('./net/NetworkFacade.js').NetworkFacade} networkManager
@@ -87,6 +95,7 @@ export class RollbackManager {
     this._resyncPending = false;
     this._lastResyncFrame = -1;
     this._resyncCooldown = 60; // min frames between resync attempts
+    this._consecutiveDesyncCount = 0;
   }
 
   /**
@@ -131,11 +140,17 @@ export class RollbackManager {
       }
     }
 
-    // 4. Detect mispredictions and rollback if needed
+    // 4. Detect mispredictions and rollback if needed.
+    // Compare confirmed input against the remoteInput stored in the snapshot,
+    // not the predictedRemoteInputs map (which may be pruned). See RFC 0008.
     let rollbackFrame = -1;
     for (const [frame, confirmedInput] of confirmedEncoded) {
-      const predicted = this.predictedRemoteInputs.get(frame);
-      if (predicted !== undefined && !inputsEqual(predicted, confirmedInput)) {
+      const snap = this.stateSnapshots.get(frame);
+      if (
+        snap &&
+        snap.remoteInput !== undefined &&
+        !inputsEqual(snap.remoteInput, confirmedInput)
+      ) {
         if (rollbackFrame === -1 || frame < rollbackFrame) {
           rollbackFrame = frame;
         }
@@ -174,6 +189,9 @@ export class RollbackManager {
         for (let f = actualRollbackFrame; f < this.currentFrame; f++) {
           const p1Input = this._getInputForFrame(f, true);
           const p2Input = this._getInputForFrame(f, false);
+          // Update pre-tick snapshot with the (now corrected) remote input
+          const snapAtF = this.stateSnapshots.get(f);
+          if (snapAtF) snapAtF.remoteInput = this.localSlot === 0 ? p2Input : p1Input;
           // tick() mutates sim objects and returns immutable snapshot
           const { state } = tick(p1Sim, p2Sim, combatSim, p1Input, p2Input, f);
           state.confirmed = this._isFrameConfirmed(f);
@@ -188,9 +206,14 @@ export class RollbackManager {
       this.predictedRemoteInputs.set(this.currentFrame, predicted);
     }
 
-    // 7. Save snapshot for currentFrame (before simulating)
+    // 7. Save snapshot for currentFrame (before simulating).
+    // Store which remote input will be used (confirmed or predicted) so the
+    // misprediction check in step 4 can compare against it later. See RFC 0008.
     const preTickSnap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
     preTickSnap.confirmed = this._isFrameConfirmed(this.currentFrame);
+    preTickSnap.remoteInput = this.remoteInputHistory.has(this.currentFrame)
+      ? this.remoteInputHistory.get(this.currentFrame)
+      : this.predictedRemoteInputs.get(this.currentFrame);
     this.stateSnapshots.set(this.currentFrame, preTickSnap);
 
     // 8. Simulate currentFrame via tick()
@@ -249,9 +272,12 @@ export class RollbackManager {
     if (localHash === undefined) return;
     if (localHash !== remoteHash) {
       this.desyncCount++;
+      this._consecutiveDesyncCount++;
       if (this._onDesync) {
         this._onDesync(frame, localHash, remoteHash);
       }
+    } else {
+      this._consecutiveDesyncCount = 0;
     }
   }
 
@@ -290,6 +316,7 @@ export class RollbackManager {
 
     this._resyncPending = false;
     this._lastResyncFrame = this.currentFrame;
+    this._consecutiveDesyncCount = 0;
   }
 
   /**
@@ -326,6 +353,16 @@ export class RollbackManager {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Whether P1 should request resync from P2 instead of sending its own state.
+   * Returns true when consecutive desyncs exceed the threshold, indicating
+   * that P1's authoritative state may itself be the source of divergence.
+   * See RFC 0008 Phase 3.
+   */
+  shouldReverseResync() {
+    return this._consecutiveDesyncCount >= 2;
   }
 
   /**
@@ -396,13 +433,14 @@ export class RollbackManager {
   }
 
   _pruneOldData() {
-    const minFrame = this.currentFrame - this.maxRollbackFrames - 2;
+    const minFrame = this.currentFrame - HISTORY_RETENTION_FRAMES;
     if (minFrame < 0) return;
 
     for (const map of [
       this.localInputHistory,
       this.remoteInputHistory,
       this.predictedRemoteInputs,
+      this.stateSnapshots,
     ]) {
       for (const key of map.keys()) {
         if (key < minFrame) {

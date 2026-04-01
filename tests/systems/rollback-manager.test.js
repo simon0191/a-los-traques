@@ -11,6 +11,7 @@ function mockNM(slot = 0) {
     sendInput: vi.fn(),
     drainConfirmedInputs: vi.fn(() => []),
     sendSync: vi.fn(),
+    sendChecksum: vi.fn(),
     rtt: 0,
   };
 }
@@ -181,7 +182,6 @@ describe('RollbackManager', () => {
   describe('misprediction detection', () => {
     it('detects misprediction when confirmed differs from predicted', () => {
       rm.advance(noInput, p1, p2, combat);
-      expect(rm.predictedRemoteInputs.get(0)).toBe(EMPTY_INPUT);
 
       const confirmedInput = {
         left: true,
@@ -209,10 +209,86 @@ describe('RollbackManager', () => {
 
       expect(rm.rollbackCount).toBe(0);
     });
+
+    it('snapshot stores remoteInput (predicted value)', () => {
+      rm.advance(noInput, p1, p2, combat);
+
+      const snap = rm.stateSnapshots.get(0);
+      expect(snap.remoteInput).toBe(EMPTY_INPUT);
+    });
+
+    it('snapshot stores remoteInput (confirmed value)', () => {
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+      nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
+      rm.advance(noInput, p1, p2, combat);
+
+      const snap = rm.stateSnapshots.get(0);
+      // encodeInput({ left: true }) = 1
+      expect(snap.remoteInput).toBe(1);
+    });
+
+    it('detects misprediction via snapshot.remoteInput even after predictedRemoteInputs cleared', () => {
+      rm.advance(noInput, p1, p2, combat);
+
+      // Simulate pruning by clearing the predictions map
+      rm.predictedRemoteInputs.clear();
+
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+      nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
+      rm.advance(noInput, p1, p2, combat);
+
+      // Misprediction detected via snapshot.remoteInput, not predictedRemoteInputs
+      expect(rm.rollbackCount).toBe(1);
+    });
+
+    it('resim updates snapshot.remoteInput with corrected input', () => {
+      rm.advance(noInput, p1, p2, combat);
+      rm.advance(noInput, p1, p2, combat);
+
+      // snapshot at frame 0 should have predicted remoteInput (EMPTY_INPUT)
+      expect(rm.stateSnapshots.get(0).remoteInput).toBe(EMPTY_INPUT);
+
+      const confirmedInput = {
+        left: true,
+        right: false,
+        up: false,
+        down: false,
+        lp: false,
+        hp: false,
+        lk: false,
+        hk: false,
+        sp: false,
+      };
+      nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
+      rm.advance(noInput, p1, p2, combat);
+
+      // After rollback + resim, snapshot at frame 0 should have corrected remoteInput
+      expect(rm.stateSnapshots.get(0).remoteInput).toBe(1);
+    });
   });
 
   describe('rollback window', () => {
-    it('does not rollback beyond maxRollbackFrames', () => {
+    it('deep rollback works when prediction still in retention window', () => {
       for (let i = 0; i < 10; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
@@ -231,26 +307,38 @@ describe('RollbackManager', () => {
       nm.drainConfirmedInputs.mockReturnValueOnce([[0, confirmedInput]]);
 
       rm.advance(noInput, p1, p2, combat);
-      expect(rm.rollbackCount).toBe(0);
+      // With 120-frame retention, frame 0 prediction survives 10 frames
+      // and the misprediction triggers a deep rollback
+      expect(rm.rollbackCount).toBe(1);
     });
   });
 
   describe('pruning', () => {
-    it('prunes old input/prediction data beyond rollback window', () => {
-      for (let i = 0; i < 20; i++) {
+    it('prunes old data beyond 120-frame retention window', () => {
+      for (let i = 0; i < 125; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
 
       expect(rm.predictedRemoteInputs.has(0)).toBe(false);
     });
 
-    it('keeps all snapshots (never pruned)', () => {
+    it('retains data within 120-frame retention window', () => {
       for (let i = 0; i < 20; i++) {
         rm.advance(noInput, p1, p2, combat);
       }
 
+      expect(rm.predictedRemoteInputs.has(0)).toBe(true);
       expect(rm.stateSnapshots.has(0)).toBe(true);
       expect(rm.stateSnapshots.has(19)).toBe(true);
+    });
+
+    it('prunes snapshots beyond 120-frame retention window', () => {
+      for (let i = 0; i < 125; i++) {
+        rm.advance(noInput, p1, p2, combat);
+      }
+
+      expect(rm.stateSnapshots.has(0)).toBe(false);
+      expect(rm.stateSnapshots.has(124)).toBe(true);
     });
   });
 
@@ -489,6 +577,62 @@ describe('RollbackManager', () => {
       rm._recalculateInputDelay(); // inputDelay → 4
       // maxRollbackFrames = max(7, 4*2+1) = 9
       expect(rm.maxRollbackFrames).toBe(9);
+    });
+  });
+
+  describe('reverse resync (P1 self-correction)', () => {
+    it('increments consecutiveDesyncCount on each desync', () => {
+      rm.getFrame0SyncHash(p1, p2, combat);
+      // Advance past checksum offset so local checksums exist
+      for (let i = 0; i < 30; i++) rm.advance(noInput, p1, p2, combat);
+
+      rm.handleRemoteChecksum(17, 999);
+      expect(rm._consecutiveDesyncCount).toBe(1);
+
+      rm.handleRemoteChecksum(17, 888);
+      expect(rm._consecutiveDesyncCount).toBe(2);
+    });
+
+    it('resets consecutiveDesyncCount on matching checksum', () => {
+      rm.getFrame0SyncHash(p1, p2, combat);
+      for (let i = 0; i < 30; i++) rm.advance(noInput, p1, p2, combat);
+
+      rm.handleRemoteChecksum(17, 999);
+      expect(rm._consecutiveDesyncCount).toBe(1);
+
+      // Get the actual local hash so it matches
+      const localHash = rm._localChecksums.get(17);
+      rm.handleRemoteChecksum(17, localHash);
+      expect(rm._consecutiveDesyncCount).toBe(0);
+    });
+
+    it('resets consecutiveDesyncCount on applyResync', () => {
+      rm._consecutiveDesyncCount = 3;
+      const snapshot = {
+        version: 1,
+        frame: 0,
+        p1: rm.stateSnapshots.get(0)?.p1 || {},
+        p2: rm.stateSnapshots.get(0)?.p2 || {},
+        combat: rm.stateSnapshots.get(0)?.combat || {},
+      };
+      rm.getFrame0SyncHash(p1, p2, combat);
+      rm.applyResync(snapshot, p1, p2, combat);
+      expect(rm._consecutiveDesyncCount).toBe(0);
+    });
+
+    it('shouldReverseResync returns false below threshold', () => {
+      rm._consecutiveDesyncCount = 1;
+      expect(rm.shouldReverseResync()).toBe(false);
+    });
+
+    it('shouldReverseResync returns true at threshold', () => {
+      rm._consecutiveDesyncCount = 2;
+      expect(rm.shouldReverseResync()).toBe(true);
+    });
+
+    it('shouldReverseResync returns true above threshold', () => {
+      rm._consecutiveDesyncCount = 5;
+      expect(rm.shouldReverseResync()).toBe(true);
     });
   });
 });
