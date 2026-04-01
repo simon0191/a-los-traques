@@ -113,11 +113,90 @@ jobs:
       - run: npx playwright install-deps chromium
         if: steps.playwright-cache.outputs.cache-hit == 'true'
 
-      - name: Run remote E2E tests (background)
+      - name: Run tests and post BrowserStack link
+        id: test-result
         run: |
-          bun run test:e2e:remote &
-          echo $! > /tmp/test-pid
-          echo "Test PID: $(cat /tmp/test-pid)"
+          set +e
+
+          # Start tests in background (detached from shell job control)
+          bun run test:e2e:remote > /tmp/test-output.log 2>&1 &
+          TEST_PID=$!
+          disown $TEST_PID
+          echo "Test started (PID $TEST_PID)"
+
+          # Poll BrowserStack API until build appears
+          BS_URL=""
+          echo "Waiting for BrowserStack build: $BROWSERSTACK_BUILD_NAME"
+          for i in $(seq 1 30); do
+            HASHED_ID=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+              "https://api.browserstack.com/automate/builds.json" | \
+              jq -r --arg name "$BROWSERSTACK_BUILD_NAME" \
+              '.[] | select(.automation_build.name == $name) | .automation_build.hashed_id // empty')
+            if [ -n "$HASHED_ID" ]; then
+              BS_URL="https://automate.browserstack.com/builds/$HASHED_ID"
+              echo "Found build: $BS_URL"
+              break
+            fi
+            # Stop polling if test already finished
+            if ! kill -0 "$TEST_PID" 2>/dev/null; then
+              echo "Test finished before build appeared"
+              break
+            fi
+            sleep 5
+          done
+          echo "browserstack_url=$BS_URL" >> "$GITHUB_OUTPUT"
+
+          # Post "running" comment on PR (if triggered from a PR)
+          if [ -n "$RESOLVED_PR" ]; then
+            RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            LINKS="[GitHub Actions run]($RUN_URL)"
+            if [ -n "$BS_URL" ]; then
+              LINKS="$LINKS | [BrowserStack build]($BS_URL)"
+            fi
+            PARTY_INFO=""
+            if [ -n "$RESOLVED_PARTY_HOST" ]; then
+              PARTY_INFO=" --party-host $RESOLVED_PARTY_HOST"
+            fi
+            COMMENT_BODY="<!-- remote-e2e-results -->
+          ## :hourglass_flowing_sand: Remote E2E running (\`${RESOLVED_PRESET}\`)
+
+          Triggered by @${GITHUB_ACTOR} via \`/e2e remote --preset ${RESOLVED_PRESET}${PARTY_INFO}\`
+
+          $LINKS"
+
+            # Create or update the comment
+            EXISTING_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RESOLVED_PR}/comments" \
+              --jq '.[] | select(.body | contains("<!-- remote-e2e-results -->")) | .id' | head -1)
+            if [ -n "$EXISTING_ID" ]; then
+              gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING_ID}" \
+                -X PATCH -f body="$COMMENT_BODY" --silent
+              echo "comment_id=$EXISTING_ID" >> "$GITHUB_OUTPUT"
+            else
+              COMMENT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RESOLVED_PR}/comments" \
+                -f body="$COMMENT_BODY" --jq '.id')
+              echo "comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+            fi
+            echo "Posted running comment on PR #$RESOLVED_PR"
+          fi
+
+          # Wait for test to finish
+          echo "Waiting for test to complete..."
+          wait "$TEST_PID" 2>/dev/null || true
+          # wait may fail after disown; check if process exited
+          if kill -0 "$TEST_PID" 2>/dev/null; then
+            # Still running — use a polling wait
+            while kill -0 "$TEST_PID" 2>/dev/null; do sleep 2; done
+          fi
+
+          # Get exit code from test output
+          cat /tmp/test-output.log
+          if grep -q "error: script .* exited with code" /tmp/test-output.log; then
+            echo "exit_code=1" >> "$GITHUB_OUTPUT"
+            echo "Tests failed"
+          else
+            echo "exit_code=0" >> "$GITHUB_OUTPUT"
+            echo "Tests passed"
+          fi
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
@@ -125,92 +204,7 @@ jobs:
           REMOTE_E2E_PRESET: ${{ env.RESOLVED_PRESET }}
           REMOTE_E2E_PARTY_HOST: ${{ env.RESOLVED_PARTY_HOST }}
           DIAG_TOKEN: ${{ secrets.DIAG_TOKEN }}
-
-      - name: Wait for BrowserStack build to appear
-        id: browserstack-url
-        run: |
-          BUILD_NAME="$BROWSERSTACK_BUILD_NAME"
-          echo "Waiting for BrowserStack build: $BUILD_NAME"
-          for i in $(seq 1 30); do
-            HASHED_ID=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
-              "https://api.browserstack.com/automate/builds.json" | \
-              jq -r --arg name "$BUILD_NAME" \
-              '.[] | select(.automation_build.name == $name) | .automation_build.hashed_id // empty')
-            if [ -n "$HASHED_ID" ]; then
-              echo "url=https://automate.browserstack.com/builds/$HASHED_ID" >> "$GITHUB_OUTPUT"
-              echo "Found build: https://automate.browserstack.com/builds/$HASHED_ID"
-              break
-            fi
-            sleep 5
-          done
-          if [ -z "$HASHED_ID" ]; then
-            echo "url=" >> "$GITHUB_OUTPUT"
-            echo "Build not found after 150s"
-          fi
-        env:
-          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
-          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
-
-      - name: Post "running" comment on PR
-        id: running-comment
-        if: env.RESOLVED_PR != ''
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const marker = '<!-- remote-e2e-results -->';
-            const preset = process.env.RESOLVED_PRESET;
-            const partyHost = process.env.RESOLVED_PARTY_HOST;
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const bsUrl = '${{ steps.browserstack-url.outputs.url }}';
-
-            const partyInfo = partyHost ? ` --party-host ${partyHost}` : '';
-            const links = [`[GitHub Actions run](${runUrl})`];
-            if (bsUrl) links.push(`[BrowserStack build](${bsUrl})`);
-
-            const body = [
-              marker,
-              `## :hourglass_flowing_sand: Remote E2E running (\`${preset}\`)`,
-              '',
-              `Triggered by @${context.actor} via \`/e2e remote --preset ${preset}${partyInfo}\``,
-              partyHost ? `**Party server:** \`${partyHost}\`` : '',
-              '',
-              links.join(' | '),
-            ].join('\n');
-
-            const prNumber = parseInt(process.env.RESOLVED_PR, 10);
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-            });
-            const existing = comments.find(c => c.body.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                comment_id: existing.id, body,
-              });
-              core.setOutput('comment-id', existing.id);
-            } else {
-              const { data: created } = await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: prNumber, body,
-              });
-              core.setOutput('comment-id', created.id);
-            }
-
-      - name: Wait for tests to finish
-        id: test-result
-        run: |
-          TEST_PID=$(cat /tmp/test-pid)
-          echo "Waiting for PID $TEST_PID..."
-          if wait "$TEST_PID"; then
-            echo "exit_code=0" >> "$GITHUB_OUTPUT"
-            echo "Tests passed"
-          else
-            EXIT_CODE=$?
-            echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
-            echo "Tests failed with exit code $EXIT_CODE"
-          fi
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Print test results
         if: always()
@@ -246,7 +240,7 @@ jobs:
             const preset = process.env.RESOLVED_PRESET;
             const partyHost = process.env.RESOLVED_PARTY_HOST;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const bsUrl = '${{ steps.browserstack-url.outputs.url }}';
+            const bsUrl = '${{ steps.test-result.outputs.browserstack_url }}';
             const success = '${{ steps.test-result.outputs.exit_code }}' === '0';
             const icon = success ? ':white_check_mark:' : ':x:';
 
@@ -278,7 +272,7 @@ jobs:
               links.join(' | '),
             ].join('\n');
 
-            const commentId = parseInt('${{ steps.running-comment.outputs.comment-id }}', 10);
+            const commentId = parseInt('${{ steps.test-result.outputs.comment_id }}', 10);
             if (commentId) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner, repo: context.repo.repo,
