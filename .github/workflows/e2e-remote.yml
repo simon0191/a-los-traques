@@ -1,22 +1,35 @@
 name: Remote E2E Tests (BrowserStack)
 
-# Trigger via PR comment: /e2e remote [--preset <name>]
-# Examples:
-#   /e2e remote
-#   /e2e remote --preset chrome-chrome
-#   /e2e remote --preset webkit-webkit
+# Two trigger modes:
+# 1. PR comment:  /e2e remote [--preset <name>] [--party-host <host>]
+# 2. Manual:      Actions tab → "Run workflow" → fill inputs
 on:
   issue_comment:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: 'Browser preset'
+        type: choice
+        options:
+          - default
+          - chrome-chrome
+          - webkit-webkit
+        default: 'default'
+      party_host:
+        description: 'PartyKit host (optional, e.g. pr-80.a-los-traques.simon0191.partykit.dev)'
+        type: string
+        default: ''
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
+  # --- Job 1: Parse /e2e remote comment (only runs for issue_comment trigger) ---
   parse-command:
-    # Only run on PR comments (not issue comments) that start with /e2e remote
     if: >
+      github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/e2e remote')
     runs-on: ubuntu-latest
@@ -58,14 +71,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # --- Job 2: Run remote E2E tests (runs for both triggers) ---
   remote-e2e:
     needs: parse-command
+    # Run if: parse-command succeeded (issue_comment) OR was skipped (workflow_dispatch)
+    if: always() && (needs.parse-command.result == 'success' || needs.parse-command.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    # Resolve inputs from whichever trigger fired
+    env:
+      RESOLVED_PRESET: ${{ inputs.preset || needs.parse-command.outputs.preset || 'default' }}
+      RESOLVED_PARTY_HOST: ${{ inputs.party_host || needs.parse-command.outputs.party_host || '' }}
+      RESOLVED_SHA: ${{ needs.parse-command.outputs.head_sha || github.sha }}
+      RESOLVED_PR: ${{ needs.parse-command.outputs.pr_number || '' }}
+
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.parse-command.outputs.head_sha }}
+          ref: ${{ env.RESOLVED_SHA }}
 
       - uses: oven-sh/setup-bun@v2
 
@@ -93,8 +117,8 @@ jobs:
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
-          REMOTE_E2E_PRESET: ${{ needs.parse-command.outputs.preset }}
-          REMOTE_E2E_PARTY_HOST: ${{ needs.parse-command.outputs.party_host }}
+          REMOTE_E2E_PRESET: ${{ env.RESOLVED_PRESET }}
+          REMOTE_E2E_PARTY_HOST: ${{ env.RESOLVED_PARTY_HOST }}
           DIAG_TOKEN: ${{ secrets.DIAG_TOKEN }}
 
       - name: Print test results
@@ -120,15 +144,16 @@ jobs:
           path: test-results/remote/
           retention-days: 14
 
+      # --- PR comment reporting (only when triggered from a PR) ---
       - name: Comment results on PR
-        if: always()
+        if: always() && env.RESOLVED_PR != ''
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const marker = '<!-- remote-e2e-results -->';
-            const preset = '${{ needs.parse-command.outputs.preset }}';
-            const partyHost = '${{ needs.parse-command.outputs.party_host }}';
+            const preset = process.env.RESOLVED_PRESET;
+            const partyHost = process.env.RESOLVED_PARTY_HOST;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const success = '${{ job.status }}' === 'success';
             const icon = success ? ':white_check_mark:' : ':x:';
@@ -158,10 +183,11 @@ jobs:
               `[Download debug bundles & logs](${runUrl}#artifacts)`,
             ].join('\n');
 
+            const prNumber = parseInt(process.env.RESOLVED_PR, 10);
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: ${{ needs.parse-command.outputs.pr_number }},
+              issue_number: prNumber,
             });
             const existing = comments.find(c => c.body.includes(marker));
             if (existing) {
@@ -175,13 +201,13 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: ${{ needs.parse-command.outputs.pr_number }},
+                issue_number: prNumber,
                 body,
               });
             }
 
       - name: React with result emoji
-        if: always()
+        if: always() && github.event_name == 'issue_comment'
         run: |
           if [ "${{ job.status }}" = "success" ]; then
             REACTION="rocket"

@@ -271,7 +271,22 @@ Trigger a remote E2E run from any PR by posting a comment:
 /e2e remote --preset chrome-chrome --party-host pr-80.a-los-traques.simon0191.partykit.dev
 ```
 
-The workflow (`.github/workflows/e2e-remote.yml`) is triggered by `issue_comment` events:
+> **Note:** The `issue_comment` trigger requires the workflow file to exist on the default branch (`main`). Until merged, use the manual trigger instead.
+
+### CI (manual trigger via Actions tab)
+
+After the workflow is on `main`, go to **Actions → "Remote E2E Tests (BrowserStack)" → "Run workflow"** and fill in the inputs:
+
+- **Branch**: any branch (uses that branch's code)
+- **Browser preset**: dropdown — `default`, `chrome-chrome`, `webkit-webkit`
+- **PartyKit host**: optional text field
+
+This is useful for:
+- Testing before the `issue_comment` trigger is available (first merge)
+- Running against `main` directly without a PR
+- Quick ad-hoc testing from any branch
+
+The workflow (`.github/workflows/e2e-remote.yml`) supports both `issue_comment` and `workflow_dispatch` triggers:
 
 ```mermaid
 sequenceDiagram
