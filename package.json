@@ -13,6 +13,7 @@
     "test:run": "vitest run",
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.js",
     "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.js --headed",
+    "test:e2e:remote": "npx playwright test --config tests/e2e/remote/remote-playwright.config.js",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write ."

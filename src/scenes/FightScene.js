@@ -1458,6 +1458,19 @@ export class FightScene extends Phaser.Scene {
           this.combat,
           this.rollbackManager.currentFrame,
         );
+
+        // Expose v2 debug bundle on window for remote E2E extraction
+        if (this.game.debugMode && this.recorder) {
+          import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
+            window.__DEBUG_BUNDLE = DebugBundleExporter.generateBundle({
+              recorder: this.recorder,
+              telemetry: this.telemetry,
+              matchState: this.matchState,
+              sessionId: this.networkManager?.sessionId,
+              debugMode: true,
+            });
+          });
+        }
       }
     }
 

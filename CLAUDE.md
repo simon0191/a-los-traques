@@ -143,6 +143,7 @@ Playwright-based framework that spawns two browser instances in autoplay mode, r
 ```bash
 bun run test:e2e          # Run E2E tests headless
 bun run test:e2e:headed   # Watch both browsers fight
+bun run test:e2e:remote   # Remote browsers via BrowserStack (requires BROWSERSTACK_USERNAME + BROWSERSTACK_ACCESS_KEY)
 ```
 
 **Autoplay URL params**: `?autoplay=1&createRoom=1&fighter=simon&seed=42&speed=2`
@@ -165,6 +166,9 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0002-multiplayer-redesign.md` — Multiplayer architecture redesign (Phases 1, 2A, 2B, 3 complete, Phase 4 next)
 - `docs/rfcs/0004-authentication-redesign-vercel.md` — Authentication & persistence (Supabase + Vercel)
 - `docs/rfcs/0005-multiplayer-debuggability.md` — Multiplayer debuggability (Phases 1-4 complete)
+- `docs/rfcs/0006-fix-p1-no-rollback.md` — Fix P1 never rolls back
+- `docs/rfcs/0007-fix-desync-detection.md` — Fix desync detection between peers with different RTT
+- `docs/rfcs/0008-e2e-remote-browser-testing.md` — Remote browser E2E testing via BrowserStack
 
 ## Online Multiplayer
 
