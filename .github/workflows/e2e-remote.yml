@@ -85,6 +85,7 @@ jobs:
       RESOLVED_PARTY_HOST: ${{ inputs.party_host || needs.parse-command.outputs.party_host || '' }}
       RESOLVED_SHA: ${{ needs.parse-command.outputs.head_sha || github.sha }}
       RESOLVED_PR: ${{ needs.parse-command.outputs.pr_number || '' }}
+      BROWSERSTACK_BUILD_NAME: remote-e2e-${{ github.run_id }}
 
     steps:
       - uses: actions/checkout@v4
@@ -117,6 +118,7 @@ jobs:
         env:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          BROWSERSTACK_BUILD_NAME: ${{ env.BROWSERSTACK_BUILD_NAME }}
           REMOTE_E2E_PRESET: ${{ env.RESOLVED_PRESET }}
           REMOTE_E2E_PARTY_HOST: ${{ env.RESOLVED_PARTY_HOST }}
           DIAG_TOKEN: ${{ secrets.DIAG_TOKEN }}
@@ -137,6 +139,26 @@ jobs:
             echo "No remote test results found"
           fi
 
+      - name: Fetch BrowserStack build URL
+        id: browserstack-url
+        if: always()
+        run: |
+          BUILD_NAME="$BROWSERSTACK_BUILD_NAME"
+          HASHED_ID=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
+            "https://api.browserstack.com/automate/builds.json" | \
+            jq -r --arg name "$BUILD_NAME" \
+            '.[] | select(.automation_build.name == $name) | .automation_build.hashed_id // empty')
+          if [ -n "$HASHED_ID" ]; then
+            echo "url=https://automate.browserstack.com/builds/$HASHED_ID" >> "$GITHUB_OUTPUT"
+            echo "BrowserStack build: https://automate.browserstack.com/builds/$HASHED_ID"
+          else
+            echo "url=" >> "$GITHUB_OUTPUT"
+            echo "Could not find BrowserStack build for: $BUILD_NAME"
+          fi
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -155,6 +177,7 @@ jobs:
             const preset = process.env.RESOLVED_PRESET;
             const partyHost = process.env.RESOLVED_PARTY_HOST;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const bsUrl = '${{ steps.browserstack-url.outputs.url }}';
             const success = '${{ job.status }}' === 'success';
             const icon = success ? ':white_check_mark:' : ':x:';
 
@@ -166,6 +189,9 @@ jobs:
             }
 
             const partyInfo = partyHost ? ` --party-host ${partyHost}` : '';
+            const links = [`[Download debug bundles & logs](${runUrl}#artifacts)`];
+            if (bsUrl) links.push(`[BrowserStack build](${bsUrl})`);
+
             const body = [
               marker,
               `## ${icon} Remote E2E Results (\`${preset}\`)`,
@@ -180,7 +206,7 @@ jobs:
               '',
               '</details>',
               '',
-              `[Download debug bundles & logs](${runUrl}#artifacts)`,
+              links.join(' | '),
             ].join('\n');
 
             const prNumber = parseInt(process.env.RESOLVED_PR, 10);

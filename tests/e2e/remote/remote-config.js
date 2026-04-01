@@ -8,7 +8,9 @@
  * is an independent session — enabling cross-browser, cross-OS testing.
  */
 
-const buildName = `remote-e2e-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}`;
+const buildName =
+  process.env.BROWSERSTACK_BUILD_NAME ||
+  `remote-e2e-${new Date().toISOString().slice(0, 19).replace(/:/g, '')}`;
 
 export const PRESETS = {
   // Default: Chrome on Windows (P1) + Safari on macOS (P2)
