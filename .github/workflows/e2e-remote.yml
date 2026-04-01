@@ -156,11 +156,10 @@ jobs:
           BS_URL=""
           echo "Waiting for BrowserStack build: $BROWSERSTACK_BUILD_NAME"
           for i in $(seq 1 30); do
-            # BrowserStack may append "#N" to the build name, so match by prefix
             HASHED_ID=$(curl -s -u "$BROWSERSTACK_USERNAME:$BROWSERSTACK_ACCESS_KEY" \
               "https://api.browserstack.com/automate/builds.json" | \
               jq -r --arg name "$BROWSERSTACK_BUILD_NAME" \
-              '.[] | select(.automation_build.name | startswith($name)) | .automation_build.hashed_id // empty' | head -1)
+              '.[] | select(.automation_build.name == $name) | .automation_build.hashed_id // empty')
             if [ -n "$HASHED_ID" ]; then
               BS_URL="https://automate.browserstack.com/builds/$HASHED_ID"
               echo "Found build: $BS_URL"
