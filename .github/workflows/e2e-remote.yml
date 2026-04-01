@@ -1,0 +1,183 @@
+name: Remote E2E Tests (BrowserStack)
+
+# Trigger via PR comment: /e2e remote [--preset <name>]
+# Examples:
+#   /e2e remote
+#   /e2e remote --preset chrome-chrome
+#   /e2e remote --preset webkit-webkit
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  parse-command:
+    # Only run on PR comments (not issue comments) that start with /e2e remote
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/e2e remote')
+    runs-on: ubuntu-latest
+    outputs:
+      preset: ${{ steps.parse.outputs.preset }}
+      pr_number: ${{ github.event.issue.number }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+    steps:
+      - name: Parse command arguments
+        id: parse
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          # Extract --preset value (default: "default")
+          PRESET=$(echo "$COMMENT" | grep -oP '(?<=--preset\s)\S+' || echo "default")
+          echo "preset=$PRESET" >> "$GITHUB_OUTPUT"
+          echo "Parsed preset: $PRESET"
+
+      - name: Get PR head SHA
+        id: pr
+        run: |
+          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "PR head SHA: $HEAD_SHA"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: React to comment with eyes emoji
+        run: |
+          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content=eyes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  remote-e2e:
+    needs: parse-command
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.parse-command.outputs.head_sha }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - run: bun install
+
+      # Playwright is needed for chromium.connect() to BrowserStack CDP
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      - run: npx playwright install chromium --with-deps
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - name: Run remote E2E tests
+        run: bun run test:e2e:remote
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          REMOTE_E2E_PRESET: ${{ needs.parse-command.outputs.preset }}
+          DIAG_TOKEN: ${{ secrets.DIAG_TOKEN }}
+
+      - name: Print test results
+        if: always()
+        run: |
+          if [ -d test-results/remote ]; then
+            echo "=== Remote E2E Test Results ==="
+            for f in test-results/remote/*.md test-results/remote/*.log test-results/remote/*.json; do
+              [ -f "$f" ] || continue
+              echo ""
+              echo "--- $f ---"
+              cat "$f"
+              echo ""
+            done
+          else
+            echo "No remote test results found"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: remote-e2e-results
+          path: test-results/remote/
+          retention-days: 14
+
+      - name: Comment results on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- remote-e2e-results -->';
+            const preset = '${{ needs.parse-command.outputs.preset }}';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const success = '${{ job.status }}' === 'success';
+            const icon = success ? ':white_check_mark:' : ':x:';
+
+            let reportContent = '';
+            try {
+              reportContent = fs.readFileSync(`test-results/remote/remote-${preset}-report.md`, 'utf8');
+            } catch {
+              reportContent = '_No report generated — test may have failed before match completion._';
+            }
+
+            const body = [
+              marker,
+              `## ${icon} Remote E2E Results (\`${preset}\`)`,
+              '',
+              `Triggered by @${context.actor} via \`/e2e remote --preset ${preset}\``,
+              '',
+              '<details>',
+              '<summary>Match Report</summary>',
+              '',
+              reportContent,
+              '',
+              '</details>',
+              '',
+              `[Download debug bundles & logs](${runUrl}#artifacts)`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ needs.parse-command.outputs.pr_number }},
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ${{ needs.parse-command.outputs.pr_number }},
+                body,
+              });
+            }
+
+      - name: React with result emoji
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            REACTION="rocket"
+          else
+            REACTION="-1"
+          fi
+          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content="$REACTION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

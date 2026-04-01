@@ -248,6 +248,14 @@ BROWSERSTACK_USERNAME=xxx BROWSERSTACK_ACCESS_KEY=yyy bun run test:e2e:remote
 REMOTE_E2E_PRESET=chrome-chrome bun run test:e2e:remote
 ```
 
+**Trigger from CI** — post a PR comment:
+```
+/e2e remote
+/e2e remote --preset chrome-chrome
+```
+
+Results are posted back as a PR comment with debug bundles as downloadable artifacts.
+
 Key differences from local E2E:
 - Two independent BrowserStack sessions (separate machines) connected via Playwright CDP
 - Uses deployed staging infrastructure (Vercel + PartyKit cloud) — real network paths

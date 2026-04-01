@@ -161,6 +161,7 @@ tests/e2e/remote/
   remote-config.js                 # Browser capability presets + defaults
   remote-helpers.js                # connectRemoteBrowser(), extractDebugBundle(), etc.
   remote-playwright.config.js      # Playwright config (no webServer, longer timeouts)
+.github/workflows/e2e-remote.yml  # CI workflow — triggered by /e2e remote PR comment
 docs/rfcs/0008-e2e-remote-browser-testing.md   # This RFC
 ```
 
@@ -243,6 +244,8 @@ The `finally` block always attempts to: extract partial fight logs, save console
 
 ## Commands
 
+### Local
+
 ```bash
 # Default: Chrome/Windows vs WebKit/macOS against deployed staging
 BROWSERSTACK_USERNAME=xxx BROWSERSTACK_ACCESS_KEY=yyy bun run test:e2e:remote
@@ -253,6 +256,61 @@ REMOTE_E2E_PRESET=chrome-chrome BROWSERSTACK_USERNAME=xxx BROWSERSTACK_ACCESS_KE
 # With server diagnostics
 DIAG_TOKEN=zzz BROWSERSTACK_USERNAME=xxx BROWSERSTACK_ACCESS_KEY=yyy bun run test:e2e:remote
 ```
+
+### CI (PR comment trigger)
+
+Trigger a remote E2E run from any PR by posting a comment:
+
+```
+/e2e remote
+/e2e remote --preset chrome-chrome
+/e2e remote --preset webkit-webkit
+```
+
+The workflow (`.github/workflows/e2e-remote.yml`) is triggered by `issue_comment` events:
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant GH as GitHub
+    participant CI as GitHub Actions
+    participant BS as BrowserStack
+
+    Dev->>GH: Comment "/e2e remote --preset chrome-chrome"
+    GH->>CI: issue_comment event
+    CI->>GH: React with :eyes: emoji
+    CI->>CI: Parse --preset from comment body
+    CI->>CI: Checkout PR head SHA
+    CI->>BS: Run remote E2E test
+    BS-->>CI: Test results + debug bundles
+
+    alt Test passed
+        CI->>GH: React with :rocket: emoji
+        CI->>GH: Post/update PR comment with report
+    else Test failed
+        CI->>GH: React with :-1: emoji
+        CI->>GH: Post/update PR comment with report
+    end
+
+    CI->>GH: Upload artifacts (bundles, logs, report)
+```
+
+**How it works:**
+
+1. Developer posts `/e2e remote` (with optional `--preset`) as a PR comment
+2. `parse-command` job validates it's a PR comment starting with `/e2e remote`, extracts preset, reacts with :eyes:
+3. `remote-e2e` job checks out the PR's head commit, installs deps, runs `bun run test:e2e:remote`
+4. Results are posted back as a PR comment (idempotent — updates existing comment on re-run)
+5. Debug bundles + logs uploaded as artifacts (14-day retention)
+6. Final reaction emoji indicates pass (:rocket:) or fail (:-1:)
+
+**Required secrets:**
+
+| Secret | Description |
+|--------|-------------|
+| `BROWSERSTACK_USERNAME` | BrowserStack account username |
+| `BROWSERSTACK_ACCESS_KEY` | BrowserStack access key |
+| `DIAG_TOKEN` | PartyKit diagnostics token (optional) |
 
 ## What Is Reused vs What Is New
 
@@ -283,7 +341,7 @@ DIAG_TOKEN=zzz BROWSERSTACK_USERNAME=xxx BROWSERSTACK_ACCESS_KEY=yyy bun run tes
 
 ## Future Enhancements
 
-- **CI integration**: Run remote E2E on a schedule (nightly) against staging
+- **Scheduled nightly runs**: Add `schedule` trigger to `e2e-remote.yml` for continuous monitoring
 - **Mobile presets**: iPhone 15 Safari + Android Chrome (requires BrowserStack App Automate for real devices)
 - **Network condition presets**: Combine with Toxiproxy for simulated 3G/4G latency
 - **Multi-preset matrix**: Run all presets in parallel, aggregate results
