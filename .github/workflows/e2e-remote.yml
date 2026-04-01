@@ -78,6 +78,10 @@ jobs:
     if: always() && (needs.parse-command.result == 'success' || needs.parse-command.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Cancel previous runs for the same PR (or run_id for workflow_dispatch)
+    concurrency:
+      group: remote-e2e-${{ needs.parse-command.outputs.pr_number || github.run_id }}
+      cancel-in-progress: true
 
     # Resolve inputs from whichever trigger fired
     env:
