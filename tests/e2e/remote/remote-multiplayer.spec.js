@@ -99,10 +99,13 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
       await pageP2.goto(usedP2Url, { timeout: REMOTE_PAGE_LOAD_TIMEOUT });
 
       // --- Wait for match completion ---
+      // Poll every 10s to keep the CDP WebSocket active and prevent
+      // BrowserStack from killing the session (default 90s idle timeout).
       console.log('Waiting for match to complete (speed=1, real network)...');
+      const pollOpts = { pollInterval: 10_000 };
       await Promise.all([
-        waitForMatchComplete(pageP1, REMOTE_MATCH_TIMEOUT),
-        waitForMatchComplete(pageP2, REMOTE_MATCH_TIMEOUT),
+        waitForMatchComplete(pageP1, REMOTE_MATCH_TIMEOUT, pollOpts),
+        waitForMatchComplete(pageP2, REMOTE_MATCH_TIMEOUT, pollOpts),
       ]);
       console.log('Match complete on both sides.');
 
