@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       preset: ${{ steps.parse.outputs.preset }}
+      party_host: ${{ steps.parse.outputs.party_host }}
       pr_number: ${{ github.event.issue.number }}
       head_sha: ${{ steps.pr.outputs.head_sha }}
     steps:
@@ -33,6 +34,12 @@ jobs:
           PRESET=$(echo "$COMMENT" | grep -oP '(?<=--preset\s)\S+' || echo "default")
           echo "preset=$PRESET" >> "$GITHUB_OUTPUT"
           echo "Parsed preset: $PRESET"
+          # Extract --party-host value (optional)
+          PARTY_HOST=$(echo "$COMMENT" | grep -oP '(?<=--party-host\s)\S+' || echo "")
+          echo "party_host=$PARTY_HOST" >> "$GITHUB_OUTPUT"
+          if [ -n "$PARTY_HOST" ]; then
+            echo "Parsed party host: $PARTY_HOST"
+          fi
 
       - name: Get PR head SHA
         id: pr
@@ -87,6 +94,7 @@ jobs:
           BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
           BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
           REMOTE_E2E_PRESET: ${{ needs.parse-command.outputs.preset }}
+          REMOTE_E2E_PARTY_HOST: ${{ needs.parse-command.outputs.party_host }}
           DIAG_TOKEN: ${{ secrets.DIAG_TOKEN }}
 
       - name: Print test results
@@ -120,6 +128,7 @@ jobs:
             const fs = require('fs');
             const marker = '<!-- remote-e2e-results -->';
             const preset = '${{ needs.parse-command.outputs.preset }}';
+            const partyHost = '${{ needs.parse-command.outputs.party_host }}';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const success = '${{ job.status }}' === 'success';
             const icon = success ? ':white_check_mark:' : ':x:';
@@ -131,11 +140,13 @@ jobs:
               reportContent = '_No report generated — test may have failed before match completion._';
             }
 
+            const partyInfo = partyHost ? ` --party-host ${partyHost}` : '';
             const body = [
               marker,
               `## ${icon} Remote E2E Results (\`${preset}\`)`,
               '',
-              `Triggered by @${context.actor} via \`/e2e remote --preset ${preset}\``,
+              `Triggered by @${context.actor} via \`/e2e remote --preset ${preset}${partyInfo}\``,
+              partyHost ? `**Party server:** \`${partyHost}\`` : '',
               '',
               '<details>',
               '<summary>Match Report</summary>',

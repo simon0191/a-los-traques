@@ -87,7 +87,8 @@ export const PRESETS = {
 // Server URLs
 export const STAGING_BASE_URL =
 	process.env.REMOTE_E2E_BASE_URL || 'https://a-los-traques.vercel.app';
-export const STAGING_PARTY_HOST = 'a-los-traques.simon0191.partykit.dev';
+export const STAGING_PARTY_HOST =
+	process.env.REMOTE_E2E_PARTY_HOST || 'a-los-traques.simon0191.partykit.dev';
 
 // Timeouts — remote browsers are slower than local
 export const REMOTE_ROOM_TIMEOUT = 60_000; // 60s (vs 30s local)

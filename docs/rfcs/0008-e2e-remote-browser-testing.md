@@ -182,9 +182,10 @@ CLAUDE.md                          # Add remote E2E commands
 | `chrome-chrome` | Chrome / Windows 11 | Chrome / macOS Sonoma | Isolate network effects |
 | `webkit-webkit` | WebKit / macOS Sonoma | WebKit / macOS Ventura | Safari-like both sides |
 
-Select via `REMOTE_E2E_PRESET` env var:
+Select via env vars:
 ```bash
 REMOTE_E2E_PRESET=chrome-chrome bun run test:e2e:remote
+REMOTE_E2E_PARTY_HOST=pr-80.a-los-traques.simon0191.partykit.dev bun run test:e2e:remote
 ```
 
 ## Debug Bundle Capture
@@ -240,6 +241,7 @@ The `finally` block always attempts to: extract partial fight logs, save console
 | `BROWSERSTACK_ACCESS_KEY` | Yes | BrowserStack access key |
 | `REMOTE_E2E_BASE_URL` | No | Override staging URL |
 | `REMOTE_E2E_PRESET` | No | Browser preset (default: `default`) |
+| `REMOTE_E2E_PARTY_HOST` | No | Override PartyKit host (e.g. `pr-80.a-los-traques.simon0191.partykit.dev`) |
 | `DIAG_TOKEN` | No | PartyKit diagnostics token |
 
 ## Commands
@@ -265,6 +267,8 @@ Trigger a remote E2E run from any PR by posting a comment:
 /e2e remote
 /e2e remote --preset chrome-chrome
 /e2e remote --preset webkit-webkit
+/e2e remote --party-host pr-80.a-los-traques.simon0191.partykit.dev
+/e2e remote --preset chrome-chrome --party-host pr-80.a-los-traques.simon0191.partykit.dev
 ```
 
 The workflow (`.github/workflows/e2e-remote.yml`) is triggered by `issue_comment` events:
@@ -297,8 +301,8 @@ sequenceDiagram
 
 **How it works:**
 
-1. Developer posts `/e2e remote` (with optional `--preset`) as a PR comment
-2. `parse-command` job validates it's a PR comment starting with `/e2e remote`, extracts preset, reacts with :eyes:
+1. Developer posts `/e2e remote` (with optional `--preset`, `--party-host`) as a PR comment
+2. `parse-command` job validates it's a PR comment starting with `/e2e remote`, extracts args, reacts with :eyes:
 3. `remote-e2e` job checks out the PR's head commit, installs deps, runs `bun run test:e2e:remote`
 4. Results are posted back as a PR comment (idempotent — updates existing comment on re-run)
 5. Debug bundles + logs uploaded as artifacts (14-day retention)
