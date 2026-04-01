@@ -8,9 +8,24 @@ export async function waitForRoomId(page, timeout = 30_000) {
 
 /**
  * Wait for the fight to complete (matchComplete flag set by VictoryScene).
+ *
+ * When `pollInterval` is set, uses a polling loop with periodic page.evaluate()
+ * calls instead of a single waitForFunction. This keeps the CDP WebSocket active,
+ * preventing BrowserStack from killing the session due to idle timeout (default 90s).
  */
-export async function waitForMatchComplete(page, timeout = 110_000) {
-  await page.waitForFunction(() => window.__FIGHT_LOG?.matchComplete === true, { timeout });
+export async function waitForMatchComplete(page, timeout = 110_000, { pollInterval } = {}) {
+  if (!pollInterval) {
+    await page.waitForFunction(() => window.__FIGHT_LOG?.matchComplete === true, { timeout });
+    return;
+  }
+
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const done = await page.evaluate(() => window.__FIGHT_LOG?.matchComplete === true);
+    if (done) return;
+    await new Promise((r) => setTimeout(r, Math.min(pollInterval, deadline - Date.now())));
+  }
+  throw new Error(`waitForMatchComplete: timed out after ${timeout}ms`);
 }
 
 /**
