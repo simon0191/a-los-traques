@@ -282,7 +282,10 @@ export class RollbackManager {
   }
 
   /**
-   * Apply an authoritative state snapshot from P1 to resync after desync.
+   * Apply an authoritative state snapshot to resync after desync.
+   * Treats resync as a deep rollback: restores snapshot state and resimulates
+   * forward to currentFrame, keeping the frame counter in sync between peers.
+   * See RFC 0009.
    */
   applyResync(snapshot, p1, p2, combat) {
     if (snapshot.version !== undefined && snapshot.version !== SNAPSHOT_VERSION) {
@@ -296,23 +299,52 @@ export class RollbackManager {
     const p2Sim = p2.sim || p2;
     const combatSim = combat.sim || combat;
 
+    const resyncFrame = snapshot.frame;
+    const oldFrame = this.currentFrame;
+
+    // If the gap exceeds our retention window, we can't resimulate — fall back to rewind
+    if (oldFrame - resyncFrame > HISTORY_RETENTION_FRAMES) {
+      restoreFighterState(p1Sim, snapshot.p1);
+      restoreFighterState(p2Sim, snapshot.p2);
+      restoreCombatState(combatSim, snapshot.combat);
+      this.currentFrame = resyncFrame;
+      this.stateSnapshots.clear();
+      this.localInputHistory.clear();
+      this.remoteInputHistory.clear();
+      this.predictedRemoteInputs.clear();
+      this._localChecksums.clear();
+      const fallbackSnap = captureGameState(resyncFrame, p1Sim, p2Sim, combatSim);
+      fallbackSnap.confirmed = true;
+      this.stateSnapshots.set(resyncFrame, fallbackSnap);
+      this.lastConfirmedRemoteInput = EMPTY_INPUT;
+      this.lastConfirmedRemoteFrame = resyncFrame - 1;
+      this._resyncPending = false;
+      this._lastResyncFrame = resyncFrame;
+      this._consecutiveDesyncCount = 0;
+      return;
+    }
+
+    // 1. Restore state at resync frame
     restoreFighterState(p1Sim, snapshot.p1);
     restoreFighterState(p2Sim, snapshot.p2);
     restoreCombatState(combatSim, snapshot.combat);
-    this.currentFrame = snapshot.frame;
 
-    this.stateSnapshots.clear();
-    this.localInputHistory.clear();
-    this.remoteInputHistory.clear();
-    this.predictedRemoteInputs.clear();
-    this._localChecksums.clear();
+    // 2. Store authoritative snapshot at resync frame
+    const resyncSnap = captureGameState(resyncFrame, p1Sim, p2Sim, combatSim);
+    resyncSnap.confirmed = true;
+    this.stateSnapshots.set(resyncFrame, resyncSnap);
 
-    const resyncSnap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
-    resyncSnap.confirmed = true; // authoritative snapshot
-    this.stateSnapshots.set(this.currentFrame, resyncSnap);
+    // 3. Resimulate forward from resyncFrame to oldFrame (like a deep rollback)
+    for (let f = resyncFrame; f < oldFrame; f++) {
+      const p1Input = this._getInputForFrame(f, true);
+      const p2Input = this._getInputForFrame(f, false);
+      const { state } = tick(p1Sim, p2Sim, combatSim, p1Input, p2Input, f);
+      state.confirmed = this._isFrameConfirmed(f);
+      state.remoteInput = this.localSlot === 0 ? p2Input : p1Input;
+      this.stateSnapshots.set(f + 1, state);
+    }
 
-    this.lastConfirmedRemoteInput = EMPTY_INPUT;
-    this.lastConfirmedRemoteFrame = this.currentFrame - 1;
+    // 4. currentFrame stays at oldFrame — no rewind, no frame gap (RFC 0009)
 
     this._resyncPending = false;
     this._lastResyncFrame = this.currentFrame;
@@ -320,25 +352,16 @@ export class RollbackManager {
   }
 
   /**
-   * Capture the latest available snapshot for resync.
+   * Capture the current simulation state for resync.
+   * Returns a fresh snapshot at currentFrame rather than searching for an older
+   * confirmed snapshot — a recent snapshot minimizes the resimulation window
+   * on the receiving peer. See RFC 0009.
    */
   captureResyncSnapshot(p1, p2, combat) {
-    // Prefer latest confirmed snapshot for authoritative resync
-    const frames = [...this.stateSnapshots.keys()].sort((a, b) => b - a);
-    for (const frame of frames) {
-      const snap = this.stateSnapshots.get(frame);
-      if (snap.confirmed) return snap;
-    }
-    // Fallback: return latest snapshot even if predicted
-    const latestFrame = this.currentFrame - 1;
-    const existing = this.stateSnapshots.get(latestFrame);
-    if (existing) return existing;
     const p1Sim = p1.sim || p1;
     const p2Sim = p2.sim || p2;
     const combatSim = combat.sim || combat;
-    const snap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
-    snap.confirmed = false;
-    return snap;
+    return captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
   }
 
   /**
