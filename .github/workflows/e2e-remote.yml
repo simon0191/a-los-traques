@@ -1,0 +1,220 @@
+name: Remote E2E Tests (BrowserStack)
+
+# Two trigger modes:
+# 1. PR comment:  /e2e remote [--preset <name>] [--party-host <host>]
+# 2. Manual:      Actions tab → "Run workflow" → fill inputs
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: 'Browser preset'
+        type: choice
+        options:
+          - default
+          - chrome-chrome
+          - webkit-webkit
+        default: 'default'
+      party_host:
+        description: 'PartyKit host (optional, e.g. pr-80.a-los-traques.simon0191.partykit.dev)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # --- Job 1: Parse /e2e remote comment (only runs for issue_comment trigger) ---
+  parse-command:
+    if: >
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/e2e remote')
+    runs-on: ubuntu-latest
+    outputs:
+      preset: ${{ steps.parse.outputs.preset }}
+      party_host: ${{ steps.parse.outputs.party_host }}
+      pr_number: ${{ github.event.issue.number }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+    steps:
+      - name: Parse command arguments
+        id: parse
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          # Extract --preset value (default: "default")
+          PRESET=$(echo "$COMMENT" | grep -oP '(?<=--preset\s)\S+' || echo "default")
+          echo "preset=$PRESET" >> "$GITHUB_OUTPUT"
+          echo "Parsed preset: $PRESET"
+          # Extract --party-host value (optional)
+          PARTY_HOST=$(echo "$COMMENT" | grep -oP '(?<=--party-host\s)\S+' || echo "")
+          echo "party_host=$PARTY_HOST" >> "$GITHUB_OUTPUT"
+          if [ -n "$PARTY_HOST" ]; then
+            echo "Parsed party host: $PARTY_HOST"
+          fi
+
+      - name: Get PR head SHA
+        id: pr
+        run: |
+          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          HEAD_SHA=$(echo "$PR_DATA" | jq -r '.head.sha')
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "PR head SHA: $HEAD_SHA"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: React to comment with eyes emoji
+        run: |
+          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content=eyes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # --- Job 2: Run remote E2E tests (runs for both triggers) ---
+  remote-e2e:
+    needs: parse-command
+    # Run if: parse-command succeeded (issue_comment) OR was skipped (workflow_dispatch)
+    if: always() && (needs.parse-command.result == 'success' || needs.parse-command.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Resolve inputs from whichever trigger fired
+    env:
+      RESOLVED_PRESET: ${{ inputs.preset || needs.parse-command.outputs.preset || 'default' }}
+      RESOLVED_PARTY_HOST: ${{ inputs.party_host || needs.parse-command.outputs.party_host || '' }}
+      RESOLVED_SHA: ${{ needs.parse-command.outputs.head_sha || github.sha }}
+      RESOLVED_PR: ${{ needs.parse-command.outputs.pr_number || '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RESOLVED_SHA }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - run: bun install
+
+      # Playwright is needed for chromium.connect() to BrowserStack CDP
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      - run: npx playwright install chromium --with-deps
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - run: npx playwright install-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - name: Run remote E2E tests
+        run: bun run test:e2e:remote
+        env:
+          BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+          BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+          REMOTE_E2E_PRESET: ${{ env.RESOLVED_PRESET }}
+          REMOTE_E2E_PARTY_HOST: ${{ env.RESOLVED_PARTY_HOST }}
+          DIAG_TOKEN: ${{ secrets.DIAG_TOKEN }}
+
+      - name: Print test results
+        if: always()
+        run: |
+          if [ -d test-results/remote ]; then
+            echo "=== Remote E2E Test Results ==="
+            for f in test-results/remote/*.md test-results/remote/*.log test-results/remote/*.json; do
+              [ -f "$f" ] || continue
+              echo ""
+              echo "--- $f ---"
+              cat "$f"
+              echo ""
+            done
+          else
+            echo "No remote test results found"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: remote-e2e-results
+          path: test-results/remote/
+          retention-days: 14
+
+      # --- PR comment reporting (only when triggered from a PR) ---
+      - name: Comment results on PR
+        if: always() && env.RESOLVED_PR != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- remote-e2e-results -->';
+            const preset = process.env.RESOLVED_PRESET;
+            const partyHost = process.env.RESOLVED_PARTY_HOST;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const success = '${{ job.status }}' === 'success';
+            const icon = success ? ':white_check_mark:' : ':x:';
+
+            let reportContent = '';
+            try {
+              reportContent = fs.readFileSync(`test-results/remote/remote-${preset}-report.md`, 'utf8');
+            } catch {
+              reportContent = '_No report generated — test may have failed before match completion._';
+            }
+
+            const partyInfo = partyHost ? ` --party-host ${partyHost}` : '';
+            const body = [
+              marker,
+              `## ${icon} Remote E2E Results (\`${preset}\`)`,
+              '',
+              `Triggered by @${context.actor} via \`/e2e remote --preset ${preset}${partyInfo}\``,
+              partyHost ? `**Party server:** \`${partyHost}\`` : '',
+              '',
+              '<details>',
+              '<summary>Match Report</summary>',
+              '',
+              reportContent,
+              '',
+              '</details>',
+              '',
+              `[Download debug bundles & logs](${runUrl}#artifacts)`,
+            ].join('\n');
+
+            const prNumber = parseInt(process.env.RESOLVED_PR, 10);
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+      - name: React with result emoji
+        if: always() && github.event_name == 'issue_comment'
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            REACTION="rocket"
+          else
+            REACTION="-1"
+          fi
+          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content="$REACTION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
