@@ -3,6 +3,7 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '.',
   testMatch: '**/*.spec.js',
+  testIgnore: '**/remote/**', // remote tests have their own config
   timeout: 300_000,
   retries: 1, // retry once — latent desync bug causes occasional flaky failures
   workers: 1, // tests share servers, run sequentially

@@ -41,7 +41,8 @@ function validateEnv() {
 }
 
 test.describe('Remote multiplayer (BrowserStack)', () => {
-  test(`cross-browser match with debug bundles [${presetName}]`, async (_fixtures, testInfo) => {
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructured first arg
+  test(`cross-browser match with debug bundles [${presetName}]`, async ({}, testInfo) => {
     validateEnv();
 
     const preset = PRESETS[presetName];
