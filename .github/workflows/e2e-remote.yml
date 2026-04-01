@@ -88,6 +88,30 @@ jobs:
       BROWSERSTACK_BUILD_NAME: remote-e2e-${{ github.run_id }}
 
     steps:
+      - name: Post initial PR comment
+        id: initial-comment
+        if: env.RESOLVED_PR != ''
+        run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY="<!-- remote-e2e-results -->
+          ## :hourglass_flowing_sand: Remote E2E starting (\`${RESOLVED_PRESET}\`)
+
+          [GitHub Actions run]($RUN_URL)"
+
+          EXISTING_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RESOLVED_PR}/comments" \
+            --jq '.[] | select(.body | contains("<!-- remote-e2e-results -->")) | .id' | head -1)
+          if [ -n "$EXISTING_ID" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING_ID}" \
+              -X PATCH -f body="$BODY" --silent
+            echo "comment_id=$EXISTING_ID" >> "$GITHUB_OUTPUT"
+          else
+            COMMENT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RESOLVED_PR}/comments" \
+              -f body="$BODY" --jq '.id')
+            echo "comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RESOLVED_SHA }}
@@ -146,37 +170,18 @@ jobs:
           done
           echo "browserstack_url=$BS_URL" >> "$GITHUB_OUTPUT"
 
-          # Post "running" comment on PR (if triggered from a PR)
-          if [ -n "$RESOLVED_PR" ]; then
+          # Update PR comment with BrowserStack link (if we have one and a comment exists)
+          COMMENT_ID="${INITIAL_COMMENT_ID}"
+          if [ -n "$COMMENT_ID" ] && [ -n "$BS_URL" ]; then
             RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-            LINKS="[GitHub Actions run]($RUN_URL)"
-            if [ -n "$BS_URL" ]; then
-              LINKS="$LINKS | [BrowserStack build]($BS_URL)"
-            fi
-            PARTY_INFO=""
-            if [ -n "$RESOLVED_PARTY_HOST" ]; then
-              PARTY_INFO=" --party-host $RESOLVED_PARTY_HOST"
-            fi
-            COMMENT_BODY="<!-- remote-e2e-results -->
+            BODY="<!-- remote-e2e-results -->
           ## :hourglass_flowing_sand: Remote E2E running (\`${RESOLVED_PRESET}\`)
 
-          Triggered by @${GITHUB_ACTOR} via \`/e2e remote --preset ${RESOLVED_PRESET}${PARTY_INFO}\`
+          [GitHub Actions run]($RUN_URL) | [BrowserStack build]($BS_URL)"
 
-          $LINKS"
-
-            # Create or update the comment
-            EXISTING_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RESOLVED_PR}/comments" \
-              --jq '.[] | select(.body | contains("<!-- remote-e2e-results -->")) | .id' | head -1)
-            if [ -n "$EXISTING_ID" ]; then
-              gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${EXISTING_ID}" \
-                -X PATCH -f body="$COMMENT_BODY" --silent
-              echo "comment_id=$EXISTING_ID" >> "$GITHUB_OUTPUT"
-            else
-              COMMENT_ID=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${RESOLVED_PR}/comments" \
-                -f body="$COMMENT_BODY" --jq '.id')
-              echo "comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
-            fi
-            echo "Posted running comment on PR #$RESOLVED_PR"
+            gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" \
+              -X PATCH -f body="$BODY" --silent
+            echo "Updated PR comment with BrowserStack link"
           fi
 
           # Wait for test to finish
@@ -205,6 +210,7 @@ jobs:
           REMOTE_E2E_PARTY_HOST: ${{ env.RESOLVED_PARTY_HOST }}
           DIAG_TOKEN: ${{ secrets.DIAG_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INITIAL_COMMENT_ID: ${{ steps.initial-comment.outputs.comment_id }}
 
       - name: Print test results
         if: always()
@@ -272,7 +278,7 @@ jobs:
               links.join(' | '),
             ].join('\n');
 
-            const commentId = parseInt('${{ steps.test-result.outputs.comment_id }}', 10);
+            const commentId = parseInt('${{ steps.initial-comment.outputs.comment_id }}', 10);
             if (commentId) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner, repo: context.repo.repo,
