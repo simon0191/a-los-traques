@@ -31,6 +31,12 @@ function readyBothPlayers(room, conn1, conn2) {
   room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'paula' }), conn2);
 }
 
+/** Ready both players and complete the fight creation handshake → fighting state. */
+function startFight(room, conn1, conn2) {
+  readyBothPlayers(room, conn1, conn2);
+  room.onMessage(JSON.stringify({ type: 'fight_created' }), conn1);
+}
+
 // --- Tests ---
 
 describe('FightRoom - fightId generation', () => {
@@ -57,7 +63,7 @@ describe('FightRoom - fightId generation', () => {
   });
 
   it('includes fightId in the start broadcast message to both peers', () => {
-    readyBothPlayers(room, conn1, conn2);
+    startFight(room, conn1, conn2);
 
     const c1Messages = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
     const c2Messages = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
@@ -72,7 +78,7 @@ describe('FightRoom - fightId generation', () => {
   });
 
   it('includes fighter IDs and stage in start message alongside fightId', () => {
-    readyBothPlayers(room, conn1, conn2);
+    startFight(room, conn1, conn2);
 
     const c1Messages = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
     const startMsg = c1Messages.find((m) => m.type === 'start');

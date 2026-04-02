@@ -1017,26 +1017,6 @@ export class FightScene extends Phaser.Scene {
     nm.onTransportDegraded(() => this.telemetry.recordTransportChange('websocket'));
     nm.onTransportRestored(() => this.telemetry.recordTransportChange('webrtc'));
 
-    // Create fight record in DB (fire-and-forget, debug mode only)
-    if (this.game.debugMode && this.fightId) {
-      import('../services/api.js').then(({ createFight, updateFight }) => {
-        if (this.isHost) {
-          createFight({
-            fightId: this.fightId,
-            roomId: nm.roomId,
-            p1Fighter: this.p1Id,
-            p2Fighter: this.p2Id,
-            stageId: this.stageId,
-          }).catch((err) => log.warn('Failed to create fight record', { err: err.message }));
-        } else {
-          // P2 registers their user ID
-          updateFight({ fightId: this.fightId, p2UserId: undefined }).catch((err) =>
-            log.warn('Failed to register P2', { err: err.message }),
-          );
-        }
-      });
-    }
-
     // Debug overlay (only in debug mode)
     if (this.game.debugMode) {
       import('../systems/DebugOverlay.js').then(({ DebugOverlay }) => {

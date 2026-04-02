@@ -24,7 +24,7 @@ export default withAuth(async (req, res, { userId, db }) => {
   }
 
   if (req.method === 'PATCH') {
-    const { fightId, p2UserId, winnerSlot, roundsP1, roundsP2 } = req.body;
+    const { fightId, registerP2, winnerSlot, roundsP1, roundsP2 } = req.body;
 
     if (!fightId) {
       return res.status(400).json({ error: 'Missing required field: fightId' });
@@ -35,9 +35,9 @@ export default withAuth(async (req, res, { userId, db }) => {
     const values = [];
     let paramIndex = 1;
 
-    if (p2UserId !== undefined) {
+    if (registerP2) {
       sets.push(`p2_user_id = $${paramIndex++}`);
-      values.push(p2UserId);
+      values.push(userId);
     }
     if (winnerSlot !== undefined) {
       sets.push(`winner_slot = $${paramIndex++}`);

@@ -107,8 +107,8 @@ describe('Fights API', () => {
       req.method = 'PATCH';
     });
 
-    it('updates p2_user_id', async () => {
-      req.body = { fightId: 'fight-uuid', p2UserId: 'user-2' };
+    it('registers P2 user from auth', async () => {
+      req.body = { fightId: 'fight-uuid', registerP2: true };
       mockQuery.mockResolvedValueOnce({ rows: [{ id: 'fight-uuid' }] });
 
       await fightsHandler(req, res);
@@ -116,7 +116,7 @@ describe('Fights API', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('p2_user_id'),
-        expect.arrayContaining(['user-2', 'fight-uuid']),
+        expect.arrayContaining(['user-1', 'fight-uuid']),
       );
     });
 
