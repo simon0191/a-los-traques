@@ -83,32 +83,44 @@ export async function updateStats(isWin = true) {
 }
 
 /**
+ * Retry a function with exponential backoff.
+ */
+async function withRetry(fn, { maxRetries = 3, label = 'request' } = {}) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      const delay = 1000 * 2 ** attempt;
+      log.warn(`${label} failed, retrying`, { attempt, delay, err: err.message });
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
+/**
  * Create a fight record (called by P1 at match start)
  */
 export async function createFight({ fightId, roomId, p1Fighter, p2Fighter, stageId }) {
-  return apiFetch('/fights', {
-    method: 'POST',
-    body: JSON.stringify({ fightId, roomId, p1Fighter, p2Fighter, stageId }),
-  });
+  const body = JSON.stringify({ fightId, roomId, p1Fighter, p2Fighter, stageId });
+  return withRetry(() => apiFetch('/fights', { method: 'POST', body }), { label: 'createFight' });
 }
 
 /**
  * Update a fight record (P2 registration or match result)
  */
 export async function updateFight(fields) {
-  return apiFetch('/fights', {
-    method: 'PATCH',
-    body: JSON.stringify(fields),
-  });
+  const body = JSON.stringify(fields);
+  return withRetry(() => apiFetch('/fights', { method: 'PATCH', body }), { label: 'updateFight' });
 }
 
 /**
  * Upload a debug bundle for a fight round.
- * Fire-and-forget — errors are logged but not thrown.
+ * Retries up to 3 times with exponential backoff on failure.
  */
 export async function uploadDebugBundle({ fightId, slot, round, bundle }) {
-  return apiFetch('/debug-bundles', {
-    method: 'POST',
-    body: JSON.stringify({ fightId, slot, round, bundle }),
+  const body = JSON.stringify({ fightId, slot, round, bundle });
+  return withRetry(() => apiFetch('/debug-bundles', { method: 'POST', body }), {
+    label: 'uploadBundle',
   });
 }
