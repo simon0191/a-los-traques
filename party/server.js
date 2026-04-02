@@ -11,6 +11,7 @@ const RoomState = {
   SELECTING: 'selecting',
   READY_CHECK: 'ready_check',
   STAGE_SELECT: 'stage_select',
+  CREATING_FIGHT: 'creating_fight',
   FIGHTING: 'fighting',
   RECONNECTING: 'reconnecting',
 };
@@ -38,7 +39,12 @@ const ROOM_TRANSITIONS = {
     ws_close: RoomState.RECONNECTING,
   },
   [RoomState.STAGE_SELECT]: {
-    stage_chosen: RoomState.FIGHTING,
+    stage_chosen: RoomState.CREATING_FIGHT,
+    ws_close: RoomState.RECONNECTING,
+    leave: RoomState.SELECTING,
+  },
+  [RoomState.CREATING_FIGHT]: {
+    fight_created: RoomState.FIGHTING,
     ws_close: RoomState.RECONNECTING,
     leave: RoomState.SELECTING,
   },
@@ -48,6 +54,7 @@ const ROOM_TRANSITIONS = {
   },
   [RoomState.RECONNECTING]: {
     rejoin_fighting: RoomState.FIGHTING,
+    rejoin_creating_fight: RoomState.CREATING_FIGHT,
     rejoin_selecting: RoomState.SELECTING,
     rejoin_ready_check: RoomState.READY_CHECK,
     rejoin_stage_select: RoomState.STAGE_SELECT,
@@ -323,6 +330,23 @@ export default class FightRoom {
       case 'select_stage':
         this._handleStageSelect(slot, data);
         break;
+      case 'fight_created':
+        // Only P1 (slot 0) can confirm fight creation
+        if (slot !== 0) break;
+        if (this._transition('fight_created')) {
+          this._broadcast({
+            type: 'start',
+            fightId: this.fightInfo.fightId,
+            p1Id: this.fightInfo.p1Id,
+            p2Id: this.fightInfo.p2Id,
+            stageId: this.fightInfo.stageId,
+            isRandomStage: this.fightInfo.isRandomStage,
+          });
+        }
+        break;
+      case 'fight_confirmed':
+        this._sendToOther(slot, data);
+        break;
       case 'debug_request':
       case 'debug_response':
         this._sendToOther(slot, data);
@@ -362,14 +386,18 @@ export default class FightRoom {
     if (slot !== 0) return; // Only Player 1 can select stage
 
     if (this._transition('stage_chosen')) {
+      const fightId = crypto.randomUUID();
       this.fightInfo = {
+        fightId,
         p1Id: this.players[0].fighterId,
         p2Id: this.players[1].fighterId,
         stageId: data.stageId,
         isRandomStage: data.isRandomStage || false,
       };
-      this._broadcast({
-        type: 'start',
+      // Send create_fight to P1 only — P1 creates the DB record, then sends fight_created
+      this._sendToHost({
+        type: 'create_fight',
+        fightId,
         p1Id: this.players[0].fighterId,
         p2Id: this.players[1].fighterId,
         stageId: data.stageId,
@@ -445,6 +473,10 @@ export default class FightRoom {
       this._stateBeforeGrace = null;
       if (prevState === RoomState.FIGHTING) {
         this._transition('rejoin_fighting');
+      } else if (prevState === RoomState.CREATING_FIGHT) {
+        this._transition('rejoin_creating_fight');
+      } else if (prevState === RoomState.STAGE_SELECT) {
+        this._transition('rejoin_stage_select');
       } else if (prevState === RoomState.READY_CHECK) {
         this._transition('rejoin_ready_check');
       } else {
@@ -525,7 +557,9 @@ export default class FightRoom {
 
   _finalizeDisconnect(slot) {
     this._log({ type: 'grace_expired', slot, stateBeforeGrace: this._stateBeforeGrace });
-    const wasFighting = this._stateBeforeGrace === RoomState.FIGHTING;
+    const wasFighting =
+      this._stateBeforeGrace === RoomState.FIGHTING ||
+      this._stateBeforeGrace === RoomState.CREATING_FIGHT;
     this.players[slot] = null;
 
     if (wasFighting) {

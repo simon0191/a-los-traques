@@ -758,8 +758,6 @@ export class SelectScene extends Phaser.Scene {
     if (this.gameMode === 'online' && this._startData) {
       p1Id = this._startData.p1Id;
       p2Id = this._startData.p2Id;
-      // If we already have a stageId (e.g. from server), we could skip to PreFight
-      // but let's follow the new flow.
     } else {
       p1Id = this.fighters[this.p1Index].id;
       p2Id = this.fighters[this.p2Index].id;

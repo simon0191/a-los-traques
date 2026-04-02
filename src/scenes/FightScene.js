@@ -85,6 +85,7 @@ export class FightScene extends Phaser.Scene {
       this.p2Id = fightersData[data && data.p2 != null ? data.p2 : 1].id;
     }
     this.stageId = data && (data.stageId || data.stage) ? data.stageId || data.stage : null;
+    this.fightId = data?.fightId || null;
     this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
     this.gameMode = data?.gameMode || 'local';
     this.networkManager = data?.networkManager || null;
@@ -268,6 +269,7 @@ export class FightScene extends Phaser.Scene {
       const nm = this.networkManager;
       const slot = nm.getPlayerSlot();
       this.recorder = new FightRecorder({
+        fightId: this.fightId,
         roomId: nm.roomId,
         playerSlot: slot,
         fighterId: slot === 0 ? this.p1Id : this.p2Id,
@@ -976,6 +978,7 @@ export class FightScene extends Phaser.Scene {
     // Fight recorder for E2E testing and debug mode
     if (this.game.autoplay?.enabled || this.game.debugMode) {
       this.recorder = new FightRecorder({
+        fightId: this.fightId,
         roomId: nm.roomId,
         playerSlot: slot,
         fighterId: slot === 0 ? this.p1Id : this.p2Id,
@@ -1013,6 +1016,26 @@ export class FightScene extends Phaser.Scene {
     // Wire transport changes to telemetry
     nm.onTransportDegraded(() => this.telemetry.recordTransportChange('websocket'));
     nm.onTransportRestored(() => this.telemetry.recordTransportChange('webrtc'));
+
+    // Create fight record in DB (fire-and-forget, debug mode only)
+    if (this.game.debugMode && this.fightId) {
+      import('../services/api.js').then(({ createFight, updateFight }) => {
+        if (this.isHost) {
+          createFight({
+            fightId: this.fightId,
+            roomId: nm.roomId,
+            p1Fighter: this.p1Id,
+            p2Fighter: this.p2Id,
+            stageId: this.stageId,
+          }).catch((err) => log.warn('Failed to create fight record', { err: err.message }));
+        } else {
+          // P2 registers their user ID
+          updateFight({ fightId: this.fightId, p2UserId: undefined }).catch((err) =>
+            log.warn('Failed to register P2', { err: err.message }),
+          );
+        }
+      });
+    }
 
     // Debug overlay (only in debug mode)
     if (this.game.debugMode) {
@@ -1547,15 +1570,41 @@ export class FightScene extends Phaser.Scene {
         // Expose v2 debug bundle on window for remote E2E extraction
         if (this.game.debugMode && this.recorder) {
           import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
-            window.__DEBUG_BUNDLE = DebugBundleExporter.generateBundle({
+            const bundle = DebugBundleExporter.generateBundle({
               recorder: this.recorder,
               telemetry: this.telemetry,
               matchState: this.matchState,
               sessionId: this.networkManager?.sessionId,
               debugMode: true,
             });
+            window.__DEBUG_BUNDLE = bundle;
+
+            // Auto-upload final bundle (round 0 = match end)
+            DebugBundleExporter.uploadBundle({
+              fightId: this.fightId,
+              slot: this.networkManager?.getPlayerSlot(),
+              round: 0,
+              bundle,
+            });
           });
         }
+      } else if (this.game.debugMode && this.recorder) {
+        // Per-round upload: snapshot after each round
+        import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
+          const bundle = DebugBundleExporter.generateBundle({
+            recorder: this.recorder,
+            telemetry: this.telemetry,
+            matchState: this.matchState,
+            sessionId: this.networkManager?.sessionId,
+            debugMode: true,
+          });
+          DebugBundleExporter.uploadBundle({
+            fightId: this.fightId,
+            slot: this.networkManager?.getPlayerSlot(),
+            round: this.combat.roundNumber - 1,
+            bundle,
+          });
+        });
       }
     }
 
