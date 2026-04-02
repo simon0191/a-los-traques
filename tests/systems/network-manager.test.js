@@ -1061,7 +1061,13 @@ describe('NetworkManager', () => {
 
     it('buffers start messages and replays when callback is set', () => {
       const nm = makeManager();
-      const startMsg = { type: 'start', p1Id: 'simon', p2Id: 'jeka', stageId: 'dojo' };
+      const startMsg = {
+        type: 'start',
+        p1Id: 'simon',
+        p2Id: 'jeka',
+        stageId: 'dojo',
+        isRandomStage: false,
+      };
 
       nm._handleMessage(startMsg);
 
@@ -1069,7 +1075,7 @@ describe('NetworkManager', () => {
       nm.onStart((msg) => received.push(msg));
 
       expect(received.length).toBe(1);
-      expect(received[0]).toMatchObject({ p1Id: 'simon', p2Id: 'jeka' });
+      expect(received[0]).toMatchObject({ p1Id: 'simon', p2Id: 'jeka', isRandomStage: false });
     });
 
     it('does not buffer when callback is already set', () => {

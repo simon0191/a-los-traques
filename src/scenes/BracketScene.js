@@ -173,6 +173,7 @@ export class BracketScene extends Phaser.Scene {
         p1Id: matchData.p1,
         p2Id: matchData.p2,
         stageId: stagesData[stageIndex].id,
+        isRandomStage: true, // Always show animation in tournament
         gameMode: this.gameMode,
         matchContext: this.matchContext,
       });

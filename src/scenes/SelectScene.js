@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
-import stagesData from '../data/stages.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 
@@ -622,13 +621,13 @@ export class SelectScene extends Phaser.Scene {
         this._showOpponentSelection(fighterId);
       });
 
-      // Listen for start signal
-      this.networkManager.onStart((data) => {
-        // Server decided stage + confirmed both fighters
+      // Listen for stage select signal
+      this.networkManager.onGoToStageSelect((data) => {
+        // Server confirmed both fighters and moving to stage select
         this._startData = data;
-        this.confirmedText.setText('Listo! Preparando combate...');
+        this.confirmedText.setText('Listo! Elige el escenario...');
         this.time.delayedCall(800, () => {
-          this.goToPreFight();
+          this.goToStageSelect();
         });
       });
 
@@ -683,7 +682,7 @@ export class SelectScene extends Phaser.Scene {
     // Transition after short delay (skip delay in autoplay)
     const delay = this.game.autoplay?.enabled ? 100 : 1000;
     this.time.delayedCall(delay, () => {
-      this.goToPreFight();
+      this.goToStageSelect();
     });
   }
 
@@ -743,29 +742,27 @@ export class SelectScene extends Phaser.Scene {
     });
   }
 
-  goToPreFight() {
+  goToStageSelect() {
     if (this.transitioning) return;
     this.transitioning = true;
 
-    let p1Id, p2Id, stageId;
+    let p1Id, p2Id;
 
     if (this.gameMode === 'online' && this._startData) {
       p1Id = this._startData.p1Id;
       p2Id = this._startData.p2Id;
-      stageId = this._startData.stageId;
+      // If we already have a stageId (e.g. from server), we could skip to PreFight
+      // but let's follow the new flow.
     } else {
       p1Id = this.fighters[this.p1Index].id;
       p2Id = this.fighters[this.p2Index].id;
-      const stageIndex = Phaser.Math.Between(0, stagesData.length - 1);
-      stageId = stagesData[stageIndex].id;
     }
 
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('PreFightScene', {
+      this.scene.start('StageSelectScene', {
         p1Id,
         p2Id,
-        stageId,
         gameMode: this.gameMode,
         networkManager: this.networkManager,
         matchContext: this.matchContext,

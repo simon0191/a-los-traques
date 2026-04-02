@@ -154,7 +154,13 @@ describe('SignalingClient', () => {
 
     it('buffers start messages and replays when handler is set', () => {
       const sc = makeClient();
-      const startMsg = { type: 'start', p1Id: 'simon', p2Id: 'jeka', stageId: 'dojo' };
+      const startMsg = {
+        type: 'start',
+        p1Id: 'simon',
+        p2Id: 'jeka',
+        stageId: 'dojo',
+        isRandomStage: false,
+      };
 
       sc._handleMessage(startMsg);
 
@@ -162,7 +168,7 @@ describe('SignalingClient', () => {
       sc.on('start', (msg) => received.push(msg));
 
       expect(received.length).toBe(1);
-      expect(received[0]).toMatchObject({ p1Id: 'simon', p2Id: 'jeka' });
+      expect(received[0]).toMatchObject({ p1Id: 'simon', p2Id: 'jeka', isRandomStage: false });
     });
 
     it('buffers round_event messages and replays when handler is set', () => {

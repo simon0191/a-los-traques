@@ -207,13 +207,19 @@ describe('NetworkFacade', () => {
       const nf = makeFacade();
 
       // Message arrives before callback registered
-      emitMsg(nf, { type: 'start', p1Id: 'simon', p2Id: 'jeka', stageId: 'dojo' });
+      emitMsg(nf, {
+        type: 'start',
+        p1Id: 'simon',
+        p2Id: 'jeka',
+        stageId: 'dojo',
+        isRandomStage: false,
+      });
 
       const received = [];
       nf.onStart((msg) => received.push(msg));
 
       expect(received.length).toBe(1);
-      expect(received[0]).toMatchObject({ p1Id: 'simon', p2Id: 'jeka' });
+      expect(received[0]).toMatchObject({ p1Id: 'simon', p2Id: 'jeka', isRandomStage: false });
     });
 
     it('routes disconnect', () => {

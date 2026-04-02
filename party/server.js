@@ -10,6 +10,7 @@ const RoomState = {
   WAITING: 'waiting',
   SELECTING: 'selecting',
   READY_CHECK: 'ready_check',
+  STAGE_SELECT: 'stage_select',
   FIGHTING: 'fighting',
   RECONNECTING: 'reconnecting',
 };
@@ -31,10 +32,15 @@ const ROOM_TRANSITIONS = {
     leave: RoomState.WAITING,
   },
   [RoomState.READY_CHECK]: {
-    both_ready: RoomState.FIGHTING,
+    both_ready: RoomState.STAGE_SELECT,
     ready_player_disconnected: RoomState.SELECTING,
     non_ready_leave: RoomState.WAITING,
     ws_close: RoomState.RECONNECTING,
+  },
+  [RoomState.STAGE_SELECT]: {
+    stage_chosen: RoomState.FIGHTING,
+    ws_close: RoomState.RECONNECTING,
+    leave: RoomState.SELECTING,
   },
   [RoomState.FIGHTING]: {
     ws_close: RoomState.RECONNECTING,
@@ -44,6 +50,7 @@ const ROOM_TRANSITIONS = {
     rejoin_fighting: RoomState.FIGHTING,
     rejoin_selecting: RoomState.SELECTING,
     rejoin_ready_check: RoomState.READY_CHECK,
+    rejoin_stage_select: RoomState.STAGE_SELECT,
     grace_expired: RoomState.WAITING,
   },
 };
@@ -313,6 +320,9 @@ export default class FightRoom {
       case 'rematch':
         this._sendToOther(slot, data);
         break;
+      case 'select_stage':
+        this._handleStageSelect(slot, data);
+        break;
       case 'debug_request':
       case 'debug_response':
         this._sendToOther(slot, data);
@@ -334,24 +344,37 @@ export default class FightRoom {
     this._sendToOther(slot, { type: 'opponent_ready', fighterId: data.fighterId });
 
     if (this.players[0]?.ready && this.players[1]?.ready) {
-      // Both ready → FIGHTING
+      // Both ready → STAGE_SELECT
       this._transition('both_ready');
-      const stageIds = ['beach', 'jekos_house', 'metro', 'input'];
-      const stageId = stageIds[Math.floor(Math.random() * stageIds.length)];
+      this._broadcast({
+        type: 'go_to_stage_select',
+        p1Id: this.players[0].fighterId,
+        p2Id: this.players[1].fighterId,
+      });
+    } else if (this.roomState === RoomState.SELECTING) {
+      // First ready → READY_CHECK
+      this._transition('first_ready');
+    }
+  }
+
+  _handleStageSelect(slot, data) {
+    if (this.roomState !== RoomState.STAGE_SELECT) return;
+    if (slot !== 0) return; // Only Player 1 can select stage
+
+    if (this._transition('stage_chosen')) {
       this.fightInfo = {
         p1Id: this.players[0].fighterId,
         p2Id: this.players[1].fighterId,
-        stageId,
+        stageId: data.stageId,
+        isRandomStage: data.isRandomStage || false,
       };
       this._broadcast({
         type: 'start',
         p1Id: this.players[0].fighterId,
         p2Id: this.players[1].fighterId,
-        stageId,
+        stageId: data.stageId,
+        isRandomStage: data.isRandomStage || false,
       });
-    } else if (this.roomState === RoomState.SELECTING) {
-      // First ready → READY_CHECK
-      this._transition('first_ready');
     }
   }
 

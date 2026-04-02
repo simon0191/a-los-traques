@@ -189,6 +189,9 @@ export class NetworkFacade {
   onOpponentReady(cb) {
     this._onOpponentReady = cb;
   }
+  onGoToStageSelect(cb) {
+    this.signaling.on('go_to_stage_select', cb);
+  }
   onStart(cb) {
     this.signaling.on('start', cb);
   }
@@ -282,6 +285,9 @@ export class NetworkFacade {
   sendReady(fighterId) {
     this.signaling.send({ type: 'ready', fighterId });
   }
+  sendStageSelect(stageId, isRandomStage = false) {
+    this.signaling.send({ type: 'select_stage', stageId, isRandomStage });
+  }
   sendInput(frame, inputState, history) {
     this.inputSync.sendInput(frame, inputState, history);
   }
@@ -373,6 +379,7 @@ export class NetworkFacade {
     // Reset signaling handlers for scene-specific types
     this.signaling.resetHandlers([
       'opponent_ready',
+      'go_to_stage_select',
       'start',
       'rematch',
       'leave',

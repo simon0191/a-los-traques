@@ -12,6 +12,7 @@ export class PreFightScene extends Phaser.Scene {
     this.p1Id = data.p1Id;
     this.p2Id = data.p2Id;
     this.stageId = data.stageId;
+    this.isRandomStage = data.isRandomStage || false;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
     this.matchContext = data.matchContext || null;
@@ -20,6 +21,7 @@ export class PreFightScene extends Phaser.Scene {
     if (!this.stageId) {
       const randomIndex = Phaser.Math.Between(0, stagesData.length - 1);
       this.stageId = stagesData[randomIndex].id;
+      this.isRandomStage = true; // Implicitly random if not provided
     }
   }
 
@@ -62,7 +64,7 @@ export class PreFightScene extends Phaser.Scene {
     // Center divider line
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 3, GAME_HEIGHT, 0xffffff, 0.3);
 
-    // --- Stage Selection Box (Animated) ---
+    // --- Stage Selection Box (Animated only if Random) ---
     const boxW = 140;
     const boxH = 80;
     const boxX = GAME_WIDTH / 2;
@@ -73,15 +75,15 @@ export class PreFightScene extends Phaser.Scene {
     this.add.rectangle(boxX, boxY, boxW, boxH, 0x000000);
 
     // Stage preview image inside the box
-    this.stagePreview = this.add.image(boxX, boxY, stagesData[0].texture);
+    this.stagePreview = this.add.image(boxX, boxY, selectedStage.texture);
     this.stagePreview.setDisplaySize(boxW, boxH);
 
     // Stage info text (Name + Description)
     this.stageNameText = this.add
-      .text(boxX, boxY + boxH / 2 + 12, '', {
+      .text(boxX, boxY + boxH / 2 + 12, selectedStage.name.toUpperCase(), {
         fontFamily: 'Arial Black, Arial',
         fontSize: '11px',
-        color: '#ffffff',
+        color: this.isRandomStage ? '#ffffff' : '#ffcc00',
       })
       .setOrigin(0.5);
 
@@ -95,7 +97,7 @@ export class PreFightScene extends Phaser.Scene {
       0.6,
     );
     this.stageDescText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 10, '', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 10, selectedStage.description, {
         fontFamily: 'Arial',
         fontSize: '9px',
         color: '#ffffff',
@@ -103,56 +105,67 @@ export class PreFightScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Animation logic
-    let currentIdx = 0;
-    const animDuration = 2000; // 2 seconds total
-    const startInterval = 60; // Start fast
-    let currentInterval = startInterval;
+    if (this.isRandomStage) {
+      // Animation logic for Random selection
+      let currentIdx = 0;
+      const animDuration = 2000; // 2 seconds total
+      const startInterval = 60; // Start fast
+      let currentInterval = startInterval;
 
-    const cycleStage = () => {
-      currentIdx = (currentIdx + 1) % stagesData.length;
-      const stage = stagesData[currentIdx];
-      this.stagePreview.setTexture(stage.texture);
-      this.stagePreview.setDisplaySize(boxW, boxH);
-      this.stageNameText.setText(stage.name.toUpperCase());
-      this.stageDescText.setText(stage.description);
+      const cycleStage = () => {
+        currentIdx = (currentIdx + 1) % stagesData.length;
+        const stage = stagesData[currentIdx];
+        this.stagePreview.setTexture(stage.texture);
+        this.stagePreview.setDisplaySize(boxW, boxH);
+        this.stageNameText.setText(stage.name.toUpperCase());
+        this.stageDescText.setText(stage.description);
 
-      // Decelerate: increase interval for the next call
-      currentInterval += 10;
-      this.cycleTimer.reset({
+        // Decelerate: increase interval for the next call
+        currentInterval += 10;
+        this.cycleTimer.reset({
+          delay: currentInterval,
+          callback: cycleStage,
+          loop: true,
+        });
+      };
+
+      // Run the fast cycling
+      this.cycleTimer = this.time.addEvent({
         delay: currentInterval,
         callback: cycleStage,
         loop: true,
       });
-    };
 
-    // Run the fast cycling
-    this.cycleTimer = this.time.addEvent({
-      delay: currentInterval,
-      callback: cycleStage,
-      loop: true,
-    });
+      // Slow down and settle on the final selected stage
+      this.settleTimer = this.time.delayedCall(animDuration - 400, () => {
+        if (this.cycleTimer) {
+          this.cycleTimer.remove();
+          this.cycleTimer = null;
+        }
+        // Final selection
+        const stage = selectedStage || stagesData[0];
+        this.stagePreview.setTexture(stage.texture);
+        this.stagePreview.setDisplaySize(boxW, boxH);
+        this.stageNameText.setText(stage.name.toUpperCase()).setColor('#ffcc00');
+        this.stageDescText.setText(stage.description);
 
-    // Slow down and settle on the final selected stage
-    this.settleTimer = this.time.delayedCall(animDuration - 400, () => {
-      if (this.cycleTimer) {
-        this.cycleTimer.remove();
-        this.cycleTimer = null;
-      }
-      // Final selection
-      const stage = selectedStage || stagesData[0];
-      this.stagePreview.setTexture(stage.texture);
-      this.stagePreview.setDisplaySize(boxW, boxH);
-      this.stageNameText.setText(stage.name.toUpperCase()).setColor('#ffcc00');
-      this.stageDescText.setText(stage.description);
-
-      // Flash effect on settle
+        // Flash effect on settle
+        this.tweens.add({
+          targets: this.stagePreview,
+          alpha: { from: 0.5, to: 1 },
+          duration: 200,
+        });
+      });
+    } else {
+      // If not random, just a subtle entrance for the stage box
+      this.stagePreview.setAlpha(0);
       this.tweens.add({
         targets: this.stagePreview,
-        alpha: { from: 0.5, to: 1 },
-        duration: 200,
+        alpha: 1,
+        duration: 500,
+        ease: 'Power2',
       });
-    });
+    }
 
     // P1 portrait (left side)
     if (this.textures.exists(`portrait_${this.p1Id}`)) {
