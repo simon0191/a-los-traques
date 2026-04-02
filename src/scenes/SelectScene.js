@@ -298,11 +298,11 @@ export class SelectScene extends Phaser.Scene {
         fontSize: '8px',
         color: '#888899',
       });
-      // P2 bars charge Right-to-Left (Edge to Center)
+      // P2 bars charge Left-to-Right (Normal)
       const barBg = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
       const bar = this.add
-        .rectangle(panelX + 90, sy + 4, 60, 6, 0xcc4444)
-        .setOrigin(1, 0.5)
+        .rectangle(panelX + 30, sy + 4, 60, 6, 0xcc4444)
+        .setOrigin(0, 0.5)
         .setScale(0, 1);
 
       this.p2StatBarBgs.push(barBg);
