@@ -171,6 +171,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0007-fix-desync-detection.md` — Fix desync detection between peers with different RTT
 - `docs/rfcs/0009-e2e-remote-browser-testing.md` — Remote browser E2E testing via BrowserStack
 - `docs/rfcs/0011-auto-upload-debug-bundles.md` — Auto-upload debug bundles to object storage
+- `docs/rfcs/0012-e2e-bot-user.md` — E2E bot user for debug bundle uploads (proposed)
 
 ## Online Multiplayer
 
