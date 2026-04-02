@@ -21,7 +21,8 @@ function buildKey(fightId, slot, round) {
   const safeFightId = validatePathComponent(fightId, 'fightId');
   const safeSlot = validatePathComponent(slot, 'slot');
   const safeRound = validatePathComponent(round, 'round');
-  return `${safeFightId}/p${safeSlot}_round${safeRound}.json`;
+  const playerNum = Number(safeSlot) + 1;
+  return `${safeFightId}/p${playerNum}_round${safeRound}.json`;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ const localBackend = {
           const match = f.match(/^p(\d+)_round(\d+)\.json$/);
           if (!match) return null;
           return {
-            slot: Number.parseInt(match[1], 10),
+            slot: Number.parseInt(match[1], 10) - 1,
             round: Number.parseInt(match[2], 10),
             key: `${safeFightId}/${f}`,
           };
@@ -147,7 +148,7 @@ const supabaseBackend = {
         const match = f.name.match(/^p(\d+)_round(\d+)\.json$/);
         if (!match) return null;
         return {
-          slot: Number.parseInt(match[1], 10),
+          slot: Number.parseInt(match[1], 10) - 1,
           round: Number.parseInt(match[2], 10),
           key: `${safeFightId}/${f.name}`,
         };
