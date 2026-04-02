@@ -16,7 +16,7 @@ import {
   SNAPSHOT_VERSION,
   tick,
 } from '../simulation/SimulationEngine.js';
-import { ONLINE_INPUT_DELAY } from './FixedPoint.js';
+import { ONLINE_INPUT_DELAY_FRAMES } from './FixedPoint.js';
 import { EMPTY_INPUT, encodeInput, inputsEqual, predictInput } from './InputBuffer.js';
 
 /** How many past inputs to include in each packet for redundancy */
@@ -28,6 +28,20 @@ const CHECKSUM_INTERVAL = 30;
 /** How often (in frames) to recalculate adaptive input delay */
 const ADAPTIVE_DELAY_INTERVAL = 180;
 
+/**
+ * Maximum possible maxRollbackFrames when adaptive delay is active (speed=1).
+ * inputDelay caps at 5 → max(7, 5*2+1) = 11.
+ */
+const MAX_ADAPTIVE_ROLLBACK_FRAMES = 11;
+
+/**
+ * How many frames of input/snapshot history to retain for deep rollback.
+ * Confirmed remote inputs can arrive well beyond maxRollbackFrames when
+ * asymmetric RTT causes one peer to run ahead. Retaining a wider window
+ * prevents silent misprediction loss. See RFC 0008.
+ */
+const HISTORY_RETENTION_FRAMES = 120;
+
 export class RollbackManager {
   /**
    * @param {import('./net/NetworkFacade.js').NetworkFacade} networkManager
@@ -37,7 +51,7 @@ export class RollbackManager {
   constructor(
     networkManager,
     localSlot,
-    { inputDelay = ONLINE_INPUT_DELAY, maxRollbackFrames = 7 } = {},
+    { inputDelay = ONLINE_INPUT_DELAY_FRAMES, maxRollbackFrames = 7 } = {},
   ) {
     this.nm = networkManager;
     this.localSlot = localSlot;
@@ -62,7 +76,11 @@ export class RollbackManager {
     this.rollbackCount = 0;
     this.maxRollbackDepth = 0;
 
-    // Desync detection
+    // Desync detection — checksum offset computed at construction so both peers
+    // agree on the same value (before adaptive delay diverges maxRollbackFrames).
+    // Must be beyond the max possible rollback window: max of the initial value
+    // (which accounts for speed multiplier) and the adaptive cap (11). See RFC 0007.
+    this._checksumSafeOffset = Math.max(maxRollbackFrames, MAX_ADAPTIVE_ROLLBACK_FRAMES) + 2;
     this._localChecksums = new Map(); // frame → hash
     this.desyncCount = 0;
     this._onDesync = null;
@@ -77,6 +95,7 @@ export class RollbackManager {
     this._resyncPending = false;
     this._lastResyncFrame = -1;
     this._resyncCooldown = 60; // min frames between resync attempts
+    this._consecutiveDesyncCount = 0;
   }
 
   /**
@@ -121,11 +140,17 @@ export class RollbackManager {
       }
     }
 
-    // 4. Detect mispredictions and rollback if needed
+    // 4. Detect mispredictions and rollback if needed.
+    // Compare confirmed input against the remoteInput stored in the snapshot,
+    // not the predictedRemoteInputs map (which may be pruned). See RFC 0008.
     let rollbackFrame = -1;
     for (const [frame, confirmedInput] of confirmedEncoded) {
-      const predicted = this.predictedRemoteInputs.get(frame);
-      if (predicted !== undefined && !inputsEqual(predicted, confirmedInput)) {
+      const snap = this.stateSnapshots.get(frame);
+      if (
+        snap &&
+        snap.remoteInput !== undefined &&
+        !inputsEqual(snap.remoteInput, confirmedInput)
+      ) {
         if (rollbackFrame === -1 || frame < rollbackFrame) {
           rollbackFrame = frame;
         }
@@ -164,6 +189,9 @@ export class RollbackManager {
         for (let f = actualRollbackFrame; f < this.currentFrame; f++) {
           const p1Input = this._getInputForFrame(f, true);
           const p2Input = this._getInputForFrame(f, false);
+          // Update pre-tick snapshot with the (now corrected) remote input
+          const snapAtF = this.stateSnapshots.get(f);
+          if (snapAtF) snapAtF.remoteInput = this.localSlot === 0 ? p2Input : p1Input;
           // tick() mutates sim objects and returns immutable snapshot
           const { state } = tick(p1Sim, p2Sim, combatSim, p1Input, p2Input, f);
           state.confirmed = this._isFrameConfirmed(f);
@@ -178,9 +206,14 @@ export class RollbackManager {
       this.predictedRemoteInputs.set(this.currentFrame, predicted);
     }
 
-    // 7. Save snapshot for currentFrame (before simulating)
+    // 7. Save snapshot for currentFrame (before simulating).
+    // Store which remote input will be used (confirmed or predicted) so the
+    // misprediction check in step 4 can compare against it later. See RFC 0008.
     const preTickSnap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
     preTickSnap.confirmed = this._isFrameConfirmed(this.currentFrame);
+    preTickSnap.remoteInput = this.remoteInputHistory.has(this.currentFrame)
+      ? this.remoteInputHistory.get(this.currentFrame)
+      : this.predictedRemoteInputs.get(this.currentFrame);
     this.stateSnapshots.set(this.currentFrame, preTickSnap);
 
     // 8. Simulate currentFrame via tick()
@@ -208,7 +241,7 @@ export class RollbackManager {
 
     // 13. Periodic checksum exchange for desync detection
     if (this.currentFrame > 0 && this.currentFrame % CHECKSUM_INTERVAL === 0) {
-      const checksumFrame = this.currentFrame - this.maxRollbackFrames - 1;
+      const checksumFrame = this.currentFrame - this._checksumSafeOffset;
       const snapshot = this.stateSnapshots.get(checksumFrame);
       if (snapshot && checksumFrame >= 0) {
         const hash = hashGameState(snapshot);
@@ -239,14 +272,20 @@ export class RollbackManager {
     if (localHash === undefined) return;
     if (localHash !== remoteHash) {
       this.desyncCount++;
+      this._consecutiveDesyncCount++;
       if (this._onDesync) {
         this._onDesync(frame, localHash, remoteHash);
       }
+    } else {
+      this._consecutiveDesyncCount = 0;
     }
   }
 
   /**
-   * Apply an authoritative state snapshot from P1 to resync after desync.
+   * Apply an authoritative state snapshot to resync after desync.
+   * Treats resync as a deep rollback: restores snapshot state and resimulates
+   * forward to currentFrame, keeping the frame counter in sync between peers.
+   * See RFC 0010.
    */
   applyResync(snapshot, p1, p2, combat) {
     if (snapshot.version !== undefined && snapshot.version !== SNAPSHOT_VERSION) {
@@ -260,48 +299,69 @@ export class RollbackManager {
     const p2Sim = p2.sim || p2;
     const combatSim = combat.sim || combat;
 
+    const resyncFrame = snapshot.frame;
+    const oldFrame = this.currentFrame;
+
+    // If the gap exceeds our retention window, we can't resimulate — fall back to rewind
+    if (oldFrame - resyncFrame > HISTORY_RETENTION_FRAMES) {
+      restoreFighterState(p1Sim, snapshot.p1);
+      restoreFighterState(p2Sim, snapshot.p2);
+      restoreCombatState(combatSim, snapshot.combat);
+      this.currentFrame = resyncFrame;
+      this.stateSnapshots.clear();
+      this.localInputHistory.clear();
+      this.remoteInputHistory.clear();
+      this.predictedRemoteInputs.clear();
+      this._localChecksums.clear();
+      const fallbackSnap = captureGameState(resyncFrame, p1Sim, p2Sim, combatSim);
+      fallbackSnap.confirmed = true;
+      this.stateSnapshots.set(resyncFrame, fallbackSnap);
+      this.lastConfirmedRemoteInput = EMPTY_INPUT;
+      this.lastConfirmedRemoteFrame = resyncFrame - 1;
+      this._resyncPending = false;
+      this._lastResyncFrame = resyncFrame;
+      this._consecutiveDesyncCount = 0;
+      return;
+    }
+
+    // 1. Restore state at resync frame
     restoreFighterState(p1Sim, snapshot.p1);
     restoreFighterState(p2Sim, snapshot.p2);
     restoreCombatState(combatSim, snapshot.combat);
-    this.currentFrame = snapshot.frame;
 
-    this.stateSnapshots.clear();
-    this.localInputHistory.clear();
-    this.remoteInputHistory.clear();
-    this.predictedRemoteInputs.clear();
-    this._localChecksums.clear();
+    // 2. Store authoritative snapshot at resync frame
+    const resyncSnap = captureGameState(resyncFrame, p1Sim, p2Sim, combatSim);
+    resyncSnap.confirmed = true;
+    this.stateSnapshots.set(resyncFrame, resyncSnap);
 
-    const resyncSnap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
-    resyncSnap.confirmed = true; // authoritative snapshot
-    this.stateSnapshots.set(this.currentFrame, resyncSnap);
+    // 3. Resimulate forward from resyncFrame to oldFrame (like a deep rollback)
+    for (let f = resyncFrame; f < oldFrame; f++) {
+      const p1Input = this._getInputForFrame(f, true);
+      const p2Input = this._getInputForFrame(f, false);
+      const { state } = tick(p1Sim, p2Sim, combatSim, p1Input, p2Input, f);
+      state.confirmed = this._isFrameConfirmed(f);
+      state.remoteInput = this.localSlot === 0 ? p2Input : p1Input;
+      this.stateSnapshots.set(f + 1, state);
+    }
 
-    this.lastConfirmedRemoteInput = EMPTY_INPUT;
-    this.lastConfirmedRemoteFrame = this.currentFrame - 1;
+    // 4. currentFrame stays at oldFrame — no rewind, no frame gap (RFC 0010)
 
     this._resyncPending = false;
     this._lastResyncFrame = this.currentFrame;
+    this._consecutiveDesyncCount = 0;
   }
 
   /**
-   * Capture the latest available snapshot for resync.
+   * Capture the current simulation state for resync.
+   * Returns a fresh snapshot at currentFrame rather than searching for an older
+   * confirmed snapshot — a recent snapshot minimizes the resimulation window
+   * on the receiving peer. See RFC 0010.
    */
   captureResyncSnapshot(p1, p2, combat) {
-    // Prefer latest confirmed snapshot for authoritative resync
-    const frames = [...this.stateSnapshots.keys()].sort((a, b) => b - a);
-    for (const frame of frames) {
-      const snap = this.stateSnapshots.get(frame);
-      if (snap.confirmed) return snap;
-    }
-    // Fallback: return latest snapshot even if predicted
-    const latestFrame = this.currentFrame - 1;
-    const existing = this.stateSnapshots.get(latestFrame);
-    if (existing) return existing;
     const p1Sim = p1.sim || p1;
     const p2Sim = p2.sim || p2;
     const combatSim = combat.sim || combat;
-    const snap = captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
-    snap.confirmed = false;
-    return snap;
+    return captureGameState(this.currentFrame, p1Sim, p2Sim, combatSim);
   }
 
   /**
@@ -316,6 +376,16 @@ export class RollbackManager {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Whether P1 should request resync from P2 instead of sending its own state.
+   * Returns true when consecutive desyncs exceed the threshold, indicating
+   * that P1's authoritative state may itself be the source of divergence.
+   * See RFC 0008 Phase 3.
+   */
+  shouldReverseResync() {
+    return this._consecutiveDesyncCount >= 2;
   }
 
   /**
@@ -369,9 +439,14 @@ export class RollbackManager {
   }
 
   _recalculateInputDelay() {
-    const rtt = this.nm.rtt || 0;
-    const oneWayFrames = Math.ceil(rtt / 2 / 16.667);
-    const optimal = Math.max(1, Math.min(5, oneWayFrames + 1));
+    const rtt = this.nm.rtt;
+    if (!rtt) return; // No RTT data yet — don't adjust
+    // RTT is measured to the server. In relay mode (the common case), the actual
+    // input path is sender→server→receiver, so one-way relay latency ≈ full RTT.
+    // This overestimates for P2P (where inputs bypass the server), but the floor
+    // at ONLINE_INPUT_DELAY_FRAMES prevents the delay from going too low.
+    const oneWayFrames = Math.ceil(rtt / 16.667);
+    const optimal = Math.max(ONLINE_INPUT_DELAY_FRAMES, Math.min(5, oneWayFrames + 1));
     if (optimal > this.inputDelay) {
       this.inputDelay = Math.min(this.inputDelay + 1, optimal);
     } else {
@@ -381,19 +456,29 @@ export class RollbackManager {
   }
 
   _pruneOldData() {
-    const minFrame = this.currentFrame - this.maxRollbackFrames - 2;
+    const minFrame = this.currentFrame - HISTORY_RETENTION_FRAMES;
     if (minFrame < 0) return;
 
     for (const map of [
       this.localInputHistory,
       this.remoteInputHistory,
       this.predictedRemoteInputs,
-      this._localChecksums,
+      this.stateSnapshots,
     ]) {
       for (const key of map.keys()) {
         if (key < minFrame) {
           map.delete(key);
         }
+      }
+    }
+
+    // Checksums need a wider retention window: they're computed at CHECKSUM_SAFE_OFFSET
+    // behind currentFrame and must survive until the remote peer's checksum arrives
+    // (up to one full CHECKSUM_INTERVAL later via network).
+    const checksumMinFrame = this.currentFrame - this._checksumSafeOffset - CHECKSUM_INTERVAL;
+    for (const key of this._localChecksums.keys()) {
+      if (key < checksumMinFrame) {
+        this._localChecksums.delete(key);
       }
     }
   }

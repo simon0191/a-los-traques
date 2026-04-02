@@ -8,6 +8,11 @@ assets/photos/
 test-results/
 .claude/worktrees
 .vercel
-.env
 
+# Local PGLite database
+.pglite/
+
+# Environment variables
+.env
+.env.local
 .vs/

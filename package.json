@@ -3,6 +3,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:db": "node scripts/dev-db.js",
+    "dev:all": "concurrently \"node scripts/dev-db.js\" \"vite\" \"vercel dev --yes\"",
     "build": "vite build",
     "preview": "vite preview",
     "party:dev": "bunx partykit dev",
@@ -11,20 +13,27 @@
     "test:run": "vitest run",
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.js",
     "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.js --headed",
+    "test:e2e:remote": "npx playwright test --config tests/e2e/remote/remote-playwright.config.js",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write ."
   },
   "dependencies": {
     "@google/genai": "^1.45.0",
+    "@supabase/supabase-js": "^2.101.1",
+    "jose": "^6.2.2",
     "partykit": "^0.0.115",
     "partysocket": "^1.1.16",
+    "pg": "^8.20.0",
     "phaser": "^3.90.0",
     "vite": "^8.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
+    "@electric-sql/pglite": "^0.4.2",
+    "@electric-sql/pglite-socket": "^0.1.2",
     "@playwright/test": "^1.58.2",
+    "concurrently": "^9.2.1",
     "vitest": "^4.1.0"
   }
 }

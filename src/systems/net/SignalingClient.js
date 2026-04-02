@@ -1,4 +1,7 @@
 import PartySocket from 'partysocket';
+import { Logger } from '../Logger.js';
+
+const log = Logger.create('SignalingClient');
 
 /** Message types that support callback buffering (B5) — handler may not be registered yet when message arrives */
 const BUFFERABLE_TYPES = new Set([
@@ -29,6 +32,12 @@ export class SignalingClient {
     this.connected = false;
     this.isSpectator = false;
 
+    /** Session ID for client-server log correlation */
+    this.sessionId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID().slice(0, 8)
+        : Math.random().toString(36).slice(2, 10);
+
     /** @type {Map<string, Function>} message type → handler */
     this._handlers = new Map();
 
@@ -58,8 +67,9 @@ export class SignalingClient {
       startClosed: false,
     };
 
+    socketOptions.query = { sessionId: this.sessionId };
     if (spectator) {
-      socketOptions.query = { spectate: '1' };
+      socketOptions.query.spectate = '1';
     }
 
     this.socket = new PartySocket(socketOptions);
@@ -69,15 +79,18 @@ export class SignalingClient {
       try {
         this._handleMessage(JSON.parse(event.data));
       } catch (_e) {
-        // Silently ignore malformed messages
+        log.warn('JSON parse error on message');
       }
     };
 
     this._boundOnOpen = () => {
       this.connected = true;
+      log.info('Socket open', { roomId, sessionId: this.sessionId });
       // B4: Flush pending messages on reconnect
       if (this._pendingMessages.length > 0) {
+        const count = this._pendingMessages.length;
         const pending = this._pendingMessages.splice(0);
+        log.debug('Pending queue flush (B4)', { count });
         for (const msg of pending) {
           this.send(msg);
         }
@@ -87,10 +100,12 @@ export class SignalingClient {
 
     this._boundOnClose = () => {
       this.connected = false;
+      log.info('Socket close', { roomId, sessionId: this.sessionId });
       if (this._onSocketClose) this._onSocketClose();
     };
 
     this._boundOnError = () => {
+      log.warn('Socket error', { roomId });
       if (this._onSocketError) this._onSocketError();
     };
 
@@ -109,11 +124,13 @@ export class SignalingClient {
    */
   on(type, cb) {
     this._handlers.set(type, cb);
+    log.debug('Handler registered', { type });
 
     // B5: Flush any buffered messages for this type
     const pending = this._pendingCallbackMessages.get(type);
     if (cb && pending && pending.length > 0) {
       const messages = pending.splice(0);
+      log.debug('Callback buffer flush (B5)', { type, count: messages.length });
       for (const msg of messages) {
         cb(msg);
       }
@@ -205,9 +222,11 @@ export class SignalingClient {
 
     const handler = this._handlers.get(msg.type);
     if (handler) {
+      log.trace('Message dispatch', { type: msg.type, hasHandler: true });
       handler(msg);
       return;
     }
+    log.trace('Message dispatch', { type: msg.type, hasHandler: false });
 
     // B5: Buffer messages for types that support it when no handler registered
     if (BUFFERABLE_TYPES.has(msg.type)) {

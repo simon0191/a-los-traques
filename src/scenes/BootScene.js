@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { FIGHTER_COLORS, FIGHTER_HEIGHT, FIGHTER_WIDTH } from '../config.js';
 import stages from '../data/stages.json';
+import { authEnabled } from '../services/supabase.js';
 
 // Auto-discover fight music MP3s at build time via Vite glob
 const fightMusicFiles = Object.keys(import.meta.glob('/public/assets/audio/fights/*.mp3')).map(
@@ -142,9 +143,19 @@ export class BootScene extends Phaser.Scene {
     this.generateRect('hp_bar_fill_p2', 150, 12, 0x00cc44);
     this.generateRect('special_bar_bg', 100, 8, 0x333333);
     this.generateRect('special_bar_fill', 100, 8, 0xffcc00);
+    this.generateRect('white_pixel', 2, 2, 0xffffff);
+
+    // Parse debug mode URL param
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('debug') === '1') {
+      this.game.debugMode = true;
+      // Import Logger dynamically to avoid circular deps in BootScene
+      import('../systems/Logger.js').then(({ Logger, LogLevel }) => {
+        Logger.setGlobalLevel(LogLevel.DEBUG);
+      });
+    }
 
     // If URL has ?room=, go directly to lobby as joiner or spectator
-    const params = new URLSearchParams(window.location.search);
     const roomId = params.get('room');
     // Replay mode: load bundle from window global or sessionStorage
     if (this.game.autoplay?.replay) {
@@ -169,8 +180,11 @@ export class BootScene extends Phaser.Scene {
     } else if (this.game.autoplay?.enabled && this.game.autoplay.createRoom) {
       // Autoplay mode: create a new room automatically
       this.scene.start('LobbyScene', {});
-    } else {
+    } else if (!authEnabled || this.game.autoplay?.enabled) {
+      // Bypass login if Supabase not configured or in E2E/autoplay mode
       this.scene.start('TitleScene');
+    } else {
+      this.scene.start('LoginScene');
     }
   }
 

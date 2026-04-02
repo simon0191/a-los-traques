@@ -1,8 +1,11 @@
+import { Logger } from '../Logger.js';
 import { ConnectionMonitor } from './ConnectionMonitor.js';
 import { InputSync } from './InputSync.js';
 import { SignalingClient } from './SignalingClient.js';
 import { SpectatorRelay } from './SpectatorRelay.js';
 import { TransportManager } from './TransportManager.js';
+
+const log = Logger.create('NetworkFacade');
 
 /**
  * Composes all networking modules and exposes the same public API
@@ -40,16 +43,12 @@ export class NetworkFacade {
     // Spectator messaging
     this.spectator = new SpectatorRelay(this.signaling);
 
-    // Wire socket lifecycle → monitor
-    this.signaling.onSocketOpen(() => {
-      this.monitor.start();
-    });
-
     // Store host for TURN credential fetching
     this._host = host;
 
     // Wire opponent_joined → fetch TURN credentials, then init WebRTC
     this.signaling.on('opponent_joined', (msg) => {
+      log.debug('Opponent joined', { slot: this.signaling.playerSlot });
       if (!this.signaling.isSpectator) {
         this._fetchTurnThenInitWebRTC();
       }
@@ -58,6 +57,7 @@ export class NetworkFacade {
 
     // Wire opponent_reconnected → re-init WebRTC (credentials already cached)
     this.signaling.on('opponent_reconnected', (msg) => {
+      log.debug('Opponent reconnected', { slot: this.signaling.playerSlot });
       if (!this.signaling.isSpectator) {
         this.transport.initWebRTC(this.signaling.playerSlot);
       }
@@ -124,6 +124,7 @@ export class NetworkFacade {
       if (this._onSocketClose) this._onSocketClose();
     });
     this.signaling.onSocketOpen(() => {
+      this.monitor.start();
       if (this._onSocketOpen) this._onSocketOpen();
     });
     this.signaling.onSocketError(() => {
@@ -133,6 +134,9 @@ export class NetworkFacade {
 
   // --- Proxy properties ---
 
+  get sessionId() {
+    return this.signaling.sessionId;
+  }
   get playerSlot() {
     return this.signaling.playerSlot;
   }
@@ -269,6 +273,12 @@ export class NetworkFacade {
   onTransportRestored(cb) {
     this.transport.onTransportRestored(cb);
   }
+  onDebugRequest(cb) {
+    this.signaling.on('debug_request', cb);
+  }
+  onDebugResponse(cb) {
+    this.signaling.on('debug_response', cb);
+  }
 
   // --- Public API: send messages ---
 
@@ -310,6 +320,12 @@ export class NetworkFacade {
   }
   sendPotion(target, potionType) {
     this.spectator.sendPotion(target, potionType);
+  }
+  sendDebugRequest() {
+    this.signaling.send({ type: 'debug_request' });
+  }
+  sendDebugResponse(bundle) {
+    this.signaling.send({ type: 'debug_response', bundle });
   }
   sendRejoin(slot, reset = false) {
     const msg = { type: 'rejoin', slot };
@@ -385,9 +401,14 @@ export class NetworkFacade {
   async _fetchTurnThenInitWebRTC() {
     try {
       await this.transport.fetchTurnCredentials(this._host, this.roomId);
+      log.info('TURN fetch complete', { iceServers: this.transport._iceServers?.length ?? 0 });
     } catch (_) {
-      // Non-fatal: proceed with STUN-only
+      log.warn('TURN fetch failed, proceeding with STUN-only');
     }
+    log.debug('WebRTC init trigger', {
+      slot: this.signaling.playerSlot,
+      offerer: this.signaling.playerSlot === 0,
+    });
     this.transport.initWebRTC(this.signaling.playerSlot);
   }
 

@@ -71,6 +71,23 @@ export default class FightRoom {
     this._potionCooldowns = new Map();
     /** @type {(ReturnType<typeof setTimeout>|null)[]} grace period timers per slot */
     this._graceTimers = [null, null];
+    /** @type {Map<string, string>} connectionId -> sessionId for log correlation */
+    this._sessionIds = new Map();
+    /** @type {Array<object>} Ring buffer of last 50 server events */
+    this._eventLog = [];
+    this._eventLogMax = 50;
+  }
+
+  /**
+   * Structured log: writes JSON to console (for wrangler tail) and ring buffer.
+   */
+  _log(entry) {
+    const full = { ts: Date.now(), roomId: this.party.id, ...entry };
+    console.log(JSON.stringify(full));
+    this._eventLog.push(full);
+    if (this._eventLog.length > this._eventLogMax) {
+      this._eventLog.shift();
+    }
   }
 
   /**
@@ -79,7 +96,9 @@ export default class FightRoom {
   _transition(event) {
     const transitions = ROOM_TRANSITIONS[this.roomState];
     if (!transitions || !transitions[event]) return false;
+    const from = this.roomState;
     this.roomState = transitions[event];
+    this._log({ type: 'state_transition', from, to: this.roomState, event });
     return true;
   }
 
@@ -105,6 +124,22 @@ export default class FightRoom {
       }
       return response;
     }
+
+    if (url.pathname.endsWith('/diagnostics') && request.method === 'GET') {
+      const diagToken = this.party.env?.DIAG_TOKEN;
+      if (diagToken) {
+        const auth = request.headers.get('Authorization');
+        if (auth !== `Bearer ${diagToken}`) {
+          return new Response('Unauthorized', { status: 401, headers: corsHeaders });
+        }
+      }
+      const response = Response.json(this._getDiagnostics());
+      for (const [key, value] of Object.entries(corsHeaders)) {
+        response.headers.set(key, value);
+      }
+      return response;
+    }
+
     return new Response('Not Found', { status: 404, headers: corsHeaders });
   }
 
@@ -135,7 +170,7 @@ export default class FightRoom {
       );
 
       if (!response.ok) {
-        console.log(`TURN credential API error: ${response.status}`);
+        this._log({ type: 'turn_error', reason: 'api_error', status: response.status });
         return Response.json(
           {
             iceServers: [
@@ -151,7 +186,7 @@ export default class FightRoom {
       const iceServers = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];
       return Response.json({ iceServers });
     } catch (err) {
-      console.log('TURN credential fetch error:', err.message);
+      this._log({ type: 'turn_error', reason: 'fetch_error', error: err.message });
       return Response.json(
         {
           iceServers: [
@@ -167,6 +202,10 @@ export default class FightRoom {
   onConnect(connection, ctx) {
     const url = new URL(ctx.request.url);
     const isSpectator = url.searchParams.get('spectate') === '1';
+    const sessionId = url.searchParams.get('sessionId') || null;
+    if (sessionId) {
+      this._sessionIds.set(connection.id, sessionId);
+    }
 
     if (isSpectator) {
       this.spectators.add(connection.id);
@@ -206,6 +245,7 @@ export default class FightRoom {
     }
 
     this.players[slot] = { id: connection.id, fighterId: null, ready: false };
+    this._log({ type: 'connect', slot, sessionId, roomState: this.roomState });
     connection.send(JSON.stringify({ type: 'assign', player: slot }));
 
     if (this.spectators.size > 0) {
@@ -257,10 +297,7 @@ export default class FightRoom {
         break;
       case 'checksum':
       case 'resync_request':
-        this._sendToOther(slot, data);
-        break;
       case 'resync':
-        if (slot !== 0) break;
         this._sendToOther(slot, data);
         break;
       case 'webrtc_offer':
@@ -285,6 +322,10 @@ export default class FightRoom {
         break;
       case 'select_stage':
         this._handleStageSelect(slot, data);
+        break;
+      case 'debug_request':
+      case 'debug_response':
+        this._sendToOther(slot, data);
         break;
       case 'leave':
         this._handleLeave(slot);
@@ -357,6 +398,15 @@ export default class FightRoom {
     const rejoinSlot = data.slot;
     if (rejoinSlot !== 0 && rejoinSlot !== 1) return;
 
+    const sessionId = this._sessionIds.get(connection.id) || null;
+    this._log({
+      type: 'rejoin',
+      slot: rejoinSlot,
+      sessionId,
+      graceActive: !!this._graceTimers[rejoinSlot],
+      reset: !!data.reset,
+    });
+
     if (!this._graceTimers[rejoinSlot]) {
       // No grace period active — connection restored before server saw disconnect.
       // Update connection ID so stale onClose won't match this slot.
@@ -411,7 +461,15 @@ export default class FightRoom {
       case 'shout': {
         const now = Date.now();
         const last = this._shoutCooldowns.get(connection.id) || 0;
-        if (now - last < 2000) return;
+        if (now - last < 2000) {
+          this._log({
+            type: 'rate_limit',
+            msgType: 'shout',
+            connId: connection.id,
+            cooldownRemaining: 2000 - (now - last),
+          });
+          return;
+        }
         this._shoutCooldowns.set(connection.id, now);
         this._broadcast({ type: 'shout', text: String(data.text).slice(0, 20) });
         break;
@@ -419,7 +477,15 @@ export default class FightRoom {
       case 'potion': {
         const now = Date.now();
         const last = this._potionCooldowns.get(connection.id) || 0;
-        if (now - last < 15000) return;
+        if (now - last < 15000) {
+          this._log({
+            type: 'rate_limit',
+            msgType: 'potion',
+            connId: connection.id,
+            cooldownRemaining: 15000 - (now - last),
+          });
+          return;
+        }
         this._potionCooldowns.set(connection.id, now);
         const target = data.target === 0 ? 0 : 1;
         const potionType = data.potionType === 'special' ? 'special' : 'hp';
@@ -442,6 +508,10 @@ export default class FightRoom {
     const slot = this._slotOf(connection.id);
     if (slot === -1) return;
 
+    const sessionId = this._sessionIds.get(connection.id) || null;
+    this._log({ type: 'disconnect', slot, sessionId, roomState: this.roomState });
+    this._sessionIds.delete(connection.id);
+
     this._stateBeforeGrace = this.roomState;
     this._transition('ws_close');
     this._sendToOther(slot, { type: 'opponent_reconnecting' });
@@ -454,6 +524,7 @@ export default class FightRoom {
   }
 
   _finalizeDisconnect(slot) {
+    this._log({ type: 'grace_expired', slot, stateBeforeGrace: this._stateBeforeGrace });
     const wasFighting = this._stateBeforeGrace === RoomState.FIGHTING;
     this.players[slot] = null;
 
@@ -539,5 +610,26 @@ export default class FightRoom {
     for (const conn of this.party.getConnections()) {
       conn.send(json);
     }
+  }
+
+  _getDiagnostics() {
+    return {
+      roomId: this.party.id,
+      roomState: this.roomState,
+      players: this.players.map((p, i) => {
+        if (!p) return null;
+        return {
+          slot: i,
+          ready: p.ready,
+          fighterId: p.fighterId,
+          sessionId: this._sessionIds.get(p.id) || null,
+        };
+      }),
+      spectatorCount: this.spectators.size,
+      graceTimers: [!!this._graceTimers[0], !!this._graceTimers[1]],
+      fightInfo: this.fightInfo,
+      stateBeforeGrace: this._stateBeforeGrace,
+      eventLog: this._eventLog.slice(),
+    };
   }
 }

@@ -1,4 +1,7 @@
+import { Logger } from '../Logger.js';
 import { WebRTCTransport } from '../WebRTCTransport.js';
+
+const log = Logger.create('TransportManager');
 
 const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -51,14 +54,18 @@ export class TransportManager {
    */
   initWebRTC(playerSlot) {
     if (typeof RTCPeerConnection === 'undefined') {
-      console.log('[TM] WebRTC unavailable (no RTCPeerConnection)');
+      log.warn('WebRTC unavailable (no RTCPeerConnection)');
       return;
     }
 
     this.destroyWebRTC();
 
     const isOfferer = playerSlot === 0;
-    console.log(`[TM] initWebRTC slot=${playerSlot} offerer=${isOfferer}`);
+    log.info('WebRTC init', {
+      slot: playerSlot,
+      offerer: isOfferer,
+      iceServers: (this._iceServers || DEFAULT_ICE_SERVERS).length,
+    });
 
     const iceServers = this._iceServers || DEFAULT_ICE_SERVERS;
 
@@ -77,8 +84,10 @@ export class TransportManager {
       onOpen: () => {
         this._transportMode = 'webrtc';
         this._webrtcReady = true;
+        log.debug('DataChannel open');
         if (this._transportDegraded) {
           this._transportDegraded = false;
+          log.debug('Transport restored', { from: 'websocket', to: 'webrtc' });
           if (this._onTransportRestored) this._onTransportRestored();
         }
       },
@@ -86,8 +95,10 @@ export class TransportManager {
         const wasOpen = this._webrtcReady;
         this._transportMode = 'websocket';
         this._webrtcReady = false;
+        log.debug('DataChannel closed', { wasOpen });
         if (wasOpen) {
           this._transportDegraded = true;
+          log.debug('Transport degraded', { from: 'webrtc', to: 'websocket' });
           if (this._onTransportDegraded) this._onTransportDegraded();
         }
       },
@@ -130,17 +141,17 @@ export class TransportManager {
 
       const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
       if (!response.ok) {
-        console.log(`[TM] TURN credential fetch failed: ${response.status}`);
+        log.warn('TURN credential fetch failed', { status: response.status });
         return;
       }
 
       const data = await response.json();
       if (data.iceServers) {
         this._iceServers = data.iceServers;
-        console.log(`[TM] TURN credentials fetched (${data.iceServers.length} servers)`);
+        log.info('TURN credentials fetched', { count: data.iceServers.length });
       }
     } catch (err) {
-      console.log('[TM] TURN credential fetch error:', err.message);
+      log.warn('TURN credential fetch error', { err: err.message });
       // Non-fatal: fall back to STUN-only
     }
   }

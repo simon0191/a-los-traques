@@ -21,11 +21,13 @@ import {
   FP_SCALE,
   MAX_SPECIAL_FP,
   MAX_STAMINA_FP,
-  ONLINE_INPUT_DELAY,
+  ONLINE_INPUT_DELAY_FRAMES,
 } from '../systems/FixedPoint.js';
 import { encodeInput } from '../systems/InputBuffer.js';
 import { InputManager } from '../systems/InputManager.js';
+import { Logger, LogLevel } from '../systems/Logger.js';
 import { MatchEvent, MatchState, MatchStateMachine } from '../systems/MatchStateMachine.js';
+import { MatchTelemetry } from '../systems/MatchTelemetry.js';
 import { ReconnectionManager } from '../systems/ReconnectionManager.js';
 import { ReplayInputSource } from '../systems/ReplayInputSource.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
@@ -36,6 +38,8 @@ import { VFXBridge } from '../systems/VFXBridge.js';
 // ---------------------------------------------------------------------------
 // HUD layout constants
 // ---------------------------------------------------------------------------
+const log = Logger.create('FightScene');
+
 const BAR_W = 160;
 const BAR_H = 10;
 const BAR_Y = 12;
@@ -138,8 +142,10 @@ export class FightScene extends Phaser.Scene {
       this.frameCounter = 0;
       this._setupSpectatorMode();
     } else {
+      const slot =
+        this.gameMode === 'online' && this.networkManager ? this.networkManager.getPlayerSlot() : 0;
       this.inputManager = new InputManager(this);
-      this.touchControls = new TouchControls(this, this.inputManager);
+      this.touchControls = new TouchControls(this, this.inputManager, slot);
 
       // -- AI controller (local mode only) --
       if (this.gameMode !== 'online') {
@@ -226,6 +232,117 @@ export class FightScene extends Phaser.Scene {
       this._startFrameZeroSync();
     } else {
       this._showRoundIntro();
+    }
+
+    // Triple-tap gesture to activate debug mode (top-right 60x40 region)
+    if (this.gameMode === 'online' && !this.game.debugMode) {
+      this._tripleTapTimes = [];
+      this.input.on('pointerdown', (pointer) => {
+        if (pointer.x > GAME_WIDTH - 60 && pointer.y < 40) {
+          const now = Date.now();
+          this._tripleTapTimes.push(now);
+          // Keep only taps within the last 1 second
+          this._tripleTapTimes = this._tripleTapTimes.filter((t) => now - t < 1000);
+          if (this._tripleTapTimes.length >= 3) {
+            this._tripleTapTimes = [];
+            this._activateDebugMode();
+          }
+        }
+      });
+    }
+  }
+
+  _activateDebugMode() {
+    if (this.game.debugMode) return;
+    this.game.debugMode = true;
+    Logger.setGlobalLevel(LogLevel.DEBUG);
+    log.info('Debug mode activated via triple-tap');
+
+    // Activate FightRecorder if not already running
+    if (!this.recorder && this.networkManager) {
+      const nm = this.networkManager;
+      const slot = nm.getPlayerSlot();
+      this.recorder = new FightRecorder({
+        roomId: nm.roomId,
+        playerSlot: slot,
+        fighterId: slot === 0 ? this.p1Id : this.p2Id,
+        opponentId: slot === 0 ? this.p2Id : this.p1Id,
+        stageId: this.stageId,
+        config: {},
+      });
+      // Wire recorder to rollback manager
+      const origRollback = this.rollbackManager._onRollback;
+      this.rollbackManager._onRollback = (frame, depth) => {
+        this.recorder.recordRollback(frame, depth);
+        if (origRollback) origRollback(frame, depth);
+      };
+      this.rollbackManager._onLocalChecksum = (frame, hash) =>
+        this.recorder.recordChecksum(frame, hash);
+      this.rollbackManager._onConfirmedInputs = (frame, p1, p2) =>
+        this.recorder.recordConfirmedInputs(frame, p1, p2);
+    }
+
+    // Create debug overlay
+    import('../systems/DebugOverlay.js').then(({ DebugOverlay }) => {
+      const nm = this.networkManager;
+      this.debugOverlay = new DebugOverlay(this, {
+        getTelemetry: () => this.telemetry,
+        getConnectionMonitor: () => nm.monitor,
+        getTransportManager: () => nm.transport,
+        getInputSync: () => nm.inputSync,
+        getMatchState: () => this.matchState,
+        onExportDebug: () => this._exportDebugBundle(),
+        onExportAll: () => this._exportAllBundles(),
+      });
+    });
+  }
+
+  async _exportDebugBundle() {
+    const { DebugBundleExporter } = await import('../systems/DebugBundleExporter.js');
+    const bundle = DebugBundleExporter.generateBundle({
+      recorder: this.recorder,
+      telemetry: this.telemetry,
+      matchState: this.matchState,
+      sessionId: this.networkManager?.sessionId,
+      debugMode: !!this.game.debugMode,
+    });
+    const copied = await DebugBundleExporter.copyToClipboard(bundle);
+    if (this.debugOverlay) {
+      this.debugOverlay.showToast(copied ? 'Copiado!' : 'Descargado!');
+    }
+  }
+
+  async _exportAllBundles() {
+    if (this.debugOverlay) this.debugOverlay.showToast('Recopilando...');
+    const { DebugBundleExporter } = await import('../systems/DebugBundleExporter.js');
+
+    // Auto-respond to debug requests from the other peer
+    const nm = this.networkManager;
+    nm.onDebugRequest(() => {
+      const localBundle = DebugBundleExporter.generateBundle({
+        recorder: this.recorder,
+        telemetry: this.telemetry,
+        matchState: this.matchState,
+        sessionId: nm.sessionId,
+        debugMode: !!this.game.debugMode,
+      });
+      nm.sendDebugResponse(localBundle);
+    });
+
+    const combined = await DebugBundleExporter.collectAll({
+      generateLocalBundle: () =>
+        DebugBundleExporter.generateBundle({
+          recorder: this.recorder,
+          telemetry: this.telemetry,
+          matchState: this.matchState,
+          sessionId: nm.sessionId,
+          debugMode: !!this.game.debugMode,
+        }),
+      networkManager: nm,
+    });
+    const copied = await DebugBundleExporter.copyToClipboard(combined);
+    if (this.debugOverlay) {
+      this.debugOverlay.showToast(copied ? 'Copiado!' : 'Descargado!');
     }
   }
 
@@ -406,6 +523,17 @@ export class FightScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x666666)
       .setFillStyle()
       .setDepth(depth + 2);
+    // 50% marker P1
+    this.add
+      .rectangle(
+        SPECIAL_P1_X + SPECIAL_BAR_W / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+        1,
+        SPECIAL_BAR_H,
+        0xffffff,
+        0.3,
+      )
+      .setDepth(depth + 2);
 
     // P2 special
     this.spBgP2 = this.add
@@ -426,6 +554,45 @@ export class FightScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x666666)
       .setFillStyle()
       .setDepth(depth + 2);
+    // 50% marker P2
+    this.add
+      .rectangle(
+        SPECIAL_P2_X + SPECIAL_BAR_W / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+        1,
+        SPECIAL_BAR_H,
+        0xffffff,
+        0.3,
+      )
+      .setDepth(depth + 2);
+
+    // --- Special effects for HUD bars ---
+    // HUD Particle emitters
+    this.spParticlesP1 = this.add
+      .particles(0, 0, 'white_pixel', {
+        speed: { min: 10, max: 20 },
+        angle: { min: 260, max: 280 },
+        scale: { start: 1, end: 0 },
+        alpha: { start: 0.6, end: 0 },
+        lifespan: 400,
+        frequency: 100,
+        tint: 0xffcc00,
+        emitting: false,
+      })
+      .setDepth(depth - 1);
+
+    this.spParticlesP2 = this.add
+      .particles(0, 0, 'white_pixel', {
+        speed: { min: 10, max: 20 },
+        angle: { min: 260, max: 280 },
+        scale: { start: 1, end: 0 },
+        alpha: { start: 0.6, end: 0 },
+        lifespan: 400,
+        frequency: 100,
+        tint: 0xffcc00,
+        emitting: false,
+      })
+      .setDepth(depth - 1);
 
     // --- Player name labels ---
     const p1Color = this.p1Data.color.replace('0x', '#');
@@ -668,11 +835,48 @@ export class FightScene extends Phaser.Scene {
     this.spBarP1.width = SPECIAL_BAR_W * spRatioP1;
     this.spBarP2.width = SPECIAL_BAR_W * spRatioP2;
 
-    // Flash special bar when full
-    if (spRatioP1 >= 1) this.spBarP1.setFillStyle(0xffff00);
-    else this.spBarP1.setFillStyle(0xffcc00);
-    if (spRatioP2 >= 1) this.spBarP2.setFillStyle(0xffff00);
-    else this.spBarP2.setFillStyle(0xffcc00);
+    // Flash special bar when it's at least 50% (enough for a special)
+    const flashTimer = Math.floor(Date.now() / 150) % 2 === 0;
+
+    // Effects for P1
+    if (spRatioP1 >= 0.5) {
+      if (spRatioP1 >= 1.0) {
+        this.spBarP1.setFillStyle(flashTimer ? 0xffff00 : 0xffcc00);
+      } else {
+        // Subtle pulse for 50%
+        this.spBarP1.setFillStyle(flashTimer ? 0xffdd00 : 0xffaa00);
+      }
+
+      // HUD effects
+      this.spParticlesP1.emitting = true;
+      this.spParticlesP1.setPosition(
+        SPECIAL_P1_X + (SPECIAL_BAR_W * spRatioP1) / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+      );
+    } else {
+      this.spBarP1.setFillStyle(0xffcc00);
+      this.spParticlesP1.emitting = false;
+    }
+
+    // Effects for P2
+    if (spRatioP2 >= 0.5) {
+      if (spRatioP2 >= 1.0) {
+        this.spBarP2.setFillStyle(flashTimer ? 0xffff00 : 0xffcc00);
+      } else {
+        // Subtle pulse for 50%
+        this.spBarP2.setFillStyle(flashTimer ? 0xffdd00 : 0xffaa00);
+      }
+
+      // HUD effects
+      this.spParticlesP2.emitting = true;
+      this.spParticlesP2.setPosition(
+        SPECIAL_P2_X + SPECIAL_BAR_W - (SPECIAL_BAR_W * spRatioP2) / 2,
+        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
+      );
+    } else {
+      this.spBarP2.setFillStyle(0xffcc00);
+      this.spParticlesP2.emitting = false;
+    }
 
     // Stamina bars
     const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA_FP, 0, 1);
@@ -731,6 +935,13 @@ export class FightScene extends Phaser.Scene {
   _setupOnlineMode() {
     const nm = this.networkManager;
     const slot = nm.getPlayerSlot();
+    log.info('Online mode setup', {
+      slot,
+      room: nm.roomId,
+      p1: this.p1Id,
+      p2: this.p2Id,
+      stage: this.stageId,
+    });
 
     // Both peers are equal in rollback netcode (no host/guest distinction for gameplay)
     this.isHost = slot === 0;
@@ -748,7 +959,7 @@ export class FightScene extends Phaser.Scene {
     // system has room to absorb the increased frame production rate.
     const speed = this.game.autoplay?.speed || 1;
     this.rollbackManager = new RollbackManager(nm, slot, {
-      inputDelay: ONLINE_INPUT_DELAY * speed,
+      inputDelay: ONLINE_INPUT_DELAY_FRAMES * speed,
       maxRollbackFrames: 7 * speed,
     });
     // Disable adaptive delay when overclocked — it would clamp values back down
@@ -766,8 +977,8 @@ export class FightScene extends Phaser.Scene {
       }
     }
 
-    // Fight recorder for E2E testing
-    if (this.game.autoplay?.enabled) {
+    // Fight recorder for E2E testing and debug mode
+    if (this.game.autoplay?.enabled || this.game.debugMode) {
       this.recorder = new FightRecorder({
         roomId: nm.roomId,
         playerSlot: slot,
@@ -775,12 +986,16 @@ export class FightScene extends Phaser.Scene {
         opponentId: slot === 0 ? this.p2Id : this.p1Id,
         stageId: this.stageId,
         config: {
-          seed: this.game.autoplay.seed,
-          speed: this.game.autoplay.speed,
-          aiDifficulty: this.game.autoplay.aiDifficulty,
+          seed: this.game.autoplay?.seed,
+          speed: this.game.autoplay?.speed,
+          aiDifficulty: this.game.autoplay?.aiDifficulty,
         },
       });
     }
+
+    // Always-on telemetry
+    this.telemetry = new MatchTelemetry(nm.roomId);
+    this.telemetry.wireConnectionMonitor(nm.monitor);
 
     // Wire recorder hooks into rollback manager
     if (this.recorder) {
@@ -792,21 +1007,70 @@ export class FightScene extends Phaser.Scene {
         this.recorder.recordConfirmedInputs(frame, p1, p2);
     }
 
+    // Wire telemetry to rollback manager (augment existing callbacks)
+    const origRollback = this.rollbackManager._onRollback;
+    this.rollbackManager._onRollback = (frame, depth) => {
+      this.telemetry.recordRollback(frame, depth);
+      if (origRollback) origRollback(frame, depth);
+    };
+
+    // Wire transport changes to telemetry
+    nm.onTransportDegraded(() => this.telemetry.recordTransportChange('websocket'));
+    nm.onTransportRestored(() => this.telemetry.recordTransportChange('webrtc'));
+
+    // Debug overlay (only in debug mode)
+    if (this.game.debugMode) {
+      import('../systems/DebugOverlay.js').then(({ DebugOverlay }) => {
+        this.debugOverlay = new DebugOverlay(this, {
+          getTelemetry: () => this.telemetry,
+          getConnectionMonitor: () => nm.monitor,
+          getTransportManager: () => nm.transport,
+          getInputSync: () => nm.inputSync,
+          getMatchState: () => this.matchState,
+          onExportDebug: () => this._exportDebugBundle(),
+          onExportAll: () => this._exportAllBundles(),
+        });
+      });
+    }
+
+    // Auto-respond to debug_request from peer (always wired, even without debug mode)
+    nm.onDebugRequest(() => {
+      import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
+        const bundle = DebugBundleExporter.generateBundle({
+          recorder: this.recorder,
+          telemetry: this.telemetry,
+          matchState: this.matchState,
+          sessionId: nm.sessionId,
+          debugMode: !!this.game.debugMode,
+        });
+        nm.sendDebugResponse(bundle);
+      });
+    });
+
     // Wire desync detection + resync
     nm.onChecksum((frame, hash) => this.rollbackManager.handleRemoteChecksum(frame, hash));
     this.rollbackManager._onDesync = (frame, localHash, remoteHash) => {
-      console.warn(`[DESYNC] frame=${frame} local=${localHash} remote=${remoteHash}`);
+      log.warn('Desync detected', { frame, local: localHash, remote: remoteHash });
+      this.telemetry.recordDesync();
       this.recorder?.recordDesync(frame, localHash, remoteHash);
       this._showDesyncWarning();
 
       if (this.isHost) {
-        // P1 proactively sends authoritative state
-        const snapshot = this.rollbackManager.captureResyncSnapshot(
-          this.p1Fighter,
-          this.p2Fighter,
-          this.combat,
-        );
-        nm.sendResync(snapshot);
+        if (this.rollbackManager.shouldReverseResync()) {
+          // P1 suspects its own state is wrong — request resync from P2 (RFC 0008)
+          if (this.rollbackManager.shouldRequestResync()) {
+            this.rollbackManager._resyncPending = true;
+            nm.sendResyncRequest(frame);
+          }
+        } else {
+          // P1 proactively sends authoritative state
+          const snapshot = this.rollbackManager.captureResyncSnapshot(
+            this.p1Fighter,
+            this.p2Fighter,
+            this.combat,
+          );
+          nm.sendResync(snapshot);
+        }
       } else if (this.rollbackManager.shouldRequestResync()) {
         // P2 requests resync from P1
         this.rollbackManager._resyncPending = true;
@@ -814,9 +1078,9 @@ export class FightScene extends Phaser.Scene {
       }
     };
 
-    // P1 responds to resync requests from P2
+    // Both peers respond to resync requests from the other.
+    // P1 responds when P2 requests; P2 responds when P1 requests (reverse resync).
     nm.onResyncRequest(() => {
-      if (!this.isHost) return;
       const snapshot = this.rollbackManager.captureResyncSnapshot(
         this.p1Fighter,
         this.p2Fighter,
@@ -825,10 +1089,12 @@ export class FightScene extends Phaser.Scene {
       nm.sendResync(snapshot);
     });
 
-    // P2 applies resync snapshots from P1
+    // Apply resync snapshots from the other peer.
+    // P2 always applies. P1 applies only when it requested a reverse resync.
     nm.onResync((msg) => {
-      if (this.isHost) return;
-      console.warn(`[RESYNC] Applying P1 snapshot at frame ${msg.snapshot.frame}`);
+      if (this.isHost && !this.rollbackManager._resyncPending) return;
+      log.warn('Resync applied', { frame: msg.snapshot.frame });
+      this.telemetry.recordResync();
       this.rollbackManager.applyResync(msg.snapshot, this.p1Fighter, this.p2Fighter, this.combat);
       if (this._desyncWarning) {
         this._desyncWarning.destroy();
@@ -849,19 +1115,24 @@ export class FightScene extends Phaser.Scene {
     nm.onRoundEvent((msg) => {
       if (this.isHost) return; // P1 already handled locally
       if (msg.matchOver && this._matchOverProcessed) {
-        console.log(`[FightScene] P2 onRoundEvent ignored: matchOver already processed`);
+        log.debug('P2 onRoundEvent ignored: matchOver already processed');
         return;
       }
       if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) {
-        console.log(
-          `[FightScene] P2 onRoundEvent ignored: round ${msg.roundNumber} already processed (last=${this._lastProcessedRound})`,
-        );
+        log.debug('P2 onRoundEvent ignored: round already processed', {
+          round: msg.roundNumber,
+          last: this._lastProcessedRound,
+        });
         return;
       }
 
-      console.log(
-        `[FightScene] P2 onRoundEvent: event=${msg.event} winner=P${msg.winnerIndex + 1} matchOver=${msg.matchOver} round=${msg.roundNumber} state=${this.matchState.state}`,
-      );
+      log.debug('P2 onRoundEvent', {
+        event: msg.event,
+        winner: msg.winnerIndex,
+        matchOver: msg.matchOver,
+        round: msg.roundNumber,
+        state: this.matchState.state,
+      });
 
       // Don't modify combat state here — simulateFrame handles it deterministically.
       // Fire round-end audio/VFX via bridges, then UI transitions.
@@ -1154,9 +1425,13 @@ export class FightScene extends Phaser.Scene {
 
     // Handle round events (same flow as online P1/host)
     if (roundEvent) {
-      console.log(
-        `[FightScene] Local roundEvent: type=${roundEvent.type} winner=P${roundEvent.winnerIndex + 1} matchOver=${this.combat.matchOver} frame=${this._localFrame} state=${this.matchState.state}`,
-      );
+      log.debug('Local roundEvent', {
+        type: roundEvent.type,
+        winner: roundEvent.winnerIndex,
+        matchOver: this.combat.matchOver,
+        frame: this._localFrame,
+        state: this.matchState.state,
+      });
       this.combat.stopRound();
       if (this.combat.matchOver) {
         this.onMatchOver(roundEvent.winnerIndex);
@@ -1272,15 +1547,32 @@ export class FightScene extends Phaser.Scene {
           this.combat,
           this.rollbackManager.currentFrame,
         );
+
+        // Expose v2 debug bundle on window for remote E2E extraction
+        if (this.game.debugMode && this.recorder) {
+          import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
+            window.__DEBUG_BUNDLE = DebugBundleExporter.generateBundle({
+              recorder: this.recorder,
+              telemetry: this.telemetry,
+              matchState: this.matchState,
+              sessionId: this.networkManager?.sessionId,
+              debugMode: true,
+            });
+          });
+        }
       }
     }
 
     // P1 (host) handles round events: stop round timer + UI transitions
     // Audio/VFX already handled by bridges above via round_ko/round_timeup events
     if (roundEvent && this.isHost) {
-      console.log(
-        `[FightScene] P1 roundEvent: type=${roundEvent.type} winner=P${roundEvent.winnerIndex + 1} matchOver=${this.combat.matchOver} frame=${this.rollbackManager.currentFrame} state=${this.matchState.state}`,
-      );
+      log.debug('P1 roundEvent', {
+        type: roundEvent.type,
+        winner: roundEvent.winnerIndex,
+        matchOver: this.combat.matchOver,
+        frame: this.rollbackManager.currentFrame,
+        state: this.matchState.state,
+      });
       this.combat.stopRound();
       if (this.combat.matchOver) {
         this.onMatchOver(roundEvent.winnerIndex);
@@ -1847,13 +2139,13 @@ export class FightScene extends Phaser.Scene {
 
     // Listen for peer's hash
     nm.onFrameZeroSync((msg) => {
-      console.log(`[SYNC] Received peer hash: ${msg.hash}`);
+      log.debug('Frame-0 sync: received peer hash', { hash: msg.hash });
       this._syncRemoteHash = msg.hash;
       this._checkFrameZeroSync();
     });
 
     // Send our hash immediately and retry every 500ms until confirmed
-    console.log(`[SYNC] Sending frame-0 hash: ${localHash}`);
+    log.debug('Frame-0 sync: sending hash', { hash: localHash });
     nm.sendFrameZeroSync(localHash);
     this._syncRetryTimer = this.time.addEvent({
       delay: 500,
@@ -1868,7 +2160,7 @@ export class FightScene extends Phaser.Scene {
     // Timeout: 5 seconds
     this._syncTimeout = this.time.delayedCall(5000, () => {
       if (this.matchState.state === MatchState.SYNCHRONIZING) {
-        console.warn('[SYNC] Frame-0 sync timed out');
+        log.warn('Frame-0 sync timed out');
         this._cleanupSyncTimers();
         this.matchState.transition(MatchEvent.SYNC_TIMEOUT);
         this.centerText.setText('DESCONECTADO');
@@ -1896,11 +2188,12 @@ export class FightScene extends Phaser.Scene {
     this._cleanupSyncTimers();
 
     if (this._syncLocalHash === this._syncRemoteHash) {
-      console.log('[SYNC] Frame-0 sync confirmed');
+      log.debug('Frame-0 sync confirmed', { hash: this._syncLocalHash });
     } else {
-      console.warn(
-        `[SYNC] Frame-0 hash mismatch: local=${this._syncLocalHash}, remote=${this._syncRemoteHash}. Proceeding anyway.`,
-      );
+      log.warn('Frame-0 hash mismatch', {
+        local: this._syncLocalHash,
+        remote: this._syncRemoteHash,
+      });
     }
 
     this.matchState.transition(MatchEvent.SYNC_CONFIRMED);
@@ -1985,14 +2278,14 @@ export class FightScene extends Phaser.Scene {
    */
   onRoundOver(winnerIndex) {
     if (!this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
-      console.warn(
-        `[FightScene] onRoundOver ignored: cannot transition ROUND_OVER from state=${this.matchState.state}`,
-      );
+      log.warn('onRoundOver ignored: invalid state', { state: this.matchState.state });
       return;
     }
-    console.log(
-      `[FightScene] onRoundOver winner=P${winnerIndex + 1} state=${this.matchState.state} rounds=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
-    );
+    log.debug('Round over', {
+      winner: winnerIndex,
+      state: this.matchState.state,
+      rounds: `${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+    });
     this.matchState.transition(MatchEvent.ROUND_OVER);
 
     // Host sends round event to guest
@@ -2034,15 +2327,15 @@ export class FightScene extends Phaser.Scene {
       if (this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
         // Still in ROUND_ACTIVE — need ROUND_OVER first, then check again
       } else {
-        console.warn(
-          `[FightScene] onMatchOver ignored: cannot transition MATCH_OVER from state=${this.matchState.state}`,
-        );
+        log.warn('onMatchOver ignored: invalid state', { state: this.matchState.state });
         return;
       }
     }
-    console.log(
-      `[FightScene] onMatchOver winner=P${winnerIndex + 1} state=${this.matchState.state} rounds=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
-    );
+    log.debug('Match over', {
+      winner: winnerIndex,
+      state: this.matchState.state,
+      rounds: `${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+    });
     if (this.matchState.canTransition(MatchEvent.ROUND_OVER)) {
       this.matchState.transition(MatchEvent.ROUND_OVER);
     }
@@ -2163,6 +2456,8 @@ export class FightScene extends Phaser.Scene {
     if (this.aiController) this.aiController.destroy();
     if (this.touchControls) this.touchControls.destroy();
     if (this.reconnectionManager) this.reconnectionManager.destroy();
+    if (this.telemetry) this.telemetry.destroy();
+    if (this.debugOverlay) this.debugOverlay.destroy();
     this._cleanupSyncTimers();
     this.matchState = null;
     // Destroy projectiles

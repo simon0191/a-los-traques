@@ -236,15 +236,43 @@ const result = replayFromBundle(bundle);
 
 A Vitest test (`tests/systems/replay.test.js`) validates the replay engine against a known-good fixture.
 
+## Remote Browser Testing (BrowserStack)
+
+Run P1 and P2 on separate BrowserStack remote browsers for realistic cross-browser, cross-network testing. See [RFC 0009](rfcs/0009-e2e-remote-browser-testing.md) for full design.
+
+```bash
+# Requires BrowserStack credentials
+BROWSERSTACK_USERNAME=xxx BROWSERSTACK_ACCESS_KEY=yyy bun run test:e2e:remote
+
+# Specific browser preset (default, chrome-chrome, webkit-webkit)
+REMOTE_E2E_PRESET=chrome-chrome bun run test:e2e:remote
+```
+
+**Trigger from CI** — two options:
+
+1. **PR comment**: post `/e2e remote` or `/e2e remote --preset chrome-chrome --party-host myhost.partykit.dev`
+2. **Manual**: Actions tab → "Remote E2E Tests (BrowserStack)" → "Run workflow" (works from any branch)
+
+Results are posted back as a PR comment (if triggered from PR) with debug bundles as downloadable artifacts.
+
+Key differences from local E2E:
+- Two independent BrowserStack sessions (separate machines) connected via Playwright CDP
+- Uses deployed staging infrastructure (Vercel + PartyKit cloud) — real network paths
+- `speed=1` (no overclock) to exercise real latency and transport behavior
+- `debug=1` always on — captures v2 debug bundles with telemetry and logger data
+- Results in `test-results/remote/` including report, combined bundle, and console logs
+
+### Architecture
+
+```
+tests/e2e/remote/
+  remote-multiplayer.spec.js       # Test spec — orchestrates two remote browsers
+  remote-config.js                 # Browser presets (Chrome/Win + WebKit/Mac, etc.)
+  remote-helpers.js                # BrowserStack connection + data extraction helpers
+  remote-playwright.config.js      # Playwright config (no webServer, longer timeouts)
+```
+
 ## Future Enhancements
-
-### BrowserStack Integration
-
-The framework is BrowserStack-compatible by design (URL-driven, `page.evaluate()` extraction). To run on real devices:
-
-1. Add `browserstack.yml` with credentials and device matrix (iPhone 15 Safari, Android Chrome)
-2. Deploy to staging or use BrowserStack Local tunnel
-3. Run: `npx browserstack-node-sdk playwright test --config tests/e2e/playwright.config.js`
 
 ### Network Condition Simulation
 

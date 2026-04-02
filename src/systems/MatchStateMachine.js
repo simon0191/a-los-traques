@@ -144,6 +144,9 @@ export class MatchStateMachine {
   constructor(initialState = MatchState.MAIN_MENU) {
     this._state = initialState;
     this._listeners = [];
+    /** @type {Array<{ts: number, from: string, to: string, event: string}>} */
+    this._transitionHistory = [];
+    this._maxHistorySize = 100;
   }
 
   get state() {
@@ -173,6 +176,12 @@ export class MatchStateMachine {
     const prevState = this._state;
     this._state = nextState;
 
+    // Record transition history
+    this._transitionHistory.push({ ts: Date.now(), from: prevState, to: nextState, event });
+    if (this._transitionHistory.length > this._maxHistorySize) {
+      this._transitionHistory.shift();
+    }
+
     for (const cb of this._listeners) {
       cb(prevState, nextState, event);
     }
@@ -201,6 +210,14 @@ export class MatchStateMachine {
       const idx = this._listeners.indexOf(callback);
       if (idx >= 0) this._listeners.splice(idx, 1);
     };
+  }
+
+  /**
+   * Get a copy of the transition history.
+   * @returns {Array<{ts: number, from: string, to: string, event: string}>}
+   */
+  getTransitionHistory() {
+    return this._transitionHistory.slice();
   }
 
   /**

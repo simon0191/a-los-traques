@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
+import { updateStats } from '../services/api.js';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('VictoryScene');
 
 export class VictoryScene extends Phaser.Scene {
   constructor() {
@@ -34,6 +38,9 @@ export class VictoryScene extends Phaser.Scene {
       window.__FIGHT_LOG.completedAt = Date.now();
       window.__FIGHT_LOG.result = { winnerId: this.winnerId, loserId: this.loserId };
     }
+
+    // Save result if logged in
+    this._saveResult();
 
     const audio = this.game.audioManager;
     audio.setScene(this);
@@ -271,6 +278,45 @@ export class VictoryScene extends Phaser.Scene {
           });
         });
       });
+    }
+  }
+
+  async _saveResult() {
+    const user = this.game.registry.get('user');
+    if (!user) return;
+
+    // Determine if local player won or lost
+    let isP1 = true;
+    if (this.gameMode === 'online' && this.networkManager) {
+      isP1 = this.networkManager.slot === 0;
+    }
+
+    const localPlayerId = isP1 ? this.p1Id : this.p2Id;
+    const didWin = this.winnerId === localPlayerId;
+
+    try {
+      await updateStats(didWin);
+
+      const feedback = this.add
+        .text(GAME_WIDTH / 2, 45, didWin ? '+1 VICTORIA' : '+1 DERROTA', {
+          fontFamily: 'Arial',
+          fontSize: '9px',
+          color: didWin ? '#44cc88' : '#ff4444',
+        })
+        .setOrigin(0.5)
+        .setAlpha(0);
+
+      this.tweens.add({
+        targets: feedback,
+        y: 35,
+        alpha: 1,
+        duration: 500,
+        yoyo: true,
+        hold: 2000,
+        onComplete: () => feedback.destroy(),
+      });
+    } catch (e) {
+      log.warn('Stats update failed', { err: e.message });
     }
   }
 

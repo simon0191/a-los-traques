@@ -1142,12 +1142,14 @@ describe('FightRoom', () => {
       expect(conn3.send).not.toHaveBeenCalled();
     });
 
-    it('resync from slot 1 (non-P1) is dropped', () => {
+    it('resync from slot 1 (P2) relayed to slot 0 for reverse resync', () => {
       const snapshot = { frame: 30, p1: {}, p2: {}, combat: {} };
       room.onMessage(JSON.stringify({ type: 'resync', snapshot }), conn2);
 
-      // P1 should NOT receive it
-      expect(conn1.send).not.toHaveBeenCalled();
+      const c1Msgs = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Msgs.some((m) => m.type === 'resync')).toBe(true);
+
+      // Spectators should not receive resync
       expect(conn3.send).not.toHaveBeenCalled();
     });
   });
