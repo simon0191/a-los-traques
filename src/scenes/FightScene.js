@@ -1546,30 +1546,10 @@ export class FightScene extends Phaser.Scene {
           this.combat,
           this.rollbackManager.currentFrame,
         );
+      }
 
-        // Expose v2 debug bundle on window for remote E2E extraction
-        if (this.game.debugMode && this.recorder) {
-          import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
-            const bundle = DebugBundleExporter.generateBundle({
-              recorder: this.recorder,
-              telemetry: this.telemetry,
-              matchState: this.matchState,
-              sessionId: this.networkManager?.sessionId,
-              debugMode: true,
-            });
-            window.__DEBUG_BUNDLE = bundle;
-
-            // Auto-upload final bundle (round 0 = match end)
-            DebugBundleExporter.uploadBundle({
-              fightId: this.fightId,
-              slot: this.networkManager?.getPlayerSlot(),
-              round: 0,
-              bundle,
-            });
-          });
-        }
-      } else if (this.game.debugMode && this.recorder) {
-        // Per-round upload: snapshot after each round
+      // Upload debug bundle after every round (including final)
+      if (this.game.debugMode && this.recorder) {
         import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
           const bundle = DebugBundleExporter.generateBundle({
             recorder: this.recorder,
@@ -1578,6 +1558,11 @@ export class FightScene extends Phaser.Scene {
             sessionId: this.networkManager?.sessionId,
             debugMode: true,
           });
+
+          if (roundEvent.matchOver) {
+            window.__DEBUG_BUNDLE = bundle;
+          }
+
           DebugBundleExporter.uploadBundle({
             fightId: this.fightId,
             slot: this.networkManager?.getPlayerSlot(),
