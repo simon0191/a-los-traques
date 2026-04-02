@@ -158,6 +158,25 @@ export class DebugBundleExporter {
     log.info('Bundle downloaded', { size: json.length });
   }
 
+  /**
+   * Upload a debug bundle to the server. Fire-and-forget.
+   * @param {object} options
+   * @param {string} options.fightId
+   * @param {number} options.slot - Player slot (0 or 1)
+   * @param {number} options.round - Round number (0 = match end)
+   * @param {object} options.bundle - The debug bundle object
+   */
+  static uploadBundle({ fightId, slot, round, bundle }) {
+    if (!fightId) {
+      log.debug('uploadBundle skipped: no fightId');
+      return;
+    }
+    import('../services/api.js')
+      .then(({ uploadDebugBundle }) => uploadDebugBundle({ fightId, slot, round, bundle }))
+      .then(() => log.info('Bundle uploaded', { fightId, slot, round }))
+      .catch((err) => log.warn('Bundle upload failed', { fightId, slot, round, err: err.message }));
+  }
+
   // --- Internal ---
 
   static _collectEnvironment() {

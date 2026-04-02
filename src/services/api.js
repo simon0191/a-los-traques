@@ -81,3 +81,34 @@ export async function updateStats(isWin = true) {
     body: JSON.stringify({ isWin }),
   });
 }
+
+/**
+ * Create a fight record (called by P1 at match start)
+ */
+export async function createFight({ fightId, roomId, p1Fighter, p2Fighter, stageId }) {
+  return apiFetch('/fights', {
+    method: 'POST',
+    body: JSON.stringify({ fightId, roomId, p1Fighter, p2Fighter, stageId }),
+  });
+}
+
+/**
+ * Update a fight record (P2 registration or match result)
+ */
+export async function updateFight(fields) {
+  return apiFetch('/fights', {
+    method: 'PATCH',
+    body: JSON.stringify(fields),
+  });
+}
+
+/**
+ * Upload a debug bundle for a fight round.
+ * Fire-and-forget — errors are logged but not thrown.
+ */
+export async function uploadDebugBundle({ fightId, slot, round, bundle }) {
+  return apiFetch('/debug-bundles', {
+    method: 'POST',
+    body: JSON.stringify({ fightId, slot, round, bundle }),
+  });
+}
