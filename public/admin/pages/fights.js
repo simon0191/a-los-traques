@@ -30,9 +30,9 @@ function BundleLinks({ fight, apiFetch }) {
             class="bundle-link"
             href="/api/admin/debug-bundle?fightId=${fight.id}&slot=${b.slot}&round=${b.round}"
             target="_blank"
-            title="P${b.slot + 1} R${b.round === 0 ? 'Final' : b.round}"
+            title="P${b.slot} R${b.round === 0 ? 'Final' : b.round}"
           >
-            P${b.slot + 1}${b.round === 0 ? ' Final' : ` R${b.round}`}
+            P${b.slot}${b.round === 0 ? ' Final' : ` R${b.round}`}
           </a>${' '}
         `,
       )}

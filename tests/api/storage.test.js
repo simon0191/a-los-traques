@@ -31,7 +31,7 @@ describe('storage (local backend)', () => {
 
   it('uploads a bundle to the correct path', async () => {
     await storage.uploadBundle(fightId, 0, 1, bundleContent);
-    const filePath = path.join(TEST_BASE, fightId, 'p1_round1.json');
+    const filePath = path.join(TEST_BASE, fightId, 'p0_round1.json');
     expect(fs.existsSync(filePath)).toBe(true);
     expect(fs.readFileSync(filePath, 'utf-8')).toBe(bundleContent);
   });
@@ -65,9 +65,9 @@ describe('storage (local backend)', () => {
 
     const bundles = await storage.listBundles(fightId);
     expect(bundles).toHaveLength(3);
-    expect(bundles).toContainEqual({ slot: 0, round: 0, key: `${fightId}/p1_round0.json` });
-    expect(bundles).toContainEqual({ slot: 0, round: 1, key: `${fightId}/p1_round1.json` });
-    expect(bundles).toContainEqual({ slot: 1, round: 1, key: `${fightId}/p2_round1.json` });
+    expect(bundles).toContainEqual({ slot: 0, round: 0, key: `${fightId}/p0_round0.json` });
+    expect(bundles).toContainEqual({ slot: 0, round: 1, key: `${fightId}/p0_round1.json` });
+    expect(bundles).toContainEqual({ slot: 1, round: 1, key: `${fightId}/p1_round1.json` });
   });
 
   it('returns empty list for non-existent fightId', async () => {
