@@ -240,7 +240,10 @@ export class SelectScene extends Phaser.Scene {
         color: '#888899',
       });
       const barBg = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
-      const bar = this.add.rectangle(panelX + 30, sy + 4, 0, 6, 0x44cc88).setOrigin(0, 0.5);
+      const bar = this.add
+        .rectangle(panelX + 30, sy + 4, 60, 6, 0x44cc88)
+        .setOrigin(0, 0.5)
+        .setScale(0, 1);
 
       this.p1StatLabels.push(label);
       this.p1StatBarBgs.push(barBg);
@@ -248,22 +251,22 @@ export class SelectScene extends Phaser.Scene {
     });
 
     // Divider
-    this.add.rectangle(panelX + 75, 170, 150, 1, 0x333355);
+    this.add.rectangle(panelX + 75, 150, 150, 1, 0x333355);
 
     // P2 info
-    this.add.text(panelX, 178, 'JUGADOR 2', {
+    this.add.text(panelX, 158, 'JUGADOR 2', {
       fontFamily: 'Arial Black, Arial',
       fontSize: '10px',
       color: '#ff3333',
     });
 
-    this.p2NameText = this.add.text(panelX, 193, 'Aleatorio', {
-      fontFamily: 'Arial',
+    this.p2NameText = this.add.text(panelX, 173, 'Aleatorio', {
+      fontFamily: 'Arial Black, Arial',
       fontSize: '14px',
       color: '#888888',
     });
 
-    this.p2SubtitleText = this.add.text(panelX, 210, '', {
+    this.p2SubtitleText = this.add.text(panelX, 190, '', {
       fontFamily: 'Arial',
       fontSize: '9px',
       color: '#aaaacc',
@@ -272,12 +275,12 @@ export class SelectScene extends Phaser.Scene {
 
     // P2 Portrait (image or rectangle placeholder)
     this.p2PortraitImg = this.add
-      .image(panelX + 130, 198, '__DEFAULT')
+      .image(panelX + 130, 178, '__DEFAULT')
       .setDisplaySize(45, 45)
       .setVisible(false);
-    this.p2Portrait = this.add.rectangle(panelX + 130, 198, 45, 45, 0x333333);
+    this.p2Portrait = this.add.rectangle(panelX + 130, 178, 45, 45, 0x333333);
     this.p2RandomText = this.add
-      .text(panelX + 130, 198, '?', {
+      .text(panelX + 130, 178, '?', {
         fontFamily: 'Arial Black',
         fontSize: '24px',
         color: '#ffffff',
@@ -289,14 +292,18 @@ export class SelectScene extends Phaser.Scene {
     this.p2StatBars = [];
     this.p2StatBarBgs = [];
     statNames.forEach((_stat, i) => {
-      const sy = 228 + i * 14;
+      const sy = 208 + i * 14;
       this.add.text(panelX, sy, statLabels[i], {
         fontFamily: 'Arial',
         fontSize: '8px',
         color: '#888899',
       });
+      // P2 bars charge Right-to-Left (Edge to Center)
       const barBg = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
-      const bar = this.add.rectangle(panelX + 30, sy + 4, 0, 6, 0xcc4444).setOrigin(0, 0.5);
+      const bar = this.add
+        .rectangle(panelX + 90, sy + 4, 60, 6, 0xcc4444)
+        .setOrigin(1, 0.5)
+        .setScale(0, 1);
 
       this.p2StatBarBgs.push(barBg);
       this.p2StatBars.push(bar);
@@ -518,7 +525,7 @@ export class SelectScene extends Phaser.Scene {
 
     statNames.forEach((stat, i) => {
       const val = isRandom ? 0 : fighter.stats[stat];
-      this.p1StatBars[i].width = (val / 5) * 60;
+      this.p1StatBars[i].scaleX = val / 5;
 
       // Add or update stat value text if it doesn't exist
       if (!this.p1StatValues) this.p1StatValues = [];
@@ -724,12 +731,12 @@ export class SelectScene extends Phaser.Scene {
 
     statNames.forEach((stat, i) => {
       const val = isRandom ? 0 : p2Fighter.stats[stat];
-      this.p2StatBars[i].width = (val / 5) * 60;
+      this.p2StatBars[i].scaleX = val / 5;
 
       // Add or update stat value text if it doesn't exist
       if (!this.p2StatValues) this.p2StatValues = [];
       if (!this.p2StatValues[i]) {
-        const sy = 228 + i * 14;
+        const sy = 208 + i * 14;
         this.p2StatValues[i] = this.add
           .text(panelX + 95, sy, '', {
             fontFamily: 'Arial',

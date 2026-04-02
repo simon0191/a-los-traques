@@ -510,9 +510,10 @@ export class FightScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setDepth(depth);
     this.spBarP1 = this.add
-      .rectangle(SPECIAL_P1_X, SPECIAL_BAR_Y, 0, SPECIAL_BAR_H, 0xffcc00)
+      .rectangle(SPECIAL_P1_X, SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H, 0xffcc00)
       .setOrigin(0, 0)
-      .setDepth(depth + 1);
+      .setDepth(depth + 1)
+      .setScale(0, 1);
     this.add
       .rectangle(
         SPECIAL_P1_X + SPECIAL_BAR_W / 2,
@@ -541,9 +542,16 @@ export class FightScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setDepth(depth);
     this.spBarP2 = this.add
-      .rectangle(SPECIAL_P2_X + SPECIAL_BAR_W, SPECIAL_BAR_Y, 0, SPECIAL_BAR_H, 0xffcc00)
+      .rectangle(
+        SPECIAL_P2_X + SPECIAL_BAR_W,
+        SPECIAL_BAR_Y,
+        SPECIAL_BAR_W,
+        SPECIAL_BAR_H,
+        0xffcc00,
+      )
       .setOrigin(1, 0)
-      .setDepth(depth + 1);
+      .setDepth(depth + 1)
+      .setScale(0, 1);
     this.add
       .rectangle(
         SPECIAL_P2_X + SPECIAL_BAR_W / 2,
@@ -832,8 +840,8 @@ export class FightScene extends Phaser.Scene {
     // Special bars
     const spRatioP1 = Phaser.Math.Clamp(this.p1Fighter.special / MAX_SPECIAL_FP, 0, 1);
     const spRatioP2 = Phaser.Math.Clamp(this.p2Fighter.special / MAX_SPECIAL_FP, 0, 1);
-    this.spBarP1.width = SPECIAL_BAR_W * spRatioP1;
-    this.spBarP2.width = SPECIAL_BAR_W * spRatioP2;
+    this.spBarP1.scaleX = spRatioP1;
+    this.spBarP2.scaleX = spRatioP2;
 
     // Flash special bar when it's at least 50% (enough for a special)
     const flashTimer = Math.floor(Date.now() / 150) % 2 === 0;
@@ -850,7 +858,7 @@ export class FightScene extends Phaser.Scene {
       // HUD effects
       this.spParticlesP1.emitting = true;
       this.spParticlesP1.setPosition(
-        SPECIAL_P1_X + (SPECIAL_BAR_W * spRatioP1) / 2,
+        SPECIAL_P1_X + SPECIAL_BAR_W * spRatioP1,
         SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
       );
     } else {
@@ -870,7 +878,7 @@ export class FightScene extends Phaser.Scene {
       // HUD effects
       this.spParticlesP2.emitting = true;
       this.spParticlesP2.setPosition(
-        SPECIAL_P2_X + SPECIAL_BAR_W - (SPECIAL_BAR_W * spRatioP2) / 2,
+        SPECIAL_P2_X + SPECIAL_BAR_W - SPECIAL_BAR_W * spRatioP2,
         SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
       );
     } else {
@@ -881,8 +889,8 @@ export class FightScene extends Phaser.Scene {
     // Stamina bars
     const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA_FP, 0, 1);
     const staRatioP2 = Phaser.Math.Clamp(this.p2Fighter.stamina / MAX_STAMINA_FP, 0, 1);
-    this.staBarP1.width = STAMINA_BAR_W * staRatioP1;
-    this.staBarP2.width = STAMINA_BAR_W * staRatioP2;
+    this.staBarP1.scaleX = staRatioP1;
+    this.staBarP2.scaleX = staRatioP2;
 
     // Flash red when depleted
     this.staBarP1.setFillStyle(staRatioP1 < 0.15 ? 0xff4444 : 0x00cccc);
