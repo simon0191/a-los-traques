@@ -83,6 +83,13 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('ui_confirm', 'assets/audio/ui_confirm.mp3');
     this.load.audio('ui_cancel', 'assets/audio/ui_cancel.mp3');
 
+    // Button Icons
+    this.load.image('btn_lp', 'assets/ui/btn_lp.png');
+    this.load.image('btn_hp', 'assets/ui/btn_hp.png');
+    this.load.image('btn_lk', 'assets/ui/btn_lk.png');
+    this.load.image('btn_hk', 'assets/ui/btn_hk.png');
+    this.load.image('btn_special', 'assets/ui/btn_special.png');
+
     // Load stage background images (only for those that have actual image files)
     for (const stage of stages) {
       if (stage.texture?.startsWith('stages_')) {

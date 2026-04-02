@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
-import { SPECIAL_COST_FP } from './FixedPoint.js';
+import { MAX_SPECIAL_FP, SPECIAL_COST_FP } from './FixedPoint.js';
 
 /**
  * Virtual gamepad overlay for touch devices.
@@ -36,6 +36,7 @@ export class TouchControls {
     this.activeButtonPointers = {}; // pointerId -> button key
     this.specialGlow = null;
     this.specialParticles = null;
+    this.specialRadial = null;
 
     this.createJoystick();
     this.createButtons();
@@ -88,17 +89,30 @@ export class TouchControls {
     //   Middle row:  [LP]  [LK]
     //   Bottom row:  [HP]  [HK]
     const defs = [
-      // key in touchState, label, dx, dy
+      // key in touchState, label, dx, dy, texture
       {
         key: 'special',
-        label: 'ES',
+        label: '⚡',
         dx: 0, // Aligned with the right column
         dy: -(btnRadius * 2 + gap) * 1.4, // Higher up
+        texture: 'btn_special',
       },
-      { key: 'lightPunch', label: 'PL', dx: -(btnRadius * 2 + gap), dy: 0 },
-      { key: 'lightKick', label: 'PaL', dx: 0, dy: 0 },
-      { key: 'heavyPunch', label: 'PP', dx: -(btnRadius * 2 + gap), dy: btnRadius * 2 + gap },
-      { key: 'heavyKick', label: 'PaP', dx: 0, dy: btnRadius * 2 + gap },
+      {
+        key: 'lightPunch',
+        label: 'PL',
+        dx: -(btnRadius * 2 + gap),
+        dy: 0,
+        texture: 'btn_lp',
+      },
+      { key: 'lightKick', label: 'PaL', dx: 0, dy: 0, texture: 'btn_lk' },
+      {
+        key: 'heavyPunch',
+        label: 'PP',
+        dx: -(btnRadius * 2 + gap),
+        dy: btnRadius * 2 + gap,
+        texture: 'btn_hp',
+      },
+      { key: 'heavyKick', label: 'PaP', dx: 0, dy: btnRadius * 2 + gap, texture: 'btn_hk' },
     ];
 
     for (const def of defs) {
@@ -128,6 +142,9 @@ export class TouchControls {
           })
           .setDepth(100);
 
+        // Radial progress arc for special button (Depth 105 to be on top of icon)
+        this.specialRadial = scene.add.graphics().setDepth(105);
+
         // Add a pulsing tween for the glow
         scene.tweens.add({
           targets: glow,
@@ -145,22 +162,27 @@ export class TouchControls {
         .setStrokeStyle(1.5, 0xffffff, 0.35)
         .setDepth(101);
 
-      // Label
-      const txt = scene.add
-        .text(cx, cy, def.label, {
-          fontFamily: 'monospace',
-          fontSize: '9px',
-          color: '#ffffff',
-          align: 'center',
-        })
-        .setOrigin(0.5)
-        .setAlpha(0.5)
-        .setDepth(102);
+      // Icon Image
+      let icon = null;
+      if (scene.textures.exists(def.texture)) {
+        icon = scene.add.image(cx, cy, def.texture).setDepth(102).setAlpha(0.6).setScale(0.8);
+      } else {
+        // Fallback to text if image is missing
+        icon = scene.add
+          .text(cx, cy, def.label, {
+            fontFamily: 'monospace',
+            fontSize: '9px',
+            color: '#ffffff',
+            align: 'center',
+          })
+          .setOrigin(0.5)
+          .setAlpha(0.5)
+          .setDepth(102);
+      }
 
       this.buttons.push({
         graphic: bg,
-        text: txt,
-        glow: glow,
+        icon: icon, // Renamed from text to icon
         key: def.key,
         cx,
         cy,
@@ -336,7 +358,7 @@ export class TouchControls {
     // Visual feedback
     btn.graphic.setAlpha(0.6);
     btn.graphic.setFillStyle(0xffffff, 0.45);
-    btn.text.setAlpha(0.9);
+    if (btn.icon) btn.icon.setAlpha(0.9);
     btn.pressed = true;
   }
 
@@ -351,7 +373,7 @@ export class TouchControls {
     if (!stillPressed) {
       btn.graphic.setAlpha(1);
       btn.graphic.setFillStyle(0xffffff, 0.2);
-      btn.text.setAlpha(0.5);
+      if (btn.icon) btn.icon.setAlpha(0.6);
       btn.pressed = false;
     }
   }
@@ -367,6 +389,8 @@ export class TouchControls {
     const fighter = this.playerIndex === 0 ? this.scene.p1Fighter : this.scene.p2Fighter;
     if (fighter && this.specialGlow) {
       const isAvailable = fighter.special >= SPECIAL_COST_FP;
+      const spRatio = Phaser.Math.Clamp(fighter.special / MAX_SPECIAL_FP, 0, 1);
+
       this.specialGlow.setVisible(isAvailable);
 
       // Update ES button effects
@@ -376,15 +400,54 @@ export class TouchControls {
         this.specialParticles.emitting = false;
       }
 
-      // Also update the special button's text/border color when available
+      // Update radial arc
       const spBtn = this.buttons.find((b) => b.key === 'special');
-      if (spBtn) {
+      if (spBtn && this.specialRadial) {
+        const graphics = this.specialRadial;
+        graphics.clear();
+
+        const flashTimer = Math.floor(Date.now() / 150) % 2 === 0;
+        let color = 0xffcc00; // Always yellow/gold
+        let alpha = 0.6;
+
+        if (spRatio >= 1.0) {
+          color = flashTimer ? 0xffff00 : 0xffcc00;
+          alpha = 0.9;
+        } else if (spRatio >= 0.5) {
+          // Keep base yellow but slightly higher alpha when ready
+          alpha = 0.8;
+        }
+
+        if (spRatio > 0) {
+          graphics.lineStyle(3, color, alpha);
+          graphics.beginPath();
+          // Arc around the special button - radius + 3 for clarity outside icon
+          graphics.arc(
+            spBtn.cx,
+            spBtn.cy,
+            spBtn.radius + 3,
+            -Math.PI / 2,
+            -Math.PI / 2 + Math.PI * 2 * spRatio,
+            false,
+          );
+          graphics.strokePath();
+        }
+
+        // Also update the special button's text/border color when available
         if (isAvailable) {
           spBtn.graphic.setStrokeStyle(2, 0xffcc00, 0.8);
-          spBtn.text.setColor('#ffcc00').setAlpha(1);
+          if (spBtn.icon) {
+            if (spBtn.icon.type === 'Text') spBtn.icon.setColor('#ffcc00');
+            else spBtn.icon.setTint(0xffcc00);
+            spBtn.icon.setAlpha(1);
+          }
         } else {
           spBtn.graphic.setStrokeStyle(1.5, 0xffffff, 0.35);
-          spBtn.text.setColor('#ffffff').setAlpha(0.5);
+          if (spBtn.icon) {
+            if (spBtn.icon.type === 'Text') spBtn.icon.setColor('#ffffff');
+            else spBtn.icon.clearTint();
+            spBtn.icon.setAlpha(0.6);
+          }
         }
       }
     }
@@ -429,10 +492,11 @@ export class TouchControls {
     if (this.joystickBaseRing) this.joystickBaseRing.destroy();
     if (this.joystickThumb) this.joystickThumb.destroy();
     if (this.specialParticles) this.specialParticles.destroy();
+    if (this.specialRadial) this.specialRadial.destroy();
 
     for (const btn of this.buttons) {
       btn.graphic.destroy();
-      btn.text.destroy();
+      if (btn.icon) btn.icon.destroy();
       if (btn.glow) btn.glow.destroy();
     }
     this.buttons = [];
