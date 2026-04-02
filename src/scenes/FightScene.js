@@ -40,23 +40,28 @@ import { VFXBridge } from '../systems/VFXBridge.js';
 // ---------------------------------------------------------------------------
 const log = Logger.create('FightScene');
 
-const BAR_W = 160;
+const BAR_W = 140;
 const BAR_H = 10;
 const BAR_Y = 12;
-const BAR_P1_X = 16;
-const BAR_P2_X = GAME_WIDTH - 16 - BAR_W;
-
-const SPECIAL_BAR_W = 100;
-const SPECIAL_BAR_H = 6;
-const SPECIAL_BAR_Y = BAR_Y + BAR_H + 4;
-const SPECIAL_P1_X = BAR_P1_X;
-const SPECIAL_P2_X = GAME_WIDTH - 16 - SPECIAL_BAR_W;
+const BAR_GAP = 54; // Gap for clock (was roughly 128)
+const BAR_P1_X = GAME_WIDTH / 2 - BAR_GAP / 2 - BAR_W;
+const BAR_P2_X = GAME_WIDTH / 2 + BAR_GAP / 2;
 
 const STAMINA_BAR_W = 100;
-const STAMINA_BAR_H = 5;
-const STAMINA_BAR_Y = SPECIAL_BAR_Y + SPECIAL_BAR_H + 3;
-const STAMINA_P1_X = BAR_P1_X;
-const STAMINA_P2_X = GAME_WIDTH - 16 - STAMINA_BAR_W;
+const STAMINA_BAR_H = 4;
+const STAMINA_BAR_Y = BAR_Y + BAR_H + 3;
+const STAMINA_P1_X = GAME_WIDTH / 2 - BAR_GAP / 2 - STAMINA_BAR_W;
+const STAMINA_P2_X = GAME_WIDTH / 2 + BAR_GAP / 2;
+
+// Radial Special Indicator constants
+const RADIAL_RADIUS = 12;
+const RADIAL_Y = BAR_Y + BAR_H / 2;
+const RADIAL_OFFSET_X = 22; // Distance from the outer edge of health bar
+const RADIAL_P1_X = BAR_P1_X - RADIAL_OFFSET_X;
+const RADIAL_P2_X = BAR_P2_X + BAR_W + RADIAL_OFFSET_X;
+
+// Special meter bar is being replaced by radial indicator, but we'll keep
+// some relative positions for other UI if needed.
 
 export class FightScene extends Phaser.Scene {
   constructor() {
@@ -473,14 +478,14 @@ export class FightScene extends Phaser.Scene {
     const depth = 20;
 
     // --- Health bars ---
-    // P1 health (fills from left to right)
+    // P1 health (anchored at right, drains towards center)
     this.hpBgP1 = this.add
       .rectangle(BAR_P1_X, BAR_Y, BAR_W, BAR_H, 0x333333)
       .setOrigin(0, 0)
       .setDepth(depth);
     this.hpBarP1 = this.add
-      .rectangle(BAR_P1_X, BAR_Y, BAR_W, BAR_H, 0x00cc44)
-      .setOrigin(0, 0)
+      .rectangle(BAR_P1_X + BAR_W, BAR_Y, BAR_W, BAR_H, 0x00cc44)
+      .setOrigin(1, 0)
       .setDepth(depth + 1);
     this.add
       .rectangle(BAR_P1_X + BAR_W / 2, BAR_Y + BAR_H / 2, BAR_W + 2, BAR_H + 2)
@@ -488,14 +493,14 @@ export class FightScene extends Phaser.Scene {
       .setFillStyle()
       .setDepth(depth + 2);
 
-    // P2 health (fills from right to left)
+    // P2 health (anchored at left, drains towards center)
     this.hpBgP2 = this.add
       .rectangle(BAR_P2_X, BAR_Y, BAR_W, BAR_H, 0x333333)
       .setOrigin(0, 0)
       .setDepth(depth);
     this.hpBarP2 = this.add
-      .rectangle(BAR_P2_X + BAR_W, BAR_Y, BAR_W, BAR_H, 0xcc2200)
-      .setOrigin(1, 0)
+      .rectangle(BAR_P2_X, BAR_Y, BAR_W, BAR_H, 0xcc2200)
+      .setOrigin(0, 0)
       .setDepth(depth + 1);
     this.add
       .rectangle(BAR_P2_X + BAR_W / 2, BAR_Y + BAR_H / 2, BAR_W + 2, BAR_H + 2)
@@ -503,103 +508,63 @@ export class FightScene extends Phaser.Scene {
       .setFillStyle()
       .setDepth(depth + 2);
 
-    // --- Special meter bars ---
-    // P1 special
-    this.spBgP1 = this.add
-      .rectangle(SPECIAL_P1_X, SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H, 0x222222)
-      .setOrigin(0, 0)
-      .setDepth(depth);
-    this.spBarP1 = this.add
-      .rectangle(SPECIAL_P1_X, SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H, 0xffcc00)
-      .setOrigin(0, 0)
-      .setDepth(depth + 1)
-      .setScale(0, 1);
+    // --- Special Indicators (Radial) ---
+    // P1 Special
+    this.spRadialP1 = this.add.graphics().setDepth(depth + 1);
+    this.add.circle(RADIAL_P1_X, RADIAL_Y, RADIAL_RADIUS, 0x222222).setDepth(depth);
     this.add
-      .rectangle(
-        SPECIAL_P1_X + SPECIAL_BAR_W / 2,
-        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
-        SPECIAL_BAR_W + 2,
-        SPECIAL_BAR_H + 2,
-      )
+      .circle(RADIAL_P1_X, RADIAL_Y, RADIAL_RADIUS)
       .setStrokeStyle(1, 0x666666)
-      .setFillStyle()
       .setDepth(depth + 2);
-    // 50% marker P1
-    this.add
-      .rectangle(
-        SPECIAL_P1_X + SPECIAL_BAR_W / 2,
-        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
-        1,
-        SPECIAL_BAR_H,
-        0xffffff,
-        0.3,
-      )
-      .setDepth(depth + 2);
+    this.spRadialTextP1 = this.add
+      .text(RADIAL_P1_X, RADIAL_Y, '⚡', {
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth + 3);
 
-    // P2 special
-    this.spBgP2 = this.add
-      .rectangle(SPECIAL_P2_X, SPECIAL_BAR_Y, SPECIAL_BAR_W, SPECIAL_BAR_H, 0x222222)
-      .setOrigin(0, 0)
-      .setDepth(depth);
-    this.spBarP2 = this.add
-      .rectangle(
-        SPECIAL_P2_X + SPECIAL_BAR_W,
-        SPECIAL_BAR_Y,
-        SPECIAL_BAR_W,
-        SPECIAL_BAR_H,
-        0xffcc00,
-      )
-      .setOrigin(1, 0)
-      .setDepth(depth + 1)
-      .setScale(0, 1);
+    // P2 Special
+    this.spRadialP2 = this.add.graphics().setDepth(depth + 1);
+    this.add.circle(RADIAL_P2_X, RADIAL_Y, RADIAL_RADIUS, 0x222222).setDepth(depth);
     this.add
-      .rectangle(
-        SPECIAL_P2_X + SPECIAL_BAR_W / 2,
-        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
-        SPECIAL_BAR_W + 2,
-        SPECIAL_BAR_H + 2,
-      )
+      .circle(RADIAL_P2_X, RADIAL_Y, RADIAL_RADIUS)
       .setStrokeStyle(1, 0x666666)
-      .setFillStyle()
       .setDepth(depth + 2);
-    // 50% marker P2
-    this.add
-      .rectangle(
-        SPECIAL_P2_X + SPECIAL_BAR_W / 2,
-        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
-        1,
-        SPECIAL_BAR_H,
-        0xffffff,
-        0.3,
-      )
-      .setDepth(depth + 2);
+    this.spRadialTextP2 = this.add
+      .text(RADIAL_P2_X, RADIAL_Y, '⚡', {
+        // P2 is usually AI or remote, so generic icon
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth + 3);
+
+    // Track previous special values for threshold effects
+    this.prevSpecialP1 = 0;
+    this.prevSpecialP2 = 0;
 
     // --- Special effects for HUD bars ---
     // HUD Particle emitters
+    const particleConfig = {
+      speed: { min: 10, max: 20 },
+      angle: { min: 0, max: 360 },
+      scale: { start: 1, end: 0 },
+      alpha: { start: 0.6, end: 0 },
+      lifespan: 400,
+      frequency: 100,
+      tint: 0xffcc00,
+      emitting: false,
+    };
+
     this.spParticlesP1 = this.add
-      .particles(0, 0, 'white_pixel', {
-        speed: { min: 10, max: 20 },
-        angle: { min: 260, max: 280 },
-        scale: { start: 1, end: 0 },
-        alpha: { start: 0.6, end: 0 },
-        lifespan: 400,
-        frequency: 100,
-        tint: 0xffcc00,
-        emitting: false,
-      })
+      .particles(0, 0, 'white_pixel', particleConfig)
       .setDepth(depth - 1);
 
     this.spParticlesP2 = this.add
-      .particles(0, 0, 'white_pixel', {
-        speed: { min: 10, max: 20 },
-        angle: { min: 260, max: 280 },
-        scale: { start: 1, end: 0 },
-        alpha: { start: 0.6, end: 0 },
-        lifespan: 400,
-        frequency: 100,
-        tint: 0xffcc00,
-        emitting: false,
-      })
+      .particles(0, 0, 'white_pixel', particleConfig)
       .setDepth(depth - 1);
 
     // --- Player name labels ---
@@ -607,24 +572,25 @@ export class FightScene extends Phaser.Scene {
     const p2Color = this.p2Data.color.replace('0x', '#');
 
     this.add
-      .text(BAR_P1_X, BAR_Y - 11, this.p1Data.name, {
+      .text(BAR_P1_X + BAR_W, BAR_Y - 11, this.p1Data.name, {
         fontSize: '9px',
         fontFamily: 'monospace',
         color: p1Color,
         stroke: '#000000',
         strokeThickness: 2,
       })
+      .setOrigin(1, 0)
       .setDepth(depth + 3);
 
     this.add
-      .text(BAR_P2_X + BAR_W, BAR_Y - 11, this.p2Data.name, {
+      .text(BAR_P2_X, BAR_Y - 11, this.p2Data.name, {
         fontSize: '9px',
         fontFamily: 'monospace',
         color: p2Color,
         stroke: '#000000',
         strokeThickness: 2,
       })
-      .setOrigin(1, 0)
+      .setOrigin(0, 0)
       .setDepth(depth + 3);
 
     // --- Timer display (center top) ---
@@ -659,14 +625,20 @@ export class FightScene extends Phaser.Scene {
     }
 
     // --- Stamina bars ---
-    // P1 stamina
+    // P1 stamina (anchored at right, drains towards center)
     this.staBgP1 = this.add
       .rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
       .setOrigin(0, 0)
       .setDepth(depth);
     this.staBarP1 = this.add
-      .rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x00cccc)
-      .setOrigin(0, 0)
+      .rectangle(
+        STAMINA_P1_X + STAMINA_BAR_W,
+        STAMINA_BAR_Y,
+        STAMINA_BAR_W,
+        STAMINA_BAR_H,
+        0x00cccc,
+      )
+      .setOrigin(1, 0)
       .setDepth(depth + 1);
     this.add
       .rectangle(
@@ -679,20 +651,14 @@ export class FightScene extends Phaser.Scene {
       .setFillStyle()
       .setDepth(depth + 2);
 
-    // P2 stamina
+    // P2 stamina (anchored at left, drains towards center)
     this.staBgP2 = this.add
       .rectangle(STAMINA_P2_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
       .setOrigin(0, 0)
       .setDepth(depth);
     this.staBarP2 = this.add
-      .rectangle(
-        STAMINA_P2_X + STAMINA_BAR_W,
-        STAMINA_BAR_Y,
-        STAMINA_BAR_W,
-        STAMINA_BAR_H,
-        0x00cccc,
-      )
-      .setOrigin(1, 0)
+      .rectangle(STAMINA_P2_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x00cccc)
+      .setOrigin(0, 0)
       .setDepth(depth + 1);
     this.add
       .rectangle(
@@ -704,40 +670,6 @@ export class FightScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x444444)
       .setFillStyle()
       .setDepth(depth + 2);
-
-    // --- Bar labels ---
-    const labelStyle = {
-      fontSize: '5px',
-      fontFamily: 'monospace',
-      stroke: '#000000',
-      strokeThickness: 1,
-    };
-
-    // ESP labels (special)
-    this.add
-      .text(SPECIAL_P1_X + SPECIAL_BAR_W + 3, SPECIAL_BAR_Y, 'ESP', {
-        ...labelStyle,
-        color: '#ffcc00',
-      })
-      .setOrigin(0, 0)
-      .setDepth(depth + 3);
-    this.add
-      .text(SPECIAL_P2_X - 3, SPECIAL_BAR_Y, 'ESP', { ...labelStyle, color: '#ffcc00' })
-      .setOrigin(1, 0)
-      .setDepth(depth + 3);
-
-    // STA labels (stamina)
-    this.add
-      .text(STAMINA_P1_X + STAMINA_BAR_W + 3, STAMINA_BAR_Y, 'STA', {
-        ...labelStyle,
-        color: '#00cccc',
-      })
-      .setOrigin(0, 0)
-      .setDepth(depth + 3);
-    this.add
-      .text(STAMINA_P2_X - 3, STAMINA_BAR_Y, 'STA', { ...labelStyle, color: '#00cccc' })
-      .setOrigin(1, 0)
-      .setDepth(depth + 3);
 
     // --- Pause button (below timer, local mode only) ---
     if (this.gameMode !== 'online') {
@@ -825,8 +757,8 @@ export class FightScene extends Phaser.Scene {
     const ratioP1 = Phaser.Math.Clamp(this.p1Fighter.hp / MAX_HP, 0, 1);
     const ratioP2 = Phaser.Math.Clamp(this.p2Fighter.hp / MAX_HP, 0, 1);
 
-    this.hpBarP1.width = BAR_W * ratioP1;
-    this.hpBarP2.width = BAR_W * ratioP2;
+    this.hpBarP1.setScale(ratioP1, 1);
+    this.hpBarP2.setScale(ratioP2, 1);
 
     // Color shifts as HP drops
     if (ratioP1 < 0.3) this.hpBarP1.setFillStyle(0xff4444);
@@ -837,60 +769,15 @@ export class FightScene extends Phaser.Scene {
     else if (ratioP2 < 0.6) this.hpBarP2.setFillStyle(0xffaa00);
     else this.hpBarP2.setFillStyle(0xcc2200);
 
-    // Special bars
-    const spRatioP1 = Phaser.Math.Clamp(this.p1Fighter.special / MAX_SPECIAL_FP, 0, 1);
-    const spRatioP2 = Phaser.Math.Clamp(this.p2Fighter.special / MAX_SPECIAL_FP, 0, 1);
-    this.spBarP1.scaleX = spRatioP1;
-    this.spBarP2.scaleX = spRatioP2;
-
-    // Flash special bar when it's at least 50% (enough for a special)
-    const flashTimer = Math.floor(Date.now() / 150) % 2 === 0;
-
-    // Effects for P1
-    if (spRatioP1 >= 0.5) {
-      if (spRatioP1 >= 1.0) {
-        this.spBarP1.setFillStyle(flashTimer ? 0xffff00 : 0xffcc00);
-      } else {
-        // Subtle pulse for 50%
-        this.spBarP1.setFillStyle(flashTimer ? 0xffdd00 : 0xffaa00);
-      }
-
-      // HUD effects
-      this.spParticlesP1.emitting = true;
-      this.spParticlesP1.setPosition(
-        SPECIAL_P1_X + SPECIAL_BAR_W * spRatioP1,
-        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
-      );
-    } else {
-      this.spBarP1.setFillStyle(0xffcc00);
-      this.spParticlesP1.emitting = false;
-    }
-
-    // Effects for P2
-    if (spRatioP2 >= 0.5) {
-      if (spRatioP2 >= 1.0) {
-        this.spBarP2.setFillStyle(flashTimer ? 0xffff00 : 0xffcc00);
-      } else {
-        // Subtle pulse for 50%
-        this.spBarP2.setFillStyle(flashTimer ? 0xffdd00 : 0xffaa00);
-      }
-
-      // HUD effects
-      this.spParticlesP2.emitting = true;
-      this.spParticlesP2.setPosition(
-        SPECIAL_P2_X + SPECIAL_BAR_W - SPECIAL_BAR_W * spRatioP2,
-        SPECIAL_BAR_Y + SPECIAL_BAR_H / 2,
-      );
-    } else {
-      this.spBarP2.setFillStyle(0xffcc00);
-      this.spParticlesP2.emitting = false;
-    }
+    // Special Indicators (Radial)
+    this._updateRadialIndicator(this.spRadialP1, this.spRadialTextP1, this.p1Fighter, 'P1');
+    this._updateRadialIndicator(this.spRadialP2, this.spRadialTextP2, this.p2Fighter, 'P2');
 
     // Stamina bars
     const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA_FP, 0, 1);
     const staRatioP2 = Phaser.Math.Clamp(this.p2Fighter.stamina / MAX_STAMINA_FP, 0, 1);
-    this.staBarP1.scaleX = staRatioP1;
-    this.staBarP2.scaleX = staRatioP2;
+    this.staBarP1.setScale(staRatioP1, 1);
+    this.staBarP2.setScale(staRatioP2, 1);
 
     // Flash red when depleted
     this.staBarP1.setFillStyle(staRatioP1 < 0.15 ? 0xff4444 : 0x00cccc);
@@ -898,6 +785,107 @@ export class FightScene extends Phaser.Scene {
 
     // Timer
     this.timerText.setText(String(Math.max(0, this.combat.timer)));
+    this._updateHUD_Extra();
+  }
+
+  /**
+   * Updates a radial special indicator.
+   */
+  _updateRadialIndicator(graphics, text, fighter, playerKey) {
+    const spRatio = Phaser.Math.Clamp(fighter.special / MAX_SPECIAL_FP, 0, 1);
+    const prevSp = playerKey === 'P1' ? this.prevSpecialP1 : this.prevSpecialP2;
+    const prevSpRatio = Phaser.Math.Clamp(prevSp / MAX_SPECIAL_FP, 0, 1);
+
+    const centerX = playerKey === 'P1' ? RADIAL_P1_X : RADIAL_P2_X;
+    const centerY = RADIAL_Y;
+
+    // Threshold logic (50%)
+    if (spRatio >= 0.5 && prevSpRatio < 0.5) {
+      // Threshold reached!
+      this.tweens.add({
+        targets: [graphics, text],
+        scale: 1.4,
+        duration: 100,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+      });
+
+      // Vibration (only for local P1 or if on mobile)
+      if (
+        playerKey === 'P1' &&
+        this.gameMode !== 'spectator' &&
+        typeof navigator !== 'undefined' &&
+        navigator.vibrate
+      ) {
+        navigator.vibrate(50);
+      }
+    }
+
+    // Update previous value
+    if (playerKey === 'P1') this.prevSpecialP1 = fighter.special;
+    else this.prevSpecialP2 = fighter.special;
+
+    graphics.clear();
+
+    const flashTimer = Math.floor(Date.now() / 150) % 2 === 0;
+    let color = 0xffcc00;
+
+    if (spRatio >= 1.0) {
+      color = flashTimer ? 0xffff00 : 0xffcc00;
+    } else if (spRatio >= 0.5) {
+      color = flashTimer ? 0xffdd00 : 0xffaa00;
+    }
+
+    // Draw arc
+    if (spRatio > 0) {
+      graphics.lineStyle(3, color, 1);
+      // arc(x, y, radius, startAngle, endAngle, anticlockwise)
+      // angles in radians. -Math.PI/2 is top.
+      graphics.beginPath();
+      graphics.arc(
+        centerX,
+        centerY,
+        RADIAL_RADIUS - 1.5,
+        -Math.PI / 2,
+        -Math.PI / 2 + Math.PI * 2 * spRatio,
+        false,
+      );
+      graphics.strokePath();
+    }
+
+    // Text color
+    if (spRatio >= 0.5) {
+      text.setColor('#ffcc00');
+    } else {
+      text.setColor('#ffffff');
+    }
+
+    // Particle effects
+    const particles = playerKey === 'P1' ? this.spParticlesP1 : this.spParticlesP2;
+    if (spRatio >= 0.5) {
+      if (typeof particles.start === 'function' && !particles.emitting) {
+        particles.start();
+      } else {
+        particles.emitting = true;
+      }
+      particles.setPosition(centerX, centerY);
+      // Phaser 3.60+ uses setParticleTint for emitters
+      if (typeof particles.setParticleTint === 'function') {
+        particles.setParticleTint(color);
+      } else if (typeof particles.setTint === 'function') {
+        particles.setTint(color);
+      }
+    } else {
+      if (typeof particles.stop === 'function') {
+        particles.stop();
+      } else {
+        particles.emitting = false;
+      }
+    }
+  }
+
+  _updateHUD_Extra() {
+    // This is a helper to finish updating the HUD
     if (this.combat.timer <= 10) {
       this.timerText.setColor('#ff4444');
     } else {
