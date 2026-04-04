@@ -199,9 +199,15 @@ export class FightScene extends Phaser.Scene {
     // -- Audio --
     const audio = this.game.audioManager;
     audio.setScene(this);
-    const fightMusicCount = this.game.registry.get('fightMusicCount') || 1;
-    const trackIndex = Math.floor(Math.random() * fightMusicCount);
-    audio.playMusic(`bgm_fight_${trackIndex}`);
+    const stage = stagesData.find((s) => s.id === this.stageId);
+    if (stage?.soundtrack?.length) {
+      const trackIndex = Math.floor(Math.random() * stage.soundtrack.length);
+      audio.playMusic(`bgm_stage_${stage.id}_${trackIndex}`);
+    } else {
+      const fightMusicCount = this.game.registry.get('fightMusicCount') || 1;
+      const trackIndex = Math.floor(Math.random() * fightMusicCount);
+      audio.playMusic(`bgm_fight_${trackIndex}`);
+    }
     audio.createMuteButton(this);
 
     // -- Pause system --
