@@ -1,5 +1,11 @@
 import Phaser from 'phaser';
-import { FIGHTER_COLORS, FIGHTER_HEIGHT, FIGHTER_WIDTH } from '../config.js';
+import {
+  FIGHTER_COLORS,
+  FIGHTER_HEIGHT,
+  FIGHTER_WIDTH,
+  GAME_HEIGHT,
+  GAME_WIDTH,
+} from '../config.js';
 import stages from '../data/stages.json';
 import { authEnabled } from '../services/supabase.js';
 
@@ -93,7 +99,14 @@ export class BootScene extends Phaser.Scene {
     // Load stage background images (only for those that have actual image files)
     for (const stage of stages) {
       if (stage.texture?.startsWith('stages_')) {
-        this.load.image(stage.texture, `assets/stages/${stage.texture}.png`);
+        if (stage.animated) {
+          this.load.spritesheet(stage.texture, `assets/stages/${stage.texture}.png`, {
+            frameWidth: GAME_WIDTH,
+            frameHeight: GAME_HEIGHT,
+          });
+        } else {
+          this.load.image(stage.texture, `assets/stages/${stage.texture}.png`);
+        }
       }
     }
 
@@ -128,6 +141,21 @@ export class BootScene extends Phaser.Scene {
           this.game.config.height,
           Phaser.Display.Color.HexStringToColor(stage.bgColor).color,
         );
+      }
+    }
+
+    // Create animations for animated stages
+    for (const stage of stages) {
+      if (stage.animated && this.textures.exists(stage.texture)) {
+        this.anims.create({
+          key: `stage_anim_${stage.id}`,
+          frames: this.anims.generateFrameNumbers(stage.texture, {
+            start: 0,
+            end: stage.animFrames - 1,
+          }),
+          frameRate: stage.animFrameRate || 6,
+          repeat: -1,
+        });
       }
     }
 

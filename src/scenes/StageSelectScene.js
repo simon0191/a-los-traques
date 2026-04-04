@@ -78,7 +78,9 @@ export class StageSelectScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: this.isP1 });
 
       if (stage.texture && this.textures.exists(stage.texture)) {
-        this.add.image(x, y, stage.texture).setDisplaySize(CELL_W - 4, CELL_H - 4);
+        this.add
+          .sprite(x, y, stage.texture, stage.animated ? 0 : undefined)
+          .setDisplaySize(CELL_W - 4, CELL_H - 4);
       } else {
         const color = Phaser.Display.Color.HexStringToColor(stage.bgColor || '#555555').color;
         this.add.rectangle(x, y, CELL_W - 4, CELL_H - 4, color);

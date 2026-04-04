@@ -61,6 +61,9 @@
     "bgColor": "#000000",
     "groundColor": "#101010",
     "description": "Sobelooo",
-    "texture": "stages_djGartner"
+    "texture": "stages_djGartner",
+    "animated": true,
+    "animFrames": 13,
+    "animFrameRate": 6
   }
 ]

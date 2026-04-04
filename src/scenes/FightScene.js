@@ -445,11 +445,19 @@ export class FightScene extends Phaser.Scene {
   _createBackground() {
     const stage = stagesData.find((s) => s.id === this.stageId) || stagesData[0];
 
-    // Main background image
-    this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, stage.texture)
-      .setOrigin(0.5)
-      .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+    // Main background image (animated or static)
+    if (stage.animated && this.textures.exists(stage.texture)) {
+      const bgSprite = this.add
+        .sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, stage.texture)
+        .setOrigin(0.5)
+        .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+      bgSprite.play(`stage_anim_${stage.id}`);
+    } else {
+      this.add
+        .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, stage.texture)
+        .setOrigin(0.5)
+        .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+    }
 
     // Optional: Add a subtle overlay to help fighters pop
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.15);

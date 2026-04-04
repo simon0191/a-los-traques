@@ -117,6 +117,14 @@ Use the `/generate-fighter` skill for the full workflow. Key points:
 4. Run reference pipeline with `--skip-generate` (reprocesses existing `{id}_ref.png`)
 5. Run fighter pipeline, then portrait pipeline
 
+### Animated stage backgrounds
+Use the `/generate-animated-stage` skill for the full workflow. Key points:
+- **stages.json fields**: `animated` (bool), `animFrames` (int), `animFrameRate` (int, default 6 fps)
+- **Format**: horizontal strip PNG (480*N x 270), same pattern as fighter spritesheets
+- **Manifest**: `assets/manifests/stage_{id}.json` with `prompt`, `output`, `animated: true`, `animFrames`
+- **Reference chain**: first generated frame is passed as reference to subsequent frames for consistency
+- **Stale cache**: `assets/_raw/stages/stages_{id}_frame*` — delete before regenerating
+
 ### Animation frame counts
 idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), special(5), block(2), hurt(3), knockdown(4), victory(4), defeat(3), jump(3)
 
