@@ -64,6 +64,7 @@
     "texture": "stages_djGartner",
     "animated": true,
     "animFrames": 13,
-    "animFrameRate": 6
+    "animFrameRate": 6,
+    "soundtrack": ["gartner_a_los_tracks.mp3"]
   }
 ]

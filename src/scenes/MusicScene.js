@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import stages from '../data/stages.json';
 
 // Auto-discover fight music MP3s at build time via Vite glob
 const fightMusicFiles = Object.keys(import.meta.glob('/public/assets/audio/fights/*.mp3')).map(
@@ -80,7 +81,64 @@ export class MusicScene extends Phaser.Scene {
         this._toggleSong(i);
       });
 
-      this.songRows.push({ bg, text, name });
+      this.songRows.push({ bg, text, name, audioKey: `bgm_fight_${i}` });
+    }
+
+    // Stage-specific tracks
+    const stagesWithMusic = stages.filter((s) => s.soundtrack?.length);
+    if (stagesWithMusic.length > 0) {
+      const sectionY = startY + fightMusicFiles.length * rowHeight + 10;
+      this.add
+        .text(GAME_WIDTH / 2, sectionY, 'STAGE TRACKS', {
+          fontFamily: 'Arial Black, Arial',
+          fontSize: '14px',
+          color: '#aaaaff',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5);
+
+      let stageRowY = sectionY + 20;
+      for (const stage of stagesWithMusic) {
+        for (let j = 0; j < stage.soundtrack.length; j++) {
+          const audioKey = `bgm_stage_${stage.id}_${j}`;
+          const songName = `${stage.name} - ${formatSongName(stage.soundtrack[j])}`;
+          const idx = this.songRows.length;
+
+          const bg = this.add
+            .rectangle(GAME_WIDTH / 2, stageRowY, 300, 22, 0x222244)
+            .setStrokeStyle(1, 0x4444aa)
+            .setInteractive({ useHandCursor: true });
+
+          const text = this.add
+            .text(GAME_WIDTH / 2, stageRowY, songName, {
+              fontFamily: 'Arial',
+              fontSize: '12px',
+              color: '#ffffff',
+            })
+            .setOrigin(0.5);
+
+          bg.on('pointerover', () => {
+            if (this.playingIndex !== idx) {
+              bg.setFillStyle(0x333366);
+              text.setColor('#ffcc00');
+            }
+          });
+          bg.on('pointerout', () => {
+            if (this.playingIndex !== idx) {
+              bg.setFillStyle(0x222244);
+              text.setColor('#ffffff');
+            }
+          });
+          bg.on('pointerdown', () => {
+            this.game.audioManager.play('ui_confirm');
+            this._toggleSong(idx);
+          });
+
+          this.songRows.push({ bg, text, name: songName, audioKey });
+          stageRowY += rowHeight;
+        }
+      }
     }
 
     // VOLVER button
@@ -103,7 +161,7 @@ export class MusicScene extends Phaser.Scene {
         this._clearHighlight(this.playingIndex);
       }
       // Play new song
-      audio.playMusic(`bgm_fight_${index}`);
+      audio.playMusic(this.songRows[index].audioKey);
       this._setHighlight(index);
       this.playingIndex = index;
     }

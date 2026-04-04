@@ -110,6 +110,18 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
+    // Load stage-specific soundtracks
+    for (const stage of stages) {
+      if (stage.soundtrack) {
+        for (let i = 0; i < stage.soundtrack.length; i++) {
+          this.load.audio(
+            `bgm_stage_${stage.id}_${i}`,
+            `assets/audio/stages/${stage.id}/${stage.soundtrack[i]}`,
+          );
+        }
+      }
+    }
+
     // Load fighter sprite sheets and portraits
     for (const id of FIGHTERS_WITH_SPRITES) {
       for (const [animName, _def] of Object.entries(ANIM_DEFS)) {
