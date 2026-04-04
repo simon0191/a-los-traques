@@ -75,8 +75,13 @@ export class PreFightScene extends Phaser.Scene {
     this.add.rectangle(boxX, boxY, boxW + 4, boxH + 4, 0xffffff, 0.3);
     this.add.rectangle(boxX, boxY, boxW, boxH, 0x000000);
 
-    // Stage preview image inside the box
-    this.stagePreview = this.add.image(boxX, boxY, selectedStage.texture);
+    // Stage preview (use sprite so it can display both static and animated stage textures)
+    this.stagePreview = this.add.sprite(
+      boxX,
+      boxY,
+      selectedStage.texture,
+      selectedStage.animated ? 0 : undefined,
+    );
     this.stagePreview.setDisplaySize(boxW, boxH);
 
     // Stage info text (Name + Description)
@@ -116,7 +121,7 @@ export class PreFightScene extends Phaser.Scene {
       const cycleStage = () => {
         currentIdx = (currentIdx + 1) % stagesData.length;
         const stage = stagesData[currentIdx];
-        this.stagePreview.setTexture(stage.texture);
+        this.stagePreview.setTexture(stage.texture, stage.animated ? 0 : undefined);
         this.stagePreview.setDisplaySize(boxW, boxH);
         this.stageNameText.setText(stage.name.toUpperCase());
         this.stageDescText.setText(stage.description);
@@ -145,7 +150,7 @@ export class PreFightScene extends Phaser.Scene {
         }
         // Final selection
         const stage = selectedStage || stagesData[0];
-        this.stagePreview.setTexture(stage.texture);
+        this.stagePreview.setTexture(stage.texture, stage.animated ? 0 : undefined);
         this.stagePreview.setDisplaySize(boxW, boxH);
         this.stageNameText.setText(stage.name.toUpperCase()).setColor('#ffcc00');
         this.stageDescText.setText(stage.description);
