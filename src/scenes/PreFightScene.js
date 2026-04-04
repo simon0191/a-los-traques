@@ -12,6 +12,7 @@ export class PreFightScene extends Phaser.Scene {
     this.p1Id = data.p1Id;
     this.p2Id = data.p2Id;
     this.stageId = data.stageId;
+    this.fightId = data.fightId || null;
     this.isRandomStage = data.isRandomStage || false;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
@@ -313,6 +314,7 @@ export class PreFightScene extends Phaser.Scene {
         p1Id: this.p1Id,
         p2Id: this.p2Id,
         stageId: this.stageId,
+        fightId: this.fightId,
         gameMode: this.gameMode,
         networkManager: this.networkManager,
         matchContext: this.matchContext,

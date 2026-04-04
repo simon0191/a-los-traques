@@ -7,12 +7,13 @@ import { encodeInput } from './InputBuffer.js';
  * Exposes all data via window.__FIGHT_LOG.
  */
 export class FightRecorder {
-  constructor({ roomId, playerSlot, fighterId, opponentId, stageId, config }) {
+  constructor({ fightId, roomId, playerSlot, fighterId, opponentId, stageId, config }) {
     this._lastEncodedInput = -1;
     this._lastConfirmedP1 = -1;
     this._lastConfirmedP2 = -1;
 
     this.log = {
+      fightId,
       roomId,
       playerSlot,
       fighterId,

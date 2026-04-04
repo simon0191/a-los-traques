@@ -181,7 +181,39 @@ export class StageSelectScene extends Phaser.Scene {
     }
 
     if (this.gameMode === 'online' && this.networkManager) {
+      // P1: Listen for create_fight signal — create fight record, then confirm
+      this.networkManager.signaling.on('create_fight', (data) => {
+        this.headerText?.setText('CREANDO PELEA...');
+        import('../services/api.js').then(({ createFight }) => {
+          createFight({
+            fightId: data.fightId,
+            roomId: this.networkManager.roomId,
+            p1Fighter: data.p1Id,
+            p2Fighter: data.p2Id,
+            stageId: data.stageId,
+          })
+            .then(() => {
+              this.networkManager.signaling.send({ type: 'fight_created' });
+            })
+            .catch((err) => {
+              // Still send fight_created to unblock the match even if DB fails
+              console.warn('Fight creation failed, continuing anyway:', err.message);
+              this.networkManager.signaling.send({ type: 'fight_created' });
+            });
+        });
+      });
+
+      // Listen for start signal (sent by server after fight_created)
       this.networkManager.onStart((data) => {
+        this._fightId = data.fightId;
+
+        // P2: register as second player in the fight record
+        if (!this.isP1) {
+          import('../services/api.js').then(({ updateFight }) => {
+            updateFight({ fightId: data.fightId, registerP2: true }).catch(() => {});
+          });
+        }
+
         this.goToPreFight(data.stageId, data.isRandomStage);
       });
 
@@ -273,6 +305,7 @@ export class StageSelectScene extends Phaser.Scene {
         p1Id: this.p1Id,
         p2Id: this.p2Id,
         stageId: stageId,
+        fightId: this._fightId || null,
         isRandomStage: isRandomStage,
         gameMode: this.gameMode,
         networkManager: this.networkManager,

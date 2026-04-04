@@ -100,3 +100,17 @@ export function withAuth(handler) {
     }
   };
 }
+
+/**
+ * Higher-order function for admin-only handlers.
+ * Wraps withAuth and additionally checks is_admin on the profiles table.
+ */
+export function withAdmin(handler) {
+  return withAuth(async (req, res, { userId, db }) => {
+    const result = await db.query('SELECT is_admin FROM profiles WHERE id = $1', [userId]);
+    if (result.rows.length === 0 || !result.rows[0].is_admin) {
+      return res.status(403).json({ error: 'Forbidden: Admin access required' });
+    }
+    return handler(req, res, { userId, db });
+  });
+}

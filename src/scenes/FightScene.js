@@ -85,6 +85,7 @@ export class FightScene extends Phaser.Scene {
       this.p2Id = fightersData[data && data.p2 != null ? data.p2 : 1].id;
     }
     this.stageId = data && (data.stageId || data.stage) ? data.stageId || data.stage : null;
+    this.fightId = data?.fightId || null;
     this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
     this.gameMode = data?.gameMode || 'local';
     this.networkManager = data?.networkManager || null;
@@ -268,6 +269,7 @@ export class FightScene extends Phaser.Scene {
       const nm = this.networkManager;
       const slot = nm.getPlayerSlot();
       this.recorder = new FightRecorder({
+        fightId: this.fightId,
         roomId: nm.roomId,
         playerSlot: slot,
         fighterId: slot === 0 ? this.p1Id : this.p2Id,
@@ -976,6 +978,7 @@ export class FightScene extends Phaser.Scene {
     // Fight recorder for E2E testing and debug mode
     if (this.game.autoplay?.enabled || this.game.debugMode) {
       this.recorder = new FightRecorder({
+        fightId: this.fightId,
         roomId: nm.roomId,
         playerSlot: slot,
         fighterId: slot === 0 ? this.p1Id : this.p2Id,
@@ -1543,19 +1546,30 @@ export class FightScene extends Phaser.Scene {
           this.combat,
           this.rollbackManager.currentFrame,
         );
+      }
 
-        // Expose v2 debug bundle on window for remote E2E extraction
-        if (this.game.debugMode && this.recorder) {
-          import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
-            window.__DEBUG_BUNDLE = DebugBundleExporter.generateBundle({
-              recorder: this.recorder,
-              telemetry: this.telemetry,
-              matchState: this.matchState,
-              sessionId: this.networkManager?.sessionId,
-              debugMode: true,
-            });
+      // Upload debug bundle after every round (including final)
+      if (this.game.debugMode && this.recorder) {
+        import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
+          const bundle = DebugBundleExporter.generateBundle({
+            recorder: this.recorder,
+            telemetry: this.telemetry,
+            matchState: this.matchState,
+            sessionId: this.networkManager?.sessionId,
+            debugMode: true,
           });
-        }
+
+          if (roundEvent.matchOver) {
+            window.__DEBUG_BUNDLE = bundle;
+          }
+
+          DebugBundleExporter.uploadBundle({
+            fightId: this.fightId,
+            slot: this.networkManager?.getPlayerSlot(),
+            round: this.combat.roundNumber - 1,
+            bundle,
+          });
+        });
       }
     }
 

@@ -23,6 +23,20 @@ function makeCtx(params = {}) {
   return { request: { url: url.toString() } };
 }
 
+/**
+ * Helper: ready both players, select stage, and complete fight creation handshake.
+ * After this, room.roomState === 'fighting' and start has been broadcast.
+ */
+function startFight(room, c1, c2) {
+  room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), c1);
+  room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), c2);
+  room.onMessage(
+    JSON.stringify({ type: 'select_stage', stageId: 'beach', isRandomStage: false }),
+    c1,
+  );
+  room.onMessage(JSON.stringify({ type: 'fight_created' }), c1);
+}
+
 // --- Tests ---
 
 describe('FightRoom', () => {
@@ -96,7 +110,7 @@ describe('FightRoom', () => {
       expect(room.roomState).toBe('stage_select');
     });
 
-    it('transitions stage_select → fighting when host selects stage', () => {
+    it('transitions stage_select → creating_fight when host selects stage', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
       room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
@@ -107,6 +121,19 @@ describe('FightRoom', () => {
         JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
         conn1,
       );
+      expect(room.roomState).toBe('creating_fight');
+    });
+
+    it('transitions creating_fight → fighting when P1 sends fight_created', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'paula' }), conn2);
+      room.onMessage(
+        JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
+        conn1,
+      );
+      room.onMessage(JSON.stringify({ type: 'fight_created' }), conn1);
       expect(room.roomState).toBe('fighting');
     });
 
@@ -217,11 +244,18 @@ describe('FightRoom', () => {
       conn1.send.mockClear();
       conn2.send.mockClear();
 
-      // Host selects stage
+      // Host selects stage → creating_fight
       room.onMessage(
         JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
         conn1,
       );
+      expect(room.roomState).toBe('creating_fight');
+
+      conn1.send.mockClear();
+      conn2.send.mockClear();
+
+      // P1 confirms fight creation → fighting + start broadcast
+      room.onMessage(JSON.stringify({ type: 'fight_created' }), conn1);
       expect(room.roomState).toBe('fighting');
 
       // Both players should get start message
@@ -366,12 +400,7 @@ describe('FightRoom', () => {
     it('sends return_to_select (not disconnect) when grace expires during fight', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      room.onMessage(
-        JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
-        conn1,
-      );
+      startFight(room, conn1, conn2);
       expect(room.roomState).toBe('fighting');
 
       conn2.send.mockClear();
@@ -394,12 +423,7 @@ describe('FightRoom', () => {
     it('resets started and fightInfo when both players grace periods expire', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      room.onMessage(
-        JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
-        conn1,
-      );
+      startFight(room, conn1, conn2);
       expect(room.roomState).toBe('fighting');
 
       room.onClose(conn1);
@@ -595,12 +619,7 @@ describe('FightRoom', () => {
 
     it('reconnecting player during grace period can rejoin', () => {
       // Start a fight
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      room.onMessage(
-        JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
-        conn1,
-      );
+      startFight(room, conn1, conn2);
       expect(room.roomState).toBe('fighting');
 
       // P2 disconnects — grace timer starts
@@ -761,12 +780,7 @@ describe('FightRoom', () => {
     });
 
     it('broadcasts return_to_select to spectators when grace expires during fight', () => {
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      room.onMessage(
-        JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
-        conn1,
-      );
+      startFight(room, conn1, conn2);
       expect(room.roomState).toBe('fighting');
 
       room.onConnect(conn3, makeCtx({ spectate: '1' }));
@@ -782,12 +796,7 @@ describe('FightRoom', () => {
 
     it('rejoin with reset resets room to selecting and notifies opponent', () => {
       // Start a fight
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      room.onMessage(
-        JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
-        conn1,
-      );
+      startFight(room, conn1, conn2);
       expect(room.roomState).toBe('fighting');
 
       // P2 disconnects (page refresh scenario)
@@ -836,12 +845,7 @@ describe('FightRoom', () => {
       expect(room.roomState).toBe('selecting');
 
       // Both ready → fighting
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      room.onMessage(
-        JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
-        conn1,
-      );
+      startFight(room, conn1, conn2);
       expect(room.roomState).toBe('fighting');
 
       // Disconnect → reconnecting
@@ -898,12 +902,7 @@ describe('FightRoom', () => {
     });
 
     it('ignores ready after game has started', () => {
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
-      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'jeka' }), conn2);
-      room.onMessage(
-        JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
-        conn1,
-      );
+      startFight(room, conn1, conn2);
       expect(room.roomState).toBe('fighting');
 
       // Reset ready flags but keep roomState as 'fighting' via direct manipulation
