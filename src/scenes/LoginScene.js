@@ -31,20 +31,31 @@ export class LoginScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Check for existing session
+    // Check for existing session (handles redirects and auto-login)
     try {
       const session = await getSession();
       if (session) {
-        const name = session.user.user_metadata?.nickname || session.user.email;
+        const metadata = session.user.user_metadata;
+        const name =
+          metadata?.nickname ||
+          metadata?.full_name ||
+          metadata?.name ||
+          session.user.email?.split('@')[0] ||
+          'Jugador';
+
         this.statusText.setText(`Bienvenido, ${name}`).setColor('#44cc88');
         // Update registry immediately to avoid race conditions in TitleScene
         this.game.registry.set('user', session.user);
 
-        // Sync profile with backend on every login/reconnect
+        // Sync profile with backend (essential for first-time Google logins)
+        this.statusText.setText('Sincronizando perfil...');
         try {
-          await syncProfile(session.user.user_metadata?.nickname);
+          // Pass the best available name as the nickname
+          await syncProfile(name);
+          log.info('Profile synced', { nickname: name });
         } catch (e) {
           log.warn('Profile sync failed', { err: e.message });
+          // We continue to TitleScene even if sync fails (e.g., dev mode without backend)
         }
 
         this.time.delayedCall(1000, () => this.scene.start('TitleScene'));
