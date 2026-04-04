@@ -24,16 +24,21 @@ function makeCtx(params = {}) {
   return { request: { url: url.toString() } };
 }
 
-function readyBothPlayers(room, conn1, conn2) {
+/** Ready both players and select stage → creating_fight state (fightId generated). */
+function readyAndSelectStage(room, conn1, conn2) {
   room.onConnect(conn1, makeCtx());
   room.onConnect(conn2, makeCtx());
   room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
   room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'paula' }), conn2);
+  room.onMessage(
+    JSON.stringify({ type: 'select_stage', stageId: 'beach', isRandomStage: false }),
+    conn1,
+  );
 }
 
-/** Ready both players and complete the fight creation handshake → fighting state. */
+/** Full handshake → fighting state. */
 function startFight(room, conn1, conn2) {
-  readyBothPlayers(room, conn1, conn2);
+  readyAndSelectStage(room, conn1, conn2);
   room.onMessage(JSON.stringify({ type: 'fight_created' }), conn1);
 }
 
@@ -50,14 +55,14 @@ describe('FightRoom - fightId generation', () => {
   });
 
   it('generates a fightId when both players ready', () => {
-    readyBothPlayers(room, conn1, conn2);
+    readyAndSelectStage(room, conn1, conn2);
     expect(room.fightInfo).not.toBeNull();
     expect(room.fightInfo.fightId).toBeDefined();
     expect(typeof room.fightInfo.fightId).toBe('string');
   });
 
   it('generates a valid UUID format fightId', () => {
-    readyBothPlayers(room, conn1, conn2);
+    readyAndSelectStage(room, conn1, conn2);
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     expect(room.fightInfo.fightId).toMatch(uuidRegex);
   });
@@ -90,14 +95,14 @@ describe('FightRoom - fightId generation', () => {
   });
 
   it('stores fightId in fightInfo', () => {
-    readyBothPlayers(room, conn1, conn2);
+    readyAndSelectStage(room, conn1, conn2);
     expect(room.fightInfo.fightId).toBeDefined();
     expect(room.fightInfo.p1Id).toBe('simon');
     expect(room.fightInfo.p2Id).toBe('paula');
   });
 
   it('clears fightId when a player leaves', () => {
-    readyBothPlayers(room, conn1, conn2);
+    readyAndSelectStage(room, conn1, conn2);
     expect(room.fightInfo).not.toBeNull();
 
     room.onMessage(JSON.stringify({ type: 'leave' }), conn1);
@@ -105,13 +110,17 @@ describe('FightRoom - fightId generation', () => {
   });
 
   it('generates a new fightId for each fight', () => {
-    readyBothPlayers(room, conn1, conn2);
+    readyAndSelectStage(room, conn1, conn2);
     const firstFightId = room.fightInfo.fightId;
 
     // Leave and start a new fight
     room.onMessage(JSON.stringify({ type: 'leave' }), conn1);
     room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
     room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'paula' }), conn2);
+    room.onMessage(
+      JSON.stringify({ type: 'select_stage', stageId: 'metro', isRandomStage: false }),
+      conn1,
+    );
     const secondFightId = room.fightInfo.fightId;
 
     expect(secondFightId).not.toBe(firstFightId);
