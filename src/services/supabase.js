@@ -33,6 +33,21 @@ export async function signUp(email, password, nickname) {
 }
 
 /**
+ * Log in using Google OAuth
+ */
+export async function logInWithGoogle() {
+  if (!supabase) throw new Error('Auth is disabled');
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      // Supabase automatically picks up the current URL to return to
+    },
+  });
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Log in an existing user
  */
 export async function logIn(email, password) {

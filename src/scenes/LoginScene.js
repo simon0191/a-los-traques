@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import { syncProfile } from '../services/api.js';
-import { getSession, logIn, signUp } from '../services/supabase.js';
+import { getSession, logIn, logInWithGoogle, signUp } from '../services/supabase.js';
 import { Logger } from '../systems/Logger.js';
 
 const log = Logger.create('LoginScene');
@@ -73,6 +73,9 @@ export class LoginScene extends Phaser.Scene {
           <button id="loginBtn" style="flex: 1; padding: 5px; background: #3366ff; color: white; border: none; border-radius: 3px; cursor: pointer;">ENTRAR</button>
           <button id="showSignupBtn" style="flex: 1; padding: 5px; background: #222244; color: white; border: 1px solid #4444aa; border-radius: 3px; cursor: pointer;">REGISTRO</button>
         </div>
+        <button id="googleBtn" style="margin-top: 5px; padding: 6px; background: #ffffff; color: #000000; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px;">
+          <span style="font-size: 14px;">G</span> INGRESAR CON GOOGLE
+        </button>
         <button id="guestBtn" style="margin-top: 5px; padding: 5px; background: none; color: #aaaacc; border: 1px dashed #444; border-radius: 3px; cursor: pointer; font-size: 10px;">JUGAR COMO INVITADO</button>
       </div>
     `;
@@ -100,6 +103,15 @@ export class LoginScene extends Phaser.Scene {
             await syncProfile(session.user.user_metadata?.nickname);
           }
           this.scene.start('TitleScene');
+        } catch (e) {
+          this._setErrorMessage(e.message);
+          this._setLoading(false);
+        }
+      } else if (event.target.id === 'googleBtn') {
+        this._setLoading(true);
+        try {
+          await logInWithGoogle();
+          // Note: The page will redirect to Google and then back.
         } catch (e) {
           this._setErrorMessage(e.message);
           this._setLoading(false);
