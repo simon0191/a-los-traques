@@ -16,7 +16,8 @@ Decoupled architecture: Supabase for Auth (JWT) + Vercel Functions for data pers
 - **Database Schema**: 
     - Managed via `dbmate` (pure Postgres).
     - Migrations in `db/migrations/`.
-    - `profiles` table (id, nickname, wins, losses).
+    - `profiles` table (id, nickname, wins, losses, is_admin).
+    - `fights` table (id, room_id, players, fighters, stage, result, debug bundle status/TTL).
 - **Graceful Degradation**: If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` are missing, the game bypasses `LoginScene` and operates in "Guest Mode" automatically.
 
 ## Build & Run
@@ -117,14 +118,6 @@ Use the `/generate-fighter` skill for the full workflow. Key points:
 4. Run reference pipeline with `--skip-generate` (reprocesses existing `{id}_ref.png`)
 5. Run fighter pipeline, then portrait pipeline
 
-### Animated stage backgrounds
-Use the `/generate-animated-stage` skill for the full workflow. Key points:
-- **stages.json fields**: `animated` (bool), `animFrames` (int), `animFrameRate` (int, default 6 fps)
-- **Format**: horizontal strip PNG (480*N x 270), same pattern as fighter spritesheets
-- **Manifest**: `assets/manifests/stage_{id}.json` with `prompt`, `output`, `animated: true`, `animFrames`
-- **Reference chain**: first generated frame is passed as reference to subsequent frames for consistency
-- **Stale cache**: `assets/_raw/stages/stages_{id}_frame*` — delete before regenerating
-
 ### Animation frame counts
 idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), special(5), block(2), hurt(3), knockdown(4), victory(4), defeat(3), jump(3)
 
@@ -177,6 +170,8 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0006-fix-p1-no-rollback.md` — Fix P1 never rolls back
 - `docs/rfcs/0007-fix-desync-detection.md` — Fix desync detection between peers with different RTT
 - `docs/rfcs/0009-e2e-remote-browser-testing.md` — Remote browser E2E testing via BrowserStack
+- `docs/rfcs/0011-auto-upload-debug-bundles.md` — Auto-upload debug bundles to object storage
+- `docs/rfcs/0012-e2e-bot-user.md` — E2E bot user for debug bundle uploads (proposed)
 
 ## Online Multiplayer
 
@@ -210,6 +205,16 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - **Session ID**: Generated in SignalingClient, passed as PartySocket query param, included in all server logs and debug bundles for client-server correlation.
 - **Server logging**: `party/server.js` uses structured JSON logging (`_log()` method) with ring buffer. State transitions, connect/disconnect, rejoin, rate limits all logged.
 - **Server diagnostics**: `GET /parties/main/{roomId}/diagnostics` returns room state, players, event log. Token-protected via `DIAG_TOKEN` env var.
+
+## Debug Bundle Auto-Upload (RFC 0011)
+
+- **Fight ID**: UUID generated in PartyKit server when both players ready, included in `start` message, stored in `FightRecorder.log.fightId`.
+- **Auto-upload**: In debug mode, both peers independently upload debug bundles per-round and at match end via `POST /api/debug-bundles`.
+- **Storage interface** (`api/_lib/storage.js`): Pluggable backend — `STORAGE_BACKEND=local` (filesystem, dev) or `STORAGE_BACKEND=supabase` (Supabase Storage, prod). Path: `{fightId}/p{slot}_round{round}.json`.
+- **Fights table**: `db/migrations/20260401000000_create_fights.sql` — tracks all online fights with player IDs, fighters, stage, result, debug bundle status/TTL.
+- **Admin panel**: Preact SPA at `/admin/` (CDN imports, no build step). Protected by `is_admin` column on profiles table. `withAdmin()` middleware in `api/_lib/handler.js`.
+- **Admin API**: `GET /api/admin/fights` (paginated, filterable), `GET /api/admin/debug-bundle` (download).
+- **TTL cleanup**: Vercel Cron daily at 3 AM UTC (`api/cron/cleanup-bundles.js`), deletes bundles older than 7 days.
 
 ## CRITICAL: Keep this file updated
 
