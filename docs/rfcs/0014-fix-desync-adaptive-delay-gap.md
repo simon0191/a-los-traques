@@ -25,7 +25,7 @@ advance(frame=11) → localInputHistory[14] = input
 advance(frame=12) → localInputHistory[15] = input  // contiguous ✓
 ```
 
-### What happens when inputDelay increases
+### What happens when inputDelay increases (gap)
 
 Every 180 frames (~3 seconds), `_recalculateInputDelay()` adjusts `inputDelay` based on measured RTT. When RTT causes the delay to increase (e.g., 3→4), a **frame gap** appears in `localInputHistory`:
 
@@ -54,9 +54,58 @@ sequenceDiagram
     Note over Net: ❌ Frame 903 was never sent!
 ```
 
-Note: the reverse case (delay **decreasing**, e.g. 4→3) causes a collision (two inputs for the same frame), not a gap. The second write overwrites the first and both peers see the same value, so collisions are harmless.
+#### Why the gap is always exactly 1 frame
 
-### Why this causes desync
+The ramp-up in `_recalculateInputDelay()` is capped at +1 per recalculation:
+
+```javascript
+if (optimal > this.inputDelay) {
+    this.inputDelay = Math.min(this.inputDelay + 1, optimal);  // at most +1
+}
+```
+
+Even if RTT spikes from 20ms to 80ms (optimal=6), `inputDelay` only goes 3→4 in the first recalculation, 4→5 in the next (180 frames later), and 5→6 in the one after that. It takes ~9 seconds to fully catch up. During that window, rollback handles the late inputs normally — but each 3→4→5→6 step creates one gap frame.
+
+### What happens when inputDelay decreases (collision)
+
+The reverse case (delay **decreasing**, e.g. 4→3) creates a **collision** — two consecutive advance() calls target the same frame:
+
+```
+advance(frame=899, delay=4) → localInputHistory[903] = inputA
+// ← _recalculateInputDelay() runs at frame 900, delay becomes 3
+advance(frame=900, delay=3) → localInputHistory[903] = inputB  ← overwrites inputA!
+```
+
+Unlike the ramp-up, the ramp-down is **instant** (`this.inputDelay = optimal`), so a drop from 6→3 can happen in one step. However, a collision only occurs when the decrease is exactly 1 (e.g. 4→3). Larger decreases (e.g. 5→3) produce non-overlapping targets.
+
+Without protection, the overwrite creates a subtle consistency risk:
+
+```mermaid
+sequenceDiagram
+    participant P2 as P2 (local)
+    participant P1 as P1 (remote)
+
+    Note over P2: delay=4, frame 899
+    P2->>P1: send inputA for frame 903
+    Note over P1: remoteInputBuffer[903] = inputA
+
+    Note over P2: delay drops to 3, frame 900
+    P2->>P1: send inputB for frame 903
+
+    alt P1 drains before inputB arrives
+        Note over P1: remoteInputHistory[903] = inputA
+        Note over P1: Creates snapshot with remoteInput = inputA
+        P1->>P1: inputB arrives → overwrite → mismatch → rollback
+        Note over P1: Unnecessary rollback churn
+    else P1 drains after both arrive
+        Note over P1: remoteInputBuffer[903] = inputB (overwrote inputA)
+        Note over P1: Both peers use inputB ✓
+    end
+```
+
+The rollback convergence makes this safe in practice, but it's unnecessary churn. Worse, if the second message were ever lost (e.g. via unreliable DataChannel), P1 would keep inputA while P2 uses inputB — a desync.
+
+### Why the gap causes desync
 
 The gap frame creates a **permanent, uncorrectable divergence** between the two peers:
 
@@ -81,7 +130,7 @@ flowchart TD
     style PERMANENT fill:#c33,color:white
 ```
 
-### Why rollback can't fix it
+### Why rollback can't fix the gap
 
 Normal mispredictions are self-correcting: the confirmed input eventually arrives, the rollback manager detects the mismatch against the snapshot's `remoteInput`, and re-simulates with the correct value. Gap frames break this contract because **the confirmed input never arrives**:
 
@@ -185,11 +234,11 @@ With P2 RTT oscillating between 31–42ms, `oneWayFrames` alternates between 2 a
 
 ## Proposed Fix
 
-### Fill gap frames when inputDelay increases
+Two changes, both in `RollbackManager.advance()` steps 1–2:
+
+### Fix 1: Fill gap frames when inputDelay increases
 
 Track the previous target frame. When the new target frame skips past it, fill the gap with the current input and send each gap frame to the remote peer.
-
-**File:** `src/systems/RollbackManager.js`
 
 **Constructor** — add tracking field:
 
@@ -217,7 +266,7 @@ this.localInputHistory.set(targetFrame, encodedLocal);
 **Step 2 of `advance()`** — send gap frame inputs to the remote peer:
 
 ```javascript
-// Send inputs for any gap frames + the current target frame.
+// Send inputs for any gap frames so the remote peer gets confirmed inputs.
 if (this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1) {
   for (let f = this._lastLocalTargetFrame + 1; f < targetFrame; f++) {
     const history = [];
@@ -234,7 +283,26 @@ this._lastLocalTargetFrame = targetFrame;
 this.nm.sendInput(targetFrame, rawLocalInput, history);
 ```
 
-### Why this works
+### Fix 2: Skip overwrite on collision when inputDelay decreases
+
+When the target frame already has a stored input (collision from delay decrease), keep the first-written input and skip both the local store and the network send. This makes the first input authoritative: both peers use it, no redundant rollback, no risk of message loss causing divergence.
+
+**Step 1 of `advance()`** — guard the store:
+
+```javascript
+// Skip if this frame was already stored by a previous advance() with higher delay.
+// On collision (delay decrease, e.g. 4→3), the first-written input is authoritative
+// to avoid overwrite → rollback churn or message-loss divergence. See RFC 0013.
+if (!this.localInputHistory.has(targetFrame)) {
+  this.localInputHistory.set(targetFrame, encodedLocal);
+}
+```
+
+**Step 2 of `advance()`** — skip the send if already stored:
+
+The send loop already starts from `sendStart` which is only set for gap frames. For the collision case, we skip sending by checking `localInputHistory.has(targetFrame)` before the store — if it was already there, we don't send.
+
+### Why both fixes work together
 
 ```mermaid
 sequenceDiagram
@@ -242,6 +310,7 @@ sequenceDiagram
     participant LIH as localInputHistory
     participant Net as Network → P1
 
+    Note over P2: === DELAY INCREASE (gap) ===
     Note over P2: inputDelay = 3
     P2->>LIH: frame 899 → store at [902]
     P2->>Net: send input for frame 902
@@ -249,7 +318,7 @@ sequenceDiagram
     Note over P2: RTT recalc → inputDelay = 4
 
     rect rgb(200, 255, 200)
-        Note over P2: Gap detected: [903] missing
+        Note over P2: Fix 1: gap detected — [903] missing
         P2->>LIH: fill [903] = current input
         P2->>Net: send input for frame 903
     end
@@ -257,25 +326,45 @@ sequenceDiagram
     P2->>LIH: frame 900 → store at [904]
     P2->>Net: send input for frame 904
 
-    Note over LIH: ✅ Frame 903 filled
+    Note over LIH: ✅ Frame 903 filled — no EMPTY_INPUT fallback
     Note over Net: ✅ P1 receives confirmed input for 903
+
+    Note over P2: === DELAY DECREASE (collision) ===
+    Note over P2: inputDelay = 4
+    P2->>LIH: frame 999 → store inputA at [1003]
+    P2->>Net: send inputA for frame 1003
+
+    Note over P2: RTT recalc → inputDelay = 3
+
+    rect rgb(255, 255, 200)
+        Note over P2: Fix 2: collision detected — [1003] already stored
+        Note over P2: Skip store and send for 1003
+    end
+
+    P2->>LIH: (skip — [1003] keeps inputA)
+    Note over Net: (skip — no inputB sent)
+    Note over P2: Both peers use inputA — no overwrite, no rollback churn
 ```
 
-After the fix:
+After both fixes:
 
-- P2's `localInputHistory[903]` contains a real input → P2 uses it instead of `EMPTY_INPUT`
-- P1 receives a confirmed input for frame 903 → uses it instead of a stale prediction
-- Both peers agree on P2's input for frame 903 → **no divergence**
+- **Gap (delay increase):** P2's `localInputHistory` has no holes. P1 receives confirmed inputs for all frames. No permanent divergence.
+- **Collision (delay decrease):** First-written input wins. Only one message sent. No overwrite, no unnecessary rollback, no message-loss risk.
 
 ## Files to Modify
 
-1. **`src/systems/RollbackManager.js`** — Add `_lastLocalTargetFrame` to constructor; add gap-fill logic in `advance()` steps 1 and 2
-2. **`tests/systems/rollback-input-delay-gap.test.js`** (new) — Unit tests for gap detection, local history fill, and network send
+1. **`src/systems/RollbackManager.js`** — Add `_lastLocalTargetFrame` to constructor; add gap-fill and collision-skip logic in `advance()` steps 1 and 2
+2. **`tests/systems/rollback-input-delay-gap.test.js`** (new) — Unit tests for gap detection, gap fill, collision skip, network send
 3. **`docs/rfcs/0013-fix-desync-adaptive-delay-gap.md`** (new) — This document
 
 ## Verification
 
-1. **Unit tests:** Mock `NetworkManager`, simulate `inputDelay` 3→4, verify `localInputHistory` has no gaps and `sendInput` is called for the gap frame
+1. **Unit tests:** Mock `NetworkManager`, simulate `inputDelay` 3→4 (gap) and 4→3 (collision), verify:
+   - Gap frames filled in `localInputHistory`
+   - `sendInput` called for gap frames
+   - Collision frames NOT overwritten in `localInputHistory`
+   - `sendInput` NOT called for collision frames
+   - `_getInputForFrame` returns filled input (not `EMPTY_INPUT`) for gap frames
 2. **Existing tests:** `bun run test:run` — no regressions
 3. **Lint:** `bun run lint:fix && bun run lint` — clean
 4. **E2E (manual):** Re-run `bun run test:e2e:hybrid` — verify 0 desyncs
