@@ -17,6 +17,7 @@ import {
   STAGING_PARTY_HOST,
 } from './remote-config.js';
 import {
+  applyVercelBypass,
   connectRemoteBrowser,
   extractDebugBundle,
   fetchServerDiagnostics,
@@ -58,6 +59,7 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
     console.log(`Connecting P1 (${preset.p1.browser} / ${preset.p1.os || 'default'})...`);
     const browserP1 = await connectRemoteBrowser(preset.p1);
     const ctxP1 = await browserP1.newContext({ viewport: { width: 960, height: 540 } });
+    await applyVercelBypass(ctxP1);
     const pageP1 = await ctxP1.newPage();
 
     const p1Console = [];
@@ -88,6 +90,7 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
       console.log(`Connecting P2 (${preset.p2.browser} / ${preset.p2.os || 'default'})...`);
       browserP2 = await connectRemoteBrowser(preset.p2);
       const ctxP2 = await browserP2.newContext({ viewport: { width: 960, height: 540 } });
+      await applyVercelBypass(ctxP2);
       pageP2 = await ctxP2.newPage();
       pageP2.on('console', (msg) => p2Console.push(`[${msg.type()}] ${msg.text()}`));
 

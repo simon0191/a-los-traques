@@ -25,6 +25,7 @@ import {
   STAGING_PARTY_HOST,
 } from './remote-config.js';
 import {
+  applyVercelBypass,
   connectRemoteBrowser,
   extractDebugBundle,
   fetchServerDiagnostics,
@@ -67,6 +68,7 @@ test.describe('Hybrid multiplayer (local + BrowserStack)', () => {
     console.log(`Launching P1 locally (Chromium, ${headed ? 'headed' : 'headless'})...`);
     const browserP1 = await chromium.launch({ headless: !headed });
     const ctxP1 = await browserP1.newContext({ viewport: { width: 960, height: 540 } });
+    await applyVercelBypass(ctxP1);
     const pageP1 = await ctxP1.newPage();
 
     const p1Console = [];
@@ -99,6 +101,7 @@ test.describe('Hybrid multiplayer (local + BrowserStack)', () => {
       );
       browserP2 = await connectRemoteBrowser(preset.p2);
       const ctxP2 = await browserP2.newContext({ viewport: { width: 960, height: 540 } });
+      await applyVercelBypass(ctxP2);
       pageP2 = await ctxP2.newPage();
       pageP2.on('console', (msg) => p2Console.push(`[${msg.type()}] ${msg.text()}`));
 
