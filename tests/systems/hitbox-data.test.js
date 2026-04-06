@@ -104,7 +104,7 @@ describe('per-character hitbox data', () => {
     const richi = fighters.find((f) => f.id === 'richi');
 
     expect(richi.moves.lightPunch.height).toBe(55);
-    expect(richi.moves.lightPunch.reach).toBe(35);
+    expect(richi.moves.lightPunch.reach).toBe(45);
 
     const f = createFighter(richi);
     f.currentAttack = { type: 'lightPunch', ...richi.moves.lightPunch };
@@ -112,7 +112,7 @@ describe('per-character hitbox data', () => {
 
     const hitbox = getAttackHitbox(f);
     expect(hitbox.h).toBe(55 * FP_SCALE);
-    expect(Math.abs(hitbox.w)).toBe(35 * FP_SCALE);
+    expect(Math.abs(hitbox.w)).toBe(45 * FP_SCALE);
   });
 
   it('bozzi (elastic) has extended reach', () => {

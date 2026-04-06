@@ -7,10 +7,10 @@
  */
 export function calculateDamage(baseDamage, attackerPower, defenderDefense) {
   // Integer-scaled modifiers (1000x):
-  // powerMod: 700 + power*100 → range 800..1200 (was 0.8..1.2)
-  // defMod:  1100 - def*40   → range 900..1060 (was 0.90..1.06)
-  const powerMod = 700 + attackerPower * 100;
-  const defMod = 1100 - defenderDefense * 40;
+  // powerMod: 850 + power*50  → range 900..1100 (0.90..1.10)
+  // defMod:  1200 - def*60   → range 900..1140 (0.90..1.14)
+  const powerMod = 850 + attackerPower * 50;
+  const defMod = 1200 - defenderDefense * 60;
   return Math.round((baseDamage * powerMod * defMod) / 1_000_000);
 }
 

@@ -17,7 +17,8 @@
     "test:e2e:hybrid": "npx playwright test --config tests/e2e/remote/remote-playwright.config.js hybrid-multiplayer",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "balance": "bun run scripts/balance-sim/run.js"
   },
   "dependencies": {
     "@google/genai": "^1.45.0",
