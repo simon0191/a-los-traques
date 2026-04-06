@@ -1,4 +1,4 @@
-# RFC 0013: Fix Desync Caused by Adaptive Input Delay Frame Gap
+# RFC 0014: Fix Desync Caused by Adaptive Input Delay Frame Gap
 
 **Status:** Proposed  
 **Issue:** [#93](https://github.com/simon0191/a-los-traques/issues/93)  
@@ -204,7 +204,7 @@ const targetFrame = this.currentFrame + this.inputDelay;
 
 // Fill gap frames created by inputDelay increase (e.g., 3→4 skips one frame).
 // Without this, the gap frame gets EMPTY_INPUT locally and a stale prediction
-// remotely, causing permanent uncorrectable divergence. See RFC 0013.
+// remotely, causing permanent uncorrectable divergence. See RFC 0014.
 if (this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1) {
   for (let f = this._lastLocalTargetFrame + 1; f < targetFrame; f++) {
     this.localInputHistory.set(f, encodedLocal);

@@ -97,7 +97,7 @@ export class RollbackManager {
     this._resyncCooldown = 60; // min frames between resync attempts
     this._consecutiveDesyncCount = 0;
 
-    // Track last target frame to detect gaps when inputDelay increases. See RFC 0013.
+    // Track last target frame to detect gaps when inputDelay increases. See RFC 0014.
     this._lastLocalTargetFrame = -1;
   }
 
@@ -121,7 +121,7 @@ export class RollbackManager {
 
     // Fill gap frames created by inputDelay increase (e.g., 3→4 skips one frame).
     // Without this, the gap frame gets EMPTY_INPUT locally and a stale prediction
-    // remotely, causing permanent uncorrectable divergence. See RFC 0013.
+    // remotely, causing permanent uncorrectable divergence. See RFC 0014.
     if (this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1) {
       for (let f = this._lastLocalTargetFrame + 1; f < targetFrame; f++) {
         this.localInputHistory.set(f, encodedLocal);
