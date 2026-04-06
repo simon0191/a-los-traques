@@ -15,6 +15,7 @@ import { tick } from '../simulation/SimulationEngine.js';
 import { AIController } from '../systems/AIController.js';
 import { AudioBridge } from '../systems/AudioBridge.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
+import { DebugBundleExporter } from '../systems/DebugBundleExporter.js';
 import { DevConsole } from '../systems/DevConsole.js';
 import { FightRecorder } from '../systems/FightRecorder.js';
 import {
@@ -1553,36 +1554,21 @@ export class FightScene extends Phaser.Scene {
     // Record round events for BOTH peers at the exact simulation frame
     if (roundEvent) {
       this.recorder?.recordRoundEvent(this.rollbackManager.currentFrame, roundEvent);
-      if (roundEvent.matchOver) {
-        this.recorder?.captureEndState(
-          this.p1Fighter,
-          this.p2Fighter,
-          this.combat,
-          this.rollbackManager.currentFrame,
-        );
-      }
 
-      // Upload debug bundle after every round (including final)
-      if (this.game.debugMode && this.recorder) {
-        import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
-          const bundle = DebugBundleExporter.generateBundle({
-            recorder: this.recorder,
-            telemetry: this.telemetry,
-            matchState: this.matchState,
-            sessionId: this.networkManager?.sessionId,
-            debugMode: true,
-          });
-
-          if (roundEvent.matchOver) {
-            window.__DEBUG_BUNDLE = bundle;
-          }
-
-          DebugBundleExporter.uploadBundle({
-            fightId: this.fightId,
-            slot: this.networkManager?.getPlayerSlot(),
-            round: this.combat.roundNumber - 1,
-            bundle,
-          });
+      // Upload per-round debug bundle (match-end bundle handled in onMatchOver)
+      if (!roundEvent.matchOver && this.game.debugMode && this.recorder) {
+        const bundle = DebugBundleExporter.generateBundle({
+          recorder: this.recorder,
+          telemetry: this.telemetry,
+          matchState: this.matchState,
+          sessionId: this.networkManager?.sessionId,
+          debugMode: true,
+        });
+        DebugBundleExporter.uploadBundle({
+          fightId: this.fightId,
+          slot: this.networkManager?.getPlayerSlot(),
+          round: this.combat.roundNumber - 1,
+          bundle,
         });
       }
     }
@@ -2364,6 +2350,28 @@ export class FightScene extends Phaser.Scene {
       this.matchState.transition(MatchEvent.ROUND_OVER);
     }
     this.matchState.transition(MatchEvent.MATCH_OVER);
+
+    // Capture end state + debug bundle for E2E testing (works for both P1 and P2)
+    if (this.recorder) {
+      const frame = this.rollbackManager?.currentFrame ?? this._localFrame;
+      this.recorder.captureEndState(this.p1Fighter, this.p2Fighter, this.combat, frame);
+    }
+    if (this.game.debugMode && this.recorder) {
+      const bundle = DebugBundleExporter.generateBundle({
+        recorder: this.recorder,
+        telemetry: this.telemetry,
+        matchState: this.matchState,
+        sessionId: this.networkManager?.sessionId,
+        debugMode: true,
+      });
+      window.__DEBUG_BUNDLE = bundle;
+      DebugBundleExporter.uploadBundle({
+        fightId: this.fightId,
+        slot: this.networkManager?.getPlayerSlot(),
+        round: 0,
+        bundle,
+      });
+    }
 
     // Host sends match-over event to guest
     this._sendRoundEvent('ko', winnerIndex);
