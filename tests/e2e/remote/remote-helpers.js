@@ -33,6 +33,8 @@ export function remoteP1Url(baseUrl, partyHost, opts = {}) {
   if (opts.fighter) params.set('fighter', opts.fighter);
   if (opts.seed != null) params.set('seed', String(opts.seed));
   if (opts.aiDifficulty) params.set('aiDifficulty', opts.aiDifficulty);
+  if (process.env.VERCEL_PROTECTION_BYPASS)
+    params.set('x-vercel-protection-bypass', process.env.VERCEL_PROTECTION_BYPASS);
   return `${baseUrl}?${params}`;
 }
 
@@ -50,6 +52,8 @@ export function remoteP2Url(baseUrl, roomId, partyHost, opts = {}) {
   if (opts.fighter) params.set('fighter', opts.fighter);
   if (opts.seed != null) params.set('seed', String(opts.seed));
   if (opts.aiDifficulty) params.set('aiDifficulty', opts.aiDifficulty);
+  if (process.env.VERCEL_PROTECTION_BYPASS)
+    params.set('x-vercel-protection-bypass', process.env.VERCEL_PROTECTION_BYPASS);
   return `${baseUrl}?${params}`;
 }
 
