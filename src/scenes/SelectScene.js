@@ -100,11 +100,15 @@ export class SelectScene extends Phaser.Scene {
           // Enable smoothing for the draw operation
           source.setFilter(Phaser.Textures.FilterMode.LINEAR);
           
-          // Draw high-res into tiny RT with scaling
-          const scale = targetW / source.getSourceImage().width;
-          rt.draw(`portrait_${fighter.id}`, 0, 0, scale);
+          // Create a temporary image to handle the scaling correctly
+          const tempImg = this.make.image({ texture: `portrait_${fighter.id}` })
+            .setScale(targetW / source.getSourceImage().width)
+            .setOrigin(0, 0);
+          
+          rt.draw(tempImg, 0, 0);
           rt.saveTexture(rtKey);
           
+          tempImg.destroy();
           // Restore nearest-neighbor for the engine
           source.setFilter(Phaser.Textures.FilterMode.NEAREST);
         }
