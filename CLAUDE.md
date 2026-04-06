@@ -33,6 +33,9 @@ bun run test:run     # Run tests once (CI)
 bun run lint         # Lint + format check (Biome)
 bun run lint:fix     # Auto-fix lint + format issues
 bun run format       # Format code only (Biome)
+bun run balance      # Run fighter balance simulation (full 16×16 matrix)
+bun run balance -- --fights=50           # Fewer fights per matchup (faster)
+bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 ```
 
 ## Project Structure
@@ -59,12 +62,14 @@ public/
     audio/         # Music, SFX, announcer MP3s
 scripts/
   asset-pipeline/  # Gemini-based sprite generation pipeline
+  balance-sim/     # Headless AI-vs-AI balance simulation pipeline
 party/
   server.js        # PartyKit multiplayer server (+ TURN credential endpoint)
 tests/
   data/            # fighters.json data validation
   party/           # PartyKit server (slot assignment, rate limiting, routing)
   systems/         # combat-math, collision, AI difficulty
+  balance-sim/     # Balance simulation adapter + runner tests
 ```
 
 ## Conventions
@@ -180,6 +185,16 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0009-e2e-remote-browser-testing.md` — Remote browser E2E testing via BrowserStack
 - `docs/rfcs/0011-auto-upload-debug-bundles.md` — Auto-upload debug bundles to object storage
 - `docs/rfcs/0012-e2e-bot-user.md` — E2E bot user for debug bundle uploads (proposed)
+- `docs/rfcs/0013-fighter-balance-simulation.md` — Headless AI-vs-AI balance simulation pipeline
+
+## Balance Simulation
+
+Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered fighters. Uses the pure simulation layer (no Phaser) with seeded AIController for deterministic, reproducible results.
+
+- **Scripts**: `scripts/balance-sim/` — adapter, match runner, report generator, CLI
+- **Key adapter**: `ai-input-adapter.js` reads `AIController.decision` and converts to encoded inputs for `tick()`
+- **Output**: `balance-report.json` (machine-readable) + `balance-report.md` (tier list, heatmap, outliers)
+- **Default**: 100 fights per matchup × 256 matchups = 25,600 fights, completes in ~20 seconds
 
 ## Online Multiplayer
 
