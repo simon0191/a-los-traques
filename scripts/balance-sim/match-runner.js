@@ -145,7 +145,32 @@ export function runMatchup(p1Id, p2Id, fightsPerMatchup, difficulty = 'hard') {
   for (let i = 0; i < fightsPerMatchup; i++) {
     // Deterministic seed per fight: hash of matchup + fight index
     const seed = simpleHash(`${p1Id}:${p2Id}:${i}`);
-    results.push(runMatch(p1Id, p2Id, seed, difficulty));
+
+    // Alternate sides to eliminate P1 positional advantage.
+    // Even fights: p1Id is P1. Odd fights: p2Id is P1 (result flipped).
+    if (i % 2 === 0) {
+      results.push(runMatch(p1Id, p2Id, seed, difficulty));
+    } else {
+      const flipped = runMatch(p2Id, p1Id, seed, difficulty);
+      // Flip perspective so p1Id is always "P1" in aggregation
+      results.push({
+        ...flipped,
+        p1Id,
+        p2Id,
+        winnerIndex: flipped.winnerIndex === 0 ? 1 : 0,
+        winnerId: flipped.winnerIndex === 0 ? p2Id : p1Id,
+        p1Stats: flipped.p2Stats,
+        p2Stats: flipped.p1Stats,
+        p1RoundsWon: flipped.p2RoundsWon,
+        p2RoundsWon: flipped.p1RoundsWon,
+        rounds: flipped.rounds.map((r) => ({
+          ...r,
+          winnerIndex: r.winnerIndex === 0 ? 1 : 0,
+          p1HpRemaining: r.p2HpRemaining,
+          p2HpRemaining: r.p1HpRemaining,
+        })),
+      });
+    }
   }
   return aggregateMatchup(p1Id, p2Id, results);
 }
