@@ -15,6 +15,7 @@ const GRID_START_Y = 50;
 export class SelectScene extends Phaser.Scene {
   constructor() {
     super('SelectScene');
+    this.portraitRTs = new Map(); // Store generated smoothed textures
   }
 
   init(data) {
@@ -90,30 +91,24 @@ export class SelectScene extends Phaser.Scene {
       if (fighter.id !== 'random' && this.textures.exists(`portrait_${fighter.id}`)) {
         const targetW = CELL_W - 4;
         const targetH = CELL_H - 10;
-        const rtKey = `rt_grid_${fighter.id}`;
+        const rtKey = `grid_${fighter.id}`;
 
-        // Create or reuse a small RenderTexture for the smoothed icon
-        if (!this.textures.exists(rtKey)) {
+        if (!this.portraitRTs.has(rtKey)) {
           const rt = this.add.renderTexture(0, 0, targetW, targetH).setVisible(false);
           const source = this.textures.get(`portrait_${fighter.id}`);
-          
-          // Enable smoothing for the draw operation
           source.setFilter(Phaser.Textures.FilterMode.LINEAR);
           
-          // Create a temporary image to handle the scaling correctly
           const tempImg = this.make.image({ texture: `portrait_${fighter.id}` })
             .setScale(targetW / source.getSourceImage().width)
             .setOrigin(0, 0);
           
           rt.draw(tempImg, 0, 0);
-          rt.saveTexture(rtKey);
-          
+          this.portraitRTs.set(rtKey, rt);
           tempImg.destroy();
-          // Restore nearest-neighbor for the engine
           source.setFilter(Phaser.Textures.FilterMode.NEAREST);
         }
 
-        rect = this.add.image(x, y, rtKey);
+        rect = this.add.image(x, y, this.portraitRTs.get(rtKey).texture);
       } else {
         rect = this.add.rectangle(x, y, CELL_W - 4, CELL_H - 10, color);
         if (fighter.id === 'random') {
@@ -531,22 +526,25 @@ export class SelectScene extends Phaser.Scene {
 
     if (!isRandom && this.textures.exists(`portrait_${fighter.id}`)) {
       const targetSize = 45;
-      const rtKey = `rt_preview_${fighter.id}`;
+      const rtKey = `preview_${fighter.id}`;
 
-      if (!this.textures.exists(rtKey)) {
+      if (!this.portraitRTs.has(rtKey)) {
         const rt = this.add.renderTexture(0, 0, targetSize, targetSize).setVisible(false);
         const source = this.textures.get(`portrait_${fighter.id}`);
         source.setFilter(Phaser.Textures.FilterMode.LINEAR);
         
-        const scale = targetSize / source.getSourceImage().width;
-        rt.draw(`portrait_${fighter.id}`, 0, 0, scale);
-        rt.saveTexture(rtKey);
+        const tempImg = this.make.image({ texture: `portrait_${fighter.id}` })
+          .setScale(targetSize / source.getSourceImage().width)
+          .setOrigin(0, 0);
         
+        rt.draw(tempImg, 0, 0);
+        this.portraitRTs.set(rtKey, rt);
+        tempImg.destroy();
         source.setFilter(Phaser.Textures.FilterMode.NEAREST);
       }
 
       this.p1PortraitImg
-        .setTexture(rtKey)
+        .setTexture(this.portraitRTs.get(rtKey).texture)
         .setDisplaySize(targetSize, targetSize)
         .setVisible(true);
       this.p1Portrait.setVisible(false);
@@ -752,22 +750,25 @@ export class SelectScene extends Phaser.Scene {
 
     if (!isRandom && this.textures.exists(`portrait_${p2Fighter.id}`)) {
       const targetSize = 45;
-      const rtKey = `rt_preview_${p2Fighter.id}`;
+      const rtKey = `preview_${p2Fighter.id}`;
 
-      if (!this.textures.exists(rtKey)) {
+      if (!this.portraitRTs.has(rtKey)) {
         const rt = this.add.renderTexture(0, 0, targetSize, targetSize).setVisible(false);
         const source = this.textures.get(`portrait_${p2Fighter.id}`);
         source.setFilter(Phaser.Textures.FilterMode.LINEAR);
         
-        const scale = targetSize / source.getSourceImage().width;
-        rt.draw(`portrait_${p2Fighter.id}`, 0, 0, scale);
-        rt.saveTexture(rtKey);
+        const tempImg = this.make.image({ texture: `portrait_${p2Fighter.id}` })
+          .setScale(targetSize / source.getSourceImage().width)
+          .setOrigin(0, 0);
         
+        rt.draw(tempImg, 0, 0);
+        this.portraitRTs.set(rtKey, rt);
+        tempImg.destroy();
         source.setFilter(Phaser.Textures.FilterMode.NEAREST);
       }
 
       this.p2PortraitImg
-        .setTexture(rtKey)
+        .setTexture(this.portraitRTs.get(rtKey).texture)
         .setDisplaySize(targetSize, targetSize)
         .setVisible(true);
       this.p2Portrait.setVisible(false);
