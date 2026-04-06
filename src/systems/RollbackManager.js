@@ -128,24 +128,38 @@ export class RollbackManager {
       }
     }
 
-    this.localInputHistory.set(targetFrame, encodedLocal);
+    // On collision (delay decrease, e.g. 4→3), the first-written input is authoritative.
+    // Overwriting would cause the remote peer to see two different confirmed inputs for
+    // the same frame, triggering unnecessary rollback churn or — if the second message
+    // is lost — a desync. See RFC 0014.
+    const alreadyStored = this.localInputHistory.has(targetFrame);
+    if (!alreadyStored) {
+      this.localInputHistory.set(targetFrame, encodedLocal);
+    }
 
     // 2. Send local input to network with frame number + redundant history.
-    // Also send any gap frames so the remote peer gets confirmed inputs for them.
-    const sendStart =
-      this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1
-        ? this._lastLocalTargetFrame + 1
-        : targetFrame;
+    // Send any gap frames so the remote peer gets confirmed inputs for them.
+    // Skip sending for collision frames (already sent by previous advance).
+    if (this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1) {
+      for (let f = this._lastLocalTargetFrame + 1; f < targetFrame; f++) {
+        const hist = [];
+        for (let i = 1; i <= INPUT_REDUNDANCY; i++) {
+          const hf = f - i;
+          if (this.localInputHistory.has(hf)) hist.push([hf, this.localInputHistory.get(hf)]);
+        }
+        this.nm.sendInput(f, rawLocalInput, hist);
+      }
+    }
 
-    for (let f = sendStart; f <= targetFrame; f++) {
+    if (!alreadyStored) {
       const history = [];
       for (let i = 1; i <= INPUT_REDUNDANCY; i++) {
-        const hf = f - i;
+        const hf = targetFrame - i;
         if (this.localInputHistory.has(hf)) {
           history.push([hf, this.localInputHistory.get(hf)]);
         }
       }
-      this.nm.sendInput(f, rawLocalInput, history);
+      this.nm.sendInput(targetFrame, rawLocalInput, history);
     }
 
     this._lastLocalTargetFrame = targetFrame;

@@ -292,7 +292,7 @@ When the target frame already has a stored input (collision from delay decrease)
 ```javascript
 // Skip if this frame was already stored by a previous advance() with higher delay.
 // On collision (delay decrease, e.g. 4→3), the first-written input is authoritative
-// to avoid overwrite → rollback churn or message-loss divergence. See RFC 0013.
+// to avoid overwrite → rollback churn or message-loss divergence. See RFC 0014.
 if (!this.localInputHistory.has(targetFrame)) {
   this.localInputHistory.set(targetFrame, encodedLocal);
 }
