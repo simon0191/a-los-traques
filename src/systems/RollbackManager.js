@@ -96,6 +96,9 @@ export class RollbackManager {
     this._lastResyncFrame = -1;
     this._resyncCooldown = 60; // min frames between resync attempts
     this._consecutiveDesyncCount = 0;
+
+    // Track last target frame to detect gaps when inputDelay increases. See RFC 0013.
+    this._lastLocalTargetFrame = -1;
   }
 
   /**
@@ -115,17 +118,37 @@ export class RollbackManager {
 
     // 1. Store local input at (currentFrame + inputDelay)
     const targetFrame = this.currentFrame + this.inputDelay;
-    this.localInputHistory.set(targetFrame, encodedLocal);
 
-    // 2. Send local input to network with frame number + redundant history
-    const history = [];
-    for (let i = 1; i <= INPUT_REDUNDANCY; i++) {
-      const hf = targetFrame - i;
-      if (this.localInputHistory.has(hf)) {
-        history.push([hf, this.localInputHistory.get(hf)]);
+    // Fill gap frames created by inputDelay increase (e.g., 3→4 skips one frame).
+    // Without this, the gap frame gets EMPTY_INPUT locally and a stale prediction
+    // remotely, causing permanent uncorrectable divergence. See RFC 0013.
+    if (this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1) {
+      for (let f = this._lastLocalTargetFrame + 1; f < targetFrame; f++) {
+        this.localInputHistory.set(f, encodedLocal);
       }
     }
-    this.nm.sendInput(targetFrame, rawLocalInput, history);
+
+    this.localInputHistory.set(targetFrame, encodedLocal);
+
+    // 2. Send local input to network with frame number + redundant history.
+    // Also send any gap frames so the remote peer gets confirmed inputs for them.
+    const sendStart =
+      this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1
+        ? this._lastLocalTargetFrame + 1
+        : targetFrame;
+
+    for (let f = sendStart; f <= targetFrame; f++) {
+      const history = [];
+      for (let i = 1; i <= INPUT_REDUNDANCY; i++) {
+        const hf = f - i;
+        if (this.localInputHistory.has(hf)) {
+          history.push([hf, this.localInputHistory.get(hf)]);
+        }
+      }
+      this.nm.sendInput(f, rawLocalInput, history);
+    }
+
+    this._lastLocalTargetFrame = targetFrame;
 
     // 3. Drain confirmed remote inputs from NetworkManager
     const confirmed = this.nm.drainConfirmedInputs();
