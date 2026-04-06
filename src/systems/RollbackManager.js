@@ -96,6 +96,9 @@ export class RollbackManager {
     this._lastResyncFrame = -1;
     this._resyncCooldown = 60; // min frames between resync attempts
     this._consecutiveDesyncCount = 0;
+
+    // Track last target frame to detect gaps when inputDelay increases. See RFC 0014.
+    this._lastLocalTargetFrame = -1;
   }
 
   /**
@@ -115,17 +118,51 @@ export class RollbackManager {
 
     // 1. Store local input at (currentFrame + inputDelay)
     const targetFrame = this.currentFrame + this.inputDelay;
-    this.localInputHistory.set(targetFrame, encodedLocal);
 
-    // 2. Send local input to network with frame number + redundant history
-    const history = [];
-    for (let i = 1; i <= INPUT_REDUNDANCY; i++) {
-      const hf = targetFrame - i;
-      if (this.localInputHistory.has(hf)) {
-        history.push([hf, this.localInputHistory.get(hf)]);
+    // Fill gap frames created by inputDelay increase (e.g., 3→4 skips one frame).
+    // Without this, the gap frame gets EMPTY_INPUT locally and a stale prediction
+    // remotely, causing permanent uncorrectable divergence. See RFC 0014.
+    if (this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1) {
+      for (let f = this._lastLocalTargetFrame + 1; f < targetFrame; f++) {
+        this.localInputHistory.set(f, encodedLocal);
       }
     }
-    this.nm.sendInput(targetFrame, rawLocalInput, history);
+
+    // On collision (delay decrease, e.g. 4→3), the first-written input is authoritative.
+    // Overwriting would cause the remote peer to see two different confirmed inputs for
+    // the same frame, triggering unnecessary rollback churn or — if the second message
+    // is lost — a desync. See RFC 0014.
+    const alreadyStored = this.localInputHistory.has(targetFrame);
+    if (!alreadyStored) {
+      this.localInputHistory.set(targetFrame, encodedLocal);
+    }
+
+    // 2. Send local input to network with frame number + redundant history.
+    // Send any gap frames so the remote peer gets confirmed inputs for them.
+    // Skip sending for collision frames (already sent by previous advance).
+    if (this._lastLocalTargetFrame >= 0 && targetFrame > this._lastLocalTargetFrame + 1) {
+      for (let f = this._lastLocalTargetFrame + 1; f < targetFrame; f++) {
+        const hist = [];
+        for (let i = 1; i <= INPUT_REDUNDANCY; i++) {
+          const hf = f - i;
+          if (this.localInputHistory.has(hf)) hist.push([hf, this.localInputHistory.get(hf)]);
+        }
+        this.nm.sendInput(f, rawLocalInput, hist);
+      }
+    }
+
+    if (!alreadyStored) {
+      const history = [];
+      for (let i = 1; i <= INPUT_REDUNDANCY; i++) {
+        const hf = targetFrame - i;
+        if (this.localInputHistory.has(hf)) {
+          history.push([hf, this.localInputHistory.get(hf)]);
+        }
+      }
+      this.nm.sendInput(targetFrame, rawLocalInput, history);
+    }
+
+    this._lastLocalTargetFrame = targetFrame;
 
     // 3. Drain confirmed remote inputs from NetworkManager
     const confirmed = this.nm.drainConfirmedInputs();

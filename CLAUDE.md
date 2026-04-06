@@ -186,6 +186,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0011-auto-upload-debug-bundles.md` — Auto-upload debug bundles to object storage
 - `docs/rfcs/0012-e2e-bot-user.md` — E2E bot user for debug bundle uploads (proposed)
 - `docs/rfcs/0013-fighter-balance-simulation.md` — Headless AI-vs-AI balance simulation pipeline
+- `docs/rfcs/0014-fix-desync-adaptive-delay-gap.md` — Fix desync from adaptive input delay frame gaps
 
 ## Balance Simulation
 
