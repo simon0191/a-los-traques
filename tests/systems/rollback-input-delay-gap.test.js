@@ -152,16 +152,21 @@ describe('RollbackManager — adaptive input delay gap (RFC 0013)', () => {
       }
     });
 
-    it('does not create entries when inputDelay decreases (collision, not gap)', () => {
+    it('preserves first-written input on collision when inputDelay decreases', () => {
       rm.inputDelay = 4;
-      advanceFrames(3, noInput); // frames 0,1,2 → targets 4,5,6
+      advanceFrames(3, rightInput); // frames 0,1,2 → targets 4,5,6
+
+      const originalValue = rm.localInputHistory.get(6);
 
       rm.inputDelay = 3;
       const sizeBefore = rm.localInputHistory.size;
-      rm.advance(noInput, p1, p2, combat); // frame 3 → target 6 (collision with existing 6)
+      rm.advance(noInput, p1, p2, combat); // frame 3 → target 6 (collision)
 
-      // No extra entries — collision overwrites existing frame 6, size unchanged
+      // Size unchanged — no new entry created
       expect(rm.localInputHistory.size).toBe(sizeBefore);
+      // First-written value preserved (rightInput), not overwritten with noInput
+      expect(rm.localInputHistory.get(6)).toBe(originalValue);
+      expect(rm.localInputHistory.get(6)).toBe(encodeInput(rightInput));
     });
 
     it('fills multiple gap frames when inputDelay jumps by 2', () => {
@@ -200,6 +205,20 @@ describe('RollbackManager — adaptive input delay gap (RFC 0013)', () => {
 
       // Only one sendInput call (for the target frame)
       expect(nm.sendInput).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not send for collision frames (already sent by previous advance)', () => {
+      rm.inputDelay = 4;
+      advanceFrames(3, rightInput); // frames 0,1,2 → targets 4,5,6
+      nm.sendInput.mockClear();
+
+      rm.inputDelay = 3;
+      rm.advance(noInput, p1, p2, combat); // frame 3 → target 6 (collision)
+
+      // Should NOT send for frame 6 again — it was already sent
+      const sentFrames = nm.sendInput.mock.calls.map((c) => c[0]);
+      expect(sentFrames).not.toContain(6);
+      expect(nm.sendInput).toHaveBeenCalledTimes(0);
     });
 
     it('sends gap frames with correct redundant history', () => {
