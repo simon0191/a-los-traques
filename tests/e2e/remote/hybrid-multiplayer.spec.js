@@ -1,6 +1,14 @@
+/**
+ * Hybrid E2E test: local browser (P1) + BrowserStack browser (P2).
+ *
+ * Simulates a real-world match where two players are in different physical
+ * locations. P1 runs on the developer's laptop, P2 runs on BrowserStack.
+ * Both hit the deployed staging URL — the WebRTC P2P traffic traverses the
+ * real internet between the laptop and BrowserStack's data center.
+ */
 import fs from 'node:fs';
 import path from 'node:path';
-import { test } from '@playwright/test';
+import { chromium, test } from '@playwright/test';
 import {
   extractFightLog,
   waitForMatchComplete,
@@ -8,8 +16,8 @@ import {
 } from '../helpers/browser-helpers.js';
 import { generateBundle } from '../helpers/bundle-generator.js';
 import { generateReport } from '../helpers/report-generator.js';
+import { HYBRID_PRESETS } from './hybrid-config.js';
 import {
-  PRESETS,
   REMOTE_MATCH_TIMEOUT,
   REMOTE_PAGE_LOAD_TIMEOUT,
   REMOTE_ROOM_TIMEOUT,
@@ -26,10 +34,9 @@ import {
   remoteP2Url,
 } from './remote-helpers.js';
 
-const RESULTS_DIR = 'test-results/remote';
+const RESULTS_DIR = 'test-results/hybrid';
 
-// Parse --preset from REMOTE_E2E_PRESET env var (default: 'default')
-const presetName = process.env.REMOTE_E2E_PRESET || 'default';
+const presetName = process.env.HYBRID_E2E_PRESET || 'default';
 
 function validateEnv() {
   if (!process.env.BROWSERSTACK_USERNAME || !process.env.BROWSERSTACK_ACCESS_KEY) {
@@ -41,23 +48,25 @@ function validateEnv() {
   }
 }
 
-test.describe('Remote multiplayer (BrowserStack)', () => {
+test.describe('Hybrid multiplayer (local + BrowserStack)', () => {
   // biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructured first arg
-  test(`cross-browser match with debug bundles [${presetName}]`, async ({}, testInfo) => {
+  test(`hybrid match with debug bundles [${presetName}]`, async ({}, testInfo) => {
     validateEnv();
 
-    const preset = PRESETS[presetName];
+    const preset = HYBRID_PRESETS[presetName];
     if (!preset) {
       throw new Error(
-        `Unknown preset "${presetName}". Available: ${Object.keys(PRESETS).join(', ')}`,
+        `Unknown preset "${presetName}". Available: ${Object.keys(HYBRID_PRESETS).join(', ')}`,
       );
     }
 
-    const testName = `remote-${presetName}`;
+    const testName = `hybrid-${presetName}`;
     const startedAt = new Date().toISOString();
 
-    console.log(`Connecting P1 (${preset.p1.browser} / ${preset.p1.os || 'default'})...`);
-    const browserP1 = await connectRemoteBrowser(preset.p1);
+    // --- P1: launch locally ---
+    const headed = process.env.HYBRID_HEADED === '1';
+    console.log(`Launching P1 locally (Chromium, ${headed ? 'headed' : 'headless'})...`);
+    const browserP1 = await chromium.launch({ headless: !headed });
     const ctxP1 = await browserP1.newContext({ viewport: { width: 960, height: 540 } });
     await applyVercelBypass(ctxP1);
     const pageP1 = await ctxP1.newPage();
@@ -80,14 +89,16 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
         fighter: 'simon',
         seed: 42,
       });
-      console.log(`P1 navigating to: ${usedP1Url}`);
+      console.log(`P1 (local) navigating to: ${usedP1Url}`);
       await pageP1.goto(usedP1Url, { timeout: REMOTE_PAGE_LOAD_TIMEOUT });
 
       roomId = await waitForRoomId(pageP1, REMOTE_ROOM_TIMEOUT);
       console.log(`Room created: ${roomId}`);
 
-      // --- P2: join room ---
-      console.log(`Connecting P2 (${preset.p2.browser} / ${preset.p2.os || 'default'})...`);
+      // --- P2: join room on BrowserStack ---
+      console.log(
+        `Connecting P2 (${preset.p2.browser} / ${preset.p2.os || 'default'}) on BrowserStack...`,
+      );
       browserP2 = await connectRemoteBrowser(preset.p2);
       const ctxP2 = await browserP2.newContext({ viewport: { width: 960, height: 540 } });
       await applyVercelBypass(ctxP2);
@@ -98,12 +109,12 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
         fighter: 'jeka',
         seed: 42,
       });
-      console.log(`P2 navigating to: ${usedP2Url}`);
+      console.log(`P2 (BrowserStack) navigating to: ${usedP2Url}`);
       await pageP2.goto(usedP2Url, { timeout: REMOTE_PAGE_LOAD_TIMEOUT });
 
       // --- Wait for match completion ---
-      // Poll every 10s to keep the CDP WebSocket active and prevent
-      // BrowserStack from killing the session (default 90s idle timeout).
+      // Poll P2 every 10s to keep CDP WebSocket active (BrowserStack idle timeout).
+      // P1 is local so no keep-alive needed, but polling both is harmless.
       console.log('Waiting for match to complete (speed=1, real network)...');
       const pollOpts = { pollInterval: 10_000 };
       await Promise.all([
@@ -115,7 +126,7 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
       // --- Extract fight logs ---
       [logP1, logP2] = await Promise.all([extractFightLog(pageP1), extractFightLog(pageP2)]);
 
-      // --- Extract v2 debug bundles (richer telemetry data) ---
+      // --- Extract v2 debug bundles ---
       const [debugP1, debugP2] = await Promise.all([
         extractDebugBundle(pageP1),
         extractDebugBundle(pageP2),
@@ -130,23 +141,24 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
       const report = generateReport(logP1, logP2, testName);
       const bundle = generateBundle(logP1, logP2, { p1: usedP1Url, p2: usedP2Url });
 
-      // Enhanced remote bundle with v2 debug data + server diagnostics + metadata
       const completedAt = new Date().toISOString();
-      const remoteBundle = {
+      const hybridBundle = {
         ...bundle,
-        source: 'remote-e2e',
+        source: 'hybrid-e2e',
         preset: presetName,
         metadata: {
           startedAt,
           completedAt,
           durationMs: new Date(completedAt) - new Date(startedAt),
           roomId,
+          topology: 'hybrid',
           p1: {
-            browser:
-              `${preset.p1.browser} / ${preset.p1.os || 'device'} ${preset.p1.os_version || ''}`.trim(),
+            location: 'local',
+            browser: 'Chromium (Playwright)',
             fighter: 'simon',
           },
           p2: {
+            location: 'browserstack',
             browser:
               `${preset.p2.browser} / ${preset.p2.os || 'device'} ${preset.p2.os_version || ''}`.trim(),
             fighter: 'jeka',
@@ -162,7 +174,7 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
       fs.writeFileSync(path.join(RESULTS_DIR, `${testName}-report.md`), report);
       fs.writeFileSync(
         path.join(RESULTS_DIR, `${testName}-bundle.json`),
-        JSON.stringify(remoteBundle, null, 2),
+        JSON.stringify(hybridBundle, null, 2),
       );
 
       // Attach to Playwright results
@@ -193,10 +205,9 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
       console.log(`Desyncs: P1=${logP1.desyncCount}, P2=${logP2.desyncCount}`);
       console.log(`Winner: ${logP1.result?.winnerId || logP2.result?.winnerId || 'unknown'}`);
 
-      // Mark BrowserStack sessions
+      // Mark BrowserStack session (P2 only — P1 is local)
       const passed = logP1.matchComplete && logP2.matchComplete;
-      await markSessionStatus(pageP1, passed, 'Match completed');
-      if (pageP2) await markSessionStatus(pageP2, passed, 'Match completed');
+      await markSessionStatus(pageP2, passed, 'Match completed');
     } finally {
       // Always capture console logs
       if (p1Console.length || p2Console.length) {
@@ -204,8 +215,8 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
         const consolePath = path.join(RESULTS_DIR, `${testName}-console.log`);
         fs.writeFileSync(
           consolePath,
-          `=== P1 Console (${p1Console.length} messages) ===\n${p1Console.join('\n')}\n\n` +
-            `=== P2 Console (${p2Console.length} messages) ===\n${p2Console.join('\n')}\n`,
+          `=== P1 Console [local] (${p1Console.length} messages) ===\n${p1Console.join('\n')}\n\n` +
+            `=== P2 Console [BrowserStack] (${p2Console.length} messages) ===\n${p2Console.join('\n')}\n`,
         );
         await testInfo.attach('console-logs', {
           path: consolePath,
@@ -240,7 +251,7 @@ test.describe('Remote multiplayer (BrowserStack)', () => {
       try {
         await browserP1.close();
       } catch {
-        /* session may already be closed */
+        /* browser may already be closed */
       }
       if (browserP2) {
         try {

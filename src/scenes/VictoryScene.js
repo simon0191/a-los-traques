@@ -33,7 +33,7 @@ export class VictoryScene extends Phaser.Scene {
     }
 
     // Signal match completion for E2E test orchestration
-    if (this.game.autoplay?.enabled && window.__FIGHT_LOG) {
+    if ((this.game.autoplay?.enabled || this.game.debugMode) && window.__FIGHT_LOG) {
       window.__FIGHT_LOG.matchComplete = true;
       window.__FIGHT_LOG.completedAt = Date.now();
       window.__FIGHT_LOG.result = { winnerId: this.winnerId, loserId: this.loserId };

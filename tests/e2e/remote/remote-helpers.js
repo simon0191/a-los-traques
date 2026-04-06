@@ -54,6 +54,28 @@ export function remoteP2Url(baseUrl, roomId, partyHost, opts = {}) {
 }
 
 /**
+ * Apply Vercel deployment protection bypass headers to a browser context.
+ * Must be called before any page.goto() so all requests (HTML, JS, CSS) include the header.
+ */
+export async function applyVercelBypass(context) {
+  const secret = process.env.VERCEL_PROTECTION_BYPASS;
+  if (!secret) return;
+
+  const baseUrl = process.env.REMOTE_E2E_BASE_URL;
+  if (!baseUrl) return;
+
+  // Only add the bypass header to requests matching the Vercel deployment URL.
+  // Using context.route() instead of setExtraHTTPHeaders avoids sending the
+  // header to cross-origin servers (PartyKit, etc.) which reject it via CORS.
+  const vercelOrigin = new URL(baseUrl).origin;
+  await context.route(`${vercelOrigin}/**`, (route) => {
+    route.continue({
+      headers: { ...route.request().headers(), 'x-vercel-protection-bypass': secret },
+    });
+  });
+}
+
+/**
  * Extract v2 debug bundle from a remote browser page.
  * Tries window.__DEBUG_BUNDLE first (richer v2 data), falls back to __FIGHT_LOG.
  */
