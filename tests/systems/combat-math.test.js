@@ -5,25 +5,25 @@ import { calculateDamage } from '../../src/systems/combat-math.js';
 
 describe('calculateDamage', () => {
   it('neutral stats (power=3, defense=3) returns damage close to base', () => {
-    // powerMod = 0.7 + 0.3 = 1.0, defMod = 1.1 - 0.12 = 0.98
+    // powerMod = 0.85 + 0.15 = 1.00, defMod = 1.20 - 0.18 = 1.02
     const result = calculateDamage(10, 3, 3);
-    expect(result).toBe(Math.round(10 * 1.0 * 0.98)); // 10
+    expect(result).toBe(Math.round(10 * 1.0 * 1.02)); // 10
   });
 
   it('high power (5) + low defense (1) gives significant damage boost', () => {
-    // powerMod = 1.2, defMod = 1.06
+    // powerMod = 1.10, defMod = 1.14
     const result = calculateDamage(10, 5, 1);
     const neutral = calculateDamage(10, 3, 3);
     expect(result).toBeGreaterThan(neutral);
-    expect(result).toBe(Math.round(10 * 1.2 * 1.06)); // 13
+    expect(result).toBe(Math.round(10 * 1.1 * 1.14)); // 13
   });
 
   it('low power (1) + high defense (5) gives significant damage reduction', () => {
-    // powerMod = 0.8, defMod = 0.90
+    // powerMod = 0.90, defMod = 0.90
     const result = calculateDamage(10, 1, 5);
     const neutral = calculateDamage(10, 3, 3);
     expect(result).toBeLessThan(neutral);
-    expect(result).toBe(Math.round(10 * 0.8 * 0.9)); // 7
+    expect(result).toBe(Math.round(10 * 0.9 * 0.9)); // 8
   });
 
   it('always returns a rounded integer', () => {
