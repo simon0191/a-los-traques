@@ -98,17 +98,26 @@ export class StageSelectScene extends Phaser.Scene {
         rect.on('pointerdown', () => {
           this.selectedIndex = i;
           this.updateSelection();
-          this.confirmSelection();
-        });
-        rect.on('pointerover', () => {
-          this.selectedIndex = i;
-          this.updateSelection();
         });
       }
     }
 
+    // LISTO Button (Only for P1 or local)
+    if (this.isP1) {
+      this.listoBtn = createButton(
+        this,
+        GAME_WIDTH / 2,
+        GAME_HEIGHT - 25,
+        'LISTO',
+        () => {
+          this.confirmSelection();
+        },
+        { width: 100, height: 25, fontSize: '12px' },
+      );
+    }
+
     // Selection Info
-    this.infoContainer = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 60);
+    this.infoContainer = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 75);
     this.stageNameText = this.add
       .text(0, 0, '', {
         fontFamily: 'Arial Black',
