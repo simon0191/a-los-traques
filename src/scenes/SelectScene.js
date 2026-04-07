@@ -105,15 +105,16 @@ export class SelectScene extends Phaser.Scene {
         pDOM.node.src = this.textures.get('dom_random_q').getSourceImage().toDataURL();
       }
 
-      // DOM Name - High resolution HTML text
+      // DOM Name - High resolution HTML text with retro font
       const nDOM = this.add.dom(cellX + CELL_W / 2, cellY + 40, 'div', {
-        'font-family': 'Arial',
-        'font-size': '7px',
+        'font-family': "'Courier New', Courier, monospace",
+        'font-size': '8px',
+        'font-weight': 'bold',
         'color': '#ffffff',
         'text-align': 'center',
         'width': '44px',
         'pointer-events': 'none',
-        'text-shadow': '1px 1px 1px #000000'
+        'text-shadow': '1px 1px 2px #000000, 0px 0px 1px #000000'
       }, fighter.name).setOrigin(0.5, 0.5);
 
       const rect = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, color, 0.2).setOrigin(0, 0);
@@ -415,6 +416,33 @@ export class SelectScene extends Phaser.Scene {
       this.updateP1Display();
     }
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
+
+    if (this.matchContext?.type === 'tournament') {
+      this.confirmedText.setText('Generando torneo...');
+      this.time.delayedCall(800, () => {
+        const fighterIds = this.fighters.map((f) => f.id);
+        const { size, seed } = this.matchContext.tournamentState;
+        const playerFighterId = this.fighters[this.p1Index].id;
+
+        const tournamentManager = TournamentManager.generate(
+          fighterIds,
+          size,
+          playerFighterId,
+          seed,
+        );
+        this.matchContext.tournamentState = tournamentManager.serialize();
+
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('BracketScene', {
+            gameMode: this.gameMode,
+            matchContext: this.matchContext,
+          });
+        });
+      });
+      return;
+    }
+
     if (this.gameMode === 'online') {
       this.networkManager.sendReady(this.fighters[this.p1Index].id);
       this.confirmedText.setText('Esperando al oponente...');
