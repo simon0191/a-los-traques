@@ -266,7 +266,7 @@ export class BootScene extends Phaser.Scene {
     if (!this.textures.exists(sourceKey)) return;
 
     const sourceTexture = this.textures.get(sourceKey).getSourceImage();
-    
+
     // Create an off-screen canvas
     const canvas = document.createElement('canvas');
     canvas.width = width;
