@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { GAME_HEIGHT, GAME_WIDTH, FIGHTER_WIDTH, FIGHTER_HEIGHT } from '../config.js';
 import fightersData from '../data/fighters.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
@@ -83,18 +83,16 @@ export class SelectScene extends Phaser.Scene {
     for (let i = 0; i < this.fighters.length; i++) {
       const col = i % COLS;
       const row = Math.floor(i / COLS);
-      
-      // Calculate TOP-LEFT of the cell
       const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
       const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
 
       const fighter = this.fighters[i];
       const color = parseInt(fighter.color, 16);
 
-      // 1. Background Square (Phaser) - Use Origin 0,0
+      // 1. Background Square
       const rect = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, color, 0.2).setOrigin(0, 0);
       
-      // 2. DOM Portrait (HTML) - Use Origin 0,0
+      // 2. DOM Portrait
       const pDOM = this.add.dom(cellX + 2, cellY + 2, 'img').setOrigin(0, 0);
       pDOM.node.style.width = '40px';
       pDOM.node.style.height = '34px';
@@ -108,7 +106,7 @@ export class SelectScene extends Phaser.Scene {
         pDOM.node.src = this.textures.get('dom_random_q').getSourceImage().toDataURL();
       }
 
-      // 3. Name Text (Phaser) - Centered below the portrait
+      // 3. Name Text
       const nameText = this.add.text(cellX + CELL_W / 2, cellY + 40, fighter.name, {
         fontFamily: 'Arial', fontSize: '7px', color: '#ffffff',
       }).setOrigin(0.5, 0.5);
@@ -126,12 +124,11 @@ export class SelectScene extends Phaser.Scene {
       });
 
       this.gridContainer.add([rect, nameText]);
-      // Save Top-Left coordinates for sync
       this.gridCells.push({ x: cellX + 2, y: cellY + 2, pDOM });
       this.portraitDOMs.push(pDOM);
     }
 
-    // Cursors (Phaser) - Use Origin 0,0
+    // Cursors
     this.p1Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0x3366ff).setOrigin(0, 0);
     this.p1CursorLabel = this.add.text(0, 0, 'P1', {
       fontFamily: 'Arial Black', fontSize: '10px', color: '#3366ff', stroke: '#000000', strokeThickness: 2,
@@ -174,13 +171,8 @@ export class SelectScene extends Phaser.Scene {
     this.p1NameText = this.add.text(panelX, 65, '', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#ffffff' });
     this.p1SubtitleText = this.add.text(panelX, 82, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
     
-    this.p1PortraitDOM = this.add.dom(panelX + 110, 70, 'img').setVisible(false).setOrigin(0.5, 0.5);
-    this.p1PortraitDOM.node.style.width = '45px';
-    this.p1PortraitDOM.node.style.height = '45px';
-    this.p1PortraitDOM.node.style.objectFit = 'cover';
-    this.p1PortraitDOM.node.style.borderRadius = '2px';
-    this.p1PortraitDOM.node.style.border = '1px solid #3366ff';
-
+    // P1 Preview - Animated Sprite
+    this.p1PreviewSprite = this.add.sprite(panelX + 110, 100, '__DEFAULT').setScale(0.8).setVisible(false);
     this.p1Portrait = this.add.rectangle(panelX + 110, 70, 45, 45, 0x333333);
     this.p1RandomText = this.add.text(panelX + 110, 70, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
 
@@ -201,13 +193,8 @@ export class SelectScene extends Phaser.Scene {
     this.p2NameText = this.add.text(panelX, 173, 'Aleatorio', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#888888' });
     this.p2SubtitleText = this.add.text(panelX, 190, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
     
-    this.p2PortraitDOM = this.add.dom(panelX + 110, 178, 'img').setVisible(false).setOrigin(0.5, 0.5);
-    this.p2PortraitDOM.node.style.width = '45px';
-    this.p2PortraitDOM.node.style.height = '45px';
-    this.p2PortraitDOM.node.style.objectFit = 'cover';
-    this.p2PortraitDOM.node.style.borderRadius = '2px';
-    this.p2PortraitDOM.node.style.border = '1px solid #ff3333';
-
+    // P2 Preview - Animated Sprite
+    this.p2PreviewSprite = this.add.sprite(panelX + 110, 208, '__DEFAULT').setScale(0.8).setVisible(false);
     this.p2Portrait = this.add.rectangle(panelX + 110, 178, 45, 45, 0x333333);
     this.p2RandomText = this.add.text(panelX + 110, 178, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
 
@@ -373,11 +360,11 @@ export class SelectScene extends Phaser.Scene {
     this.p1NameText.setText(f.name);
     this.p1SubtitleText.setText(f.subtitle);
     const isR = f.id === 'random';
-    if (!isR && this.textures.exists(`portrait_${f.id}`)) {
-      this.p1PortraitDOM.node.src = `assets/portraits/${f.id}.png`;
-      this.p1PortraitDOM.setVisible(true); this.p1Portrait.setVisible(false); this.p1RandomText.setVisible(false);
+    if (!isR && this.anims.exists(`${f.id}_idle`)) {
+      this.p1PreviewSprite.play(`${f.id}_idle`);
+      this.p1PreviewSprite.setVisible(true); this.p1Portrait.setVisible(false); this.p1RandomText.setVisible(false);
     } else {
-      this.p1PortraitDOM.setVisible(false); this.p1Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
+      this.p1PreviewSprite.setVisible(false); this.p1Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
       this.p1RandomText.setVisible(isR);
     }
     const statNames = ['speed', 'power', 'defense', 'special'];
@@ -452,11 +439,11 @@ export class SelectScene extends Phaser.Scene {
     this.p2NameText.setText(f.name);
     this.p2SubtitleText.setText(f.subtitle);
     const isR = f.id === 'random';
-    if (!isR && this.textures.exists(`portrait_${f.id}`)) {
-      this.p2PortraitDOM.node.src = `assets/portraits/${f.id}.png`;
-      this.p2PortraitDOM.setVisible(true); this.p2Portrait.setVisible(false); this.p2RandomText.setVisible(false);
+    if (!isR && this.anims.exists(`${f.id}_idle`)) {
+      this.p2PreviewSprite.play(`${f.id}_idle`);
+      this.p2PreviewSprite.setVisible(true); this.p2Portrait.setVisible(false); this.p2RandomText.setVisible(false);
     } else {
-      this.p2PortraitDOM.setVisible(false); this.p2Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
+      this.p2PreviewSprite.setVisible(false); this.p2Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
       this.p2RandomText.setVisible(isR);
     }
     const statNames = ['speed', 'power', 'defense', 'special'];
