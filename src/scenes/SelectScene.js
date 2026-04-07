@@ -9,8 +9,8 @@ const ROWS = 4;
 const CELL_W = 44;
 const CELL_H = 44;
 const GRID_GAP = 5;
-const GRID_START_X = 30;
-const GRID_START_Y = 48; // Shifted down from 42
+const GRID_START_X = 20; 
+const GRID_START_Y = 48; 
 
 export class SelectScene extends Phaser.Scene {
   constructor() {
@@ -43,35 +43,21 @@ export class SelectScene extends Phaser.Scene {
 
     // Pre-bake smoothed textures for the grid icons
     this.fighters.forEach(f => {
+      if (f.id === 'random') return;
+      const key = `portrait_${f.id}`;
       const rtKey = `rt_grid_${f.id}`;
-      if (this.textures.exists(rtKey)) return;
-
-      const tw = 44;
-      const th = 38;
-      const canvas = document.createElement('canvas');
-      canvas.width = tw;
-      canvas.height = th;
-      const ctx = canvas.getContext('2d');
-
-      if (f.id === 'random') {
-        // Draw a nice question mark for Random
-        ctx.fillStyle = '#333333';
-        ctx.fillRect(0, 0, tw, th);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('?', tw / 2, th / 2);
+      if (this.textures.exists(key) && !this.textures.exists(rtKey)) {
+        const source = this.textures.get(key).getSourceImage();
+        const tw = 44;
+        const th = 38;
+        const canvas = document.createElement('canvas');
+        canvas.width = tw;
+        canvas.height = th;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(source, 0, 0, tw, th);
         this.textures.addCanvas(rtKey, canvas);
-      } else {
-        const key = `portrait_${f.id}`;
-        if (this.textures.exists(key)) {
-          const source = this.textures.get(key).getSourceImage();
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(source, 0, 0, tw, th);
-          this.textures.addCanvas(rtKey, canvas);
-        }
       }
     });
 
@@ -115,17 +101,20 @@ export class SelectScene extends Phaser.Scene {
 
       let rect;
       const rtKey = `rt_grid_${fighter.id}`;
-      
-      // Use pre-baked texture if it exists (including for random)
       if (this.textures.exists(rtKey)) {
-        rect = this.add.image(x, y, rtKey);
+        rect = this.add.image(x, y - 3, rtKey).setDisplaySize(40, 34);
       } else {
-        // Fallback for fighters without portraits (or if random baking failed)
-        rect = this.add.rectangle(x, y, CELL_W - 4, CELL_H - 10, color);
+        rect = this.add.rectangle(x, y - 3, 40, 34, color);
+        if (fighter.id === 'random') {
+          const qText = this.add
+            .text(x, y - 3, '?', { fontSize: '16px', color: '#ffffff', fontFamily: 'Arial Black' })
+            .setOrigin(0.5);
+          this.gridContainer.add(qText);
+        }
       }
 
       const nameText = this.add
-        .text(x, y + CELL_H / 2 - 6, fighter.name, {
+        .text(x, y + 16, fighter.name, {
           fontFamily: 'Arial',
           fontSize: '7px',
           color: '#ffffff',
@@ -153,7 +142,7 @@ export class SelectScene extends Phaser.Scene {
     }
 
     // Cursors
-    this.p1Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0x3366ff);
+    this.p1Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0x3366ff).setOrigin(0.5, 0.5);
     this.p1CursorLabel = this.add.text(0, 0, 'P1', {
       fontFamily: 'Arial Black', fontSize: '10px', color: '#3366ff', stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5, 1);
@@ -168,11 +157,10 @@ export class SelectScene extends Phaser.Scene {
     // Mask for grid area
     const maskGfx = this.make.graphics();
     maskGfx.fillStyle(0xffffff);
-    maskGfx.fillRect(0, 35, 300, 205); 
+    maskGfx.fillRect(0, 35, 280, 205); 
     this.gridContainer.setMask(maskGfx.createGeometryMask());
 
     // --- BUTTONS ---
-    // Repositioned to the left to avoid P2 stats panel
     const listoBtn = this.add.rectangle(110, 252, 60, 22, 0x3366ff).setInteractive();
     this.add.text(listoBtn.x, listoBtn.y, 'LISTO', {
       fontFamily: 'Arial Black, Arial', fontSize: '10px', color: '#ffffff',
@@ -191,16 +179,25 @@ export class SelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // --- INFO PANEL ---
-    const panelX = 310;
+    const panelX = 295; 
     this.add.text(panelX, 50, 'JUGADOR 1', { fontFamily: 'Arial Black, Arial', fontSize: '10px', color: '#3366ff' });
     this.p1NameText = this.add.text(panelX, 65, '', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#ffffff' });
     this.p1SubtitleText = this.add.text(panelX, 82, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
-    this.p1PortraitImg = this.add.image(panelX + 130, 70, '__DEFAULT').setDisplaySize(45, 45).setVisible(false);
-    this.p1Portrait = this.add.rectangle(panelX + 130, 70, 45, 45, 0x333333);
-    this.p1RandomText = this.add.text(panelX + 130, 70, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
+    
+    // P1 Portrait - High-Res DOM Preview
+    this.p1PortraitDOM = this.add.dom(panelX + 110, 70, 'img').setVisible(false);
+    this.p1PortraitDOM.node.style.width = '45px';
+    this.p1PortraitDOM.node.style.height = '45px';
+    this.p1PortraitDOM.node.style.objectFit = 'cover';
+    this.p1PortraitDOM.node.style.borderRadius = '2px';
+    this.p1PortraitDOM.node.style.border = '1px solid #3366ff';
+
+    this.p1Portrait = this.add.rectangle(panelX + 110, 70, 45, 45, 0x333333);
+    this.p1RandomText = this.add.text(panelX + 110, 70, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
 
     this.p1StatBars = [];
     const statLabels = ['VEL', 'POD', 'DEF', 'ESP'];
+    const statNames = ['speed', 'power', 'defense', 'special'];
     statNames.forEach((_, i) => {
       const sy = 100 + i * 14;
       this.add.text(panelX, sy, statLabels[i], { fontFamily: 'Arial', fontSize: '8px', color: '#888899' });
@@ -214,9 +211,17 @@ export class SelectScene extends Phaser.Scene {
     this.add.text(panelX, 158, 'JUGADOR 2', { fontFamily: 'Arial Black, Arial', fontSize: '10px', color: '#ff3333' });
     this.p2NameText = this.add.text(panelX, 173, 'Aleatorio', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#888888' });
     this.p2SubtitleText = this.add.text(panelX, 190, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
-    this.p2PortraitImg = this.add.image(panelX + 130, 178, '__DEFAULT').setDisplaySize(45, 45).setVisible(false);
-    this.p2Portrait = this.add.rectangle(panelX + 130, 178, 45, 45, 0x333333);
-    this.p2RandomText = this.add.text(panelX + 130, 178, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
+    
+    // P2 Portrait - High-Res DOM Preview
+    this.p2PortraitDOM = this.add.dom(panelX + 110, 178, 'img').setVisible(false);
+    this.p2PortraitDOM.node.style.width = '45px';
+    this.p2PortraitDOM.node.style.height = '45px';
+    this.p2PortraitDOM.node.style.objectFit = 'cover';
+    this.p2PortraitDOM.node.style.borderRadius = '2px';
+    this.p2PortraitDOM.node.style.border = '1px solid #ff3333';
+
+    this.p2Portrait = this.add.rectangle(panelX + 110, 178, 45, 45, 0x333333);
+    this.p2RandomText = this.add.text(panelX + 110, 178, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
 
     this.p2StatBars = [];
     statNames.forEach((_, i) => {
@@ -229,8 +234,7 @@ export class SelectScene extends Phaser.Scene {
 
     // --- INPUTS ---
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.keyZ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
-
+    
     this.input.keyboard.on('keydown', (event) => {
       if (this.transitioning) return;
       if (event.code === 'Escape' || event.code === 'Backspace') this.handleBack();
@@ -243,22 +247,21 @@ export class SelectScene extends Phaser.Scene {
     this.updateP1Display();
     this.updateP2Display();
 
-    // Mouse wheel scrolling
-    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
-      if (this.transitioning) return;
-      this.gridContainer.y -= deltaY * 0.5; // Adjust speed as needed
-      this._clampScroll();
-    });
-
-    // Auto-repeat state
     this.navTimers = { up: 0, down: 0, left: 0, right: 0 };
     this.NAV_DELAY = 500; 
     this.NAV_FREQ = 200;
 
-    // Improved Drag-to-Scroll
+    // Mouse wheel
+    this.input.on('wheel', (pointer, gameObjects, dx, dy) => {
+      if (this.transitioning) return;
+      this.gridContainer.y -= dy * 0.5;
+      this._clampScroll();
+    });
+
+    // Drag
     this._isDragging = false;
     this.input.on('pointerdown', (p) => {
-      if (p.x < 300 && p.y > 35 && p.y < 235) {
+      if (p.x < 280 && p.y > 35 && p.y < 235) {
         this._isDragging = true;
         this._startY = p.y;
         this._startGridY = this.gridContainer.y;
@@ -383,22 +386,26 @@ export class SelectScene extends Phaser.Scene {
     this.p1NameText.setText(f.name);
     this.p1SubtitleText.setText(f.subtitle);
     const isR = f.id === 'random';
+    
     if (!isR && this.textures.exists(`portrait_${f.id}`)) {
-      this.p1PortraitImg.setTexture(`portrait_${f.id}`).setDisplaySize(45, 45).setVisible(true);
+      this.p1PortraitDOM.node.src = `assets/portraits/${f.id}.png`;
+      this.p1PortraitDOM.setVisible(true);
       this.p1Portrait.setVisible(false);
       this.p1RandomText.setVisible(false);
     } else {
-      this.p1PortraitImg.setVisible(false);
+      this.p1PortraitDOM.setVisible(false);
       this.p1Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
       this.p1RandomText.setVisible(isR);
     }
+    
+    const panelX = 295;
     const statNames = ['speed', 'power', 'defense', 'special'];
     statNames.forEach((stat, i) => {
       const val = isR ? 0 : f.stats[stat];
       this.p1StatBars[i].scaleX = val / 5;
       if (!this.p1StatValues) this.p1StatValues = [];
       if (!this.p1StatValues[i]) {
-        this.p1StatValues[i] = this.add.text(310 + 95, 100 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
+        this.p1StatValues[i] = this.add.text(panelX + 95, 100 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
       }
       this.p1StatValues[i].setText(isR ? '???' : val.toString());
     });
@@ -466,21 +473,26 @@ export class SelectScene extends Phaser.Scene {
     this.p2NameText.setText(f.name);
     this.p2SubtitleText.setText(f.subtitle);
     const isR = f.id === 'random';
+    
     if (!isR && this.textures.exists(`portrait_${f.id}`)) {
-      this.p2PortraitImg.setTexture(`portrait_${f.id}`).setDisplaySize(45, 45).setVisible(true);
+      this.p2PortraitDOM.node.src = `assets/portraits/${f.id}.png`;
+      this.p2PortraitDOM.setVisible(true);
       this.p2Portrait.setVisible(false);
       this.p2RandomText.setVisible(false);
     } else {
-      this.p2PortraitImg.setVisible(false);
+      this.p2PortraitDOM.setVisible(false);
       this.p2Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
       this.p2RandomText.setVisible(isR);
     }
+    
+    const panelX = 295;
+    const statNames = ['speed', 'power', 'defense', 'special'];
     statNames.forEach((stat, i) => {
       const val = isR ? 0 : f.stats[stat];
       this.p2StatBars[i].scaleX = val / 5;
       if (!this.p2StatValues) this.p2StatValues = [];
       if (!this.p2StatValues[i]) {
-        this.p2StatValues[i] = this.add.text(310 + 95, 208 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
+        this.p2StatValues[i] = this.add.text(panelX + 95, 208 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
       }
       this.p2StatValues[i].setText(isR ? '???' : val.toString());
     });
@@ -508,5 +520,3 @@ export class SelectScene extends Phaser.Scene {
     else this._connectionText.setText('...').setColor('#ff4444');
   }
 }
-
-const statNames = ['speed', 'power', 'defense', 'special'];
