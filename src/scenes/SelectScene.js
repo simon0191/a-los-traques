@@ -4,13 +4,13 @@ import fightersData from '../data/fighters.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 
-const COLS = 6;
-const ROWS = 3;
-const CELL_W = 40;
-const CELL_H = 40;
-const GRID_GAP = 4;
+const COLS = 5;
+const ROWS = 4;
+const CELL_W = 44;
+const CELL_H = 44;
+const GRID_GAP = 5;
 const GRID_START_X = 30;
-const GRID_START_Y = 50;
+const GRID_START_Y = 48; // Shifted down from 42
 
 export class SelectScene extends Phaser.Scene {
   constructor() {
@@ -41,11 +41,37 @@ export class SelectScene extends Phaser.Scene {
       },
     ];
 
-    // Ensure all portrait textures use Linear filtering for better downscaling
+    // Pre-bake smoothed textures for the grid icons
     this.fighters.forEach(f => {
-      const key = `portrait_${f.id}`;
-      if (this.textures.exists(key)) {
-        this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+      const rtKey = `rt_grid_${f.id}`;
+      if (this.textures.exists(rtKey)) return;
+
+      const tw = 44;
+      const th = 38;
+      const canvas = document.createElement('canvas');
+      canvas.width = tw;
+      canvas.height = th;
+      const ctx = canvas.getContext('2d');
+
+      if (f.id === 'random') {
+        // Draw a nice question mark for Random
+        ctx.fillStyle = '#333333';
+        ctx.fillRect(0, 0, tw, th);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', tw / 2, th / 2);
+        this.textures.addCanvas(rtKey, canvas);
+      } else {
+        const key = `portrait_${f.id}`;
+        if (this.textures.exists(key)) {
+          const source = this.textures.get(key).getSourceImage();
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(source, 0, 0, tw, th);
+          this.textures.addCanvas(rtKey, canvas);
+        }
       }
     });
 
@@ -74,17 +100,10 @@ export class SelectScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Player labels
-    if (!this.sys.game.device.input.touch) {
-      this.add.text(GRID_START_X, 34, 'Flechas + Z', {
-        fontFamily: 'Arial',
-        fontSize: '8px',
-        color: '#6688ff',
-      });
-    }
-
-    // Draw fighter grid
+    // Draw fighter grid in a container for scrolling
+    this.gridContainer = this.add.container(0, 0);
     this.gridCells = [];
+    
     for (let i = 0; i < this.fighters.length; i++) {
       const col = i % COLS;
       const row = Math.floor(i / COLS);
@@ -95,17 +114,14 @@ export class SelectScene extends Phaser.Scene {
       const color = parseInt(fighter.color, 16);
 
       let rect;
-      if (fighter.id !== 'random' && this.textures.exists(`portrait_${fighter.id}`)) {
-        rect = this.add
-          .image(x, y, `portrait_${fighter.id}`)
-          .setDisplaySize(CELL_W - 4, CELL_H - 10);
+      const rtKey = `rt_grid_${fighter.id}`;
+      
+      // Use pre-baked texture if it exists (including for random)
+      if (this.textures.exists(rtKey)) {
+        rect = this.add.image(x, y, rtKey);
       } else {
+        // Fallback for fighters without portraits (or if random baking failed)
         rect = this.add.rectangle(x, y, CELL_W - 4, CELL_H - 10, color);
-        if (fighter.id === 'random') {
-          this.add
-            .text(x, y - 5, '?', { fontSize: '16px', color: '#ffffff', fontFamily: 'Arial Black' })
-            .setOrigin(0.5);
-        }
       }
 
       const nameText = this.add
@@ -122,234 +138,140 @@ export class SelectScene extends Phaser.Scene {
         if (!this.p1Confirmed) {
           this.p1Index = i;
           this.updateP1Display();
+          this._scrollToFit(i);
           this.game.audioManager.play('ui_navigate');
         } else if (this.p2SelectionMode && !this.p2Confirmed) {
           this.p2Index = i;
           this.updateP2Display();
+          this._scrollToFit(i);
           this.game.audioManager.play('ui_navigate');
         }
       });
 
+      this.gridContainer.add([rect, nameText]);
       this.gridCells.push({ rect, nameText, x, y });
     }
 
-    // LISTO Button
-    const listoY = GRID_START_Y + ROWS * (CELL_H + GRID_GAP) + 10;
-    const listoBtn = this.add
-      .rectangle(
-        GRID_START_X + (COLS * (CELL_W + GRID_GAP)) / 2 - GRID_GAP / 2,
-        listoY,
-        80,
-        22,
-        0x3366ff,
-      )
-      .setInteractive();
-    this.add
-      .text(listoBtn.x, listoBtn.y, 'LISTO', {
-        fontFamily: 'Arial Black, Arial',
-        fontSize: '11px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
+    // Cursors
+    this.p1Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0x3366ff);
+    this.p1CursorLabel = this.add.text(0, 0, 'P1', {
+      fontFamily: 'Arial Black', fontSize: '10px', color: '#3366ff', stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5, 1);
+
+    this.p2Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0xff3333).setVisible(false);
+    this.p2CursorLabel = this.add.text(0, 0, 'P2', {
+      fontFamily: 'Arial Black', fontSize: '10px', color: '#ff3333', stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5, 1).setVisible(false);
+
+    this.gridContainer.add([this.p1Cursor, this.p1CursorLabel, this.p2Cursor, this.p2CursorLabel]);
+
+    // Mask for grid area
+    const maskGfx = this.make.graphics();
+    maskGfx.fillStyle(0xffffff);
+    maskGfx.fillRect(0, 35, 300, 205); 
+    this.gridContainer.setMask(maskGfx.createGeometryMask());
+
+    // --- BUTTONS ---
+    // Repositioned to the left to avoid P2 stats panel
+    const listoBtn = this.add.rectangle(110, 252, 60, 22, 0x3366ff).setInteractive();
+    this.add.text(listoBtn.x, listoBtn.y, 'LISTO', {
+      fontFamily: 'Arial Black, Arial', fontSize: '10px', color: '#ffffff',
+    }).setOrigin(0.5);
+    
     listoBtn.on('pointerdown', () => {
       if (this.transitioning) return;
-      if (!this.p1Confirmed) {
-        this.confirmP1();
-      } else if (this.p2SelectionMode && !this.p2Confirmed) {
-        this.confirmP2();
-      }
+      if (!this.p1Confirmed) this.confirmP1();
+      else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
     });
 
-    this.p1Cursor = this.add
-      .rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
-      .setStrokeStyle(2, 0x3366ff);
+    createButton(this, 45, 252, 'VOLVER', () => this.handleBack(), { width: 60, height: 22, fontSize: '9px' });
 
-    this.p1CursorLabel = this.add
-      .text(0, 0, 'P1', {
-        fontFamily: 'Arial Black',
-        fontSize: '10px',
-        color: '#3366ff',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5, 1);
+    this.confirmedText = this.add.text(150, GAME_HEIGHT - 12, '', {
+      fontFamily: 'Arial', fontSize: '10px', color: '#ffcc00',
+    }).setOrigin(0.5);
 
-    this.p2Cursor = this.add
-      .rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0)
-      .setStrokeStyle(2, 0xff3333)
-      .setVisible(false);
-
-    this.p2CursorLabel = this.add
-      .text(0, 0, 'P2', {
-        fontFamily: 'Arial Black',
-        fontSize: '10px',
-        color: '#ff3333',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5, 1)
-      .setVisible(false);
-
+    // --- INFO PANEL ---
     const panelX = 310;
-    this.add.text(panelX, 50, 'JUGADOR 1', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '10px',
-      color: '#3366ff',
-    });
-
-    this.p1NameText = this.add.text(panelX, 65, '', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '14px',
-      color: '#ffffff',
-    });
-
-    this.p1SubtitleText = this.add.text(panelX, 82, '', {
-      fontFamily: 'Arial',
-      fontSize: '9px',
-      color: '#aaaacc',
-      fontStyle: 'italic',
-    });
-
-    this.p1PortraitImg = this.add
-      .image(panelX + 130, 70, '__DEFAULT')
-      .setDisplaySize(45, 45)
-      .setVisible(false);
+    this.add.text(panelX, 50, 'JUGADOR 1', { fontFamily: 'Arial Black, Arial', fontSize: '10px', color: '#3366ff' });
+    this.p1NameText = this.add.text(panelX, 65, '', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#ffffff' });
+    this.p1SubtitleText = this.add.text(panelX, 82, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
+    this.p1PortraitImg = this.add.image(panelX + 130, 70, '__DEFAULT').setDisplaySize(45, 45).setVisible(false);
     this.p1Portrait = this.add.rectangle(panelX + 130, 70, 45, 45, 0x333333);
-    this.p1RandomText = this.add
-      .text(panelX + 130, 70, '?', {
-        fontFamily: 'Arial Black',
-        fontSize: '24px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5)
-      .setVisible(false);
+    this.p1RandomText = this.add.text(panelX + 130, 70, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
 
-    this.p1StatLabels = [];
     this.p1StatBars = [];
-    this.p1StatBarBgs = [];
-    const statNames = ['speed', 'power', 'defense', 'special'];
     const statLabels = ['VEL', 'POD', 'DEF', 'ESP'];
-
-    statNames.forEach((_stat, i) => {
+    statNames.forEach((_, i) => {
       const sy = 100 + i * 14;
-      this.add.text(panelX, sy, statLabels[i], {
-        fontFamily: 'Arial',
-        fontSize: '8px',
-        color: '#888899',
-      });
-      const barBg = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
-      const bar = this.add
-        .rectangle(panelX + 30, sy + 4, 60, 6, 0x44cc88)
-        .setOrigin(0, 0.5)
-        .setScale(0, 1);
-      this.p1StatBarBgs.push(barBg);
+      this.add.text(panelX, sy, statLabels[i], { fontFamily: 'Arial', fontSize: '8px', color: '#888899' });
+      this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
+      const bar = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x44cc88).setOrigin(0, 0.5).setScale(0, 1);
       this.p1StatBars.push(bar);
     });
 
     this.add.rectangle(panelX + 75, 150, 150, 1, 0x333355);
 
-    this.add.text(panelX, 158, 'JUGADOR 2', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '10px',
-      color: '#ff3333',
-    });
-
-    this.p2NameText = this.add.text(panelX, 173, 'Aleatorio', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '14px',
-      color: '#888888',
-    });
-
-    this.p2SubtitleText = this.add.text(panelX, 190, '', {
-      fontFamily: 'Arial',
-      fontSize: '9px',
-      color: '#aaaacc',
-      fontStyle: 'italic',
-    });
-
-    this.p2PortraitImg = this.add
-      .image(panelX + 130, 178, '__DEFAULT')
-      .setDisplaySize(45, 45)
-      .setVisible(false);
+    this.add.text(panelX, 158, 'JUGADOR 2', { fontFamily: 'Arial Black, Arial', fontSize: '10px', color: '#ff3333' });
+    this.p2NameText = this.add.text(panelX, 173, 'Aleatorio', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#888888' });
+    this.p2SubtitleText = this.add.text(panelX, 190, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
+    this.p2PortraitImg = this.add.image(panelX + 130, 178, '__DEFAULT').setDisplaySize(45, 45).setVisible(false);
     this.p2Portrait = this.add.rectangle(panelX + 130, 178, 45, 45, 0x333333);
-    this.p2RandomText = this.add
-      .text(panelX + 130, 178, '?', {
-        fontFamily: 'Arial Black',
-        fontSize: '24px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5)
-      .setVisible(false);
+    this.p2RandomText = this.add.text(panelX + 130, 178, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
 
     this.p2StatBars = [];
-    this.p2StatBarBgs = [];
-    statNames.forEach((_stat, i) => {
+    statNames.forEach((_, i) => {
       const sy = 208 + i * 14;
-      this.add.text(panelX, sy, statLabels[i], {
-        fontFamily: 'Arial',
-        fontSize: '8px',
-        color: '#888899',
-      });
-      const barBg = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
-      const bar = this.add
-        .rectangle(panelX + 30, sy + 4, 60, 6, 0xcc4444)
-        .setOrigin(0, 0.5)
-        .setScale(0, 1);
-      this.p2StatBarBgs.push(barBg);
+      this.add.text(panelX, sy, statLabels[i], { fontFamily: 'Arial', fontSize: '8px', color: '#888899' });
+      this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
+      const bar = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0xcc4444).setOrigin(0, 0.5).setScale(0, 1);
       this.p2StatBars.push(bar);
     });
 
-    createButton(this, 60, GAME_HEIGHT - 20, 'VOLVER', () => this.handleBack(), { width: 110, height: 20, fontSize: '9px' });
-
-    this.confirmedText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, '', {
-      fontFamily: 'Arial',
-      fontSize: '10px',
-      color: '#ffcc00',
-    }).setOrigin(0.5);
-
+    // --- INPUTS ---
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyZ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z);
 
     this.input.keyboard.on('keydown', (event) => {
       if (this.transitioning) return;
-      if (event.code === 'Escape' || event.code === 'Backspace') {
-        this.handleBack();
-        return;
-      }
-      if (!this.p1Confirmed) {
-        switch (event.code) {
-          case 'ArrowLeft': this.moveP1Cursor(-1, 0); break;
-          case 'ArrowRight': this.moveP1Cursor(1, 0); break;
-          case 'ArrowUp': this.moveP1Cursor(0, -1); break;
-          case 'ArrowDown': this.moveP1Cursor(0, 1); break;
-          case 'KeyZ': this.confirmP1(); break;
-        }
-      } else if (this.p2SelectionMode && !this.p2Confirmed) {
-        switch (event.code) {
-          case 'ArrowLeft': this.moveP2Cursor(-1, 0); break;
-          case 'ArrowRight': this.moveP2Cursor(1, 0); break;
-          case 'ArrowUp': this.moveP2Cursor(0, -1); break;
-          case 'ArrowDown': this.moveP2Cursor(0, 1); break;
-          case 'KeyZ': this.confirmP2(); break;
-        }
+      if (event.code === 'Escape' || event.code === 'Backspace') this.handleBack();
+      if (event.code === 'KeyZ' || event.code === 'Enter' || event.code === 'Space') {
+        if (!this.p1Confirmed) this.confirmP1();
+        else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
       }
     });
 
     this.updateP1Display();
     this.updateP2Display();
 
+    // Mouse wheel scrolling
+    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+      if (this.transitioning) return;
+      this.gridContainer.y -= deltaY * 0.5; // Adjust speed as needed
+      this._clampScroll();
+    });
+
+    // Auto-repeat state
+    this.navTimers = { up: 0, down: 0, left: 0, right: 0 };
+    this.NAV_DELAY = 500; 
+    this.NAV_FREQ = 200;
+
+    // Improved Drag-to-Scroll
+    this._isDragging = false;
+    this.input.on('pointerdown', (p) => {
+      if (p.x < 300 && p.y > 35 && p.y < 235) {
+        this._isDragging = true;
+        this._startY = p.y;
+        this._startGridY = this.gridContainer.y;
+      }
+    });
+    this.input.on('pointermove', (p) => {
+      if (!this._isDragging || this.transitioning) return;
+      this.gridContainer.y = this._startGridY + (p.y - this._startY);
+      this._clampScroll();
+    });
+    this.input.on('pointerup', () => { this._isDragging = false; });
+
     if (this.gameMode === 'online' && this.networkManager) {
-      this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8, `SALA: ${this.networkManager.roomId}`, {
-        fontSize: '7px', fontFamily: 'monospace', color: '#aaaacc', stroke: '#000000', strokeThickness: 2,
-      }).setOrigin(0.5, 1).setDepth(10);
-
-      this._connectionText = this.add.text(GAME_WIDTH - 4, GAME_HEIGHT - 8, '', {
-        fontSize: '6px', fontFamily: 'monospace', stroke: '#000000', strokeThickness: 2,
-      }).setOrigin(1, 1).setDepth(10);
-
-      this._updateConnectionStatus();
-      this.time.addEvent({ delay: 2000, loop: true, callback: () => this._updateConnectionStatus() });
-
       this.networkManager.resetForReselect();
       this.networkManager.onOpponentReady((id) => {
         this.opponentFighterId = id;
@@ -361,18 +283,68 @@ export class SelectScene extends Phaser.Scene {
         this.confirmedText.setText('Listo! Elige el escenario...');
         this.time.delayedCall(800, () => this.goToStageSelect());
       });
-
       this.networkManager.onDisconnect(() => {
         this.transitioning = true;
-        this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Oponente desconectado', {
-          fontSize: '14px', fontFamily: 'monospace', color: '#ff4444', stroke: '#000000', strokeThickness: 3,
-        }).setOrigin(0.5).setDepth(50);
         this.time.delayedCall(1500, () => {
           this.networkManager?.destroy();
           this.scene.start('TitleScene');
         });
       });
     }
+  }
+
+  update(time, delta) {
+    if (this.transitioning) return;
+    const isP1 = !this.p1Confirmed;
+    const isP2 = this.p2SelectionMode && !this.p2Confirmed;
+    if (isP1 || isP2) {
+      this._handleNavKey(this.cursors.left, -1, 0, delta);
+      this._handleNavKey(this.cursors.right, 1, 0, delta);
+      this._handleNavKey(this.cursors.up, 0, -1, delta);
+      this._handleNavKey(this.cursors.down, 0, 1, delta);
+    }
+  }
+
+  _handleNavKey(key, dx, dy, delta) {
+    const dir = dx !== 0 ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+    if (key.isDown) {
+      if (this.navTimers[dir] === 0) {
+        this._moveSelection(dx, dy);
+        this.navTimers[dir] = this.NAV_DELAY;
+      } else {
+        this.navTimers[dir] -= delta;
+        if (this.navTimers[dir] <= 0) {
+          this._moveSelection(dx, dy);
+          this.navTimers[dir] = this.NAV_FREQ;
+        }
+      }
+    } else { this.navTimers[dir] = 0; }
+  }
+
+  _moveSelection(dx, dy) {
+    if (!this.p1Confirmed) this.moveP1Cursor(dx, dy);
+    else if (this.p2SelectionMode && !this.p2Confirmed) this.moveP2Cursor(dx, dy);
+  }
+
+  _clampScroll() {
+    const rows = Math.ceil(this.fighters.length / COLS);
+    const gridHeight = rows * (CELL_H + GRID_GAP);
+    const viewportHeight = 200;
+    const minY = Math.min(0, viewportHeight - (gridHeight + 45));
+    if (this.gridContainer.y < minY) this.gridContainer.y = minY;
+    if (this.gridContainer.y > 0) this.gridContainer.y = 0;
+  }
+
+  _scrollToFit(idx) {
+    const cell = this.gridCells[idx];
+    const cellTop = cell.y - CELL_H/2;
+    const cellBottom = cell.y + CELL_H/2;
+    const vTop = 35;
+    const vBottom = 235;
+    let targetY = this.gridContainer.y;
+    if (cellTop + this.gridContainer.y < vTop) targetY = vTop - cellTop;
+    else if (cellBottom + this.gridContainer.y > vBottom) targetY = vBottom - cellBottom;
+    this.tweens.add({ targets: this.gridContainer, y: targetY, duration: 150, ease: 'Power2' });
   }
 
   moveP1Cursor(dx, dy) {
@@ -384,6 +356,7 @@ export class SelectScene extends Phaser.Scene {
     if (newIdx < this.fighters.length) {
       this.p1Index = newIdx;
       this.updateP1Display();
+      this._scrollToFit(newIdx);
       this.game.audioManager.play('ui_navigate');
     }
   }
@@ -397,6 +370,7 @@ export class SelectScene extends Phaser.Scene {
     if (newIdx < this.fighters.length) {
       this.p2Index = newIdx;
       this.updateP2Display();
+      this._scrollToFit(newIdx);
       this.game.audioManager.play('ui_navigate');
     }
   }
@@ -404,38 +378,33 @@ export class SelectScene extends Phaser.Scene {
   updateP1Display() {
     const cell = this.gridCells[this.p1Index];
     this.p1Cursor.setPosition(cell.x, cell.y);
-    this.p1CursorLabel.setPosition(cell.x, cell.y - CELL_H / 2 - 2);
-
-    const fighter = this.fighters[this.p1Index];
-    this.p1NameText.setText(fighter.name);
-    this.p1SubtitleText.setText(fighter.subtitle);
-    const isRandom = fighter.id === 'random';
-
-    if (!isRandom && this.textures.exists(`portrait_${fighter.id}`)) {
-      this.p1PortraitImg.setTexture(`portrait_${fighter.id}`).setVisible(true);
+    this.p1CursorLabel.setPosition(cell.x, cell.y - CELL_H/2 - 2);
+    const f = this.fighters[this.p1Index];
+    this.p1NameText.setText(f.name);
+    this.p1SubtitleText.setText(f.subtitle);
+    const isR = f.id === 'random';
+    if (!isR && this.textures.exists(`portrait_${f.id}`)) {
+      this.p1PortraitImg.setTexture(`portrait_${f.id}`).setDisplaySize(45, 45).setVisible(true);
       this.p1Portrait.setVisible(false);
       this.p1RandomText.setVisible(false);
     } else {
       this.p1PortraitImg.setVisible(false);
-      this.p1Portrait.setVisible(true).setFillStyle(parseInt(fighter.color, 16));
-      this.p1RandomText.setVisible(isRandom);
+      this.p1Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
+      this.p1RandomText.setVisible(isR);
     }
-
-    const panelX = 310;
+    const statNames = ['speed', 'power', 'defense', 'special'];
     statNames.forEach((stat, i) => {
-      const val = isRandom ? 0 : fighter.stats[stat];
+      const val = isR ? 0 : f.stats[stat];
       this.p1StatBars[i].scaleX = val / 5;
       if (!this.p1StatValues) this.p1StatValues = [];
       if (!this.p1StatValues[i]) {
-        this.p1StatValues[i] = this.add.text(panelX + 95, 100 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
+        this.p1StatValues[i] = this.add.text(310 + 95, 100 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
       }
-      this.p1StatValues[i].setText(isRandom ? '???' : val.toString());
+      this.p1StatValues[i].setText(isR ? '???' : val.toString());
     });
   }
 
-  updateP2Display() {
-    this._showP2Selection(this.p2Index);
-  }
+  updateP2Display() { this._showP2Selection(this.p2Index); }
 
   handleBack() {
     if (this.transitioning) return;
@@ -455,7 +424,6 @@ export class SelectScene extends Phaser.Scene {
       this.updateP1Display();
     }
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
-
     if (this.gameMode === 'online') {
       this.networkManager.sendReady(this.fighters[this.p1Index].id);
       this.confirmedText.setText('Esperando al oponente...');
@@ -478,10 +446,8 @@ export class SelectScene extends Phaser.Scene {
     this.p2Confirmed = true;
     this.p2Cursor.setStrokeStyle(3, 0xff8800);
     if (this.fighters[this.p2Index].id === 'random') {
-      let idx;
-      do { idx = Phaser.Math.Between(0, this.fighters.length - 2); } while (idx === this.p1Index);
-      this.p2Index = idx;
-      this.updateP2Display();
+      let idx; do { idx = Phaser.Math.Between(0, this.fighters.length - 2); } while (idx === this.p1Index);
+      this.p2Index = idx; this.updateP2Display();
     }
     this.confirmedText.setText('Listo! Preparando combate...');
     this.time.delayedCall(1000, () => this.goToStageSelect());
@@ -489,41 +455,34 @@ export class SelectScene extends Phaser.Scene {
 
   _showOpponentSelection(id) {
     const idx = this.fighters.findIndex(f => f.id === id);
-    if (idx !== -1) {
-      this.p2Index = idx;
-      this._showP2Selection(idx);
-    }
+    if (idx !== -1) { this.p2Index = idx; this._showP2Selection(idx); }
   }
 
   _showP2Selection(idx) {
     const cell = this.gridCells[idx];
     this.p2Cursor.setPosition(cell.x, cell.y).setVisible(true);
-    this.p2CursorLabel.setPosition(cell.x, cell.y - CELL_H / 2 - 2).setVisible(true);
-
+    this.p2CursorLabel.setPosition(cell.x, cell.y - CELL_H/2 - 2).setVisible(true);
     const f = this.fighters[idx];
     this.p2NameText.setText(f.name);
     this.p2SubtitleText.setText(f.subtitle);
-    const isRandom = f.id === 'random';
-
-    if (!isRandom && this.textures.exists(`portrait_${f.id}`)) {
-      this.p2PortraitImg.setTexture(`portrait_${f.id}`).setVisible(true);
+    const isR = f.id === 'random';
+    if (!isR && this.textures.exists(`portrait_${f.id}`)) {
+      this.p2PortraitImg.setTexture(`portrait_${f.id}`).setDisplaySize(45, 45).setVisible(true);
       this.p2Portrait.setVisible(false);
       this.p2RandomText.setVisible(false);
     } else {
       this.p2PortraitImg.setVisible(false);
       this.p2Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
-      this.p2RandomText.setVisible(isRandom);
+      this.p2RandomText.setVisible(isR);
     }
-
-    const panelX = 310;
     statNames.forEach((stat, i) => {
-      const val = isRandom ? 0 : f.stats[stat];
+      const val = isR ? 0 : f.stats[stat];
       this.p2StatBars[i].scaleX = val / 5;
       if (!this.p2StatValues) this.p2StatValues = [];
       if (!this.p2StatValues[i]) {
-        this.p2StatValues[i] = this.add.text(panelX + 95, 208 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
+        this.p2StatValues[i] = this.add.text(310 + 95, 208 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
       }
-      this.p2StatValues[i].setText(isRandom ? '???' : val.toString());
+      this.p2StatValues[i].setText(isR ? '???' : val.toString());
     });
   }
 
@@ -533,8 +492,7 @@ export class SelectScene extends Phaser.Scene {
     let p1Id = this.fighters[this.p1Index].id;
     let p2Id = this.fighters[this.p2Index].id;
     if (this.gameMode === 'online' && this._startData) {
-      p1Id = this._startData.p1Id;
-      p2Id = this._startData.p2Id;
+      p1Id = this._startData.p1Id; p2Id = this._startData.p2Id;
     }
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -545,13 +503,9 @@ export class SelectScene extends Phaser.Scene {
   _updateConnectionStatus() {
     if (!this._connectionText || !this.networkManager) return;
     const nm = this.networkManager;
-    if (nm._webrtcReady) {
-      this._connectionText.setText('P2P').setColor('#44ff44');
-    } else if (nm.connected) {
-      this._connectionText.setText('Relay').setColor('#ffcc44');
-    } else {
-      this._connectionText.setText('...').setColor('#ff4444');
-    }
+    if (nm._webrtcReady) this._connectionText.setText('P2P').setColor('#44ff44');
+    else if (nm.connected) this._connectionText.setText('Relay').setColor('#ffcc44');
+    else this._connectionText.setText('...').setColor('#ff4444');
   }
 }
 
