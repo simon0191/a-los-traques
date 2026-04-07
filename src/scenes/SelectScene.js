@@ -419,12 +419,32 @@ export class SelectScene extends Phaser.Scene {
 
   handleBack() {
     if (this.transitioning) return;
+
+    if (this.p2SelectionMode && !this.p2Confirmed) {
+      this.p2SelectionMode = false;
+      this.p1Confirmed = false;
+      this.p2Cursor.setVisible(false);
+      this.p2CursorLabel.setVisible(false);
+      this.headerText.setText('ELIGE TU LUCHADOR: JUGADOR 1');
+      this.p1Cursor.setAlpha(1);
+      this.p1CursorLabel.setAlpha(1);
+      this.p1Cursor.setStrokeStyle(2, 0x3366ff);
+      this.confirmedText.setText('');
+      this.game.audioManager.play('ui_cancel');
+      return;
+    }
+
+    if (this.p1Confirmed) return;
+
     this.game.audioManager.play('ui_cancel');
     if (this.gameMode === 'online' && this.networkManager) {
       if (this.p1Confirmed) this.networkManager.sendLeave();
       this.networkManager.destroy();
     }
-    this.scene.start('TitleScene');
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('TitleScene');
+    });
   }
 
   confirmP1() {
