@@ -228,7 +228,39 @@ export class SelectScene extends Phaser.Scene {
     this.updateP1Display();
     this.updateP2Display();
 
-    // Wheel
+    // Room code display (online mode, bottom center)
+    if (this.gameMode === 'online' && this.networkManager) {
+      this.add
+        .text(GAME_WIDTH / 2, GAME_HEIGHT - 8, `SALA: ${this.networkManager.roomId}`, {
+          fontSize: '7px',
+          fontFamily: 'monospace',
+          color: '#aaaacc',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(10);
+
+      // Connection quality indicator (bottom-right)
+      this._connectionText = this.add
+        .text(GAME_WIDTH - 4, GAME_HEIGHT - 8, '', {
+          fontSize: '6px',
+          fontFamily: 'monospace',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(1, 1)
+        .setDepth(10);
+
+      this._updateConnectionStatus();
+      this.time.addEvent({
+        delay: 2000,
+        loop: true,
+        callback: () => this._updateConnectionStatus(),
+      });
+    }
+
+    // Mouse wheel
     this.input.on('wheel', (_pointer, _gameObjects, _dx, dy) => {
       if (this.transitioning) return;
       this.gridContainer.y -= dy * 0.5;
