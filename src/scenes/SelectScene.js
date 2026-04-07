@@ -16,6 +16,7 @@ export class SelectScene extends Phaser.Scene {
   constructor() {
     super('SelectScene');
     this.portraitDOMs = []; 
+    this.nameDOMs = []; // To track high-res names
   }
 
   init(data) {
@@ -42,7 +43,7 @@ export class SelectScene extends Phaser.Scene {
       },
     ];
 
-    // Pre-bake high-res question mark for Random DOM element
+    // Pre-bake high-res question mark
     if (!this.textures.exists('dom_random_q')) {
       const canvas = document.createElement('canvas');
       canvas.width = 128; canvas.height = 128;
@@ -79,6 +80,7 @@ export class SelectScene extends Phaser.Scene {
     this.gridContainer = this.add.container(0, 0);
     this.gridCells = [];
     this.portraitDOMs = [];
+    this.nameDOMs = [];
     
     for (let i = 0; i < this.fighters.length; i++) {
       const col = i % COLS;
@@ -89,10 +91,7 @@ export class SelectScene extends Phaser.Scene {
       const fighter = this.fighters[i];
       const color = parseInt(fighter.color, 16);
 
-      // 1. Background Square
-      const rect = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, color, 0.2).setOrigin(0, 0);
-      
-      // 2. DOM Portrait
+      // DOM Portrait
       const pDOM = this.add.dom(cellX + 2, cellY + 2, 'img').setOrigin(0, 0);
       pDOM.node.style.width = '40px';
       pDOM.node.style.height = '34px';
@@ -106,10 +105,18 @@ export class SelectScene extends Phaser.Scene {
         pDOM.node.src = this.textures.get('dom_random_q').getSourceImage().toDataURL();
       }
 
-      // 3. Name Text
-      const nameText = this.add.text(cellX + CELL_W / 2, cellY + 40, fighter.name, {
-        fontFamily: 'Arial', fontSize: '7px', color: '#ffffff',
-      }).setOrigin(0.5, 0.5);
+      // DOM Name - High resolution HTML text
+      const nDOM = this.add.dom(cellX + CELL_W / 2, cellY + 40, 'div', {
+        'font-family': 'Arial',
+        'font-size': '7px',
+        'color': '#ffffff',
+        'text-align': 'center',
+        'width': '44px',
+        'pointer-events': 'none',
+        'text-shadow': '1px 1px 1px #000000'
+      }, fighter.name).setOrigin(0.5, 0.5);
+
+      const rect = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, color, 0.2).setOrigin(0, 0);
 
       rect.setInteractive();
       rect.on('pointerdown', () => {
@@ -123,9 +130,10 @@ export class SelectScene extends Phaser.Scene {
         }
       });
 
-      this.gridContainer.add([rect, nameText]);
-      this.gridCells.push({ x: cellX + 2, y: cellY + 2, pDOM });
+      this.gridContainer.add(rect);
+      this.gridCells.push({ x: cellX + 2, y: cellY + 2, pDOM, nDOM });
       this.portraitDOMs.push(pDOM);
+      this.nameDOMs.push(nDOM);
     }
 
     // Cursors
@@ -171,7 +179,6 @@ export class SelectScene extends Phaser.Scene {
     this.p1NameText = this.add.text(panelX, 65, '', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#ffffff' });
     this.p1SubtitleText = this.add.text(panelX, 82, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
     
-    // P1 Preview - Animated Sprite
     this.p1PreviewSprite = this.add.sprite(panelX + 110, 100, '__DEFAULT').setScale(0.8).setVisible(false);
     this.p1Portrait = this.add.rectangle(panelX + 110, 70, 45, 45, 0x333333);
     this.p1RandomText = this.add.text(panelX + 110, 70, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
@@ -193,7 +200,6 @@ export class SelectScene extends Phaser.Scene {
     this.p2NameText = this.add.text(panelX, 173, 'Aleatorio', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#888888' });
     this.p2SubtitleText = this.add.text(panelX, 190, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
     
-    // P2 Preview - Animated Sprite
     this.p2PreviewSprite = this.add.sprite(panelX + 110, 208, '__DEFAULT').setScale(0.8).setVisible(false);
     this.p2Portrait = this.add.rectangle(panelX + 110, 178, 45, 45, 0x333333);
     this.p2RandomText = this.add.text(panelX + 110, 178, '?', { fontFamily: 'Arial Black', fontSize: '24px', color: '#ffffff' }).setOrigin(0.5).setVisible(false);
@@ -207,7 +213,21 @@ export class SelectScene extends Phaser.Scene {
       this.p2StatBars.push(bar);
     });
 
-    // Mouse wheel
+    // Inputs
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.input.keyboard.on('keydown', (event) => {
+      if (this.transitioning) return;
+      if (event.code === 'Escape' || event.code === 'Backspace') this.handleBack();
+      if (event.code === 'KeyZ' || event.code === 'Enter' || event.code === 'Space') {
+        if (!this.p1Confirmed) this.confirmP1();
+        else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
+      }
+    });
+
+    this.updateP1Display();
+    this.updateP2Display();
+
+    // Wheel
     this.input.on('wheel', (pointer, gameObjects, dx, dy) => {
       if (this.transitioning) return;
       this.gridContainer.y -= dy * 0.5;
@@ -228,22 +248,8 @@ export class SelectScene extends Phaser.Scene {
     });
     this.input.on('pointerup', () => { this._isDragging = false; });
 
-    // Keyboard
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.input.keyboard.on('keydown', (event) => {
-      if (this.transitioning) return;
-      if (event.code === 'Escape' || event.code === 'Backspace') this.handleBack();
-      if (event.code === 'KeyZ' || event.code === 'Enter' || event.code === 'Space') {
-        if (!this.p1Confirmed) this.confirmP1();
-        else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
-      }
-    });
-
     this.navTimers = { up: 0, down: 0, left: 0, right: 0 };
     this.NAV_DELAY = 500; this.NAV_FREQ = 200;
-
-    this.updateP1Display();
-    this.updateP2Display();
 
     if (this.gameMode === 'online' && this.networkManager) {
       this.networkManager.resetForReselect();
@@ -322,9 +328,19 @@ export class SelectScene extends Phaser.Scene {
       if (!cell.pDOM) continue;
       const wX = cell.x + this.gridContainer.x;
       const wY = cell.y + this.gridContainer.y;
-      cell.pDOM.x = wX; cell.pDOM.y = wY;
+      
+      // Sync Portrait
+      cell.pDOM.x = wX;
+      cell.pDOM.y = wY;
+      
+      // Sync Name
+      cell.nDOM.x = wX + 20; // Re-centered name
+      cell.nDOM.y = wY + 38;
+      
+      // Clipping logic
       const isVisible = wY > vT - 30 && wY < vB;
       cell.pDOM.setVisible(isVisible);
+      cell.nDOM.setVisible(isVisible);
     }
   }
 
