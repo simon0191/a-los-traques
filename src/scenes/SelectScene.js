@@ -12,6 +12,11 @@ const GRID_GAP = 5;
 const GRID_START_X = 20; 
 const GRID_START_Y = 48; 
 
+// Named constants for the grid viewport boundaries
+const VIEW_TOP = 35;
+const VIEW_BOTTOM = 235;
+const VIEW_WIDTH = 285;
+
 export class SelectScene extends Phaser.Scene {
   constructor() {
     super('SelectScene');
@@ -150,10 +155,10 @@ export class SelectScene extends Phaser.Scene {
 
     this.gridContainer.add([this.p1Cursor, this.p1CursorLabel, this.p2Cursor, this.p2CursorLabel]);
 
-    // Mask
+    // Mask using named constants
     const maskGfx = this.make.graphics();
     maskGfx.fillStyle(0xffffff);
-    maskGfx.fillRect(0, 35, 285, 205); 
+    maskGfx.fillRect(0, VIEW_TOP, VIEW_WIDTH, VIEW_BOTTOM - VIEW_TOP); 
     this.gridContainer.setMask(maskGfx.createGeometryMask());
 
     // --- BUTTONS ---
@@ -228,49 +233,63 @@ export class SelectScene extends Phaser.Scene {
     this.updateP1Display();
     this.updateP2Display();
 
-    // Room code display (online mode, bottom center)
+    // Online UI restoration
     if (this.gameMode === 'online' && this.networkManager) {
-      this.add
-        .text(GAME_WIDTH / 2, GAME_HEIGHT - 8, `SALA: ${this.networkManager.roomId}`, {
-          fontSize: '7px',
-          fontFamily: 'monospace',
-          color: '#aaaacc',
-          stroke: '#000000',
-          strokeThickness: 2,
-        })
-        .setOrigin(0.5, 1)
-        .setDepth(10);
+      this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8, `SALA: ${this.networkManager.roomId}`, {
+        fontSize: '7px', fontFamily: 'monospace', color: '#aaaacc', stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5, 1).setDepth(10);
 
-      // Connection quality indicator (bottom-right)
-      this._connectionText = this.add
-        .text(GAME_WIDTH - 4, GAME_HEIGHT - 8, '', {
-          fontSize: '6px',
-          fontFamily: 'monospace',
-          stroke: '#000000',
-          strokeThickness: 2,
-        })
-        .setOrigin(1, 1)
-        .setDepth(10);
+      this._connectionText = this.add.text(GAME_WIDTH - 4, GAME_HEIGHT - 8, '', {
+        fontSize: '6px', fontFamily: 'monospace', stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(1, 1).setDepth(10);
 
       this._updateConnectionStatus();
-      this.time.addEvent({
-        delay: 2000,
-        loop: true,
-        callback: () => this._updateConnectionStatus(),
+      this.time.addEvent({ delay: 2000, loop: true, callback: () => this._updateConnectionStatus() });
+
+      this.networkManager.resetForReselect();
+      this.networkManager.onOpponentReady((id) => {
+        this.opponentFighterId = id; this.opponentReady = true;
+        if (this.p1Confirmed) this._showOpponentSelection(id);
+      });
+      this.networkManager.onGoToStageSelect((data) => {
+        this._startData = data;
+        this.confirmedText.setText('Listo! Elige el escenario...');
+        this.time.delayedCall(800, () => this.goToStageSelect());
+      });
+
+      if (this.game.autoplay?.enabled) {
+        const autoId = this.game.autoplay.fighterId;
+        const idx = autoId ? this.fighters.findIndex(f => f.id === autoId) : -1;
+        this.p1Index = idx >= 0 ? idx : Phaser.Math.Between(0, this.fighters.length - 2);
+        this.updateP1Display(); this.confirmP1();
+      }
+
+      this.networkManager.onDisconnect(() => {
+        this.transitioning = true;
+        this.time.delayedCall(1500, () => {
+          this.networkManager?.destroy(); this.scene.start('TitleScene');
+        });
       });
     }
 
-    // Mouse wheel
+    if (this.gameMode === 'local' && this.game.autoplay?.enabled) {
+      const autoId = this.game.autoplay.fighterId;
+      const idx = autoId ? this.fighters.findIndex(f => f.id === autoId) : -1;
+      this.p1Index = idx >= 0 ? idx : Phaser.Math.Between(0, this.fighters.length - 2);
+      this.updateP1Display(); this.confirmP1();
+    }
+
+    // Wheel
     this.input.on('wheel', (_pointer, _gameObjects, _dx, dy) => {
       if (this.transitioning) return;
       this.gridContainer.y -= dy * 0.5;
       this._clampScroll(); this._syncDOMPortraits();
     });
 
-    // Drag
+    // Drag using named constants
     this._isDragging = false;
     this.input.on('pointerdown', (p) => {
-      if (p.x < 285 && p.y > 35 && p.y < 235) {
+      if (p.x < VIEW_WIDTH && p.y > VIEW_TOP && p.y < VIEW_BOTTOM) {
         this._isDragging = true; this._startY = p.y; this._startGridY = this.gridContainer.y;
       }
     });
@@ -284,62 +303,14 @@ export class SelectScene extends Phaser.Scene {
     this.navTimers = { up: 0, down: 0, left: 0, right: 0 };
     this.NAV_DELAY = 500; this.NAV_FREQ = 200;
 
-    if (this.gameMode === 'online' && this.networkManager) {
-      this.networkManager.resetForReselect();
-      this.networkManager.onOpponentReady((id) => {
-        this.opponentFighterId = id; this.opponentReady = true;
-        if (this.p1Confirmed) this._showOpponentSelection(id);
-      });
-      this.networkManager.onGoToStageSelect((data) => {
-        this._startData = data;
-        this.confirmedText.setText('Listo! Elige el escenario...');
-        this.time.delayedCall(800, () => this.goToStageSelect());
-      });
-
-      // Autoplay: auto-select fighter and confirm immediately
-      if (this.game.autoplay?.enabled) {
-        const autoId = this.game.autoplay.fighterId;
-        if (autoId) {
-          const idx = this.fighters.findIndex((f) => f.id === autoId);
-          if (idx >= 0) this.p1Index = idx;
-        } else {
-          this.p1Index = Phaser.Math.Between(0, this.fighters.length - 2);
-        }
-        this.updateP1Display();
-        this.confirmP1();
-      }
-this.networkManager.onDisconnect(() => {
-  this.transitioning = true;
-  this.time.delayedCall(1500, () => {
-    this.networkManager?.destroy(); this.scene.start('TitleScene');
-  });
-});
-}
-
-// Cleanup DOM elements on scene shutdown
-this.events.on('shutdown', () => {
-this.portraitDOMs.forEach(dom => dom.destroy());
-this.nameDOMs.forEach(dom => dom.destroy());
-if (this.p1PortraitDOM) this.p1PortraitDOM.destroy();
-if (this.p2PortraitDOM) this.p2PortraitDOM.destroy();
-
-this.portraitDOMs = [];
-this.nameDOMs = [];
-});
-
-this._syncDOMPortraits();
-}
-    if (this.gameMode === 'local' && this.game.autoplay?.enabled) {
-      const autoId = this.game.autoplay.fighterId;
-      if (autoId) {
-        const idx = this.fighters.findIndex((f) => f.id === autoId);
-        if (idx >= 0) this.p1Index = idx;
-      } else {
-        this.p1Index = Phaser.Math.Between(0, this.fighters.length - 2);
-      }
-      this.updateP1Display();
-      this.confirmP1();
-    }
+    // Shutdown cleanup
+    this.events.on('shutdown', () => {
+      this.portraitDOMs.forEach(dom => dom.destroy());
+      this.nameDOMs.forEach(dom => dom.destroy());
+      if (this.p1PortraitDOM) this.p1PortraitDOM.destroy();
+      if (this.p2PortraitDOM) this.p2PortraitDOM.destroy();
+      this.portraitDOMs = []; this.nameDOMs = [];
+    });
 
     this._syncDOMPortraits();
   }
@@ -378,30 +349,28 @@ this._syncDOMPortraits();
   _clampScroll() {
     const rows = Math.ceil(this.fighters.length / COLS);
     const gridHeight = rows * (CELL_H + GRID_GAP);
-    const minY = Math.min(0, 200 - (gridHeight + 45));
+    const minY = Math.min(0, (VIEW_BOTTOM - VIEW_TOP + 15) - (gridHeight + GRID_START_Y));
     if (this.gridContainer.y < minY) this.gridContainer.y = minY;
     if (this.gridContainer.y > 0) this.gridContainer.y = 0;
   }
 
   _scrollToFit(idx) {
-    const col = idx % COLS; const row = Math.floor(idx / COLS);
+    const row = Math.floor(idx / COLS);
     const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
-    const vT = 35; const vB = 235;
     let tY = this.gridContainer.y;
-    if (cellY + this.gridContainer.y < vT) tY = vT - cellY;
-    else if (cellY + CELL_H + this.gridContainer.y > vB) tY = vB - (cellY + CELL_H);
+    if (cellY + this.gridContainer.y < VIEW_TOP) tY = VIEW_TOP - cellY;
+    else if (cellY + CELL_H + this.gridContainer.y > VIEW_BOTTOM) tY = VIEW_BOTTOM - (cellY + CELL_H);
     this.tweens.add({ targets: this.gridContainer, y: tY, duration: 150, ease: 'Power2', onUpdate: () => this._syncDOMPortraits() });
   }
 
   _syncDOMPortraits() {
-    const vT = 35; const vB = 235;
     for (const cell of this.gridCells) {
       if (!cell.pDOM) continue;
       const wX = cell.x + this.gridContainer.x;
       const wY = cell.y + this.gridContainer.y;
       cell.pDOM.x = wX; cell.pDOM.y = wY;
       cell.nDOM.x = wX + 20; cell.nDOM.y = wY + 38;
-      const isVisible = wY > vT - 30 && wY < vB;
+      const isVisible = wY > VIEW_TOP - 30 && wY < VIEW_BOTTOM;
       cell.pDOM.setVisible(isVisible);
       cell.nDOM.setVisible(isVisible);
     }
@@ -464,13 +433,10 @@ this._syncDOMPortraits();
     if (this.transitioning) return;
 
     if (this.p2SelectionMode && !this.p2Confirmed) {
-      this.p2SelectionMode = false;
-      this.p1Confirmed = false;
-      this.p2Cursor.setVisible(false);
-      this.p2CursorLabel.setVisible(false);
+      this.p2SelectionMode = false; this.p1Confirmed = false;
+      this.p2Cursor.setVisible(false); this.p2CursorLabel.setVisible(false);
       this.headerText.setText('ELIGE TU LUCHADOR: JUGADOR 1');
-      this.p1Cursor.setAlpha(1);
-      this.p1CursorLabel.setAlpha(1);
+      this.p1Cursor.setAlpha(1); this.p1CursorLabel.setAlpha(1);
       this.p1Cursor.setStrokeStyle(2, 0x3366ff);
       this.confirmedText.setText('');
       this.game.audioManager.play('ui_cancel');
@@ -526,7 +492,6 @@ this._syncDOMPortraits();
       this.p2Index = this.fighters.length - 1; this.updateP2Display();
       this.confirmedText.setText('Jugador 1 Listo. Esperando Jugador 2...');
 
-      // Autoplay P2 support
       if (this.game.autoplay?.enabled) {
         let p2Idx; do { p2Idx = Phaser.Math.Between(0, this.fighters.length - 2); } while (p2Idx === this.p1Index);
         this.p2Index = p2Idx; this.updateP2Display(); this.confirmP2();
