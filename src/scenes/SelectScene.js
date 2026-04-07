@@ -276,16 +276,27 @@ export class SelectScene extends Phaser.Scene {
         this.updateP1Display();
         this.confirmP1();
       }
+this.networkManager.onDisconnect(() => {
+  this.transitioning = true;
+  this.time.delayedCall(1500, () => {
+    this.networkManager?.destroy(); this.scene.start('TitleScene');
+  });
+});
+}
 
-      this.networkManager.onDisconnect(() => {
-        this.transitioning = true;
-        this.time.delayedCall(1500, () => {
-          this.networkManager?.destroy(); this.scene.start('TitleScene');
-        });
-      });
-    }
+// Cleanup DOM elements on scene shutdown
+this.events.on('shutdown', () => {
+this.portraitDOMs.forEach(dom => dom.destroy());
+this.nameDOMs.forEach(dom => dom.destroy());
+if (this.p1PortraitDOM) this.p1PortraitDOM.destroy();
+if (this.p2PortraitDOM) this.p2PortraitDOM.destroy();
 
-    // Local Autoplay support
+this.portraitDOMs = [];
+this.nameDOMs = [];
+});
+
+this._syncDOMPortraits();
+}
     if (this.gameMode === 'local' && this.game.autoplay?.enabled) {
       const autoId = this.game.autoplay.fighterId;
       if (autoId) {
