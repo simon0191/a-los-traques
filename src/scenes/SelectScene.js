@@ -15,6 +15,7 @@ const GRID_START_Y = 48;
 export class SelectScene extends Phaser.Scene {
   constructor() {
     super('SelectScene');
+    this.portraitDOMs = []; 
   }
 
   init(data) {
@@ -41,25 +42,17 @@ export class SelectScene extends Phaser.Scene {
       },
     ];
 
-    // Pre-bake smoothed textures for the grid icons
-    this.fighters.forEach(f => {
-      if (f.id === 'random') return;
-      const key = `portrait_${f.id}`;
-      const rtKey = `rt_grid_${f.id}`;
-      if (this.textures.exists(key) && !this.textures.exists(rtKey)) {
-        const source = this.textures.get(key).getSourceImage();
-        const tw = 44;
-        const th = 38;
-        const canvas = document.createElement('canvas');
-        canvas.width = tw;
-        canvas.height = th;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(source, 0, 0, tw, th);
-        this.textures.addCanvas(rtKey, canvas);
-      }
-    });
+    // Pre-bake high-res question mark for Random DOM element
+    if (!this.textures.exists('dom_random_q')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128; canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#333333'; ctx.fillRect(0, 0, 128, 128);
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 80px Arial';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('?', 64, 64);
+      this.textures.addCanvas('dom_random_q', canvas);
+    }
 
     this.p1Index = 0;
     this.p2Index = 0;
@@ -78,86 +71,83 @@ export class SelectScene extends Phaser.Scene {
     // Header
     this.headerText = this.add
       .text(GAME_WIDTH / 2, 16, 'ELIGE TU LUCHADOR: JUGADOR 1', {
-        fontFamily: 'Arial Black, Arial',
-        fontSize: '18px',
-        color: '#ffcc00',
-        stroke: '#000000',
-        strokeThickness: 3,
+        fontFamily: 'Arial Black, Arial', fontSize: '18px', color: '#ffcc00', stroke: '#000000', strokeThickness: 3,
       })
       .setOrigin(0.5);
 
-    // Draw fighter grid in a container for scrolling
+    // Draw fighter grid
     this.gridContainer = this.add.container(0, 0);
     this.gridCells = [];
+    this.portraitDOMs = [];
     
     for (let i = 0; i < this.fighters.length; i++) {
       const col = i % COLS;
       const row = Math.floor(i / COLS);
-      const x = GRID_START_X + col * (CELL_W + GRID_GAP) + CELL_W / 2;
-      const y = GRID_START_Y + row * (CELL_H + GRID_GAP) + CELL_H / 2;
+      
+      // Calculate TOP-LEFT of the cell
+      const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
+      const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
 
       const fighter = this.fighters[i];
       const color = parseInt(fighter.color, 16);
 
-      let rect;
-      const rtKey = `rt_grid_${fighter.id}`;
-      if (this.textures.exists(rtKey)) {
-        rect = this.add.image(x, y - 3, rtKey).setDisplaySize(40, 34);
+      // 1. Background Square (Phaser) - Use Origin 0,0
+      const rect = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, color, 0.2).setOrigin(0, 0);
+      
+      // 2. DOM Portrait (HTML) - Use Origin 0,0
+      const pDOM = this.add.dom(cellX + 2, cellY + 2, 'img').setOrigin(0, 0);
+      pDOM.node.style.width = '40px';
+      pDOM.node.style.height = '34px';
+      pDOM.node.style.objectFit = 'cover';
+      pDOM.node.style.borderRadius = '2px';
+      pDOM.node.style.border = '1px solid #444466';
+      
+      if (fighter.id !== 'random') {
+        pDOM.node.src = `assets/portraits/${fighter.id}.png`;
       } else {
-        rect = this.add.rectangle(x, y - 3, 40, 34, color);
-        if (fighter.id === 'random') {
-          const qText = this.add
-            .text(x, y - 3, '?', { fontSize: '16px', color: '#ffffff', fontFamily: 'Arial Black' })
-            .setOrigin(0.5);
-          this.gridContainer.add(qText);
-        }
+        pDOM.node.src = this.textures.get('dom_random_q').getSourceImage().toDataURL();
       }
 
-      const nameText = this.add
-        .text(x, y + 16, fighter.name, {
-          fontFamily: 'Arial',
-          fontSize: '7px',
-          color: '#ffffff',
-        })
-        .setOrigin(0.5);
+      // 3. Name Text (Phaser) - Centered below the portrait
+      const nameText = this.add.text(cellX + CELL_W / 2, cellY + 40, fighter.name, {
+        fontFamily: 'Arial', fontSize: '7px', color: '#ffffff',
+      }).setOrigin(0.5, 0.5);
 
       rect.setInteractive();
       rect.on('pointerdown', () => {
         if (this.transitioning) return;
         if (!this.p1Confirmed) {
-          this.p1Index = i;
-          this.updateP1Display();
-          this._scrollToFit(i);
+          this.p1Index = i; this.updateP1Display(); this._scrollToFit(i);
           this.game.audioManager.play('ui_navigate');
         } else if (this.p2SelectionMode && !this.p2Confirmed) {
-          this.p2Index = i;
-          this.updateP2Display();
-          this._scrollToFit(i);
+          this.p2Index = i; this.updateP2Display(); this._scrollToFit(i);
           this.game.audioManager.play('ui_navigate');
         }
       });
 
       this.gridContainer.add([rect, nameText]);
-      this.gridCells.push({ rect, nameText, x, y });
+      // Save Top-Left coordinates for sync
+      this.gridCells.push({ x: cellX + 2, y: cellY + 2, pDOM });
+      this.portraitDOMs.push(pDOM);
     }
 
-    // Cursors
-    this.p1Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0x3366ff).setOrigin(0.5, 0.5);
+    // Cursors (Phaser) - Use Origin 0,0
+    this.p1Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0x3366ff).setOrigin(0, 0);
     this.p1CursorLabel = this.add.text(0, 0, 'P1', {
       fontFamily: 'Arial Black', fontSize: '10px', color: '#3366ff', stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5, 1);
 
-    this.p2Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0xff3333).setVisible(false);
+    this.p2Cursor = this.add.rectangle(0, 0, CELL_W, CELL_H, 0x000000, 0).setStrokeStyle(2, 0xff3333).setVisible(false).setOrigin(0, 0);
     this.p2CursorLabel = this.add.text(0, 0, 'P2', {
       fontFamily: 'Arial Black', fontSize: '10px', color: '#ff3333', stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5, 1).setVisible(false);
 
     this.gridContainer.add([this.p1Cursor, this.p1CursorLabel, this.p2Cursor, this.p2CursorLabel]);
 
-    // Mask for grid area
+    // Mask
     const maskGfx = this.make.graphics();
     maskGfx.fillStyle(0xffffff);
-    maskGfx.fillRect(0, 35, 280, 205); 
+    maskGfx.fillRect(0, 35, 285, 205); 
     this.gridContainer.setMask(maskGfx.createGeometryMask());
 
     // --- BUTTONS ---
@@ -184,8 +174,7 @@ export class SelectScene extends Phaser.Scene {
     this.p1NameText = this.add.text(panelX, 65, '', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#ffffff' });
     this.p1SubtitleText = this.add.text(panelX, 82, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
     
-    // P1 Portrait - High-Res DOM Preview
-    this.p1PortraitDOM = this.add.dom(panelX + 110, 70, 'img').setVisible(false);
+    this.p1PortraitDOM = this.add.dom(panelX + 110, 70, 'img').setVisible(false).setOrigin(0.5, 0.5);
     this.p1PortraitDOM.node.style.width = '45px';
     this.p1PortraitDOM.node.style.height = '45px';
     this.p1PortraitDOM.node.style.objectFit = 'cover';
@@ -212,8 +201,7 @@ export class SelectScene extends Phaser.Scene {
     this.p2NameText = this.add.text(panelX, 173, 'Aleatorio', { fontFamily: 'Arial Black, Arial', fontSize: '14px', color: '#888888' });
     this.p2SubtitleText = this.add.text(panelX, 190, '', { fontFamily: 'Arial', fontSize: '9px', color: '#aaaacc', fontStyle: 'italic' });
     
-    // P2 Portrait - High-Res DOM Preview
-    this.p2PortraitDOM = this.add.dom(panelX + 110, 178, 'img').setVisible(false);
+    this.p2PortraitDOM = this.add.dom(panelX + 110, 178, 'img').setVisible(false).setOrigin(0.5, 0.5);
     this.p2PortraitDOM.node.style.width = '45px';
     this.p2PortraitDOM.node.style.height = '45px';
     this.p2PortraitDOM.node.style.objectFit = 'cover';
@@ -232,9 +220,29 @@ export class SelectScene extends Phaser.Scene {
       this.p2StatBars.push(bar);
     });
 
-    // --- INPUTS ---
+    // Mouse wheel
+    this.input.on('wheel', (pointer, gameObjects, dx, dy) => {
+      if (this.transitioning) return;
+      this.gridContainer.y -= dy * 0.5;
+      this._clampScroll(); this._syncDOMPortraits();
+    });
+
+    // Drag
+    this._isDragging = false;
+    this.input.on('pointerdown', (p) => {
+      if (p.x < 285 && p.y > 35 && p.y < 235) {
+        this._isDragging = true; this._startY = p.y; this._startGridY = this.gridContainer.y;
+      }
+    });
+    this.input.on('pointermove', (p) => {
+      if (!this._isDragging || this.transitioning) return;
+      this.gridContainer.y = this._startGridY + (p.y - this._startY);
+      this._clampScroll(); this._syncDOMPortraits();
+    });
+    this.input.on('pointerup', () => { this._isDragging = false; });
+
+    // Keyboard
     this.cursors = this.input.keyboard.createCursorKeys();
-    
     this.input.keyboard.on('keydown', (event) => {
       if (this.transitioning) return;
       if (event.code === 'Escape' || event.code === 'Backspace') this.handleBack();
@@ -244,41 +252,16 @@ export class SelectScene extends Phaser.Scene {
       }
     });
 
+    this.navTimers = { up: 0, down: 0, left: 0, right: 0 };
+    this.NAV_DELAY = 500; this.NAV_FREQ = 200;
+
     this.updateP1Display();
     this.updateP2Display();
-
-    this.navTimers = { up: 0, down: 0, left: 0, right: 0 };
-    this.NAV_DELAY = 500; 
-    this.NAV_FREQ = 200;
-
-    // Mouse wheel
-    this.input.on('wheel', (pointer, gameObjects, dx, dy) => {
-      if (this.transitioning) return;
-      this.gridContainer.y -= dy * 0.5;
-      this._clampScroll();
-    });
-
-    // Drag
-    this._isDragging = false;
-    this.input.on('pointerdown', (p) => {
-      if (p.x < 280 && p.y > 35 && p.y < 235) {
-        this._isDragging = true;
-        this._startY = p.y;
-        this._startGridY = this.gridContainer.y;
-      }
-    });
-    this.input.on('pointermove', (p) => {
-      if (!this._isDragging || this.transitioning) return;
-      this.gridContainer.y = this._startGridY + (p.y - this._startY);
-      this._clampScroll();
-    });
-    this.input.on('pointerup', () => { this._isDragging = false; });
 
     if (this.gameMode === 'online' && this.networkManager) {
       this.networkManager.resetForReselect();
       this.networkManager.onOpponentReady((id) => {
-        this.opponentFighterId = id;
-        this.opponentReady = true;
+        this.opponentFighterId = id; this.opponentReady = true;
         if (this.p1Confirmed) this._showOpponentSelection(id);
       });
       this.networkManager.onGoToStageSelect((data) => {
@@ -289,11 +272,12 @@ export class SelectScene extends Phaser.Scene {
       this.networkManager.onDisconnect(() => {
         this.transitioning = true;
         this.time.delayedCall(1500, () => {
-          this.networkManager?.destroy();
-          this.scene.start('TitleScene');
+          this.networkManager?.destroy(); this.scene.start('TitleScene');
         });
       });
     }
+
+    this._syncDOMPortraits();
   }
 
   update(time, delta) {
@@ -312,13 +296,11 @@ export class SelectScene extends Phaser.Scene {
     const dir = dx !== 0 ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
     if (key.isDown) {
       if (this.navTimers[dir] === 0) {
-        this._moveSelection(dx, dy);
-        this.navTimers[dir] = this.NAV_DELAY;
+        this._moveSelection(dx, dy); this.navTimers[dir] = this.NAV_DELAY;
       } else {
         this.navTimers[dir] -= delta;
         if (this.navTimers[dir] <= 0) {
-          this._moveSelection(dx, dy);
-          this.navTimers[dir] = this.NAV_FREQ;
+          this._moveSelection(dx, dy); this.navTimers[dir] = this.NAV_FREQ;
         }
       }
     } else { this.navTimers[dir] = 0; }
@@ -332,80 +314,79 @@ export class SelectScene extends Phaser.Scene {
   _clampScroll() {
     const rows = Math.ceil(this.fighters.length / COLS);
     const gridHeight = rows * (CELL_H + GRID_GAP);
-    const viewportHeight = 200;
-    const minY = Math.min(0, viewportHeight - (gridHeight + 45));
+    const minY = Math.min(0, 200 - (gridHeight + 45));
     if (this.gridContainer.y < minY) this.gridContainer.y = minY;
     if (this.gridContainer.y > 0) this.gridContainer.y = 0;
   }
 
   _scrollToFit(idx) {
-    const cell = this.gridCells[idx];
-    const cellTop = cell.y - CELL_H/2;
-    const cellBottom = cell.y + CELL_H/2;
-    const vTop = 35;
-    const vBottom = 235;
-    let targetY = this.gridContainer.y;
-    if (cellTop + this.gridContainer.y < vTop) targetY = vTop - cellTop;
-    else if (cellBottom + this.gridContainer.y > vBottom) targetY = vBottom - cellBottom;
-    this.tweens.add({ targets: this.gridContainer, y: targetY, duration: 150, ease: 'Power2' });
+    const col = idx % COLS; const row = Math.floor(idx / COLS);
+    const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
+    const vT = 35; const vB = 235;
+    let tY = this.gridContainer.y;
+    if (cellY + this.gridContainer.y < vT) tY = vT - cellY;
+    else if (cellY + CELL_H + this.gridContainer.y > vB) tY = vB - (cellY + CELL_H);
+    this.tweens.add({ targets: this.gridContainer, y: tY, duration: 150, ease: 'Power2', onUpdate: () => this._syncDOMPortraits() });
+  }
+
+  _syncDOMPortraits() {
+    const vT = 35; const vB = 235;
+    for (const cell of this.gridCells) {
+      if (!cell.pDOM) continue;
+      const wX = cell.x + this.gridContainer.x;
+      const wY = cell.y + this.gridContainer.y;
+      cell.pDOM.x = wX; cell.pDOM.y = wY;
+      const isVisible = wY > vT - 30 && wY < vB;
+      cell.pDOM.setVisible(isVisible);
+    }
   }
 
   moveP1Cursor(dx, dy) {
-    let col = this.p1Index % COLS;
-    let row = Math.floor(this.p1Index / COLS);
+    let col = this.p1Index % COLS; let row = Math.floor(this.p1Index / COLS);
     col = Phaser.Math.Clamp(col + dx, 0, COLS - 1);
     row = Phaser.Math.Clamp(row + dy, 0, ROWS - 1);
     const newIdx = row * COLS + col;
     if (newIdx < this.fighters.length) {
-      this.p1Index = newIdx;
-      this.updateP1Display();
-      this._scrollToFit(newIdx);
+      this.p1Index = newIdx; this.updateP1Display(); this._scrollToFit(newIdx);
       this.game.audioManager.play('ui_navigate');
     }
   }
 
   moveP2Cursor(dx, dy) {
-    let col = this.p2Index % COLS;
-    let row = Math.floor(this.p2Index / COLS);
+    let col = this.p2Index % COLS; let row = Math.floor(this.p2Index / COLS);
     col = Phaser.Math.Clamp(col + dx, 0, COLS - 1);
     row = Phaser.Math.Clamp(row + dy, 0, ROWS - 1);
     const newIdx = row * COLS + col;
     if (newIdx < this.fighters.length) {
-      this.p2Index = newIdx;
-      this.updateP2Display();
-      this._scrollToFit(newIdx);
+      this.p2Index = newIdx; this.updateP2Display(); this._scrollToFit(newIdx);
       this.game.audioManager.play('ui_navigate');
     }
   }
 
   updateP1Display() {
-    const cell = this.gridCells[this.p1Index];
-    this.p1Cursor.setPosition(cell.x, cell.y);
-    this.p1CursorLabel.setPosition(cell.x, cell.y - CELL_H/2 - 2);
+    const col = this.p1Index % COLS; const row = Math.floor(this.p1Index / COLS);
+    const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
+    const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
+    this.p1Cursor.setPosition(cellX, cellY);
+    this.p1CursorLabel.setPosition(cellX + CELL_W / 2, cellY - 2);
     const f = this.fighters[this.p1Index];
     this.p1NameText.setText(f.name);
     this.p1SubtitleText.setText(f.subtitle);
     const isR = f.id === 'random';
-    
     if (!isR && this.textures.exists(`portrait_${f.id}`)) {
       this.p1PortraitDOM.node.src = `assets/portraits/${f.id}.png`;
-      this.p1PortraitDOM.setVisible(true);
-      this.p1Portrait.setVisible(false);
-      this.p1RandomText.setVisible(false);
+      this.p1PortraitDOM.setVisible(true); this.p1Portrait.setVisible(false); this.p1RandomText.setVisible(false);
     } else {
-      this.p1PortraitDOM.setVisible(false);
-      this.p1Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
+      this.p1PortraitDOM.setVisible(false); this.p1Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
       this.p1RandomText.setVisible(isR);
     }
-    
-    const panelX = 295;
     const statNames = ['speed', 'power', 'defense', 'special'];
     statNames.forEach((stat, i) => {
       const val = isR ? 0 : f.stats[stat];
       this.p1StatBars[i].scaleX = val / 5;
       if (!this.p1StatValues) this.p1StatValues = [];
       if (!this.p1StatValues[i]) {
-        this.p1StatValues[i] = this.add.text(panelX + 95, 100 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
+        this.p1StatValues[i] = this.add.text(295 + 95, 100 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
       }
       this.p1StatValues[i].setText(isR ? '???' : val.toString());
     });
@@ -436,14 +417,10 @@ export class SelectScene extends Phaser.Scene {
       this.confirmedText.setText('Esperando al oponente...');
       if (this.opponentReady) this._showOpponentSelection(this.opponentFighterId);
     } else {
-      this.p2SelectionMode = true;
-      this.headerText.setText('ELIGE TU OPONENTE: JUGADOR 2');
-      this.p1Cursor.setAlpha(0.5);
-      this.p1CursorLabel.setAlpha(0.5);
-      this.p2Cursor.setVisible(true);
-      this.p2CursorLabel.setVisible(true);
-      this.p2Index = this.fighters.length - 1;
-      this.updateP2Display();
+      this.p2SelectionMode = true; this.headerText.setText('ELIGE TU OPONENTE: JUGADOR 2');
+      this.p1Cursor.setAlpha(0.5); this.p1CursorLabel.setAlpha(0.5);
+      this.p2Cursor.setVisible(true); this.p2CursorLabel.setVisible(true);
+      this.p2Index = this.fighters.length - 1; this.updateP2Display();
       this.confirmedText.setText('Jugador 1 Listo. Esperando Jugador 2...');
     }
   }
@@ -466,33 +443,29 @@ export class SelectScene extends Phaser.Scene {
   }
 
   _showP2Selection(idx) {
-    const cell = this.gridCells[idx];
-    this.p2Cursor.setPosition(cell.x, cell.y).setVisible(true);
-    this.p2CursorLabel.setPosition(cell.x, cell.y - CELL_H/2 - 2).setVisible(true);
+    const col = idx % COLS; const row = Math.floor(idx / COLS);
+    const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
+    const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
+    this.p2Cursor.setPosition(cellX, cellY).setVisible(true);
+    this.p2CursorLabel.setPosition(cellX + CELL_W / 2, cellY - 2).setVisible(true);
     const f = this.fighters[idx];
     this.p2NameText.setText(f.name);
     this.p2SubtitleText.setText(f.subtitle);
     const isR = f.id === 'random';
-    
     if (!isR && this.textures.exists(`portrait_${f.id}`)) {
       this.p2PortraitDOM.node.src = `assets/portraits/${f.id}.png`;
-      this.p2PortraitDOM.setVisible(true);
-      this.p2Portrait.setVisible(false);
-      this.p2RandomText.setVisible(false);
+      this.p2PortraitDOM.setVisible(true); this.p2Portrait.setVisible(false); this.p2RandomText.setVisible(false);
     } else {
-      this.p2PortraitDOM.setVisible(false);
-      this.p2Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
+      this.p2PortraitDOM.setVisible(false); this.p2Portrait.setVisible(true).setFillStyle(parseInt(f.color, 16));
       this.p2RandomText.setVisible(isR);
     }
-    
-    const panelX = 295;
     const statNames = ['speed', 'power', 'defense', 'special'];
     statNames.forEach((stat, i) => {
       const val = isR ? 0 : f.stats[stat];
       this.p2StatBars[i].scaleX = val / 5;
       if (!this.p2StatValues) this.p2StatValues = [];
       if (!this.p2StatValues[i]) {
-        this.p2StatValues[i] = this.add.text(panelX + 95, 208 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
+        this.p2StatValues[i] = this.add.text(295 + 95, 208 + i * 14, '', { fontFamily: 'Arial', fontSize: '8px', color: '#ffffff' }).setOrigin(0.5);
       }
       this.p2StatValues[i].setText(isR ? '???' : val.toString());
     });
@@ -501,8 +474,7 @@ export class SelectScene extends Phaser.Scene {
   goToStageSelect() {
     if (this.transitioning) return;
     this.transitioning = true;
-    let p1Id = this.fighters[this.p1Index].id;
-    let p2Id = this.fighters[this.p2Index].id;
+    let p1Id = this.fighters[this.p1Index].id; let p2Id = this.fighters[this.p2Index].id;
     if (this.gameMode === 'online' && this._startData) {
       p1Id = this._startData.p1Id; p2Id = this._startData.p2Id;
     }
