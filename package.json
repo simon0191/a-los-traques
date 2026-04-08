@@ -5,6 +5,7 @@
     "dev": "vite",
     "dev:db": "node scripts/dev-db.js",
     "dev:all": "concurrently \"node scripts/dev-db.js\" \"vite\" \"vercel dev --yes\"",
+    "dev:mp": "node scripts/dev-multiplayer.js",
     "build": "vite build",
     "preview": "vite preview",
     "party:dev": "bunx partykit dev",

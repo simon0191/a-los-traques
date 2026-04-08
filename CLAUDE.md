@@ -23,6 +23,8 @@ Decoupled architecture: Supabase for Auth (JWT) + Vercel Functions for data pers
 ## Build & Run
 
 ```bash
+bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + Vite + Vercel Dev + PartyKit)
+                     # Log in as p1@test.local or p2@test.local (password: password)
 bun run dev:all      # Run both Vite and Vercel Dev (recommended)
 bun run dev          # Vite dev server only
 bun run party:dev    # PartyKit dev server (port 1999)
