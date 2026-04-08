@@ -256,4 +256,4 @@ export class BootScene extends Phaser.Scene {
     gfx.generateTexture(key, w, h);
     gfx.destroy();
   }
-  }
+}
