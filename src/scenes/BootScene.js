@@ -256,31 +256,4 @@ export class BootScene extends Phaser.Scene {
     gfx.generateTexture(key, w, h);
     gfx.destroy();
   }
-
-  /**
-   * Generates a smoothed, downsampled version of a high-res portrait
-   * by drawing it onto a small canvas with linear interpolation.
-   */
-  generateSmoothedPortrait(id, width, height, suffix) {
-    const sourceKey = `portrait_${id}`;
-    if (!this.textures.exists(sourceKey)) return;
-
-    const sourceTexture = this.textures.get(sourceKey).getSourceImage();
-
-    // Create an off-screen canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-
-    // Use high-quality scaling (this is the "secret sauce")
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    // Draw high-res into small canvas
-    ctx.drawImage(sourceTexture, 0, 0, width, height);
-
-    // Add to Phaser's texture manager
-    this.textures.addCanvas(`${sourceKey}_${suffix}`, canvas);
   }
-}
