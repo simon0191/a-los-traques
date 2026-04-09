@@ -34,6 +34,7 @@ const ROOM_TRANSITIONS = {
   },
   [RoomState.READY_CHECK]: {
     both_ready: RoomState.STAGE_SELECT,
+    unready: RoomState.SELECTING,
     ready_player_disconnected: RoomState.SELECTING,
     non_ready_leave: RoomState.WAITING,
     ws_close: RoomState.RECONNECTING,
@@ -351,10 +352,33 @@ export default class FightRoom {
       case 'debug_response':
         this._sendToOther(slot, data);
         break;
+      case 'unready':
+        this._handleUnready(slot);
+        break;
       case 'leave':
         this._handleLeave(slot);
         break;
     }
+  }
+
+  _handleUnready(slot) {
+    const from = this.roomState;
+    if (this.roomState === RoomState.READY_CHECK) {
+      this.players[slot].ready = false;
+      this.players[slot].fighterId = null;
+      if (this._transition('unready')) {
+        this._sendToOther(slot, { type: 'opponent_unready', slot });
+      }
+    } else if (this.roomState === RoomState.SELECTING) {
+      this.players[slot].ready = false;
+      this.players[slot].fighterId = null;
+      this._sendToOther(slot, { type: 'opponent_unready', slot });
+    } else if (this.roomState === RoomState.WAITING) {
+      this.players[slot].ready = false;
+      this.players[slot].fighterId = null;
+    }
+    // STAGE_SELECT or later: No-op, too late to unready.
+    this._log({ type: 'unready_attempt', slot, from, finalState: this.roomState });
   }
 
   _handleReady(slot, data) {
