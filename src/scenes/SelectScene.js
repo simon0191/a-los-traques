@@ -369,9 +369,13 @@ export class SelectScene extends Phaser.Scene {
         this.p2Portrait.setVisible(true).setFillStyle(0x333333);
         this.p2NameText.setText('Aleatorio');
         this.p2SubtitleText.setText('');
-        this.p2StatBars.forEach((bar) => { bar.setScale(0, 1); });
+        this.p2StatBars.forEach((bar) => {
+          bar.setScale(0, 1);
+        });
         if (this.p2StatValues) {
-          this.p2StatValues.forEach((txt) => { txt.setText('???'); });
+          this.p2StatValues.forEach((txt) => {
+            txt.setText('???');
+          });
         }
       });
       this.networkManager.onGoToStageSelect((data) => {
