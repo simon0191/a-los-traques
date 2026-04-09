@@ -102,6 +102,34 @@ describe('FightRoom', () => {
       expect(room.roomState).toBe('ready_check');
     });
 
+    it('transitions ready_check → selecting when player unreadies', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      expect(room.roomState).toBe('ready_check');
+
+      room.onMessage(JSON.stringify({ type: 'unready' }), conn1);
+      expect(room.roomState).toBe('selecting');
+      expect(room.players[0].ready).toBe(false);
+      expect(room.players[0].fighterId).toBeNull();
+
+      // Should notify opponent
+      const c2Messages = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c2Messages.some((m) => m.type === 'opponent_unready')).toBe(true);
+    });
+
+    it('rejects unready if already in stage_select', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onConnect(conn2, makeCtx());
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'simon' }), conn1);
+      room.onMessage(JSON.stringify({ type: 'ready', fighterId: 'paula' }), conn2);
+      expect(room.roomState).toBe('stage_select');
+
+      room.onMessage(JSON.stringify({ type: 'unready' }), conn1);
+      // State should NOT change back to selecting
+      expect(room.roomState).toBe('stage_select');
+    });
+
     it('transitions ready_check → stage_select when both ready', () => {
       room.onConnect(conn1, makeCtx());
       room.onConnect(conn2, makeCtx());
