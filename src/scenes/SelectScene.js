@@ -360,6 +360,20 @@ export class SelectScene extends Phaser.Scene {
         this.opponentReady = true;
         if (this.p1Confirmed) this._showOpponentSelection(id);
       });
+      this.networkManager.onOpponentUnready(() => {
+        this.opponentReady = false;
+        this.opponentFighterId = null;
+        this.p2Cursor.setVisible(false);
+        this.p2CursorLabel.setVisible(false);
+        this.p2PreviewSprite.setVisible(false);
+        this.p2Portrait.setVisible(true).setFillStyle(0x333333);
+        this.p2NameText.setText('Aleatorio');
+        this.p2SubtitleText.setText('');
+        this.p2StatBars.forEach((bar) => { bar.setScale(0, 1); });
+        if (this.p2StatValues) {
+          this.p2StatValues.forEach((txt) => { txt.setText('???'); });
+        }
+      });
       this.networkManager.onGoToStageSelect((data) => {
         this._startData = data;
         this.confirmedText.setText('Listo! Elige el escenario...');
@@ -607,7 +621,7 @@ export class SelectScene extends Phaser.Scene {
     }
     if (this.p1Confirmed) {
       if (this.gameMode === 'online' && this.networkManager) {
-        this.networkManager.sendLeave();
+        this.networkManager.sendUnready();
       }
       this.p1Confirmed = false;
       this.p1Cursor.setStrokeStyle(2, 0x3366ff);
