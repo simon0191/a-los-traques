@@ -116,6 +116,10 @@ describe('FightRoom', () => {
       // Should notify opponent
       const c2Messages = conn2.send.mock.calls.map((c) => JSON.parse(c[0]));
       expect(c2Messages.some((m) => m.type === 'opponent_unready')).toBe(true);
+
+      // Should notify requester
+      const c1Messages = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(c1Messages.some((m) => m.type === 'unready_confirmed')).toBe(true);
     });
 
     it('rejects unready if already in stage_select', () => {

@@ -67,6 +67,7 @@ export class SelectScene extends Phaser.Scene {
     this.p1Confirmed = false;
     this.p2SelectionMode = false;
     this.p2Confirmed = false;
+    this.pendingUnready = false;
     this.transitioning = false;
     this.opponentFighterId = null;
     this.opponentReady = false;
@@ -383,6 +384,12 @@ export class SelectScene extends Phaser.Scene {
         this.confirmedText.setText('Listo! Elige el escenario...');
         this.time.delayedCall(800, () => this.goToStageSelect());
       });
+      this.networkManager.onUnreadyConfirmed(() => {
+        if (this.pendingUnready) {
+          this.pendingUnready = false;
+          this._resetP1Confirmation();
+        }
+      });
       if (this.game.autoplay?.enabled) {
         const autoId = this.game.autoplay.fighterId;
         const idx = autoId ? this.fighters.findIndex((f) => f.id === autoId) : -1;
@@ -625,11 +632,23 @@ export class SelectScene extends Phaser.Scene {
     }
     if (this.p1Confirmed) {
       if (this.gameMode === 'online' && this.networkManager) {
+        if (this.pendingUnready) return; // Already waiting
+        this.pendingUnready = true;
         this.networkManager.sendUnready();
+        this.confirmedText.setText('Cancelando...');
+        this.p1Cursor.setStrokeStyle(2, 0x666666); // Dimmed
+        this.game.audioManager.play('ui_cancel');
+        
+        // Timeout fallback: if no ack in 1s, clear anyway
+        this.time.delayedCall(1000, () => {
+          if (this.pendingUnready) {
+            this.pendingUnready = false;
+            this._resetP1Confirmation();
+          }
+        });
+        return;
       }
-      this.p1Confirmed = false;
-      this.p1Cursor.setStrokeStyle(2, 0x3366ff);
-      this.confirmedText.setText('');
+      this._resetP1Confirmation();
       this.game.audioManager.play('ui_cancel');
       return;
     }
@@ -641,6 +660,12 @@ export class SelectScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('TitleScene');
     });
+  }
+
+  _resetP1Confirmation() {
+    this.p1Confirmed = false;
+    this.p1Cursor.setStrokeStyle(2, 0x3366ff);
+    this.confirmedText.setText('');
   }
 
   confirmP1() {

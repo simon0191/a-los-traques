@@ -364,18 +364,21 @@ export default class FightRoom {
   _handleUnready(slot) {
     const from = this.roomState;
     if (this.roomState === RoomState.READY_CHECK) {
-      this.players[slot].ready = false;
-      this.players[slot].fighterId = null;
       if (this._transition('unready')) {
+        this.players[slot].ready = false;
+        this.players[slot].fighterId = null;
         this._sendToOther(slot, { type: 'opponent_unready', slot });
+        this._sendToPlayer(slot, { type: 'unready_confirmed' });
       }
     } else if (this.roomState === RoomState.SELECTING) {
       this.players[slot].ready = false;
       this.players[slot].fighterId = null;
       this._sendToOther(slot, { type: 'opponent_unready', slot });
+      this._sendToPlayer(slot, { type: 'unready_confirmed' });
     } else if (this.roomState === RoomState.WAITING) {
       this.players[slot].ready = false;
       this.players[slot].fighterId = null;
+      this._sendToPlayer(slot, { type: 'unready_confirmed' });
     }
     // STAGE_SELECT or later: No-op, too late to unready.
     this._log({ type: 'unready_attempt', slot, from, finalState: this.roomState });
@@ -628,12 +631,16 @@ export default class FightRoom {
 
   _sendToOther(slot, msg) {
     const otherSlot = slot === 0 ? 1 : 0;
-    const other = this.players[otherSlot];
-    if (!other) return;
+    this._sendToPlayer(otherSlot, msg);
+  }
+
+  _sendToPlayer(slot, msg) {
+    const player = this.players[slot];
+    if (!player) return;
 
     const json = JSON.stringify(msg);
     for (const conn of this.party.getConnections()) {
-      if (conn.id === other.id) {
+      if (conn.id === player.id) {
         conn.send(json);
         break;
       }

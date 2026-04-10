@@ -74,6 +74,9 @@ export class NetworkFacade {
     this.signaling.on('opponent_unready', () => {
       if (this._onOpponentUnready) this._onOpponentUnready();
     });
+    this.signaling.on('unready_confirmed', () => {
+      if (this._onUnreadyConfirmed) this._onUnreadyConfirmed();
+    });
     this.signaling.on('disconnect', () => {
       if (this._onDisconnect) this._onDisconnect();
     });
@@ -104,7 +107,8 @@ export class NetworkFacade {
     });
 
     // Room lifecycle callbacks
-    this._onOpponentReady = null;
+    this._onOpponentUnready = null;
+    this._onUnreadyConfirmed = null;
     this._onDisconnect = null;
     this._onRematch = null;
     this._onFull = null;
@@ -194,6 +198,9 @@ export class NetworkFacade {
   }
   onOpponentUnready(cb) {
     this._onOpponentUnready = cb;
+  }
+  onUnreadyConfirmed(cb) {
+    this._onUnreadyConfirmed = cb;
   }
   onGoToStageSelect(cb) {
     this.signaling.on('go_to_stage_select', cb);
@@ -378,6 +385,7 @@ export class NetworkFacade {
     // Clear room lifecycle callbacks that are scene-specific
     this._onOpponentReady = null;
     this._onOpponentUnready = null;
+    this._onUnreadyConfirmed = null;
     this._onRematch = null;
     this._onLeave = null;
     this._onOpponentReconnecting = null;
@@ -390,6 +398,7 @@ export class NetworkFacade {
     this.signaling.resetHandlers([
       'opponent_ready',
       'opponent_unready',
+      'unready_confirmed',
       'go_to_stage_select',
       'start',
       'rematch',
@@ -432,7 +441,8 @@ export class NetworkFacade {
 
     this._onOpponentJoined = null;
     this._onOpponentReady = null;
-    this._onOpponentReconnected = null;
+    this._onOpponentUnready = null;
+    this._onUnreadyConfirmed = null;
     this._onDisconnect = null;
     this._onRematch = null;
     this._onFull = null;
