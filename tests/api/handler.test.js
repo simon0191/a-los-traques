@@ -2,22 +2,33 @@ import { decodeProtectedHeader, jwtVerify } from 'jose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { withAuth } from '../../api/_lib/handler.js';
 
-const mockQuery = vi.fn();
-const mockConnect = vi.fn(async () => ({
+export const mockQuery = vi.fn();
+const mockClient = {
   query: mockQuery,
+  connect: vi.fn().mockResolvedValue(undefined),
   release: vi.fn(),
-}));
+  end: vi.fn().mockResolvedValue(undefined),
+};
+export const mockConnect = vi.fn().mockResolvedValue(mockClient);
 
 vi.mock('jose');
 vi.mock('pg', () => {
-  class Pool {
+  class MockPool {
+    async connect() { return mockConnect(); }
+    async query(...args) { return mockQuery(...args); }
+    async end() { return Promise.resolve(); }
+  }
+  class MockClient {
     constructor() {
+      this.query = mockQuery;
       this.connect = mockConnect;
+      this.end = mockClient.end;
     }
   }
   return {
-    default: { Pool },
-    Pool,
+    default: { Pool: MockPool, Client: MockClient },
+    Pool: MockPool,
+    Client: MockClient,
   };
 });
 
@@ -103,15 +114,18 @@ describe('withAuth middleware', () => {
   });
 
   it('fails if database connection fails', async () => {
-    mockConnect.mockRejectedValueOnce(new Error('Connection refused'));
+    // Make ALL retries fail
+    mockConnect.mockRejectedValue(new Error('Connection refused'));
     req.headers['x-dev-user-id'] = 'dev-user';
     const handler = vi.fn();
     const wrapped = withAuth(handler);
+    
+    // We need to wait for all retries to exhaust
     await wrapped(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: expect.stringContaining('Database connection failed') }),
     );
-  });
+  }, 10000); // Increase timeout for retries
 });

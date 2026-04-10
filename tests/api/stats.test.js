@@ -1,22 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import statsHandler from '../../api/stats.js';
 
-const mockQuery = vi.fn();
-const mockConnect = vi.fn(async () => ({
+export const mockQuery = vi.fn();
+const mockClient = {
   query: mockQuery,
+  connect: vi.fn().mockResolvedValue(undefined),
   release: vi.fn(),
-}));
+  end: vi.fn().mockResolvedValue(undefined),
+};
 
 vi.mock('jose');
 vi.mock('pg', () => {
-  class Pool {
+  class MockPool {
+    async connect() { return mockClient; }
+    async query(...args) { return mockQuery(...args); }
+    async end() { return Promise.resolve(); }
+  }
+  class MockClient {
     constructor() {
-      this.connect = mockConnect;
+      this.query = mockQuery;
+      this.connect = mockClient.connect;
+      this.end = mockClient.end;
     }
   }
   return {
-    default: { Pool },
-    Pool,
+    default: { Pool: MockPool, Client: MockClient },
+    Pool: MockPool,
+    Client: MockClient,
   };
 });
 
