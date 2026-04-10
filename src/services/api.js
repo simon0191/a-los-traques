@@ -59,27 +59,35 @@ async function apiFetch(endpoint, options = {}) {
  * Get the current user's profile
  */
 export async function getProfile() {
-  return apiFetch('/profile');
+  return withRetry(() => apiFetch('/profile'), { label: 'getProfile' });
 }
 
 /**
  * Sync/Create the user profile (called on login)
  */
 export async function syncProfile(nickname) {
-  return apiFetch('/profile', {
-    method: 'POST',
-    body: JSON.stringify({ nickname }),
-  });
+  return withRetry(
+    () =>
+      apiFetch('/profile', {
+        method: 'POST',
+        body: JSON.stringify({ nickname }),
+      }),
+    { label: 'syncProfile' },
+  );
 }
 
 /**
  * Update user stats (wins or losses)
  */
 export async function updateStats(isWin = true) {
-  return apiFetch('/stats', {
-    method: 'POST',
-    body: JSON.stringify({ isWin }),
-  });
+  return withRetry(
+    () =>
+      apiFetch('/stats', {
+        method: 'POST',
+        body: JSON.stringify({ isWin }),
+      }),
+    { label: 'updateStats' },
+  );
 }
 
 /**
