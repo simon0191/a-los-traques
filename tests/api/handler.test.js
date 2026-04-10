@@ -2,21 +2,27 @@ import { decodeProtectedHeader, jwtVerify } from 'jose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { withAuth } from '../../api/_lib/handler.js';
 
-export const mockQuery = vi.fn();
+const mockQuery = vi.fn();
 const mockClient = {
   query: mockQuery,
   connect: vi.fn().mockResolvedValue(undefined),
   release: vi.fn(),
   end: vi.fn().mockResolvedValue(undefined),
 };
-export const mockConnect = vi.fn().mockResolvedValue(mockClient);
+const mockConnect = vi.fn().mockResolvedValue(mockClient);
 
 vi.mock('jose');
 vi.mock('pg', () => {
   class MockPool {
-    async connect() { return mockConnect(); }
-    async query(...args) { return mockQuery(...args); }
-    async end() { return Promise.resolve(); }
+    async connect() {
+      return mockConnect();
+    }
+    async query(...args) {
+      return mockQuery(...args);
+    }
+    async end() {
+      return Promise.resolve();
+    }
   }
   class MockClient {
     constructor() {
@@ -119,7 +125,7 @@ describe('withAuth middleware', () => {
     req.headers['x-dev-user-id'] = 'dev-user';
     const handler = vi.fn();
     const wrapped = withAuth(handler);
-    
+
     // We need to wait for all retries to exhaust
     await wrapped(req, res);
 

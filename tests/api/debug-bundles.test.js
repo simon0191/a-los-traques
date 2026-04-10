@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import debugBundlesHandler from '../../api/debug-bundles.js';
 
-export const mockQuery = vi.fn();
+const mockQuery = vi.fn();
 const mockClient = {
   query: mockQuery,
   connect: vi.fn().mockResolvedValue(undefined),
@@ -12,9 +12,15 @@ const mockClient = {
 vi.mock('jose');
 vi.mock('pg', () => {
   class MockPool {
-    async connect() { return mockClient; }
-    async query(...args) { return mockQuery(...args); }
-    async end() { return Promise.resolve(); }
+    async connect() {
+      return mockClient;
+    }
+    async query(...args) {
+      return mockQuery(...args);
+    }
+    async end() {
+      return Promise.resolve();
+    }
   }
   class MockClient {
     constructor() {
