@@ -638,7 +638,7 @@ export class SelectScene extends Phaser.Scene {
         this.confirmedText.setText('Cancelando...');
         this.p1Cursor.setStrokeStyle(2, 0x666666); // Dimmed
         this.game.audioManager.play('ui_cancel');
-        
+
         // Timeout fallback: if no ack in 1s, clear anyway
         this.time.delayedCall(1000, () => {
           if (this.pendingUnready) {
