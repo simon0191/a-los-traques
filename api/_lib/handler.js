@@ -1,17 +1,28 @@
 import { jwtVerify, createRemoteJWKSet, decodeProtectedHeader } from 'jose';
 import pg from 'pg';
 
-const { Pool } = pg;
+// Handle both default and named imports for testing compatibility
+const Pool = pg.Pool || pg.default?.Pool;
+const Client = pg.Client || pg.default?.Client;
 
-// Connection pooling for Vercel Functions
+// Connection pooling for Vercel Functions (Production)
 let pool;
 let jwks;
 
 function getPool() {
   if (!pool) {
+    let connectionString = process.env.DATABASE_URL;
+    // Force 127.0.0.1 on local dev to avoid ECONNRESET/IPv6 issues on Windows
+    if (connectionString?.includes('localhost')) {
+      connectionString = connectionString.replace('localhost', '127.0.0.1');
+    }
+
     pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
     });
   }
   return pool;
@@ -81,22 +92,50 @@ export function withAuth(handler) {
     }
 
     // 3. Database Access
-    const dbPool = getPool();
-    let client;
-    try {
-      client = await dbPool.connect();
-    } catch (err) {
-      console.error('Database connection failed:', err.message);
-      return res.status(500).json({ error: 'Internal Server Error: Database connection failed' });
+    const isLocal = !isProd;
+    let db;
+    let retries = 3;
+
+    while (retries > 0) {
+      try {
+        if (isLocal) {
+          // For local development, always use a fresh client to avoid ECONNRESET on Windows
+          let connectionString = process.env.DATABASE_URL;
+          if (connectionString?.includes('localhost')) {
+            connectionString = connectionString.replace('localhost', '127.0.0.1');
+          }
+          db = new Client({ connectionString, connectionTimeoutMillis: 5000 });
+          await db.connect();
+        } else {
+          const dbPool = getPool();
+          db = await dbPool.connect();
+        }
+        break; // Success
+      } catch (err) {
+        retries--;
+        console.error(`Database connection failed (${err.message}). Retries: ${retries}`);
+        if (db && isLocal) await db.end().catch(() => {});
+        
+        if (retries === 0) {
+          return res.status(500).json({ 
+            error: 'Internal Server Error: Database connection failed',
+            details: err.message 
+          });
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+      }
     }
 
     try {
-      return await handler(req, res, { userId, db: client });
+      return await handler(req, res, { userId, db });
     } catch (err) {
       console.error('API Handler Error:', err);
       return res.status(500).json({ error: 'Internal Server Error', message: err.message });
     } finally {
-      if (client) client.release();
+      if (db) {
+        if (isLocal) await db.end().catch(() => {});
+        else db.release();
+      }
     }
   };
 }
