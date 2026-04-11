@@ -8,6 +8,7 @@ import { BootScene } from './scenes/BootScene.js';
 import { BracketScene } from './scenes/BracketScene.js';
 import { FightScene } from './scenes/FightScene.js';
 import { InspectorScene } from './scenes/InspectorScene.js';
+import { LeaderboardScene } from './scenes/LeaderboardScene.js';
 import { LearningScene } from './scenes/LearningScene.js';
 import { LobbyScene } from './scenes/LobbyScene.js';
 import { LoginScene } from './scenes/LoginScene.js';
@@ -63,6 +64,7 @@ const config = {
     VictoryScene,
     InspectorScene,
     MusicScene,
+    LeaderboardScene,
     LearningScene,
   ],
 };
