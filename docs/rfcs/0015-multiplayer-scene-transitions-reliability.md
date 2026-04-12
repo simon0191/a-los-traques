@@ -2,30 +2,26 @@
 
 ## 1. Context
 The project uses a multi-layered networking architecture:
-- **SignalingClient:** Owns the WebSocket (PartyKit) and handles message dispatch. Implements a buffering strategy known internally as **B5 Buffering** (queueing incoming messages if no handler is currently registered, to be flushed when a handler attaches).
+- **SignalingClient:** Owns the WebSocket (PartyKit) and handles message dispatch.
 - **NetworkFacade:** Composes multiple modules (Transport, InputSync, etc.) and provides a stable API for Phaser Scenes.
 - **Phaser Scenes (`VictoryScene`, `SelectScene`):** Register callbacks to react to opponent actions (Rematch, Leave, Ready).
 
 ## 2. Problem Statement
-Players frequently reported getting stuck on the "Esperando el oponente" (Waiting for opponent) message after a fight. The rematch, leave, and return_to_select messages were being silently lost during scene transitions. 
+Players frequently reported getting stuck on the "Esperando el oponente" (Waiting for opponent) message after a fight. Even if players waited on the Victory screen before clicking "Revancha", the game would still freeze.
 
-This issue stemmed from two distinct failure paths in how `NetworkFacade` managed event listeners.
+Additionally, when players hit "Elegir otro", one player could get stuck on "Sincronizando..." in the new fight and eventually disconnect due to a Frame Zero Sync deadlock.
 
-### Path A: The "Severed Wire" (After `resetForReselect`)
-When transitioning between matches, `resetForReselect()` is called to clean up state.
-1. `resetForReselect()` called `signaling.resetHandlers(['rematch', 'leave', ...])`, which deleted the handlers inside `SignalingClient`.
-2. If an opponent clicked "Revancha" before the new scene registered its handlers, `SignalingClient` received the message.
-3. Because there was no handler, and `rematch` was not in `BUFFERABLE_TYPES`, the message was completely discarded at the `SignalingClient` level.
+Through rigorous empirical testing, both of these issues were identified as symptoms of faulty handler lifecycle management within `NetworkFacade`, rather than network race conditions.
 
-### Path B: The "Proxy Blackhole" (Facade Wrapper Drops Message)
-For events where `resetForReselect` was not called (or before it was called), a different failure occurred. 
-1. In its constructor, `NetworkFacade` wrapped `SignalingClient` events: 
-   `this.signaling.on('rematch', () => { if (this._onRematch) this._onRematch(); })`
-2. This wrapper meant `SignalingClient` *always* had a handler registered for `rematch`, completely bypassing the B5 buffering logic.
-3. If a message arrived before the scene called `networkManager.onRematch(cb)`, the `SignalingClient` successfully dispatched the message to the Facade's wrapper.
-4. The wrapper checked `this._onRematch`, found it to be `null`, and silently dropped the message at the Facade level.
+### Root Cause 1: The "Severed Wire" (Permanent Disconnection)
+The reason the rematch flow failed 100% of the time was a design flaw in `NetworkFacade`'s Proxy Pattern combined with the `resetForReselect` cleanup process.
+- In the constructor, `NetworkFacade` wired `SignalingClient`'s `rematch` event to its own internal callback `_onRematch`.
+- During the transition to `VictoryScene`, `resetForReselect()` called `this.signaling.resetHandlers(['rematch', ...])`, which permanently deleted the listener inside `SignalingClient`.
+- When `VictoryScene` later called `networkManager.onRematch(cb)`, the facade merely updated its internal `_onRematch` variable but *never* re-registered with `SignalingClient`.
 
-#### Failure Case: The Proxy Blackhole (Path B)
+Thus, `SignalingClient` was left completely deaf to `rematch` messages. Any incoming rematch signals were discarded because no handler was registered.
+
+#### Failure Case 1: The Severed Wire (Old Behavior)
 ```mermaid
 sequenceDiagram
     participant P2 as Player 2
@@ -33,90 +29,83 @@ sequenceDiagram
     participant P1_Facade as Player 1 NetworkFacade
     participant P1_Scene as Player 1 VictoryScene
     
-    Note over P1_Facade: Constructor: signaling.on('rematch', wrapper)
-    
-    P2->>P1_Net: Send "rematch" (Arrives Early)
-    Note over P1_Net: Received "rematch"
-    P1_Net->>P1_Facade: Dispatch to Wrapper
-    Note over P1_Facade: this._onRematch is null!
-    Note over P1_Facade: DISCARD MESSAGE (Silently Dropped)
+    Note over P1_Scene, P1_Net: Match Ends -> Transitioning to VictoryScene
+    P1_Scene->>P1_Facade: resetForReselect()
+    P1_Facade->>P1_Net: signaling.resetHandlers(['rematch'])
+    Note over P1_Net: Listener for 'rematch' DELETED
     
     Note over P1_Scene: Scene Finished Loading
     P1_Scene->>P1_Facade: onRematch(callback)
     Note over P1_Facade: Updates internal _onRematch only!
-    Note over P1_Scene: Waiting forever...
+    
+    P2->>P1_Net: Send "rematch"
+    Note over P1_Net: Received "rematch"
+    Note over P1_Net: No handler found! DISCARD MESSAGE.
+    Note over P1_Scene: Waiting forever (Stuck on "Esperando...")
 ```
+
+### Root Cause 2: The "Stale Handler" (Frame Zero Sync Deadlock)
+This occurred when a handler was *not* cleared during `resetForReselect`.
+- The old `FightScene` registered a `frame_sync` handler.
+- Players chose "Elegir otro" and moved to `SelectScene`. `resetForReselect` was called, but failed to include `frame_sync` and `disconnect` in its cleanup list.
+- The old `frame_sync` handler remained active in `SignalingClient` while players were picking characters.
+- If Player 1 picked faster and entered the new fight, they began sending `frame_sync` retries every 500ms.
+- Player 2 (still picking) received these messages. Because `SignalingClient` had an active handler (the stale one from the previous match), it dispatched the messages to the dead `FightScene` logic, which silently discarded them.
+- When Player 2 finally entered the fight and sent their `frame_sync`, Player 1 received it and stopped sending retries. Player 2 was left waiting forever for a message they had already thrown away.
 
 ## 3. Proposed Solution
 
-To solve both failure paths, we implement **Pattern A: Direct Signaling** combined with an expansion of **B5 Buffering**.
-
-### Fix 1: Expand B5 Buffering
-We add the following 12 message types to `BUFFERABLE_TYPES` in `SignalingClient`:
-- **Scene Flow:** `rematch`, `leave`, `opponent_ready`, `return_to_select`, `full`, `opponent_joined`. (Safe to buffer: triggers scene transitions. Scenes use `transitioning` flags to ignore duplicate flushes if multiple messages buffered).
-- **Reconnection Flow:** `opponent_reconnecting`, `opponent_reconnected`, `rejoin_available`, `rejoin_ack`. (Safe to buffer: updates UI state and triggers internal transport resets).
-- **Debugging:** `debug_request`, `debug_response`.
-
-This fixes **Path A**: messages arriving when no handler exists will now be buffered instead of discarded. `resetHandlers()` is also updated to clear these buffers to prevent stale messages from leaking into the next match.
-
-### Fix 2: Pattern A (Direct Signaling)
-**Pattern A** refers to having the Facade directly register the scene's callback with the `SignalingClient`, rather than wrapping it in a proxy closure.
+### Fix 1: Direct Signaling (Reconnecting the Wire)
+`NetworkFacade` no longer stores scene callbacks in private variables for these types. Instead, it uses **Pattern A: Direct Signaling**, passing the callback directly to `SignalingClient`.
 
 ```javascript
-// NetworkFacade.js (New Behavior)
+// Inside NetworkFacade.js (New Behavior)
 onRematch(cb) {
-  this.signaling.on('rematch', cb); // Direct pass-through
+  this.signaling.on('rematch', cb); // Directly registers with SignalingClient!
 }
 ```
-This fixes **Path B**: The Facade no longer registers empty constructor wrappers. When a scene is loading, `SignalingClient` truly has "no handler" registered, which allows the B5 Buffering logic to engage.
+
+This ensures the listener is properly recreated in the `SignalingClient` when a new scene requests it. We removed the old proxy wrapping logic for all scene transition events (`rematch`, `leave`, `opponent_ready`, `return_to_select`, etc.).
 
 #### Fixed Case: Reliable Transition (New Behavior)
 ```mermaid
 sequenceDiagram
-    participant P2 as Player 2 (Fast)
-    participant P1_Net as Player 1 SignalingClient (B5 Buffer)
+    participant P2 as Player 2
+    participant P1_Net as Player 1 SignalingClient
     participant P1_Facade as Player 1 NetworkFacade
     participant P1_Scene as Player 1 VictoryScene
     
-    Note over P2, P1_Scene: Match Ends -> Transitioning
+    Note over P2, P1_Scene: Match Ends -> Transitioning to VictoryScene
+    P1_Scene->>P1_Facade: resetForReselect()
+    P1_Facade->>P1_Net: signaling.resetHandlers(['rematch'])
     
-    P2->>P1_Net: Send "rematch" (Arrives Early!)
-    Note over P1_Net: Received "rematch"
-    Note over P1_Net: No handler yet -> BUFFER MESSAGE (B5)
-    
-    rect rgb(200, 220, 255)
     Note over P1_Scene: Scene Finished Loading
     P1_Scene->>P1_Facade: onRematch(callback)
     P1_Facade->>P1_Net: signaling.on('rematch', callback)
-    P1_Net-->>P1_Scene: FLUSH BUFFER: execute callback immediately
-    end
+    
+    P2->>P1_Net: Send "rematch"
+    Note over P1_Net: Received "rematch"
+    P1_Net-->>P1_Scene: Execute callback
     
     Note over P1_Scene: Start Match! (Reliable Transition)
 ```
 
-## 4. Implementation Details & Trade-offs
+### Fix 2: Comprehensive State Cleanup
+Added `frame_sync` and `disconnect` to the `this.signaling.resetHandlers([...])` array inside `resetForReselect()`. This ensures the stale handlers from the old `FightScene` are purged. Because `frame_sync` is already a `BUFFERABLE_TYPE` (B5 Buffering) in `SignalingClient`, clearing the handler means any early `frame_sync` messages from a faster player will now be safely buffered until the slower player reaches the new fight.
 
-### Managing Dual-Use Events (Internal + External)
-Certain events (`opponent_joined`, `opponent_reconnected`) are "dual-use": they trigger internal `NetworkFacade` logic (like WebRTC initialization) AND require a callback to the Scene. 
-Because `SignalingClient` only supports a single handler per event type, if the Facade registers an internal listener, it disables B5 buffering for the Scene. 
+## 4. Implementation Details
 
-**Trade-off accepted:** We use manual `_pending...` flags inside `NetworkFacade` specifically for `opponent_joined` and `opponent_reconnected`. 
-```javascript
-this.signaling.on('opponent_joined', (msg) => {
-  this._fetchTurnThenInitWebRTC(); // Internal work
-  if (this._onOpponentJoined) this._onOpponentJoined(msg);
-  else this._pendingOpponentJoined = msg; // Manual buffer
-});
-```
-While this mimics the fragile proxy pattern, it is strictly isolated to these two specific connection-lifecycle events, avoiding the architectural overhaul required to convert `SignalingClient` into a full multi-listener `EventEmitter`.
-
-### Buffer Edge Cases
-- **Multiple Messages:** If an opponent spams a button (e.g., "Rematch"), the B5 buffer will collect multiple messages. Upon flush, the callback fires multiple times sequentially. Phaser scenes handle this idempotently via early-returns (`if (this.transitioning) return;`), making this safe.
+### `NetworkFacade.js`
+- Refactored `onRematch`, `onLeave`, `onOpponentReady`, `onReturnToSelect`, etc., to use `this.signaling.on(type, cb)`.
+- Removed all corresponding internal state variables (`_onRematch`, `_onLeave`, etc.).
+- Cleaned up the constructor and `resetForReselect()` to remove references to these removed internal variables.
+- Added `frame_sync` and `disconnect` to `resetHandlers` array.
 
 ## 5. Verification Plan
-- **Unit Tests:** `network-facade.test.js` updated to verify that internal proxy variables are removed and B5 buffers correctly flush to direct signaling handlers.
-- **Deterministic Race Condition Test:** Implemented a unit test that simulates the exact failure timing:
-  1. Emit `rematch` message over mocked socket.
-  2. Verify `NetworkFacade` stores it in the B5 buffer.
-  3. Register `onRematch(cb)` handler.
-  4. Assert the callback is fired immediately with the buffered message.
+- **Unit Tests:** `network-facade.test.js` updated to verify that internal proxy variables are removed and handlers are properly registered and reset via the direct signaling mechanism.
+- **Manual Flow:** 
+    - **Rematch:** Confirm that clicking "Revancha" triggers the fight reliably.
+    - **Select Another:** Confirm that clicking "Elegir otro" correctly returns both players to the `SelectScene`, and entering a new fight does not deadlock on "Sincronizando...".
+
+## 6. Conclusion
+By ensuring direct signaling paths and comprehensive handler cleanup, we eliminate the permanent disconnection flaw ("Severed Wire") and the deadlock flaw ("Stale Handler"). This reconnects the event listeners properly during scene transitions and restores the online multiplayer rematch flow reliably.
