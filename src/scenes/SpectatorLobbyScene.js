@@ -81,7 +81,7 @@ export class SpectatorLobbyScene extends Phaser.Scene {
     bg.on('pointerdown', () => {
       this.game.audioManager.play('ui_confirm');
       if (this.network) this.network.destroy();
-      this.scene.start('TitleScene');
+      this.scene.start('MultiplayerMenuScene');
     });
 
     // Connect as spectator

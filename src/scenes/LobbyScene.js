@@ -110,7 +110,7 @@ export class LobbyScene extends Phaser.Scene {
       'VOLVER',
       () => {
         if (this.network) this.network.destroy();
-        this.scene.start('TitleScene');
+        this.scene.start('MultiplayerMenuScene');
       },
       { width: 110, height: 20, fontSize: '9px' },
     );

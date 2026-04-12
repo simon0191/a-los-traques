@@ -168,7 +168,7 @@ export class VictoryScene extends Phaser.Scene {
         () => {
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('TitleScene');
+            this.scene.start('MultiplayerMenuScene');
           });
         },
         { width: 100, height: 22, fontSize: '10px' },
@@ -213,7 +213,10 @@ export class VictoryScene extends Phaser.Scene {
           } else {
             this.cameras.main.fadeOut(300, 0, 0, 0);
             this.cameras.main.once('camerafadeoutcomplete', () => {
-              this.scene.start('SelectScene', { gameMode: 'local' });
+              this.scene.start('SelectScene', {
+                gameMode: 'local',
+                matchContext: this.matchContext,
+              });
             });
           }
         },
@@ -231,7 +234,11 @@ export class VictoryScene extends Phaser.Scene {
           }
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('TitleScene');
+            const menuScene =
+              this.matchContext || this.gameMode === 'online'
+                ? 'MultiplayerMenuScene'
+                : 'TitleScene';
+            this.scene.start(menuScene);
           });
         },
         { width: 100, height: 22, fontSize: '10px' },
@@ -274,7 +281,7 @@ export class VictoryScene extends Phaser.Scene {
           this.networkManager.destroy();
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('TitleScene');
+            this.scene.start('MultiplayerMenuScene');
           });
         });
       });

@@ -141,17 +141,28 @@ export class FightScene extends Phaser.Scene {
     // -- Space key for restart --
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
+    // -- Detect local 2-player mode (VS Local or human-vs-human tournament match) --
+    const isLocal2P = this.matchContext?.isHumanVsHuman || this.matchContext?.type === 'versus';
+
     if (this.gameMode === 'spectator') {
       // Spectator: no input, no AI
       this.inputManager = null;
+      this.inputManager2 = null;
       this.touchControls = null;
       this.aiController = null;
       this.frameCounter = 0;
       this._setupSpectatorMode();
+    } else if (isLocal2P) {
+      // Local 2-player: split keyboard
+      this.inputManager = new InputManager(this, 'keyboard_left');
+      this.inputManager2 = new InputManager(this, 'keyboard_right');
+      this.touchControls = new TouchControls(this, this.inputManager, 0);
+      this.aiController = null;
     } else {
       const slot =
         this.gameMode === 'online' && this.networkManager ? this.networkManager.getPlayerSlot() : 0;
       this.inputManager = new InputManager(this);
+      this.inputManager2 = null;
       this.touchControls = new TouchControls(this, this.inputManager, slot);
 
       // -- AI controller (local mode only) --
@@ -1400,9 +1411,25 @@ export class FightScene extends Phaser.Scene {
         });
     input.consumeTouch();
 
-    // Build P2 input from AI
+    // Build P2 input from second keyboard or AI
     let p2Input = 0;
-    if (this.aiController) {
+    if (this.inputManager2) {
+      const i2 = this.inputManager2;
+      p2Input = this.devConsole?.visible
+        ? 0
+        : encodeInput({
+            left: i2.left,
+            right: i2.right,
+            up: i2.up,
+            down: i2.down,
+            lp: i2.lightPunch,
+            hp: i2.heavyPunch,
+            lk: i2.lightKick,
+            hk: i2.heavyKick,
+            sp: i2.special,
+          });
+      i2.consumeTouch();
+    } else if (this.aiController) {
       this.aiController.update(time, delta);
       const d = this.aiController.decision;
       p2Input = encodeInput({
@@ -2051,7 +2078,11 @@ export class FightScene extends Phaser.Scene {
       }
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('TitleScene');
+        if (this.matchContext || this.gameMode === 'online') {
+          this.scene.start('MultiplayerMenuScene');
+        } else {
+          this.scene.start('TitleScene');
+        }
       });
     });
 
