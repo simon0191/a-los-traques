@@ -141,7 +141,7 @@ export class FightScene extends Phaser.Scene {
     // -- Space key for restart --
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-    // -- Detect local 2-player mode (VS Amigo or human-vs-human tournament match) --
+    // -- Detect local 2-player mode (VS Local or human-vs-human tournament match) --
     const isLocal2P = this.matchContext?.isHumanVsHuman || this.matchContext?.type === 'versus';
 
     if (this.gameMode === 'spectator') {

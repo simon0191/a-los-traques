@@ -1,4 +1,4 @@
-# RFC 0015: Local Multiplayer Tournament + VS Amigo
+# RFC 0015: Local Multiplayer Tournament + VS Local
 
 **Status**: Proposed  
 **Date**: 2026-04-12
@@ -12,7 +12,7 @@ The game only supports single-player local mode (human vs AI) and online multipl
 Three additions:
 
 1. **Local multiplayer tournament** — N human players (1–8) + AI bots in a bracket, taking turns on a single machine
-2. **VS Amigo quick match** — 2 humans on split keyboard in a one-off fight
+2. **VS Local quick match** — 2 humans on split keyboard in a one-off fight
 3. **Input profile system** — configurable keyboard layouts per player slot, extensible for future gamepad support
 
 ## Design Decisions
@@ -249,13 +249,13 @@ The simulation layer is unchanged — `tick()` receives two encoded inputs regar
 - "CONTINUAR TORNEO" → BracketScene works as-is
 - For `matchContext.type === 'versus'`: show standard buttons (REVANCHA, ELEGIR OTRO, MENU)
 
-### 3.7 TitleScene — "VS AMIGO" Button
+### 3.7 TitleScene — "VS LOCAL" Button
 
 New button between "VS MAQUINA" and "TORNEO":
 
 ```
 VS MAQUINA
-VS AMIGO        ← new
+VS LOCAL        ← new
 TORNEO
 ...
 ```
@@ -274,7 +274,7 @@ Starts SelectScene with `matchContext: { type: 'versus' }`. The existing P1→P2
   isHumanVsHuman: false,              // set per-match by BracketScene
 }
 
-// VS Amigo (always 2 players)
+// VS Local (always 2 players)
 {
   type: 'versus',
 }
@@ -291,7 +291,7 @@ Starts SelectScene with `matchContext: { type: 'versus' }`. The existing P1→P2
 | 5 | `BracketScene.js` | N-human routing + display |
 | 6 | `PreFightScene.js`, `FightScene.js` | 2nd InputManager for human-vs-human |
 | 7 | `VictoryScene.js` | Minor tournament flow |
-| 8 | `TitleScene.js`, `SelectScene.js` | VS Amigo flow |
+| 8 | `TitleScene.js`, `SelectScene.js` | VS Local flow |
 
 ## 6. Future Work
 

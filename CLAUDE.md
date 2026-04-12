@@ -44,7 +44,7 @@ bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 
 ```
 src/
-  scenes/          # Boot -> Title -> MultiplayerMenu -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory. VS Amigo: Title -> MultiplayerMenu -> Select -> StageSelect -> PreFight -> Fight -> Victory
+  scenes/          # Boot -> Title -> MultiplayerMenu -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory. VS Local: Title -> MultiplayerMenu -> Select -> StageSelect -> PreFight -> Fight -> Victory
   services/        # TournamentManager.js, UIService.js
   entities/        # Fighter.js (Phaser wrapper), combat-block.js
   simulation/      # Pure sim core (no Phaser): SimulationEngine, FighterSim, CombatSim
@@ -189,7 +189,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0012-e2e-bot-user.md` — E2E bot user for debug bundle uploads (proposed)
 - `docs/rfcs/0013-fighter-balance-simulation.md` — Headless AI-vs-AI balance simulation pipeline
 - `docs/rfcs/0014-fix-desync-adaptive-delay-gap.md` — Fix desync from adaptive input delay frame gaps
-- `docs/rfcs/0015-local-multiplayer-tournament.md` — Local multiplayer tournament + VS Amigo (N human players, split keyboard)
+- `docs/rfcs/0015-local-multiplayer-tournament.md` — Local multiplayer tournament + VS Local (N human players, split keyboard)
 
 ## Balance Simulation
 
@@ -202,12 +202,12 @@ Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered
 
 ## Local Multiplayer (RFC 0015)
 
-- **VS Amigo**: 2-player quick match from TitleScene via MultiplayerMenuScene. Split keyboard: P1 = WASD + FGCVT, P2 = Arrows + IOKLP.
+- **VS Local**: 2-player quick match from TitleScene via MultiplayerMenuScene. Split keyboard: P1 = WASD + FGCVT, P2 = Arrows + IOKLP.
 - **Tournament**: 1–8 human players in a bracket. Sequential fighter selection, no duplicate fighters.
 - **Input profiles** (`src/systems/InputProfiles.js`): `keyboard_full` (single player), `keyboard_left` (P1 in 2P), `keyboard_right` (P2 in 2P). `InputManager` accepts `profileId` parameter.
 - **TournamentManager**: `humanFighterIds` array tracks N humans. `getNextPlayableMatch()` routes matches. `isHumanVsHuman()` triggers split keyboard in FightScene.
 - **matchContext.isHumanVsHuman**: set per-match by BracketScene when both fighters are human.
-- **matchContext.type === 'versus'**: signals VS Amigo mode — FightScene creates two InputManagers.
+- **matchContext.type === 'versus'**: signals VS Local mode — FightScene creates two InputManagers.
 - Humans are seeded in separate bracket segments so they meet as late as possible.
 - When all humans are eliminated, remaining bracket is auto-simulated.
 
