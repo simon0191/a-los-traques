@@ -222,6 +222,28 @@ describe('NetworkFacade', () => {
       expect(received[0]).toMatchObject({ p1Id: 'simon', p2Id: 'jeka', isRandomStage: false });
     });
 
+    it('buffers opponent_joined messages and replays when callback is set', () => {
+      const nf = makeFacade();
+
+      emitMsg(nf, { type: 'opponent_joined' });
+
+      const received = [];
+      nf.onOpponentJoined((msg) => received.push(msg));
+
+      expect(received.length).toBe(1);
+    });
+
+    it('buffers opponent_reconnected messages and replays when callback is set', () => {
+      const nf = makeFacade();
+
+      emitMsg(nf, { type: 'opponent_reconnected' });
+
+      const received = [];
+      nf.onOpponentReconnected((msg) => received.push(msg));
+
+      expect(received.length).toBe(1);
+    });
+
     it('routes disconnect', () => {
       const nf = makeFacade();
       const received = [];
@@ -520,9 +542,9 @@ describe('NetworkFacade', () => {
 
       nf.resetForReselect();
 
-      expect(nf._onOpponentReady).toBeNull();
-      expect(nf._onRematch).toBeNull();
-      expect(nf._onLeave).toBeNull();
+      expect(nf.signaling._handlers.has('opponent_ready')).toBe(false);
+      expect(nf.signaling._handlers.has('rematch')).toBe(false);
+      expect(nf.signaling._handlers.has('leave')).toBe(false);
       // WebRTC preserved
       expect(nf.transport._webrtc).not.toBeNull();
       expect(nf.transport.isWebRTCReady()).toBe(true);
@@ -562,7 +584,6 @@ describe('NetworkFacade', () => {
       expect(nf.signaling.socket).toBeNull();
       expect(socket._listeners.message.length).toBe(0);
       expect(nf._onOpponentJoined).toBeNull();
-      expect(nf._onDisconnect).toBeNull();
     });
   });
 });
