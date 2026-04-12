@@ -227,7 +227,7 @@ export class StageSelectScene extends Phaser.Scene {
         if (this.listoBtn) bottomRow.push(this.listoBtn.bg);
         if (this.backBtn) bottomRow.push(this.backBtn.bg);
         if (bottomRow.length > 0) matrix.push(bottomRow);
-        
+
         controller.setNavMenu(matrix, true);
       }
     });

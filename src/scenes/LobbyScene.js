@@ -119,7 +119,7 @@ export class LobbyScene extends Phaser.Scene {
       const controller = this.scene.get('ControllerScene');
       if (controller) {
         const buttons = this.children.list.filter(
-          (child) => child.input && child.input.enabled && child.type === 'Rectangle',
+          (child) => child.input?.enabled && child.type === 'Rectangle',
         );
         controller.setNavMenu(buttons);
       }

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { GAME_WIDTH } from '../config.js';
 
 export class ControllerScene extends Phaser.Scene {
   constructor() {
@@ -45,11 +45,11 @@ export class ControllerScene extends Phaser.Scene {
     };
 
     // Listen for gamepad connections
-    this.input.gamepad.on('connected', (pad) => {
+    this.input.gamepad.on('connected', (_pad) => {
       this.showToast('Control conectado');
     });
 
-    this.input.gamepad.on('disconnected', (pad) => {
+    this.input.gamepad.on('disconnected', (_pad) => {
       this.showToast('Control desconectado');
     });
 
@@ -75,13 +75,16 @@ export class ControllerScene extends Phaser.Scene {
   _getMainScene() {
     const activeScenes = this.game.scene.getScenes(true);
     // Find the topmost scene that isn't a system utility (searching from end of list)
-    return activeScenes.slice().reverse().find(
-      (s) =>
-        s.scene.key !== 'ControllerScene' &&
-        s.scene.key !== 'DevConsole' &&
-        s.scene.key !== 'AudioManager' &&
-        s.scene.key !== 'VFXBridge',
-    );
+    return activeScenes
+      .slice()
+      .reverse()
+      .find(
+        (s) =>
+          s.scene.key !== 'ControllerScene' &&
+          s.scene.key !== 'DevConsole' &&
+          s.scene.key !== 'AudioManager' &&
+          s.scene.key !== 'VFXBridge',
+      );
   }
 
   /**
@@ -112,7 +115,7 @@ export class ControllerScene extends Phaser.Scene {
 
   /**
    * Manually set focus to a specific GameObject.
-   * @param {GameObject} obj 
+   * @param {GameObject} obj
    */
   focusItem(obj) {
     if (!obj) return;
@@ -160,15 +163,15 @@ export class ControllerScene extends Phaser.Scene {
 
   _getGlobalBounds(obj) {
     if (!obj) return { x: 0, y: 0, w: 0, h: 0 };
-    
+
     // Support containers and normal objects
     const bounds = obj.getBounds ? obj.getBounds() : { x: obj.x, y: obj.y, width: 40, height: 20 };
-    
+
     return {
       x: bounds.x,
       y: bounds.y,
       w: bounds.width,
-      h: bounds.height
+      h: bounds.height,
     };
   }
 
@@ -201,16 +204,22 @@ export class ControllerScene extends Phaser.Scene {
     this._updateCursor(delta);
   }
 
-  _handleInput(time, delta) {
+  _handleInput(_time, delta) {
     const pad = this.input.gamepad.total > 0 ? this.input.gamepad.gamepads[0] : null;
 
     // Only process navigation if we have a menu
     if (this.menuItems.length > 0) {
       const cursors = this.input.keyboard.createCursorKeys();
-      const up = cursors.up.isDown || (pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5)));
-      const down = cursors.down.isDown || (pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5)));
-      const left = cursors.left.isDown || (pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5)));
-      const right = cursors.right.isDown || (pad && (pad.right || (pad.axes[0] && pad.axes[0].getValue() > 0.5)));
+      const up =
+        cursors.up.isDown || (pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5)));
+      const down =
+        cursors.down.isDown || (pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5)));
+      const left =
+        cursors.left.isDown ||
+        (pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5)));
+      const right =
+        cursors.right.isDown ||
+        (pad && (pad.right || (pad.axes[0] && pad.axes[0].getValue() > 0.5)));
 
       this._processDir('up', up, 0, -1, delta);
       this._processDir('down', down, 0, 1, delta);
@@ -289,7 +298,7 @@ export class ControllerScene extends Phaser.Scene {
     if (this.menuItems.length === 0) return;
 
     const prev = this._getFocusedItem();
-    
+
     if (this.isGrid) {
       const rows = this.menuItems.length;
       this.cursorY = Phaser.Math.Clamp(this.cursorY + dy, 0, rows - 1);
@@ -312,28 +321,44 @@ export class ControllerScene extends Phaser.Scene {
     }
   }
 
-  _updateCursor(delta) {
+  _updateCursor(_delta) {
     this.graphics.clear();
     if (this.menuItems.length === 0 || !this.cursorVisible) return;
 
     const focused = this._getFocusedItem();
-    if (focused && focused.noCursor) return;
+    if (focused?.noCursor) return;
 
     // Lerp bounds
-    this.currentBounds.x = Phaser.Math.Linear(this.currentBounds.x, this.targetBounds.x, this.LERP_SPEED);
-    this.currentBounds.y = Phaser.Math.Linear(this.currentBounds.y, this.targetBounds.y, this.LERP_SPEED);
-    this.currentBounds.w = Phaser.Math.Linear(this.currentBounds.w, this.targetBounds.w, this.LERP_SPEED);
-    this.currentBounds.h = Phaser.Math.Linear(this.currentBounds.h, this.targetBounds.h, this.LERP_SPEED);
+    this.currentBounds.x = Phaser.Math.Linear(
+      this.currentBounds.x,
+      this.targetBounds.x,
+      this.LERP_SPEED,
+    );
+    this.currentBounds.y = Phaser.Math.Linear(
+      this.currentBounds.y,
+      this.targetBounds.y,
+      this.LERP_SPEED,
+    );
+    this.currentBounds.w = Phaser.Math.Linear(
+      this.currentBounds.w,
+      this.targetBounds.w,
+      this.LERP_SPEED,
+    );
+    this.currentBounds.h = Phaser.Math.Linear(
+      this.currentBounds.h,
+      this.targetBounds.h,
+      this.LERP_SPEED,
+    );
 
     const thickness = 2;
     const padding = 2;
-    
+
     this.graphics.lineStyle(thickness, 0xffcc00, 1);
     this.graphics.strokeRect(
       this.currentBounds.x - padding,
       this.currentBounds.y - padding,
       this.currentBounds.w + padding * 2,
-      this.currentBounds.h + padding * 2
+      this.currentBounds.h + padding * 2,
     );
 
     this.graphics.fillStyle(0xffcc00, 0.1);
@@ -341,7 +366,7 @@ export class ControllerScene extends Phaser.Scene {
       this.currentBounds.x - padding,
       this.currentBounds.y - padding,
       this.currentBounds.w + padding * 2,
-      this.currentBounds.h + padding * 2
+      this.currentBounds.h + padding * 2,
     );
   }
 }

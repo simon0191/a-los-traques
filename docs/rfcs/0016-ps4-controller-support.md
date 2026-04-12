@@ -1,77 +1,46 @@
-# RFC 0016: PS4 Controller Support
+# RFC 0016: Comprehensive PS4 Controller Support & Centralized Navigation
 
 ## 1. Context
-The game currently supports Keyboard and Touch inputs for combat and navigation, orchestrated by the `InputManager.js` component. To provide a true fighting game experience, particularly for local multiplayer, we need to introduce Gamepad support, specifically targeting PS4 controllers (DualShock 4 / DualSense) connected to a PC.
+The game currently supports Keyboard and Touch inputs for combat and navigation. To provide a true fighting game experience, particularly for local multiplayer, we need to introduce native Gamepad support, specifically targeting PS4 controllers (DualShock 4 / DualSense) connected to a PC.
 
 ## 2. Problem Statement
-Currently, `InputManager.js` hardcodes Keyboard (Z, X, A, S, D, Space, and Arrow Keys) and Touch overlay checks. Players connecting a gamepad cannot interact with the UI or control their fighters in combat. Without native Phaser Gamepad integration, local multiplayer is limited to both players crowding around a single keyboard or using touch overlays.
+Previously, `InputManager.js` hardcoded Keyboard and Touch overlay checks. This limited local multiplayer to a single keyboard and made menu navigation impossible without a mouse or touch device. Manual implementation of navigation in every scene was leading to code duplication and inconsistent behavior across different menus (Title, Select, Stage, etc.).
 
 ## 3. Proposed Solution
-Integrate Phaser's native Gamepad plugin and implement a global `ControllerScene` that manages all UI menu navigation using a centralized **Explicit Array/Grid** registration method. This removes the need for manual input listeners in individual UI scenes.
+Implement a two-layered solution:
+1.  **Low-Level Input Mapping**: Update `InputManager` to read native Phaser Gamepad inputs mapped to PS4 standards.
+2.  **Centralized Navigation System**: A global `ControllerScene` that manages all UI menu navigation using an **Explicit Array/Grid** registration method, providing a polished and consistent user experience.
 
 ### Key Strategies:
-1. **Enable Gamepad Plugin:** Modify `src/main.js` to enable the Gamepad plugin.
-2. **Centralized `ControllerScene`:** A persistent background scene that serves as the global navigator.
-3. **Explicit Registration API:** Scenes register their interactive objects via `controller.setNavMenu(items, isGrid)`.
-    - **1D Menus:** Vertical lists with automatic wrap-around.
-    - **2D Grids:** Matrices for character/stage selection with boundary clamping.
-4. **Global Visual Cursor:** A Graphics-based rectangle that smoothly **lerps** to the position and size of the currently focused item, providing consistent visual feedback across the entire game.
-5. **Standardized Mapping (PS4 Layout):**
-    - **Movement:** D-Pad or Left Analog Stick.
-    - **Confirm:** Cross (Button 0) or Square (Button 2).
-    - **Back / Cancel:** Circle (Button 1) or Options (Button 9).
-    - **Notifications:** "Control conectado" toasts on status change.
+-   **Direct Input Integration**: Enable Phaser's Gamepad plugin and map Square/Triangle to Punches, Cross/Circle to Kicks, and R1/R2 to Specials.
+-   **Global Navigator (`ControllerScene`)**: A persistent background scene that serves as the "Global Brain" for menu interactions.
+-   **Smooth Visual Feedback**: A glowing cursor that **lerps** (linearly interpolates) between focused items, snapping to their size and position.
+-   **Scene Automation**: An API allowing scenes to register buttons as 1D arrays or 2D matrices, removing the need for manual `keydown` listeners in UI code.
+-   **Intelligent Back/Cancel**: Global mapping of **Circle (O)** and **Options** to trigger the specific "Back" logic of the currently active scene.
+-   **Automatic Lifecycle Management**: The system automatically detects gameplay transitions (e.g., entering `FightScene`) and clears the navigation state to prevent "ghost cursors" during combat.
 
 ## 4. Implementation Details
 
-### `src/scenes/ControllerScene.js`
-The "Global Brain" of the navigation system. It tracks the `focusedObject` and handles the input loop for both Gamepad and Keyboard. It uses `Phaser.Math.Linear` to animate the cursor movement between menu items.
-
-### Scene Integration
-Individual scenes are simplified. Instead of managing `selectedIndex` or listening for `keydown` events, they simply collect their buttons and register them:
-```javascript
-const buttons = [btn1, btn2, btn3];
-this.scene.get('ControllerScene').setNavMenu(buttons);
-```
-This ensures that even complex scenes like `SelectScene` (Character Select) and `StageSelectScene` can leverage the centralized input handling while providing their own custom layouts.
-
 ### `src/systems/InputManager.js`
-Refactor property getters to include gamepad checks. `InputManager` needs to identify which player (P1 or P2) it represents, or simply read from the assigned gamepad index.
+Extended to support a `gamepadIndex` (supporting local PvP). It uses optional chaining and "Just Down" logic for reliable attack triggering.
+-   **Movement**: D-Pad or Left Analog Stick (threshold > 0.5).
+-   **Confirm/Light Punch**: Cross (Button 0) or Square (Button 2).
+-   **Back/Light Kick**: Circle (Button 1) or Cross (Button 0) depending on context.
 
-Because `InputManager` is currently instantiated per player (or per scene), we should accept an optional `gamepadIndex` in the constructor.
-```javascript
-export class InputManager {
-  constructor(scene, gamepadIndex = 0) {
-    this.scene = scene;
-    this.gamepadIndex = gamepadIndex;
-    // ... existing keyboard & touch setup ...
-  }
+### `src/scenes/ControllerScene.js` (The Navigator)
+This scene manages the registration and interaction loop:
+-   **`setNavMenu(items, isGrid, showCursor)`**: Public API for scenes to register their interactables.
+-   **`focusItem(obj)`**: Allows scenes to manually move the controller focus (e.g., snapping to the "LISTO" button after selecting a stage).
+-   **Spacial Awareness**: 2D Grid navigation handles different row lengths and boundary clamping.
+-   **Cursor Control**: Supports a `noCursor` property on individual GameObjects to hide the yellow square in specialized menus (like the character select grid) while maintaining input focus.
 
-  _getGamepad() {
-    if (!this.scene.input.gamepad) return null;
-    return this.scene.input.gamepad.gamepads[this.gamepadIndex];
-  }
-
-  get left() {
-    const pad = this._getGamepad();
-    const padLeft = pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5));
-    return this.cursors.left.isDown || this.touchState.left || padLeft;
-  }
-  
-  get lightPunch() {
-    const pad = this._getGamepad();
-    // Assuming Button 2 is Square on PS4
-    const padPress = pad && pad.buttons[2] && pad.buttons[2].pressed; 
-    return Phaser.Input.Keyboard.JustDown(this.keys.z) || this.touchState.lightPunch || padPress;
-  }
-  // ... apply similar logic to all getters
-}
-```
-
-### Updating Consumers
-Scenes instantiating `InputManager` (like `FightScene` or local multiplayer logic) need to pass the appropriate `gamepadIndex` (0 for Player 1, 1 for Player 2).
+### `src/main.js`
+Configured to ensure `ControllerScene` is the last scene in the array, guaranteeing it renders its navigation cursor on top of all other game elements.
 
 ## 5. Verification Plan
-- **Unit/Manual Tests:** Verify that connecting a PS4 controller allows character movement and attacks in `FightScene`.
-- **Multi-device Testing:** Connect two PS4 controllers and verify that Player 1 and Player 2 can fight locally without input interference.
-- **Regression:** Ensure Keyboard and Touch inputs remain fully functional alongside Gamepads.
+-   **Unit Tests**: Verified that `InputManager` and `NetworkFacade` (which interacts with slots) handle the new indices correctly.
+-   **Manual Flow**: Confirmed a complete "hands-off-mouse" experience from Boot through Login, Menu navigation, Character/Stage selection, and Combat.
+-   **Edge Cases**: Verified that disconnecting a controller mid-game triggers the "Control desconectado" notification and cleans up the UI correctly.
+
+## 6. Conclusion
+By centralizing navigation logic and standardizing PS4 input mapping, we have transformed the game from a keyboard-only experience into a console-quality fighting game. This architecture is future-proof, allowing any new menu scene to gain full controller support with just a single line of registration code.

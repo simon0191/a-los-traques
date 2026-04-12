@@ -8,6 +8,7 @@ assets/photos/
 test-results/
 .claude/worktrees
 .vercel
+.gemini/
 
 # Local PGLite database
 .pglite/

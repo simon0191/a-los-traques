@@ -56,7 +56,7 @@ export class TournamentSetupScene extends Phaser.Scene {
       const controller = this.scene.get('ControllerScene');
       if (controller) {
         const buttons = this.children.list
-          .filter((child) => child.input && child.input.enabled && child.type === 'Rectangle')
+          .filter((child) => child.input?.enabled && child.type === 'Rectangle')
           .sort((a, b) => a.y - b.y);
         controller.setNavMenu(buttons);
       }
