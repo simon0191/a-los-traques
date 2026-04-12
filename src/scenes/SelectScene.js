@@ -74,6 +74,12 @@ export class SelectScene extends Phaser.Scene {
     this.p1StatValues = null;
     this.p2StatValues = null;
 
+    // N-player tournament selection state
+    this._localPlayers = this.matchContext?.localPlayers || 1;
+    this._humanSelections = [];
+    this._currentSelectingPlayer = 1;
+    this._takenOverlays = []; // visual overlays for taken fighters
+
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
     this.headerText = this.add
@@ -617,6 +623,31 @@ export class SelectScene extends Phaser.Scene {
 
   handleBack() {
     if (this.transitioning) return;
+
+    // Multi-player tournament: go back to previous player
+    if (
+      this.matchContext?.type === 'tournament' &&
+      this._currentSelectingPlayer > 1 &&
+      !this.p1Confirmed
+    ) {
+      // Undo last selection
+      this._currentSelectingPlayer--;
+      const removedId = this._humanSelections.pop();
+      // Remove visual overlay for that player
+      if (this._takenOverlays.length >= 2) {
+        this._takenOverlays.pop().destroy();
+        this._takenOverlays.pop().destroy();
+      }
+      // Restore cursor to the fighter that was undone
+      const prevIdx = this.fighters.findIndex((f) => f.id === removedId);
+      if (prevIdx !== -1) this.p1Index = prevIdx;
+      this.updateP1Display();
+      this.headerText.setText(`ELIGE TU LUCHADOR: JUGADOR ${this._currentSelectingPlayer}`);
+      this.confirmedText.setText('');
+      this.game.audioManager.play('ui_cancel');
+      return;
+    }
+
     if (this.p2SelectionMode && !this.p2Confirmed) {
       this.p2SelectionMode = false;
       this.p1Confirmed = false;
@@ -669,23 +700,44 @@ export class SelectScene extends Phaser.Scene {
   }
 
   confirmP1() {
+    // Block selection of taken fighters in multi-player tournament
+    if (this._isFighterTaken(this.p1Index)) {
+      this.game.audioManager.play('ui_cancel');
+      return;
+    }
+
     this.game.audioManager.play('ui_confirm');
     this.p1Confirmed = true;
     if (this.fighters[this.p1Index].id === 'random') {
-      this.p1Index = Phaser.Math.Between(0, this.fighters.length - 2);
+      let idx;
+      do {
+        idx = Phaser.Math.Between(0, this.fighters.length - 2);
+      } while (this._humanSelections.includes(this.fighters[idx].id));
+      this.p1Index = idx;
       this.updateP1Display();
     }
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
     if (this.matchContext?.type === 'tournament') {
+      const selectedId = this.fighters[this.p1Index].id;
+      this._humanSelections.push(selectedId);
+      this._markFighterTaken(this.p1Index, this._currentSelectingPlayer);
+
+      if (this._currentSelectingPlayer < this._localPlayers) {
+        // More humans need to select — enter next player's selection phase
+        this._currentSelectingPlayer++;
+        this._enterNextPlayerSelection();
+        return;
+      }
+
+      // All humans have selected — generate bracket
       this.confirmedText.setText('Generando torneo...');
       this.time.delayedCall(800, () => {
         const fighterIds = this.fighters.map((f) => f.id);
         const { size, seed } = this.matchContext.tournamentState;
-        const playerFighterId = this.fighters[this.p1Index].id;
         const tournamentManager = TournamentManager.generate(
           fighterIds,
           size,
-          playerFighterId,
+          this._humanSelections,
           seed,
         );
         this.matchContext.tournamentState = tournamentManager.serialize();
@@ -787,6 +839,58 @@ export class SelectScene extends Phaser.Scene {
       }
       this.p2StatValues[i].setText(isRandom ? '???' : val.toString());
     });
+  }
+
+  _enterNextPlayerSelection() {
+    // Reset cursor for next player
+    this.p1Confirmed = false;
+    this.p1Cursor.setStrokeStyle(2, 0x3366ff);
+    this.p1Cursor.setAlpha(1);
+    this.p1CursorLabel.setAlpha(1);
+
+    // Move cursor to first non-taken fighter
+    this.p1Index = this.fighters.findIndex(
+      (f) => f.id !== 'random' && !this._humanSelections.includes(f.id),
+    );
+    if (this.p1Index === -1) this.p1Index = this.fighters.length - 1; // fallback to random
+    this.updateP1Display();
+    this._scrollToFit(this.p1Index);
+
+    this.headerText.setText(`ELIGE TU LUCHADOR: JUGADOR ${this._currentSelectingPlayer}`);
+    this.confirmedText.setText(
+      `Jugador ${this._currentSelectingPlayer - 1} listo. Jugador ${this._currentSelectingPlayer}, elige...`,
+    );
+  }
+
+  _markFighterTaken(fighterIdx, playerNum) {
+    const col = fighterIdx % COLS;
+    const row = Math.floor(fighterIdx / COLS);
+    const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
+    const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
+
+    // Dark overlay
+    const overlay = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, 0x000000, 0.6).setOrigin(0, 0);
+    this.gridContainer.add(overlay);
+
+    // Player label
+    const label = this.add
+      .text(cellX + CELL_W / 2, cellY + CELL_H / 2, `J${playerNum}`, {
+        fontFamily: 'Arial Black',
+        fontSize: '12px',
+        color: '#ffcc00',
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5);
+    this.gridContainer.add(label);
+
+    this._takenOverlays.push(overlay, label);
+  }
+
+  _isFighterTaken(fighterIdx) {
+    const fighter = this.fighters[fighterIdx];
+    if (fighter.id === 'random') return false;
+    return this._humanSelections.includes(fighter.id);
   }
 
   goToStageSelect() {
