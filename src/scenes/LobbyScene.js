@@ -103,14 +103,13 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Back button
-    createButton(
+    this.backBtn = createButton(
       this,
       60,
       GAME_HEIGHT - 20,
       'VOLVER',
       () => {
-        if (this.network) this.network.destroy();
-        this.scene.start('TitleScene');
+        this._goBack();
       },
       { width: 110, height: 20, fontSize: '9px' },
     );
@@ -201,6 +200,35 @@ export class LobbyScene extends Phaser.Scene {
     this.network.onRejoinAvailable((slot) => {
       this.network.sendRejoin(slot, true);
     });
+
+    // Global navigation bindings
+    this.events.on('wake', this._bindNavEvents, this);
+    this.events.on('sleep', this._unbindNavEvents, this);
+    this.events.on('shutdown', this._unbindNavEvents, this);
+    this._bindNavEvents();
+  }
+
+  _bindNavEvents() {
+    this._unbindNavEvents();
+    const e = this.game.events;
+    e.on('ui_confirm', this._navConfirm, this);
+    e.on('ui_cancel', this._goBack, this);
+  }
+
+  _unbindNavEvents() {
+    const e = this.game.events;
+    e.off('ui_confirm', this._navConfirm, this);
+    e.off('ui_cancel', this._goBack, this);
+  }
+
+  _navConfirm() {
+    // Only 'VOLVER' is really selectable for now unless we add more buttons
+    this._goBack();
+  }
+
+  _goBack() {
+    if (this.network) this.network.destroy();
+    this.scene.start('TitleScene');
   }
 
   _goToSelect() {

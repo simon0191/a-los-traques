@@ -171,6 +171,68 @@ export class LearningScene extends Phaser.Scene {
     this._updateScrollIndicator();
 
     this.transitioning = false;
+
+    // Global navigation bindings
+    this.events.on('wake', this._bindNavEvents, this);
+    this.events.on('sleep', this._unbindNavEvents, this);
+    this.events.on('shutdown', this._unbindNavEvents, this);
+    this._bindNavEvents();
+  }
+
+  _bindNavEvents() {
+    this._unbindNavEvents();
+    const e = this.game.events;
+    e.on('ui_up', this._navUp, this);
+    e.on('ui_down', this._navDown, this);
+    e.on('ui_left', this._navLeft, this);
+    e.on('ui_right', this._navRight, this);
+    e.on('ui_cancel', this._navCancel, this);
+  }
+
+  _unbindNavEvents() {
+    const e = this.game.events;
+    e.off('ui_up', this._navUp, this);
+    e.off('ui_down', this._navDown, this);
+    e.off('ui_left', this._navLeft, this);
+    e.off('ui_right', this._navRight, this);
+    e.off('ui_cancel', this._navCancel, this);
+  }
+
+  _navUp() {
+    this._setScroll(this.scrollY - 20);
+  }
+
+  _navDown() {
+    this._setScroll(this.scrollY + 20);
+  }
+
+  _navLeft() {
+    if (this.activeTab === 'avanzado') {
+      this.activeTab = 'basico';
+      this._createTabs();
+      this._buildCardsForActiveTab();
+      this.scrollY = 0;
+      this._applyScroll();
+      this.game.audioManager.play('ui_navigate');
+    }
+  }
+
+  _navRight() {
+    if (this.activeTab === 'basico') {
+      this.activeTab = 'avanzado';
+      this._createTabs();
+      this._buildCardsForActiveTab();
+      this.scrollY = 0;
+      this._applyScroll();
+      this.game.audioManager.play('ui_navigate');
+    }
+  }
+
+  _navCancel() {
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('TitleScene');
+    });
   }
 
   // Cards to load

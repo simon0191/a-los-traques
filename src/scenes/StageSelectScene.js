@@ -248,8 +248,78 @@ export class StageSelectScene extends Phaser.Scene {
       });
     }
 
+    this.events.on('wake', this._bindNavEvents, this);
+    this.events.on('sleep', this._unbindNavEvents, this);
+    this.events.on('shutdown', this._unbindNavEvents, this);
+    this._bindNavEvents();
+
     this.updateSelection();
   }
+
+  _bindNavEvents() {
+    this._unbindNavEvents();
+    if (!this.isP1) return;
+    const e = this.game.events;
+    e.on('ui_up', this._navUp, this);
+    e.on('ui_down', this._navDown, this);
+    e.on('ui_left', this._navLeft, this);
+    e.on('ui_right', this._navRight, this);
+    e.on('ui_confirm', this.confirmSelection, this);
+    e.on('ui_cancel', this._navCancel, this);
+  }
+
+  _unbindNavEvents() {
+    const e = this.game.events;
+    e.off('ui_up', this._navUp, this);
+    e.off('ui_down', this._navDown, this);
+    e.off('ui_left', this._navLeft, this);
+    e.off('ui_right', this._navRight, this);
+    e.off('ui_confirm', this.confirmSelection, this);
+    e.off('ui_cancel', this._navCancel, this);
+  }
+
+  _navUp() {
+    this._handleAxisKey(0, -1);
+  }
+
+  _navDown() {
+    this._handleAxisKey(0, 1);
+  }
+
+  _navLeft() {
+    this._handleAxisKey(-1, 0);
+  }
+
+  _navRight() {
+    this._handleAxisKey(1, 0);
+  }
+
+  _navCancel() {
+    this.handleBack(false);
+  }
+
+  _handleAxisKey(dx, dy) {
+    if (this.transitioning) return;
+    const audio = this.game.audioManager;
+    let newIndex = this.selectedIndex;
+
+    if (dx > 0) {
+      if (this.selectedIndex < this.stages.length - 1) newIndex++;
+    } else if (dx < 0) {
+      if (this.selectedIndex > 0) newIndex--;
+    } else if (dy > 0) {
+      if (this.selectedIndex + COLS < this.stages.length) newIndex += COLS;
+    } else if (dy < 0) {
+      if (this.selectedIndex - COLS >= 0) newIndex -= COLS;
+    }
+
+    if (newIndex !== this.selectedIndex) {
+      this.selectedIndex = newIndex;
+      audio.play('ui_navigate');
+      this.updateSelection();
+    }
+  }
+
   handleBack(remote = false) {
     if (this.transitioning && !remote) return;
 

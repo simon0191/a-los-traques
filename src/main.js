@@ -6,6 +6,7 @@ const log = Logger.create('Main');
 
 import { BootScene } from './scenes/BootScene.js';
 import { BracketScene } from './scenes/BracketScene.js';
+import { ControllerScene } from './scenes/ControllerScene.js';
 import { FightScene } from './scenes/FightScene.js';
 import { InspectorScene } from './scenes/InspectorScene.js';
 import { LearningScene } from './scenes/LearningScene.js';
@@ -53,6 +54,7 @@ const config = {
   },
   scene: [
     BootScene,
+    ControllerScene,
     LoginScene,
     TitleScene,
     TournamentSetupScene,

@@ -456,7 +456,11 @@ export class SelectScene extends Phaser.Scene {
     this.NAV_DELAY = 500;
     this.NAV_FREQ = 200;
 
+    // Global navigation bindings
+    this.events.on('wake', this._bindNavEvents, this);
+    this.events.on('sleep', this._unbindNavEvents, this);
     this.events.on('shutdown', () => {
+      this._unbindNavEvents();
       for (const dom of this.portraitDOMs) {
         dom.destroy();
       }
@@ -466,8 +470,61 @@ export class SelectScene extends Phaser.Scene {
       this.portraitDOMs = [];
       this.nameDOMs = [];
     });
+    this._bindNavEvents();
 
     this._syncDOMPortraits();
+  }
+
+  _bindNavEvents() {
+    this._unbindNavEvents();
+    const e = this.game.events;
+    e.on('ui_up', this._navUp, this);
+    e.on('ui_down', this._navDown, this);
+    e.on('ui_left', this._navLeft, this);
+    e.on('ui_right', this._navRight, this);
+    e.on('ui_confirm', this._navConfirm, this);
+    e.on('ui_cancel', this.handleBack, this);
+  }
+
+  _unbindNavEvents() {
+    const e = this.game.events;
+    e.off('ui_up', this._navUp, this);
+    e.off('ui_down', this._navDown, this);
+    e.off('ui_left', this._navLeft, this);
+    e.off('ui_right', this._navRight, this);
+    e.off('ui_confirm', this._navConfirm, this);
+    e.off('ui_cancel', this.handleBack, this);
+  }
+
+  _navUp() {
+    this._handleAxisKey(0, -1);
+  }
+
+  _navDown() {
+    this._handleAxisKey(0, 1);
+  }
+
+  _navLeft() {
+    this._handleAxisKey(-1, 0);
+  }
+
+  _navRight() {
+    this._handleAxisKey(1, 0);
+  }
+
+  _navConfirm() {
+    if (this.transitioning) return;
+    if (!this.p1Confirmed) this.confirmP1();
+    else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
+  }
+
+  _handleAxisKey(dx, dy) {
+    if (this.transitioning) return;
+    const isP1 = !this.p1Confirmed;
+    const isP2 = this.p2SelectionMode && !this.p2Confirmed;
+    if (isP1 || isP2) {
+      this._moveSelection(dx, dy);
+    }
   }
 
   update(_time, delta) {

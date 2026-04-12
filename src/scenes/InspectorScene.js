@@ -209,6 +209,53 @@ export class InspectorScene extends Phaser.Scene {
     // Select first fighter with sprites, or first fighter
     const firstSpriteIdx = fightersData.findIndex((f) => FIGHTERS_WITH_SPRITES.includes(f.id));
     this.selectFighter(firstSpriteIdx >= 0 ? firstSpriteIdx : 0);
+
+    // Global navigation bindings
+    this.events.on('wake', this._bindNavEvents, this);
+    this.events.on('sleep', this._unbindNavEvents, this);
+    this.events.on('shutdown', this._unbindNavEvents, this);
+    this._bindNavEvents();
+  }
+
+  _bindNavEvents() {
+    this._unbindNavEvents();
+    const e = this.game.events;
+    e.on('ui_up', this._navUp, this);
+    e.on('ui_down', this._navDown, this);
+    e.on('ui_left', this._navLeft, this);
+    e.on('ui_right', this._navRight, this);
+    e.on('ui_confirm', this._navConfirm, this);
+    e.on('ui_cancel', this.goBack, this);
+  }
+
+  _unbindNavEvents() {
+    const e = this.game.events;
+    e.off('ui_up', this._navUp, this);
+    e.off('ui_down', this._navDown, this);
+    e.off('ui_left', this._navLeft, this);
+    e.off('ui_right', this._navRight, this);
+    e.off('ui_confirm', this._navConfirm, this);
+    e.off('ui_cancel', this.goBack, this);
+  }
+
+  _navUp() {
+    this.selectFighter(this.selectedIndex - 1);
+  }
+
+  _navDown() {
+    this.selectFighter(this.selectedIndex + 1);
+  }
+
+  _navLeft() {
+    this.selectAnim(this.animIndex - 1);
+  }
+
+  _navRight() {
+    this.selectAnim(this.animIndex + 1);
+  }
+
+  _navConfirm() {
+    this.replayAnim();
   }
 
   selectFighter(index) {

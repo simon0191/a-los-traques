@@ -145,6 +145,66 @@ export class MusicScene extends Phaser.Scene {
     this._createButton(60, GAME_HEIGHT - 20, 'VOLVER', () => this._goBack());
 
     this.transitioning = false;
+    this.selectedIndex = 0;
+
+    // Global navigation bindings
+    this.events.on('wake', this._bindNavEvents, this);
+    this.events.on('sleep', this._unbindNavEvents, this);
+    this.events.on('shutdown', this._unbindNavEvents, this);
+    this._bindNavEvents();
+    this._updateSelection();
+  }
+
+  _bindNavEvents() {
+    this._unbindNavEvents();
+    const e = this.game.events;
+    e.on('ui_up', this._navUp, this);
+    e.on('ui_down', this._navDown, this);
+    e.on('ui_confirm', this._navConfirm, this);
+    e.on('ui_cancel', this._goBack, this);
+  }
+
+  _unbindNavEvents() {
+    const e = this.game.events;
+    e.off('ui_up', this._navUp, this);
+    e.off('ui_down', this._navDown, this);
+    e.off('ui_confirm', this._navConfirm, this);
+    e.off('ui_cancel', this._goBack, this);
+  }
+
+  _navUp() {
+    if (this.transitioning) return;
+    this.selectedIndex--;
+    if (this.selectedIndex < 0) this.selectedIndex = this.songRows.length - 1;
+    this._updateSelection();
+    this.game.audioManager.play('ui_navigate');
+  }
+
+  _navDown() {
+    if (this.transitioning) return;
+    this.selectedIndex++;
+    if (this.selectedIndex >= this.songRows.length) this.selectedIndex = 0;
+    this._updateSelection();
+    this.game.audioManager.play('ui_navigate');
+  }
+
+  _navConfirm() {
+    if (this.transitioning) return;
+    this.game.audioManager.play('ui_confirm');
+    this._toggleSong(this.selectedIndex);
+  }
+
+  _updateSelection() {
+    this.songRows.forEach((row, index) => {
+      const isSelected = index === this.selectedIndex;
+      if (isSelected) {
+        row.bg.setStrokeStyle(2, 0xffcc00);
+        if (this.playingIndex !== index) row.text.setColor('#ffcc00');
+      } else {
+        row.bg.setStrokeStyle(1, 0x4444aa);
+        if (this.playingIndex !== index) row.text.setColor('#ffffff');
+      }
+    });
   }
 
   _toggleSong(index) {

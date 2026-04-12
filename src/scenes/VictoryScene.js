@@ -140,13 +140,12 @@ export class VictoryScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Buttons
+    this.buttons = [];
+    this.selectedIndex = 0;
+
     if (this.matchContext?.type === 'tournament') {
-      createButton(
-        this,
-        GAME_WIDTH / 2 - 60,
-        252,
-        'CONTINUAR TORNEO',
-        () => {
+      this.buttons.push({
+        action: () => {
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
             this.scene.start('BracketScene', {
@@ -157,29 +156,29 @@ export class VictoryScene extends Phaser.Scene {
             });
           });
         },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+        ui: createButton(this, GAME_WIDTH / 2 - 60, 252, 'CONTINUAR TORNEO', () => {}, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
 
-      createButton(
-        this,
-        GAME_WIDTH / 2 + 60,
-        252,
-        'SALIR AL MENÚ',
-        () => {
+      this.buttons.push({
+        action: () => {
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
             this.scene.start('TitleScene');
           });
         },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+        ui: createButton(this, GAME_WIDTH / 2 + 60, 252, 'SALIR AL MENÚ', () => {}, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
     } else {
-      createButton(
-        this,
-        GAME_WIDTH / 2 - 115,
-        252,
-        'REVANCHA',
-        () => {
+      this.buttons.push({
+        action: () => {
           if (this.gameMode === 'online' && this.networkManager) {
             this.networkManager.sendRematch();
             this._waitingRematch = true;
@@ -198,15 +197,15 @@ export class VictoryScene extends Phaser.Scene {
             this._goToFight();
           }
         },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+        ui: createButton(this, GAME_WIDTH / 2 - 115, 252, 'REVANCHA', () => {}, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
 
-      createButton(
-        this,
-        GAME_WIDTH / 2,
-        252,
-        'ELEGIR OTRO',
-        () => {
+      this.buttons.push({
+        action: () => {
           if (this.gameMode === 'online' && this.networkManager) {
             this.networkManager.sendLeave();
             this._goToSelect();
@@ -217,15 +216,15 @@ export class VictoryScene extends Phaser.Scene {
             });
           }
         },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+        ui: createButton(this, GAME_WIDTH / 2, 252, 'ELEGIR OTRO', () => {}, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
 
-      createButton(
-        this,
-        GAME_WIDTH / 2 + 115,
-        252,
-        'MENU',
-        () => {
+      this.buttons.push({
+        action: () => {
           if (this.gameMode === 'online' && this.networkManager) {
             this.networkManager.destroy();
           }
@@ -234,9 +233,28 @@ export class VictoryScene extends Phaser.Scene {
             this.scene.start('TitleScene');
           });
         },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+        ui: createButton(this, GAME_WIDTH / 2 + 115, 252, 'MENU', () => {}, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
     }
+
+    // Attach click events properly
+    this.buttons.forEach((btn) => {
+      btn.ui.bg.on('pointerdown', () => {
+        if (this.game.audioManager) this.game.audioManager.play('ui_confirm');
+        btn.action();
+      });
+    });
+
+    // Global navigation bindings
+    this.events.on('wake', this._bindNavEvents, this);
+    this.events.on('sleep', this._unbindNavEvents, this);
+    this.events.on('shutdown', this._unbindNavEvents, this);
+    this._bindNavEvents();
+    this.updateSelection();
 
     // In online mode, listen for rematch/leave from opponent
     if (this.gameMode === 'online' && this.networkManager) {
@@ -279,6 +297,56 @@ export class VictoryScene extends Phaser.Scene {
         });
       });
     }
+  }
+
+  _bindNavEvents() {
+    this._unbindNavEvents();
+    const e = this.game.events;
+    e.on('ui_left', this._navPrev, this);
+    e.on('ui_right', this._navNext, this);
+    e.on('ui_confirm', this._navConfirm, this);
+  }
+
+  _unbindNavEvents() {
+    const e = this.game.events;
+    e.off('ui_left', this._navPrev, this);
+    e.off('ui_right', this._navNext, this);
+    e.off('ui_confirm', this._navConfirm, this);
+  }
+
+  _navPrev() {
+    if (this.transitioning) return;
+    this.selectedIndex--;
+    if (this.selectedIndex < 0) this.selectedIndex = this.buttons.length - 1;
+    this.updateSelection();
+    this.game.audioManager.play('ui_navigate');
+  }
+
+  _navNext() {
+    if (this.transitioning) return;
+    this.selectedIndex++;
+    if (this.selectedIndex >= this.buttons.length) this.selectedIndex = 0;
+    this.updateSelection();
+    this.game.audioManager.play('ui_navigate');
+  }
+
+  _navConfirm() {
+    if (this.transitioning) return;
+    this.game.audioManager.play('ui_confirm');
+    this.buttons[this.selectedIndex].action();
+  }
+
+  updateSelection() {
+    this.buttons.forEach((btn, index) => {
+      const isSelected = index === this.selectedIndex;
+      if (isSelected) {
+        btn.ui.bg.setStrokeStyle(2, 0xffcc00);
+        btn.ui.text.setColor('#ffcc00');
+      } else {
+        btn.ui.bg.setStrokeStyle(1, 0x4444aa);
+        btn.ui.text.setColor('#ffffff');
+      }
+    });
   }
 
   async _saveResult() {

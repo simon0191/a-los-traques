@@ -141,35 +141,114 @@ export class TitleScene extends Phaser.Scene {
 
     // Mode buttons
     const btnGap = 22;
-    createButton(this, GAME_WIDTH / 2, cy + 30, 'VS MAQUINA', () => {
-      this.goToSelect();
+    this.buttons = [];
+    this.selectedIndex = 0;
+
+    this.buttons.push({
+      action: () => this.goToSelect(),
+      ui: createButton(this, GAME_WIDTH / 2, cy + 30, 'VS MAQUINA', () => this.goToSelect()),
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap, 'TORNEO', () => {
-      this.goToTournamentSetup();
+    this.buttons.push({
+      action: () => this.goToTournamentSetup(),
+      ui: createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap, 'TORNEO', () =>
+        this.goToTournamentSetup(),
+      ),
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 2, 'EN LINEA', () => {
-      this.goToLobby();
+    this.buttons.push({
+      action: () => this.goToLobby(),
+      ui: createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 2, 'EN LINEA', () =>
+        this.goToLobby(),
+      ),
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'UNIRSE', () => {
-      this._showJoinOverlay();
+    this.buttons.push({
+      action: () => this._showJoinOverlay(),
+      ui: createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'UNIRSE', () =>
+        this._showJoinOverlay(),
+      ),
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'COMO JUGAR', () => {
-      this.goToLearning();
+    this.buttons.push({
+      action: () => this.goToLearning(),
+      ui: createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'COMO JUGAR', () =>
+        this.goToLearning(),
+      ),
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 5, 'INSPECTOR', () => {
-      this.goToInspector();
+    this.buttons.push({
+      action: () => this.goToInspector(),
+      ui: createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 5, 'INSPECTOR', () =>
+        this.goToInspector(),
+      ),
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 6, 'MUSICA', () => {
-      this.goToMusic();
+    this.buttons.push({
+      action: () => this.goToMusic(),
+      ui: createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 6, 'MUSICA', () =>
+        this.goToMusic(),
+      ),
     });
 
     this.transitioning = false;
+
+    // Global navigation bindings
+    this.events.on('wake', this._bindNavEvents, this);
+    this.events.on('sleep', this._unbindNavEvents, this);
+    this.events.on('shutdown', this._unbindNavEvents, this);
+    this._bindNavEvents();
+    this.updateSelection();
+  }
+
+  _bindNavEvents() {
+    this._unbindNavEvents();
+    const e = this.game.events;
+    e.on('ui_up', this._navUp, this);
+    e.on('ui_down', this._navDown, this);
+    e.on('ui_confirm', this._navConfirm, this);
+  }
+
+  _unbindNavEvents() {
+    const e = this.game.events;
+    e.off('ui_up', this._navUp, this);
+    e.off('ui_down', this._navDown, this);
+    e.off('ui_confirm', this._navConfirm, this);
+  }
+
+  _navUp() {
+    if (this.transitioning || this._joinOverlay) return;
+    this.selectedIndex--;
+    if (this.selectedIndex < 0) this.selectedIndex = this.buttons.length - 1;
+    this.updateSelection();
+    this.game.audioManager.play('ui_navigate');
+  }
+
+  _navDown() {
+    if (this.transitioning || this._joinOverlay) return;
+    this.selectedIndex++;
+    if (this.selectedIndex >= this.buttons.length) this.selectedIndex = 0;
+    this.updateSelection();
+    this.game.audioManager.play('ui_navigate');
+  }
+
+  _navConfirm() {
+    if (this.transitioning || this._joinOverlay) return;
+    this.game.audioManager.play('ui_confirm');
+    this.buttons[this.selectedIndex].action();
+  }
+
+  updateSelection() {
+    this.buttons.forEach((btn, index) => {
+      const isSelected = index === this.selectedIndex;
+      if (isSelected) {
+        btn.ui.bg.setStrokeStyle(2, 0xffcc00);
+        btn.ui.text.setColor('#ffcc00');
+      } else {
+        btn.ui.bg.setStrokeStyle(1, 0x4444aa);
+        btn.ui.text.setColor('#ffffff');
+      }
+    });
   }
 
   goToSelect() {
