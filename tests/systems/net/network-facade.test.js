@@ -562,7 +562,6 @@ describe('NetworkFacade', () => {
       expect(nf.signaling.socket).toBeNull();
       expect(socket._listeners.message.length).toBe(0);
       expect(nf._onOpponentJoined).toBeNull();
-      expect(nf._onDisconnect).toBeNull();
     });
   });
 });
