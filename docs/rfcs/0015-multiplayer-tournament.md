@@ -168,6 +168,92 @@ async onConnect(connection, ctx) {
 
 **Dev bypass:** In development (when `SUPABASE_JWT_SECRET` is not set), accept `X-Dev-User-Id` and `X-Dev-Nickname` as query params, matching the existing dev bypass pattern in `api/_lib/handler.js`.
 
+### 2.5 FightRoom Admission Control
+
+**Problem:** FightRooms are identity-blind — they accept the first 2 connections. In a tournament, we must ensure that only the two assigned players can join a match's FightRoom.
+
+**Solution:** The TournamentRoom pre-registers the expected player user IDs ("principals") on the FightRoom via an HTTP call before sending `match_assigned` to the players. The FightRoom then verifies each connecting player's JWT against the allowlist.
+
+```mermaid
+sequenceDiagram
+    participant TR as TournamentRoom
+    participant FR as FightRoom
+    participant A as Player A
+    participant C as Player C (wrong)
+
+    TR->>FR: POST /setup-tournament<br/>{principals: [idA, idB]}
+    FR->>FR: store this._principals
+
+    TR->>A: match_assigned(roomId)
+
+    A->>FR: connect(query: {token: jwt_A})
+    FR->>FR: verify JWT → userId A<br/>A in principals? ✓
+    FR-->>A: assign slot 0
+
+    C->>FR: connect(query: {token: jwt_C})
+    FR->>FR: verify JWT → userId C<br/>C in principals? ✗
+    FR-->>C: close(4003, not_authorized)
+```
+
+**FightRoom changes** (`party/server.js`) — backwards-compatible:
+
+```javascript
+// onRequest: new endpoint for tournament setup
+async onRequest(request) {
+  // ... existing diagnostics handler ...
+
+  if (request.method === 'POST' && url.pathname.endsWith('/setup-tournament')) {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${this.party.env.INTERNAL_SECRET}`) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+    const { principals } = await request.json();
+    this._principals = principals;  // [userIdA, userIdB]
+    return new Response('OK');
+  }
+}
+
+// onConnect: if principals set, verify JWT and check allowlist
+onConnect(connection, ctx) {
+  if (this._principals) {
+    const token = new URL(ctx.request.url).searchParams.get('token');
+    if (!token) return connection.close(4001, 'auth_required');
+    try {
+      const payload = jwtVerify(token, this.party.env.SUPABASE_JWT_SECRET);
+      if (!this._principals.includes(payload.sub)) {
+        return connection.close(4003, 'not_authorized_for_match');
+      }
+    } catch {
+      return connection.close(4003, 'invalid_token');
+    }
+  }
+
+  // ... existing slot assignment (unchanged) ...
+}
+```
+
+**Key properties:**
+- **Backwards-compatible.** If `_principals` is not set (regular 1v1 rooms), the JWT check is skipped entirely. Existing online play is unaffected.
+- **Server-to-server auth.** The setup endpoint is protected by `INTERNAL_SECRET` env var (shared between TournamentRoom and FightRoom in the same PartyKit deployment). Clients cannot call it.
+- **No FightRoom logic changes.** Slot assignment, state machine, reconnection, spectator relay — all unchanged. The only addition is a gate at the door.
+
+**TournamentRoom side** (`party/tournament-server.js`):
+
+```javascript
+// Before sending match_assigned to players
+const fightRoomUrl = `https://${this.party.host}/parties/main/${roomId}`;
+await fetch(`${fightRoomUrl}/setup-tournament`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${this.party.env.INTERNAL_SECRET}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ principals: [userIdA, userIdB] }),
+});
+```
+
+**New env var:** `INTERNAL_SECRET` — a shared secret for server-to-server calls within the PartyKit deployment. Added to PartyKit env alongside existing `CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN`, and `DIAG_TOKEN`.
+
 ---
 
 ## 3. Data Persistence
@@ -289,13 +375,14 @@ sequenceDiagram
 When a round starts, the TournamentRoom:
 
 1. Reads all matches for the round from `TournamentManager`.
-2. For each match with two players, generates a fight room ID (format: `T{tournamentPrefix}{roundIndex}{matchIndex}`, e.g., `TAB01`).
-3. Sends `match_assigned` to both players with the room ID, fighter IDs, and stage ID.
-4. Broadcasts `active_matches` to all connected clients (for spectating).
+2. For each match with two players, generates a cryptographically random fight room ID (e.g., `crypto.randomUUID().slice(0, 8)`).
+3. Calls `POST /setup-tournament` on the FightRoom to register the two expected principals (see Section 2.5).
+4. Sends `match_assigned` to both players with the room ID, fighter IDs, and stage ID.
+5. Broadcasts `active_matches` to all connected clients (for spectating).
 
 ### 5.2 Fighting
 
-Each player connects to the assigned FightRoom using a new `NetworkFacade` instance. The match runs the existing fight flow: WebRTC negotiation, rollback netcode, spectator relay. No changes to the fighting infrastructure.
+Each player connects to the assigned FightRoom passing their JWT as a query param. The FightRoom verifies the JWT and checks the userId against the pre-registered principals (see Section 2.5). If authorized, the match proceeds with the existing fight flow: WebRTC negotiation, rollback netcode, spectator relay.
 
 ### 5.3 Result Reporting
 
@@ -454,6 +541,7 @@ graph TD
 ### Modified Files
 | File | Changes |
 |------|---------|
+| `party/server.js` | Add `/setup-tournament` endpoint in `onRequest()`, JWT + principal check in `onConnect()` (backwards-compatible: only active when `_principals` is set) |
 | `src/services/TournamentManager.js` | Multi-player support, remove AI simulation, add `reportResult()` |
 | `src/scenes/BracketScene.js` | Server-driven state, live updates, spectate buttons, match assignment UI |
 | `src/scenes/SelectScene.js` | Tournament multiplayer path (simultaneous pick, timer, ready counter) |
