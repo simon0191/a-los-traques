@@ -37,7 +37,7 @@ export const INPUT_PROFILES = {
       hp: Phaser.Input.Keyboard.KeyCodes.G,
       lk: Phaser.Input.Keyboard.KeyCodes.C,
       hk: Phaser.Input.Keyboard.KeyCodes.V,
-      sp: Phaser.Input.Keyboard.KeyCodes.E,
+      sp: Phaser.Input.Keyboard.KeyCodes.T,
     },
   },
   keyboard_right: {
