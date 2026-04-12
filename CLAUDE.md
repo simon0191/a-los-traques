@@ -44,11 +44,11 @@ bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 
 ```
 src/
-  scenes/          # Boot -> Title -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory
+  scenes/          # Boot -> Title -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory. VS Amigo: Title -> Select -> StageSelect -> PreFight -> Fight -> Victory
   services/        # TournamentManager.js, UIService.js
   entities/        # Fighter.js (Phaser wrapper), combat-block.js
   simulation/      # Pure sim core (no Phaser): SimulationEngine, FighterSim, CombatSim
-  systems/         # CombatSystem, InputManager, TouchControls, AIController, AudioBridge, VFXBridge
+  systems/         # CombatSystem, InputManager, InputProfiles, TouchControls, AIController, AudioBridge, VFXBridge
     net/           # NetworkFacade, SignalingClient, TransportManager, InputSync, ConnectionMonitor, SpectatorRelay
   data/            # fighters.json (16 fighters), stages.json (5 stages)
   config.js        # Constants (dimensions, ground Y, fighter size 128x128)
@@ -80,8 +80,8 @@ tests/
 - Import Phaser in any file using Phaser classes
 - `fighters.json` uses string IDs, scenes look up by ID with `.find()`
 - Placeholder textures: colored rectangles generated in BootScene, used when no real sprites exist
-- `gameMode`: `'local'` (vs AI) or `'online'` (vs player) passed through scene chain
-- `matchContext`: payload containing competition logic (e.g. tournament state).
+- `gameMode`: `'local'` (vs AI or local 2P) or `'online'` (vs player) passed through scene chain
+- `matchContext`: payload containing competition logic. `type: 'tournament'` (bracket), `type: 'versus'` (local 2P quick match), or absent (regular local/online).
 - Scenes pass data via `scene.start('SceneName', { p1Id, p2Id, stageId, gameMode, networkManager, matchContext })`
 - FightScene uses `MatchStateMachine` for flow control: `isPaused` is a getter on SM state, `_reconnecting`/`_onlineDisconnected` eliminated, update loop guards on `matchState.state` instead of `combat.roundActive`
 - **Logging**: Use `Logger.create('ModuleName')` from `src/systems/Logger.js` instead of `console.log/warn/error`. Zero overhead when level is OFF (default). See RFC 0005.
@@ -189,6 +189,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0012-e2e-bot-user.md` — E2E bot user for debug bundle uploads (proposed)
 - `docs/rfcs/0013-fighter-balance-simulation.md` — Headless AI-vs-AI balance simulation pipeline
 - `docs/rfcs/0014-fix-desync-adaptive-delay-gap.md` — Fix desync from adaptive input delay frame gaps
+- `docs/rfcs/0015-local-multiplayer-tournament.md` — Local multiplayer tournament + VS Amigo (N human players, split keyboard)
 
 ## Balance Simulation
 
@@ -198,6 +199,17 @@ Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered
 - **Key adapter**: `ai-input-adapter.js` reads `AIController.decision` and converts to encoded inputs for `tick()`
 - **Output**: `balance-report.json` (machine-readable) + `balance-report.md` (tier list, heatmap, outliers)
 - **Default**: 100 fights per matchup × 256 matchups = 25,600 fights, completes in ~20 seconds
+
+## Local Multiplayer (RFC 0015)
+
+- **VS Amigo**: 2-player quick match from TitleScene. Split keyboard: P1 = WASD + FGCVE, P2 = Arrows + IOKLP.
+- **Tournament**: 1–8 human players in a bracket. Sequential fighter selection, no duplicate fighters.
+- **Input profiles** (`src/systems/InputProfiles.js`): `keyboard_full` (single player), `keyboard_left` (P1 in 2P), `keyboard_right` (P2 in 2P). `InputManager` accepts `profileId` parameter.
+- **TournamentManager**: `humanFighterIds` array tracks N humans. `getNextPlayableMatch()` routes matches. `isHumanVsHuman()` triggers split keyboard in FightScene.
+- **matchContext.isHumanVsHuman**: set per-match by BracketScene when both fighters are human.
+- **matchContext.type === 'versus'**: signals VS Amigo mode — FightScene creates two InputManagers.
+- Humans are seeded in separate bracket segments so they meet as late as possible.
+- When all humans are eliminated, remaining bracket is auto-simulated.
 
 ## Online Multiplayer
 
