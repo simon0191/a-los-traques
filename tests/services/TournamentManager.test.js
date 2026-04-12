@@ -159,6 +159,185 @@ describe('TournamentManager', () => {
     });
   });
 
+  describe('N-player tournament', () => {
+    it('generate() accepts an array of human fighter IDs', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      expect(manager.humanFighterIds).toEqual(humans);
+      expect(manager.playerFighterId).toBe('alv');
+      expect(manager.eliminatedHumans).toEqual([]);
+    });
+
+    it('spreads humans across the bracket into different segments', () => {
+      const humans = ['alv', 'simon'];
+      for (let seed = 0; seed < 10; seed++) {
+        const manager = TournamentManager.generate(fighters, 8, humans, seed);
+        // Find which first-round matches contain each human
+        const alvMatch = manager.rounds[0].findIndex((m) => m.p1 === 'alv' || m.p2 === 'alv');
+        const simonMatch = manager.rounds[0].findIndex((m) => m.p1 === 'simon' || m.p2 === 'simon');
+        // They should be in different halves of the bracket (different segments)
+        expect(alvMatch).not.toBe(simonMatch);
+        // With 8-player bracket (4 matches in round 1), halves are [0,1] and [2,3]
+        const alvHalf = alvMatch < 2 ? 0 : 1;
+        const simonHalf = simonMatch < 2 ? 0 : 1;
+        expect(alvHalf).not.toBe(simonHalf);
+      }
+    });
+
+    it('places all humans in P1 slots', () => {
+      const humans = ['alv', 'simon', 'jeka'];
+      for (let seed = 0; seed < 10; seed++) {
+        const manager = TournamentManager.generate(fighters, 16, humans, seed);
+        for (const human of humans) {
+          const match = manager.rounds[0].find((m) => m.p1 === human || m.p2 === human);
+          expect(match.p1).toBe(human);
+        }
+      }
+    });
+
+    it('simulateRound() skips all human matches', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+      manager.simulateRound(0);
+
+      // Human matches should not have winners
+      for (const human of humans) {
+        const match = manager.rounds[0].find((m) => m.p1 === human || m.p2 === human);
+        expect(match.winner).toBeNull();
+      }
+
+      // AI-only matches should have winners
+      const aiMatches = manager.rounds[0].filter(
+        (m) => !humans.includes(m.p1) && !humans.includes(m.p2),
+      );
+      for (const m of aiMatches) {
+        expect(m.winner).not.toBeNull();
+      }
+    });
+
+    it('advance() tracks human elimination', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      // Find alv's opponent and make alv lose
+      const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
+      manager.advance(alvMatch.p2); // alv loses
+
+      expect(manager.eliminatedHumans).toContain('alv');
+      expect(manager.isHumanEliminated('alv')).toBe(true);
+      expect(manager.isHumanEliminated('simon')).toBe(false);
+    });
+
+    it('getNextPlayableMatch() returns matches for non-eliminated humans only', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+      manager.simulateRound(0);
+
+      // Both humans have playable matches
+      const first = manager.getNextPlayableMatch();
+      expect(first).not.toBeNull();
+      const firstHuman = humans.includes(first.p1) ? first.p1 : first.p2;
+
+      // Eliminate that human
+      const opponent = firstHuman === first.p1 ? first.p2 : first.p1;
+      manager.advance(opponent);
+
+      // Next match should be for the other human
+      const second = manager.getNextPlayableMatch();
+      expect(second).not.toBeNull();
+      const secondHuman = humans.includes(second.p1) ? second.p1 : second.p2;
+      expect(secondHuman).not.toBe(firstHuman);
+    });
+
+    it('isHumanVsHuman() detects when two humans meet', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      // First round: humans are in different matches
+      for (const match of manager.rounds[0]) {
+        expect(manager.isHumanVsHuman(match)).toBe(false);
+      }
+
+      // Simulate AI matches, advance both humans through all rounds
+      manager.simulateRound(0);
+      manager.advance('alv');
+      manager.advance('simon');
+      manager.simulateRound(1);
+      manager.advance('alv');
+      manager.advance('simon');
+
+      // In the final, both should meet
+      const finalMatch = manager.rounds[manager.rounds.length - 1][0];
+      expect(finalMatch.p1).not.toBeNull();
+      expect(finalMatch.p2).not.toBeNull();
+      // At least one must be human; if both made it to finals they should meet
+      if (finalMatch.p1 === 'alv' || finalMatch.p1 === 'simon') {
+        if (finalMatch.p2 === 'alv' || finalMatch.p2 === 'simon') {
+          expect(manager.isHumanVsHuman(finalMatch)).toBe(true);
+        }
+      }
+    });
+
+    it('allHumansEliminated() returns true when all humans lose', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      expect(manager.allHumansEliminated()).toBe(false);
+
+      // Eliminate both
+      const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
+      manager.advance(alvMatch.p2);
+      expect(manager.allHumansEliminated()).toBe(false);
+
+      const simonMatch = manager.rounds[0].find((m) => m.p1 === 'simon');
+      manager.advance(simonMatch.p2);
+      expect(manager.allHumansEliminated()).toBe(true);
+    });
+
+    it('getCurrentMatch() is backward-compat alias for getNextPlayableMatch()', () => {
+      const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
+      expect(manager.getCurrentMatch()).toEqual(manager.getNextPlayableMatch());
+    });
+
+    it('4 humans in size-16 bracket are spread into 4 segments', () => {
+      const humans = ['alv', 'simon', 'jeka', 'mao'];
+      const manager = TournamentManager.generate(fighters, 16, humans, 42);
+
+      const positions = humans.map((h) => {
+        return manager.rounds[0].findIndex((m) => m.p1 === h || m.p2 === h);
+      });
+
+      // Each human should be in a different quarter (0-1, 2-3, 4-5, 6-7)
+      const quarters = positions.map((p) => Math.floor(p / 2));
+      const uniqueQuarters = new Set(quarters);
+      expect(uniqueQuarters.size).toBe(4);
+    });
+  });
+
+  describe('backward compatibility', () => {
+    it('single string humanFighterIds works like old API', () => {
+      const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
+      expect(manager.humanFighterIds).toEqual(['alv']);
+      expect(manager.playerFighterId).toBe('alv');
+    });
+
+    it('restores from old serialized state without humanFighterIds', () => {
+      const oldState = {
+        id: 'test',
+        size: 8,
+        seed: 42,
+        playerFighterId: 'alv',
+        playerInitialIndex: 0,
+        rounds: [[{ p1: 'alv', p2: 'simon', winner: null }]],
+        prngCalls: 0,
+      };
+      const manager = new TournamentManager(oldState);
+      expect(manager.humanFighterIds).toEqual(['alv']);
+      expect(manager.eliminatedHumans).toEqual([]);
+    });
+  });
+
   describe('winning the tournament', () => {
     it('sets winnerId and complete when final match is decided', () => {
       const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
