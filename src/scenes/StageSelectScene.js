@@ -98,6 +98,13 @@ export class StageSelectScene extends Phaser.Scene {
         rect.on('pointerdown', () => {
           this.selectedIndex = i;
           this.updateSelection();
+          // Automatically move focus to LISTO button
+          if (this.listoBtn) {
+            const controller = this.scene.get('ControllerScene');
+            if (controller) {
+              controller.focusItem(this.listoBtn.bg);
+            }
+          }
         });
         rect.on('pointerover', () => {
           this.selectedIndex = i;

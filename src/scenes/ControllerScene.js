@@ -30,6 +30,7 @@ export class ControllerScene extends Phaser.Scene {
     this.currentBounds = { x: 0, y: 0, w: 0, h: 0 };
     this.LERP_SPEED = 0.25;
     this.cursorVisible = true;
+    this.lastSceneKey = '';
   }
 
   create() {
@@ -59,21 +60,28 @@ export class ControllerScene extends Phaser.Scene {
   }
 
   _checkActiveScene() {
-    const activeScenes = this.game.scene.getScenes(true);
-    const mainScene = activeScenes.find(
-      (s) =>
-        s.scene.key !== 'ControllerScene' &&
-        s.scene.key !== 'DevConsole' &&
-        s.scene.key !== 'AudioManager',
-    );
+    const mainScene = this._getMainScene();
+    if (!mainScene) return;
 
-    if (mainScene && this.lastSceneKey !== mainScene.scene.key) {
+    if (this.lastSceneKey !== mainScene.scene.key) {
       this.lastSceneKey = mainScene.scene.key;
       // If we move to a scene that doesn't usually have menus, clear the navigation
       if (['FightScene', 'PreFightScene', 'BootScene'].includes(this.lastSceneKey)) {
         this.setNavMenu(null);
       }
     }
+  }
+
+  _getMainScene() {
+    const activeScenes = this.game.scene.getScenes(true);
+    // Find the topmost scene that isn't a system utility (searching from end of list)
+    return activeScenes.slice().reverse().find(
+      (s) =>
+        s.scene.key !== 'ControllerScene' &&
+        s.scene.key !== 'DevConsole' &&
+        s.scene.key !== 'AudioManager' &&
+        s.scene.key !== 'VFXBridge',
+    );
   }
 
   /**
@@ -102,6 +110,40 @@ export class ControllerScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Manually set focus to a specific GameObject.
+   * @param {GameObject} obj 
+   */
+  focusItem(obj) {
+    if (!obj) return;
+
+    // Find indices in current menu
+    if (this.isGrid) {
+      for (let y = 0; y < this.menuItems.length; y++) {
+        const x = this.menuItems[y].indexOf(obj);
+        if (x !== -1) {
+          const prev = this._getFocusedItem();
+          if (prev) prev.emit('pointerout');
+          this.cursorX = x;
+          this.cursorY = y;
+          obj.emit('pointerover');
+          this.targetBounds = this._getGlobalBounds(obj);
+          return;
+        }
+      }
+    } else {
+      const y = this.menuItems.indexOf(obj);
+      if (y !== -1) {
+        const prev = this._getFocusedItem();
+        if (prev) prev.emit('pointerout');
+        this.cursorY = y;
+        obj.emit('pointerover');
+        this.targetBounds = this._getGlobalBounds(obj);
+        return;
+      }
+    }
+  }
+
   _getFocusedItem() {
     if (this.menuItems.length === 0) return null;
     if (this.isGrid) {
@@ -122,8 +164,6 @@ export class ControllerScene extends Phaser.Scene {
     // Support containers and normal objects
     const bounds = obj.getBounds ? obj.getBounds() : { x: obj.x, y: obj.y, width: 40, height: 20 };
     
-    // If object is inside a container, its bounds might be relative. 
-    // Phaser's getBounds() usually returns world coordinates, but let's be safe.
     return {
       x: bounds.x,
       y: bounds.y,
@@ -202,24 +242,19 @@ export class ControllerScene extends Phaser.Scene {
       if (focused) {
         focused.emit('pointerdown');
         focused.emit('pointerup');
-        this.game.audioManager?.play('ui_confirm');
       }
     }
 
     // Cancel / Back Logic
     if (circleJustDown || optionsJustDown || escJustDown) {
-      const activeScenes = this.game.scene.getScenes(true);
-      const mainScene = activeScenes.find(
-        (s) => s.scene.key !== 'ControllerScene' && s.scene.key !== 'DevConsole',
-      );
-
+      const mainScene = this._getMainScene();
       if (mainScene) {
-        // Many scenes have a 'handleBack' or 'goBack' method
         if (typeof mainScene.handleBack === 'function') mainScene.handleBack();
         else if (typeof mainScene.goBack === 'function') mainScene.goBack();
         else if (typeof mainScene._goBack === 'function') mainScene._goBack();
-
-        this.game.audioManager?.play('ui_cancel');
+        else {
+          mainScene.events.emit('ui_cancel');
+        }
       }
     }
 
@@ -257,15 +292,10 @@ export class ControllerScene extends Phaser.Scene {
     
     if (this.isGrid) {
       const rows = this.menuItems.length;
-      
-      // Move Y first
       this.cursorY = Phaser.Math.Clamp(this.cursorY + dy, 0, rows - 1);
-      
-      // Then clamp X to the new row's length
       const cols = this.menuItems[this.cursorY]?.length || 0;
       this.cursorX = Phaser.Math.Clamp(this.cursorX + dx, 0, cols - 1);
     } else {
-      // 1D vertical list (dx ignored)
       if (dy !== 0) {
         this.cursorY += dy;
         if (this.cursorY < 0) this.cursorY = this.menuItems.length - 1;
@@ -286,13 +316,15 @@ export class ControllerScene extends Phaser.Scene {
     this.graphics.clear();
     if (this.menuItems.length === 0 || !this.cursorVisible) return;
 
+    const focused = this._getFocusedItem();
+    if (focused && focused.noCursor) return;
+
     // Lerp bounds
     this.currentBounds.x = Phaser.Math.Linear(this.currentBounds.x, this.targetBounds.x, this.LERP_SPEED);
     this.currentBounds.y = Phaser.Math.Linear(this.currentBounds.y, this.targetBounds.y, this.LERP_SPEED);
     this.currentBounds.w = Phaser.Math.Linear(this.currentBounds.w, this.targetBounds.w, this.LERP_SPEED);
     this.currentBounds.h = Phaser.Math.Linear(this.currentBounds.h, this.targetBounds.h, this.LERP_SPEED);
 
-    // Draw glowing rectangle
     const thickness = 2;
     const padding = 2;
     
@@ -304,7 +336,6 @@ export class ControllerScene extends Phaser.Scene {
       this.currentBounds.h + padding * 2
     );
 
-    // Subtle fill
     this.graphics.fillStyle(0xffcc00, 0.1);
     this.graphics.fillRect(
       this.currentBounds.x - padding,

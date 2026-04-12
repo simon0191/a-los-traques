@@ -133,6 +133,7 @@ export class SelectScene extends Phaser.Scene {
 
       const rect = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, color, 0.2).setOrigin(0, 0);
       rect.setInteractive();
+      rect.noCursor = true; // Tell ControllerScene to hide the yellow square
       
       const onSelect = () => {
         if (this.transitioning) return;
@@ -486,7 +487,7 @@ export class SelectScene extends Phaser.Scene {
         // Add buttons at the bottom
         matrix.push([this.listoBtn, this.volverBtn]);
         
-        controller.setNavMenu(matrix, true, false);
+        controller.setNavMenu(matrix, true, true);
       }
     });
   }
