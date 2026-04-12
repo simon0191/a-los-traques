@@ -1,6 +1,6 @@
 # RFC 0015: Global Leaderboard
 
-**Status**: Proposed  
+**Status**: Accepted  
 **Date**: 2026-04-10
 
 ## Problem
