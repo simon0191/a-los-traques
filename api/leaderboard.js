@@ -23,11 +23,6 @@ export default withAuth(async (req, res, { db }) => {
     LIMIT 10;
   `;
 
-  try {
-    const result = await db.query(query);
-    return res.status(200).json(result.rows);
-  } catch (err) {
-    console.error('Error fetching leaderboard:', err);
-    return res.status(500).json({ error: 'Database Error', message: err.message });
-  }
+  const result = await db.query(query);
+  return res.status(200).json(result.rows);
 });
