@@ -7,38 +7,33 @@ The game currently supports Keyboard and Touch inputs for combat and navigation,
 Currently, `InputManager.js` hardcodes Keyboard (Z, X, A, S, D, Space, and Arrow Keys) and Touch overlay checks. Players connecting a gamepad cannot interact with the UI or control their fighters in combat. Without native Phaser Gamepad integration, local multiplayer is limited to both players crowding around a single keyboard or using touch overlays.
 
 ## 3. Proposed Solution
-Integrate Phaser's native Gamepad plugin and update `InputManager` to read controller inputs alongside Keyboard and Touch inputs. Furthermore, implement a global `ControllerScene` to manage gamepad connection status and broadcast UI events for menu navigation.
+Integrate Phaser's native Gamepad plugin and implement a global `ControllerScene` that manages all UI menu navigation using a centralized **Explicit Array/Grid** registration method. This removes the need for manual input listeners in individual UI scenes.
 
 ### Key Strategies:
-1. **Enable Gamepad Plugin:** Modify the Phaser game configuration in `src/main.js` to enable the Gamepad plugin (`input: { gamepad: true }`).
-2. **Update `InputManager`:** Extend the getters (`left`, `right`, `lightPunch`, etc.) to query connected gamepads.
-3. **Global `ControllerScene`:** Create a persistent background scene that listens for connection events and translates Gamepad D-Pad/Axis movements into global `ui_up`, `ui_down`, `ui_left`, `ui_right`, `ui_confirm`, and `ui_cancel` events.
-4. **Toast Notifications:** Display a "Control conectado" or "Control desconectado" toast when a gamepad status changes.
+1. **Enable Gamepad Plugin:** Modify `src/main.js` to enable the Gamepad plugin.
+2. **Centralized `ControllerScene`:** A persistent background scene that serves as the global navigator.
+3. **Explicit Registration API:** Scenes register their interactive objects via `controller.setNavMenu(items, isGrid)`.
+    - **1D Menus:** Vertical lists with automatic wrap-around.
+    - **2D Grids:** Matrices for character/stage selection with boundary clamping.
+4. **Global Visual Cursor:** A Graphics-based rectangle that smoothly **lerps** to the position and size of the currently focused item, providing consistent visual feedback across the entire game.
 5. **Standardized Mapping (PS4 Layout):**
-    - **Movement:** D-Pad (Up, Down, Left, Right) or Left Analog Stick.
-    - **Light Punch / Confirm:** Square (Button 2) / Cross (Button 0).
-    - **Heavy Punch:** Triangle (Button 3).
-    - **Light Kick:** Cross (Button 0).
-    - **Heavy Kick:** Circle (Button 1).
-    - **Special:** R1 / R2 (Button 5 / Button 7).
+    - **Movement:** D-Pad or Left Analog Stick.
+    - **Confirm:** Cross (Button 0) or Square (Button 2).
     - **Back / Cancel:** Circle (Button 1) or Options (Button 9).
-    - **Block:** Down direction (same as keyboard).
+    - **Notifications:** "Control conectado" toasts on status change.
 
 ## 4. Implementation Details
 
 ### `src/scenes/ControllerScene.js`
-A new persistent scene added to the game config. It handles:
-- **Connection Toasts:** Animated UI container for "Control conectado".
-- **Event Broadcasting:** Emits `this.game.events.emit('ui_up', ...)` etc. with built-in repeat delays.
+The "Global Brain" of the navigation system. It tracks the `focusedObject` and handles the input loop for both Gamepad and Keyboard. It uses `Phaser.Math.Linear` to animate the cursor movement between menu items.
 
-### Menu Scene Integration
-Scenes like `TitleScene`, `SelectScene`, `StageSelectScene`, `VictoryScene`, `LobbyScene`, `InspectorScene`, and `MusicScene` have been updated to:
-- Bind to global UI events on `wake`/`create`.
-- Unbind on `sleep`/`shutdown`.
-- Update visual selection cursors based on gamepad navigation.
-
-### `src/main.js`
-Enable gamepads in the global Phaser configuration and register `ControllerScene`.
+### Scene Integration
+Individual scenes are simplified. Instead of managing `selectedIndex` or listening for `keydown` events, they simply collect their buttons and register them:
+```javascript
+const buttons = [btn1, btn2, btn3];
+this.scene.get('ControllerScene').setNavMenu(buttons);
+```
+This ensures that even complex scenes like `SelectScene` (Character Select) and `StageSelectScene` can leverage the centralized input handling while providing their own custom layouts.
 
 ### `src/systems/InputManager.js`
 Refactor property getters to include gamepad checks. `InputManager` needs to identify which player (P1 or P2) it represents, or simply read from the assigned gamepad index.

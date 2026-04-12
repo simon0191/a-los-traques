@@ -249,12 +249,14 @@ export class VictoryScene extends Phaser.Scene {
       });
     });
 
-    // Global navigation bindings
-    this.events.on('wake', this._bindNavEvents, this);
-    this.events.on('sleep', this._unbindNavEvents, this);
-    this.events.on('shutdown', this._unbindNavEvents, this);
-    this._bindNavEvents();
-    this.updateSelection();
+    // Register with centralized controller
+    this.time.delayedCall(100, () => {
+      const controller = this.scene.get('ControllerScene');
+      if (controller) {
+        const buttons = this.buttons.map((b) => b.ui.bg);
+        controller.setNavMenu(buttons);
+      }
+    });
 
     // In online mode, listen for rematch/leave from opponent
     if (this.gameMode === 'online' && this.networkManager) {

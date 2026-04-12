@@ -114,6 +114,17 @@ export class LobbyScene extends Phaser.Scene {
       { width: 110, height: 20, fontSize: '9px' },
     );
 
+    // Register with centralized controller
+    this.time.delayedCall(100, () => {
+      const controller = this.scene.get('ControllerScene');
+      if (controller) {
+        const buttons = this.children.list.filter(
+          (child) => child.input && child.input.enabled && child.type === 'Rectangle',
+        );
+        controller.setNavMenu(buttons);
+      }
+    });
+
     // Start connection
     if (this.isCreator) {
       this.roomId = generateRoomId();
@@ -200,30 +211,6 @@ export class LobbyScene extends Phaser.Scene {
     this.network.onRejoinAvailable((slot) => {
       this.network.sendRejoin(slot, true);
     });
-
-    // Global navigation bindings
-    this.events.on('wake', this._bindNavEvents, this);
-    this.events.on('sleep', this._unbindNavEvents, this);
-    this.events.on('shutdown', this._unbindNavEvents, this);
-    this._bindNavEvents();
-  }
-
-  _bindNavEvents() {
-    this._unbindNavEvents();
-    const e = this.game.events;
-    e.on('ui_confirm', this._navConfirm, this);
-    e.on('ui_cancel', this._goBack, this);
-  }
-
-  _unbindNavEvents() {
-    const e = this.game.events;
-    e.off('ui_confirm', this._navConfirm, this);
-    e.off('ui_cancel', this._goBack, this);
-  }
-
-  _navConfirm() {
-    // Only 'VOLVER' is really selectable for now unless we add more buttons
-    this._goBack();
   }
 
   _goBack() {

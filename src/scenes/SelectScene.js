@@ -149,7 +149,7 @@ export class SelectScene extends Phaser.Scene {
       });
 
       this.gridContainer.add(rect);
-      this.gridCells.push({ x: cellX + 2, y: cellY + 2, pDOM, nDOM });
+      this.gridCells.push({ x: cellX + 2, y: cellY + 2, pDOM, nDOM, rect });
       this.portraitDOMs.push(pDOM);
       this.nameDOMs.push(nDOM);
     }
@@ -191,26 +191,26 @@ export class SelectScene extends Phaser.Scene {
     maskGfx.fillRect(0, VIEW_TOP, VIEW_WIDTH, VIEW_BOTTOM - VIEW_TOP);
     this.gridContainer.setMask(maskGfx.createGeometryMask());
 
-    const listoBtn = this.add.rectangle(110, 252, 60, 22, 0x3366ff).setInteractive();
+    this.listoBtn = this.add.rectangle(110, 252, 60, 22, 0x3366ff).setInteractive();
     this.add
-      .text(listoBtn.x, listoBtn.y, 'LISTO', {
+      .text(this.listoBtn.x, this.listoBtn.y, 'LISTO', {
         fontFamily: 'Arial Black, Arial',
         fontSize: '10px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
 
-    listoBtn.on('pointerdown', () => {
+    this.listoBtn.on('pointerdown', () => {
       if (this.transitioning) return;
       if (!this.p1Confirmed) this.confirmP1();
       else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
     });
 
-    createButton(this, 45, 252, 'VOLVER', () => this.handleBack(), {
+    this.volverBtn = createButton(this, 45, 252, 'VOLVER', () => this.handleBack(), {
       width: 60,
       height: 22,
       fontSize: '9px',
-    });
+    }).bg;
 
     this.confirmedText = this.add
       .text(150, GAME_HEIGHT - 12, '', {
@@ -314,16 +314,6 @@ export class SelectScene extends Phaser.Scene {
         .setOrigin(0, 0.5)
         .setScale(0, 1);
       this.p2StatBars.push(bar);
-    });
-
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.input.keyboard.on('keydown', (event) => {
-      if (this.transitioning) return;
-      if (event.code === 'Escape' || event.code === 'Backspace') this.handleBack();
-      if (event.code === 'KeyZ' || event.code === 'Enter' || event.code === 'Space') {
-        if (!this.p1Confirmed) this.confirmP1();
-        else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
-      }
     });
 
     this.updateP1Display();
@@ -452,15 +442,7 @@ export class SelectScene extends Phaser.Scene {
       this._isDragging = false;
     });
 
-    this.navTimers = { up: 0, down: 0, left: 0, right: 0 };
-    this.NAV_DELAY = 500;
-    this.NAV_FREQ = 200;
-
-    // Global navigation bindings
-    this.events.on('wake', this._bindNavEvents, this);
-    this.events.on('sleep', this._unbindNavEvents, this);
     this.events.on('shutdown', () => {
-      this._unbindNavEvents();
       for (const dom of this.portraitDOMs) {
         dom.destroy();
       }
@@ -470,96 +452,35 @@ export class SelectScene extends Phaser.Scene {
       this.portraitDOMs = [];
       this.nameDOMs = [];
     });
-    this._bindNavEvents();
 
     this._syncDOMPortraits();
-  }
 
-  _bindNavEvents() {
-    this._unbindNavEvents();
-    const e = this.game.events;
-    e.on('ui_up', this._navUp, this);
-    e.on('ui_down', this._navDown, this);
-    e.on('ui_left', this._navLeft, this);
-    e.on('ui_right', this._navRight, this);
-    e.on('ui_confirm', this._navConfirm, this);
-    e.on('ui_cancel', this.handleBack, this);
-  }
-
-  _unbindNavEvents() {
-    const e = this.game.events;
-    e.off('ui_up', this._navUp, this);
-    e.off('ui_down', this._navDown, this);
-    e.off('ui_left', this._navLeft, this);
-    e.off('ui_right', this._navRight, this);
-    e.off('ui_confirm', this._navConfirm, this);
-    e.off('ui_cancel', this.handleBack, this);
-  }
-
-  _navUp() {
-    this._handleAxisKey(0, -1);
-  }
-
-  _navDown() {
-    this._handleAxisKey(0, 1);
-  }
-
-  _navLeft() {
-    this._handleAxisKey(-1, 0);
-  }
-
-  _navRight() {
-    this._handleAxisKey(1, 0);
-  }
-
-  _navConfirm() {
-    if (this.transitioning) return;
-    if (!this.p1Confirmed) this.confirmP1();
-    else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
-  }
-
-  _handleAxisKey(dx, dy) {
-    if (this.transitioning) return;
-    const isP1 = !this.p1Confirmed;
-    const isP2 = this.p2SelectionMode && !this.p2Confirmed;
-    if (isP1 || isP2) {
-      this._moveSelection(dx, dy);
-    }
+    // Register with centralized controller
+    this.time.delayedCall(100, () => {
+      const controller = this.scene.get('ControllerScene');
+      if (controller) {
+        const matrix = [];
+        const rows = Math.ceil(this.fighters.length / COLS);
+        for (let r = 0; r < rows; r++) {
+          const rowArr = [];
+          for (let c = 0; c < COLS; c++) {
+            const idx = r * COLS + c;
+            if (idx < this.gridCells.length) {
+              rowArr.push(this.gridCells[idx].rect);
+            }
+          }
+          if (rowArr.length > 0) matrix.push(rowArr);
+        }
+        // Add buttons at the bottom
+        matrix.push([this.listoBtn, this.volverBtn]);
+        
+        controller.setNavMenu(matrix, true);
+      }
+    });
   }
 
   update(_time, delta) {
-    if (this.transitioning) return;
-    const isP1 = !this.p1Confirmed;
-    const isP2 = this.p2SelectionMode && !this.p2Confirmed;
-    if (isP1 || isP2) {
-      this._handleNavKey(this.cursors.left, -1, 0, delta);
-      this._handleNavKey(this.cursors.right, 1, 0, delta);
-      this._handleNavKey(this.cursors.up, 0, -1, delta);
-      this._handleNavKey(this.cursors.down, 0, 1, delta);
-    }
-  }
-
-  _handleNavKey(key, dx, dy, delta) {
-    const dir = dx !== 0 ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
-    if (key.isDown) {
-      if (this.navTimers[dir] === 0) {
-        this._moveSelection(dx, dy);
-        this.navTimers[dir] = this.NAV_DELAY;
-      } else {
-        this.navTimers[dir] -= delta;
-        if (this.navTimers[dir] <= 0) {
-          this._moveSelection(dx, dy);
-          this.navTimers[dir] = this.NAV_FREQ;
-        }
-      }
-    } else {
-      this.navTimers[dir] = 0;
-    }
-  }
-
-  _moveSelection(dx, dy) {
-    if (!this.p1Confirmed) this.moveP1Cursor(dx, dy);
-    else if (this.p2SelectionMode && !this.p2Confirmed) this.moveP2Cursor(dx, dy);
+    // Handled by ControllerScene
   }
 
   _clampScroll() {

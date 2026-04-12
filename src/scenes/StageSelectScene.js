@@ -99,6 +99,10 @@ export class StageSelectScene extends Phaser.Scene {
           this.selectedIndex = i;
           this.updateSelection();
         });
+        rect.on('pointerover', () => {
+          this.selectedIndex = i;
+          this.updateSelection();
+        });
       }
     }
 
@@ -136,11 +140,8 @@ export class StageSelectScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.infoContainer.add([this.stageNameText, this.stageDescText]);
 
-    // Cursor
-    this.cursor = this.add.rectangle(0, 0, CELL_W + 4, CELL_H + 4).setStrokeStyle(3, 0xffcc00);
-
     // Back button
-    createButton(
+    this.backBtn = createButton(
       this,
       60,
       GAME_HEIGHT - 20,
@@ -151,48 +152,7 @@ export class StageSelectScene extends Phaser.Scene {
       { width: 110, height: 20, fontSize: '9px' },
     );
 
-    if (this.isP1) {
-      this.input.keyboard.on('keydown', (event) => {
-        if (this.transitioning) return;
-
-        if (event.code === 'Escape' || event.code === 'Backspace') {
-          this.handleBack();
-          return;
-        }
-
-        const _row = Math.floor(this.selectedIndex / COLS);
-        const _col = this.selectedIndex % COLS;
-
-        if (event.code === 'ArrowRight') {
-          if (this.selectedIndex < this.stages.length - 1) {
-            this.selectedIndex++;
-            audio.play('ui_navigate');
-          }
-        } else if (event.code === 'ArrowLeft') {
-          if (this.selectedIndex > 0) {
-            this.selectedIndex--;
-            audio.play('ui_navigate');
-          }
-        } else if (event.code === 'ArrowDown') {
-          if (this.selectedIndex + COLS < this.stages.length) {
-            this.selectedIndex += COLS;
-            audio.play('ui_navigate');
-          }
-        } else if (event.code === 'ArrowUp') {
-          if (this.selectedIndex - COLS >= 0) {
-            this.selectedIndex -= COLS;
-            audio.play('ui_navigate');
-          }
-        } else if (event.code === 'KeyZ' || event.code === 'Enter' || event.code === 'Space') {
-          this.confirmSelection();
-        }
-
-        this.updateSelection();
-      });
-    }
-
     if (this.gameMode === 'online' && this.networkManager) {
-      // P1: Listen for create_fight signal — create fight record, then confirm
       this.networkManager.signaling.on('create_fight', (data) => {
         this.headerText?.setText('CREANDO PELEA...');
         import('../services/api.js').then(({ createFight }) => {
@@ -207,129 +167,74 @@ export class StageSelectScene extends Phaser.Scene {
               this.networkManager.signaling.send({ type: 'fight_created' });
             })
             .catch((err) => {
-              // Still send fight_created to unblock the match even if DB fails
               console.warn('Fight creation failed, continuing anyway:', err.message);
               this.networkManager.signaling.send({ type: 'fight_created' });
             });
         });
       });
 
-      // Listen for start signal (sent by server after fight_created)
       this.networkManager.onStart((data) => {
         this._fightId = data.fightId;
-
-        // P2: register as second player in the fight record
         if (!this.isP1) {
           import('../services/api.js').then(({ updateFight }) => {
             updateFight({ fightId: data.fightId, registerP2: true }).catch(() => {});
           });
         }
-
         this.goToPreFight(data.stageId, data.isRandomStage);
       });
 
       this.networkManager.onReturnToSelect(() => {
         this.handleBack(true);
       });
-
-      if (!this.isP1) {
-        // P2 just waits for the 'start' message which contains the stageId
-      }
     }
 
     // Autoplay: auto-select first stage and confirm
     if (this.game.autoplay?.enabled && this.isP1) {
       this.time.delayedCall(500, () => {
         if (!this.transitioning) {
-          this.selectedIndex = 0; // Pick first stage
+          this.selectedIndex = 0;
           this.updateSelection();
           this.confirmSelection();
         }
       });
     }
 
-    this.events.on('wake', this._bindNavEvents, this);
-    this.events.on('sleep', this._unbindNavEvents, this);
-    this.events.on('shutdown', this._unbindNavEvents, this);
-    this._bindNavEvents();
+    // Register with centralized controller
+    this.time.delayedCall(100, () => {
+      const controller = this.scene.get('ControllerScene');
+      if (controller && this.isP1) {
+        const matrix = [];
+        const rows = Math.ceil(this.stages.length / COLS);
+        for (let r = 0; r < rows; r++) {
+          const rowArr = [];
+          for (let c = 0; c < COLS; c++) {
+            const idx = r * COLS + c;
+            if (idx < this.gridCells.length) {
+              rowArr.push(this.gridCells[idx].rect);
+            }
+          }
+          if (rowArr.length > 0) matrix.push(rowArr);
+        }
+        // Add LISTO and VOLVER buttons at the bottom
+        const bottomRow = [];
+        if (this.listoBtn) bottomRow.push(this.listoBtn.bg);
+        if (this.backBtn) bottomRow.push(this.backBtn.bg);
+        if (bottomRow.length > 0) matrix.push(bottomRow);
+        
+        controller.setNavMenu(matrix, true);
+      }
+    });
 
     this.updateSelection();
   }
 
-  _bindNavEvents() {
-    this._unbindNavEvents();
-    if (!this.isP1) return;
-    const e = this.game.events;
-    e.on('ui_up', this._navUp, this);
-    e.on('ui_down', this._navDown, this);
-    e.on('ui_left', this._navLeft, this);
-    e.on('ui_right', this._navRight, this);
-    e.on('ui_confirm', this.confirmSelection, this);
-    e.on('ui_cancel', this._navCancel, this);
-  }
-
-  _unbindNavEvents() {
-    const e = this.game.events;
-    e.off('ui_up', this._navUp, this);
-    e.off('ui_down', this._navDown, this);
-    e.off('ui_left', this._navLeft, this);
-    e.off('ui_right', this._navRight, this);
-    e.off('ui_confirm', this.confirmSelection, this);
-    e.off('ui_cancel', this._navCancel, this);
-  }
-
-  _navUp() {
-    this._handleAxisKey(0, -1);
-  }
-
-  _navDown() {
-    this._handleAxisKey(0, 1);
-  }
-
-  _navLeft() {
-    this._handleAxisKey(-1, 0);
-  }
-
-  _navRight() {
-    this._handleAxisKey(1, 0);
-  }
-
-  _navCancel() {
-    this.handleBack(false);
-  }
-
-  _handleAxisKey(dx, dy) {
-    if (this.transitioning) return;
-    const audio = this.game.audioManager;
-    let newIndex = this.selectedIndex;
-
-    if (dx > 0) {
-      if (this.selectedIndex < this.stages.length - 1) newIndex++;
-    } else if (dx < 0) {
-      if (this.selectedIndex > 0) newIndex--;
-    } else if (dy > 0) {
-      if (this.selectedIndex + COLS < this.stages.length) newIndex += COLS;
-    } else if (dy < 0) {
-      if (this.selectedIndex - COLS >= 0) newIndex -= COLS;
-    }
-
-    if (newIndex !== this.selectedIndex) {
-      this.selectedIndex = newIndex;
-      audio.play('ui_navigate');
-      this.updateSelection();
-    }
-  }
-
   handleBack(remote = false) {
     if (this.transitioning && !remote) return;
-
     const audio = this.game.audioManager;
     if (!remote) audio.play('ui_cancel');
-
     if (this.gameMode === 'online' && this.networkManager && !remote) {
       this.networkManager.sendLeave();
     }
-
     this.transitioning = true;
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -345,26 +250,22 @@ export class StageSelectScene extends Phaser.Scene {
   updateSelection() {
     const stage = this.stages[this.selectedIndex];
     const cell = this.gridCells[this.selectedIndex];
-
-    this.cursor.setPosition(cell.rect.x, cell.rect.y);
-    this.stageNameText.setText(stage.name.toUpperCase());
-    this.stageDescText.setText(stage.description);
+    if (cell) {
+      this.stageNameText.setText(stage.name.toUpperCase());
+      this.stageDescText.setText(stage.description);
+    }
   }
 
   confirmSelection() {
     if (this.transitioning) return;
-
     const audio = this.game.audioManager;
     audio.play('ui_confirm');
-
     let stageId = this.stages[this.selectedIndex].id;
     const isRandom = stageId === 'random';
-
     if (isRandom) {
       const realStages = stagesData;
       stageId = realStages[Phaser.Math.Between(0, realStages.length - 1)].id;
     }
-
     if (this.gameMode === 'online' && this.networkManager) {
       if (this.isP1) {
         this.networkManager.sendStageSelect(stageId, isRandom);
@@ -379,7 +280,6 @@ export class StageSelectScene extends Phaser.Scene {
   goToPreFight(stageId, isRandomStage = false) {
     if (this.transitioning && this.gameMode !== 'online') return;
     this.transitioning = true;
-
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('PreFightScene', {

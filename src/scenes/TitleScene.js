@@ -193,60 +193,14 @@ export class TitleScene extends Phaser.Scene {
 
     this.transitioning = false;
 
-    // Global navigation bindings
-    this.events.on('wake', this._bindNavEvents, this);
-    this.events.on('sleep', this._unbindNavEvents, this);
-    this.events.on('shutdown', this._unbindNavEvents, this);
-    this._bindNavEvents();
-    this.updateSelection();
-  }
-
-  _bindNavEvents() {
-    this._unbindNavEvents();
-    const e = this.game.events;
-    e.on('ui_up', this._navUp, this);
-    e.on('ui_down', this._navDown, this);
-    e.on('ui_confirm', this._navConfirm, this);
-  }
-
-  _unbindNavEvents() {
-    const e = this.game.events;
-    e.off('ui_up', this._navUp, this);
-    e.off('ui_down', this._navDown, this);
-    e.off('ui_confirm', this._navConfirm, this);
-  }
-
-  _navUp() {
-    if (this.transitioning || this._joinOverlay) return;
-    this.selectedIndex--;
-    if (this.selectedIndex < 0) this.selectedIndex = this.buttons.length - 1;
-    this.updateSelection();
-    this.game.audioManager.play('ui_navigate');
-  }
-
-  _navDown() {
-    if (this.transitioning || this._joinOverlay) return;
-    this.selectedIndex++;
-    if (this.selectedIndex >= this.buttons.length) this.selectedIndex = 0;
-    this.updateSelection();
-    this.game.audioManager.play('ui_navigate');
-  }
-
-  _navConfirm() {
-    if (this.transitioning || this._joinOverlay) return;
-    this.game.audioManager.play('ui_confirm');
-    this.buttons[this.selectedIndex].action();
-  }
-
-  updateSelection() {
-    this.buttons.forEach((btn, index) => {
-      const isSelected = index === this.selectedIndex;
-      if (isSelected) {
-        btn.ui.bg.setStrokeStyle(2, 0xffcc00);
-        btn.ui.text.setColor('#ffcc00');
-      } else {
-        btn.ui.bg.setStrokeStyle(1, 0x4444aa);
-        btn.ui.text.setColor('#ffffff');
+    // Register with centralized controller
+    this.time.delayedCall(100, () => {
+      const controller = this.scene.get('ControllerScene');
+      if (controller) {
+        const buttons = this.children.list
+          .filter((child) => child.input && child.input.enabled && child.type === 'Rectangle')
+          .sort((a, b) => a.y - b.y);
+        controller.setNavMenu(buttons);
       }
     });
   }

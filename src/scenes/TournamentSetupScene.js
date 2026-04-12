@@ -50,6 +50,17 @@ export class TournamentSetupScene extends Phaser.Scene {
       },
       { width: 180, height: 30, fontSize: '14px' },
     );
+
+    // Register with centralized controller
+    this.time.delayedCall(100, () => {
+      const controller = this.scene.get('ControllerScene');
+      if (controller) {
+        const buttons = this.children.list
+          .filter((child) => child.input && child.input.enabled && child.type === 'Rectangle')
+          .sort((a, b) => a.y - b.y);
+        controller.setNavMenu(buttons);
+      }
+    });
   }
 
   startTournament(size) {
