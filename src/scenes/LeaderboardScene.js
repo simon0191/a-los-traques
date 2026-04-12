@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import { getLeaderboard } from '../services/api.js';
+import { createButton } from '../services/UIService.js';
 import { Logger } from '../systems/Logger.js';
 
 const log = Logger.create('LeaderboardScene');
@@ -51,15 +52,18 @@ export class LeaderboardScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // VOLVER button
-    this._createButton(60, GAME_HEIGHT - 20, 'VOLVER', () => this._goBack());
+    createButton(this, 60, GAME_HEIGHT - 20, 'VOLVER', () => this._goBack(), { width: 100 });
 
     this.transitioning = false;
     this.rowObjects = [];
 
     // Fetch leaderboard data
     getLeaderboard()
-      .then((rows) => this._renderRows(rows))
+      .then((rows) => {
+        if (this.scene.isActive()) this._renderRows(rows);
+      })
       .catch((err) => {
+        if (!this.scene.isActive()) return;
         log.warn('Leaderboard fetch failed', { err: err.message });
         this.statusText.setText('Error al cargar. Intentá de nuevo.');
         this.statusText.setColor('#ff6666');
@@ -103,34 +107,6 @@ export class LeaderboardScene extends Phaser.Scene {
 
       this.rowObjects.push({ bg, text });
     }
-  }
-
-  _createButton(x, y, label, callback) {
-    const bg = this.add
-      .rectangle(x, y, 100, 22, 0x222244)
-      .setStrokeStyle(1, 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add
-      .text(x, y, label, {
-        fontFamily: 'Arial',
-        fontSize: '12px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    bg.on('pointerover', () => {
-      bg.setFillStyle(0x333366);
-      text.setColor('#ffcc00');
-    });
-    bg.on('pointerout', () => {
-      bg.setFillStyle(0x222244);
-      text.setColor('#ffffff');
-    });
-    bg.on('pointerdown', () => {
-      this.game.audioManager.play('ui_confirm');
-      callback();
-    });
   }
 
   _goBack() {
