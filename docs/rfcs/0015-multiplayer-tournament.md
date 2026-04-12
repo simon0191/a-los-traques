@@ -43,25 +43,24 @@ The existing `FightRoom` (`party/server.js`) is tightly coupled to a 2-player mo
 
 Instead, we introduce a **TournamentRoom** that orchestrates matches across standard FightRooms:
 
-```
-┌─────────────────────────────────────────────────────┐
-│  TournamentRoom (NEW)                               │
-│  party/tournament-server.js                         │
-│  - N players, WebSocket only                        │
-│  - Bracket state (TournamentManager)                │
-│  - Match assignment & result collection             │
-│  - Durable storage for crash recovery               │
-│  - Broadcasts bracket updates to all clients        │
-├─────────────────────────────────────────────────────┤
-│        ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│        │FightRoom │  │FightRoom │  │FightRoom │    │
-│        │(existing)│  │(existing)│  │(existing)│    │
-│        │2 players │  │2 players │  │2 players │    │
-│        │rollback  │  │rollback  │  │rollback  │    │
-│        │netcode   │  │netcode   │  │netcode   │    │
-│        └──────────┘  └──────────┘  └──────────┘    │
-│         Match 0-0     Match 0-1     Match 0-2      │
-└─────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph TournamentRoom["TournamentRoom (NEW) — party/tournament-server.js"]
+        TR[N players, WebSocket only<br/>Bracket state via TournamentManager<br/>Match assignment & result collection<br/>Durable storage for crash recovery<br/>Broadcasts bracket updates to all clients]
+
+        subgraph Matches["Ephemeral FightRooms (existing, unchanged)"]
+            FR0["FightRoom<br/>Match 0-0<br/>2 players + rollback netcode"]
+            FR1["FightRoom<br/>Match 0-1<br/>2 players + rollback netcode"]
+            FR2["FightRoom<br/>Match 0-2<br/>2 players + rollback netcode"]
+        end
+
+        TR -- match_assigned --> FR0
+        TR -- match_assigned --> FR1
+        TR -- match_assigned --> FR2
+        FR0 -- match_result --> TR
+        FR1 -- match_result --> TR
+        FR2 -- match_result --> TR
+    end
 ```
 
 **Why two tiers?** FightRoom has battle-tested reconnection, WebRTC signaling, spectator relay, and rollback. Reusing it unchanged = zero regression risk. TournamentRoom only handles orchestration, never combat.
@@ -81,10 +80,16 @@ Clients connect via `PartySocket({ host, party: 'tournament', room: tournamentId
 
 ### 2.2 Server State Machine
 
-```
-LOBBY → SELECTING → BRACKET_REVEAL → ROUND_ACTIVE → ROUND_COMPLETE → ... → COMPLETE
-                         ↑                                    │
-                         └── (if "each round" selection mode) ─┘
+```mermaid
+stateDiagram-v2
+    [*] --> LOBBY
+    LOBBY --> SELECTING : organizer starts
+    SELECTING --> BRACKET_REVEAL : all fighters locked
+    BRACKET_REVEAL --> ROUND_ACTIVE : reveal animation done
+    ROUND_ACTIVE --> ROUND_COMPLETE : all matches finished
+    ROUND_COMPLETE --> COMPLETE : final round done
+    ROUND_COMPLETE --> SELECTING : next round (CADA RONDA mode)
+    ROUND_COMPLETE --> BRACKET_REVEAL : next round (AL INICIO mode)
 ```
 
 | State | Description |
@@ -198,6 +203,34 @@ ALTER TABLE profiles ADD COLUMN tournament_wins INT NOT NULL DEFAULT 0;
 
 ## 5. Match Lifecycle
 
+```mermaid
+sequenceDiagram
+    participant TR as TournamentRoom
+    participant A as Player A
+    participant B as Player B
+    participant FR as FightRoom (XXXX)
+
+    TR->>A: match_assigned(roomId, p1Id, p2Id, stageId)
+    TR->>B: match_assigned(roomId, p1Id, p2Id, stageId)
+    TR-->>TR: broadcast active_matches
+
+    A->>FR: connect(roomId)
+    B->>FR: connect(roomId)
+
+    Note over A, FR: Existing FightRoom flow (WebRTC, rollback netcode)
+
+    Note over FR: Match ends
+
+    A->>TR: match_result(winnerId)
+    B->>TR: match_result(winnerId)
+
+    TR->>TR: validate (both agree? timeout? disagree?)
+    TR->>TR: TournamentManager.reportResult()
+
+    TR-->>A: tournament_state_update
+    TR-->>B: tournament_state_update
+```
+
 ### 5.1 Pairing and Assignment
 
 When a round starts, the TournamentRoom:
@@ -230,51 +263,27 @@ Both clients send `match_result` to the TournamentRoom (not the FightRoom) after
 
 ## 6. Scene Flow
 
-```
-TitleScene
-  ├── "TORNEO EN LINEA" → TournamentSetupScene (organizer picks size + selection mode)
-  │                              │
-  │                              ▼
-  │                     TournamentLobbyScene ◄─── ?torneo=XXXX (joiners)
-  │                       (player grid, room code, "INICIAR TORNEO")
-  │                              │
-  │                     (organizer taps INICIAR)
-  │                              │
-  └──────────────────────────────┤
-                                 ▼
-                           SelectScene (all players simultaneously, 60s timer)
-                                 │
-                            (all confirmed)
-                                 ▼
-                           BracketScene (animated bracket reveal)
-                                 │
-                    ┌────────────┴────────────┐
-                YOUR MATCH                 NOT YOUR TURN
-                    │                         │
-                    ▼                         ▼
-              PreFightScene           BracketScene (live updates,
-                    │                  [VER PELEA] spectate button)
-                    ▼
-               FightScene
-                    │
-                    ▼
-              VictoryScene (no rematch; auto-return to bracket)
-                    │
-                    └────────────┬────────────┘
-                                 ▼
-                           BracketScene (updated bracket)
-                                 │
-                    ┌────────────┴────────────┐
-                NEXT ROUND               ELIMINATED
-                    │                         │
-             (if CADA RONDA:          stay on bracket,
-              → SelectScene)          spectate remaining,
-                    │                 see placement
-                    ▼
-              ... repeat ...
-                    │
-                    ▼
-              ChampionScene (all connected players see champion + standings)
+```mermaid
+graph TD
+    Title[TitleScene] -->|TORNEO EN LINEA| Setup[TournamentSetupScene<br/>size + selection mode]
+    Join["?torneo=XXXX (joiners)"] --> Lobby
+    Setup --> Lobby[TournamentLobbyScene<br/>player grid, room code]
+    Lobby -->|organizer taps INICIAR| Select[SelectScene<br/>all players simultaneously, 60s timer]
+    Select -->|all confirmed| Bracket[BracketScene<br/>animated bracket reveal]
+
+    Bracket -->|your match assigned| PreFight[PreFightScene]
+    Bracket -->|not your turn| Wait[BracketScene<br/>live updates, VER PELEA button]
+
+    PreFight --> Fight[FightScene]
+    Fight --> Victory[VictoryScene<br/>no rematch, auto-return]
+
+    Wait -.->|spectate| Fight
+    Victory --> BracketUpdated[BracketScene<br/>updated bracket]
+
+    BracketUpdated -->|next round, CADA RONDA| Select
+    BracketUpdated -->|next round, AL INICIO| Bracket
+    BracketUpdated -->|eliminated| Spectate[BracketScene<br/>spectate remaining, see placement]
+    BracketUpdated -->|final match won| Champion[ChampionScene<br/>champion + standings]
 ```
 
 ---
