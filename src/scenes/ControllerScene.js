@@ -14,6 +14,9 @@ export class ControllerScene extends Phaser.Scene {
     this.NAV_DELAY = 300;
     this.NAV_FREQ = 150;
 
+    // Button state tracking for 'Just Down'
+    this.prevButtons = { cross: false, square: false, enter: false, space: false };
+
     // Visual Cursor State
     this.targetBounds = { x: 0, y: 0, w: 0, h: 0 };
     this.currentBounds = { x: 0, y: 0, w: 0, h: 0 };
@@ -23,6 +26,13 @@ export class ControllerScene extends Phaser.Scene {
   create() {
     this.graphics = this.add.graphics();
     this.graphics.setDepth(10000);
+
+    // Pre-create keys for performance
+    this.keys = {
+      enter: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER),
+      space: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      esc: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC),
+    };
 
     // Listen for gamepad connections
     this.input.gamepad.on('connected', (pad) => {
@@ -129,19 +139,33 @@ export class ControllerScene extends Phaser.Scene {
     this._processDir('left', left, -1, 0, delta);
     this._processDir('right', right, 1, 0, delta);
 
-    const cross = pad?.buttons[0]?.pressed;
-    const square = pad?.buttons[2]?.pressed;
-    const enter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER).isDown;
-    const space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE).isDown;
+    // Button states
+    const crossDown = !!pad?.buttons[0]?.pressed;
+    const squareDown = !!pad?.buttons[2]?.pressed;
+    const enterDown = this.keys.enter.isDown;
+    const spaceDown = this.keys.space.isDown;
 
-    if ((cross || square || enter || space) && time - this.lastConfirm > 250) {
+    // Check for 'Just Down' (not pressed last frame, but pressed now)
+    const crossJustDown = crossDown && !this.prevButtons.cross;
+    const squareJustDown = squareDown && !this.prevButtons.square;
+    const enterJustDown = enterDown && !this.prevButtons.enter;
+    const spaceJustDown = spaceDown && !this.prevButtons.space;
+
+    if (crossJustDown || squareJustDown || enterJustDown || spaceJustDown) {
       const focused = this._getFocusedItem();
       if (focused) {
         focused.emit('pointerdown');
+        // Some buttons might trigger on pointerup or need visual feedback
+        focused.emit('pointerup');
         this.game.audioManager?.play('ui_confirm');
       }
-      this.lastConfirm = time;
     }
+
+    // Update button states for next frame
+    this.prevButtons.cross = crossDown;
+    this.prevButtons.square = squareDown;
+    this.prevButtons.enter = enterDown;
+    this.prevButtons.space = spaceDown;
   }
 
   _processDir(name, isPressed, dx, dy, delta) {

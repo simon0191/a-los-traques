@@ -460,8 +460,7 @@ export class SelectScene extends Phaser.Scene {
       const controller = this.scene.get('ControllerScene');
       if (controller) {
         const matrix = [];
-        const rows = Math.ceil(this.fighters.length / COLS);
-        for (let r = 0; r < rows; r++) {
+        for (let r = 0; r < ROWS; r++) {
           const rowArr = [];
           for (let c = 0; c < COLS; c++) {
             const idx = r * COLS + c;
