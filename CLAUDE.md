@@ -44,7 +44,7 @@ bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 
 ```
 src/
-  scenes/          # Boot -> Title -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory. VS Amigo: Title -> Select -> StageSelect -> PreFight -> Fight -> Victory
+  scenes/          # Boot -> Title -> MultiplayerMenu -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory. VS Amigo: Title -> MultiplayerMenu -> Select -> StageSelect -> PreFight -> Fight -> Victory
   services/        # TournamentManager.js, UIService.js
   entities/        # Fighter.js (Phaser wrapper), combat-block.js
   simulation/      # Pure sim core (no Phaser): SimulationEngine, FighterSim, CombatSim
@@ -202,7 +202,7 @@ Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered
 
 ## Local Multiplayer (RFC 0015)
 
-- **VS Amigo**: 2-player quick match from TitleScene. Split keyboard: P1 = WASD + FGCVE, P2 = Arrows + IOKLP.
+- **VS Amigo**: 2-player quick match from TitleScene via MultiplayerMenuScene. Split keyboard: P1 = WASD + FGCVT, P2 = Arrows + IOKLP.
 - **Tournament**: 1–8 human players in a bracket. Sequential fighter selection, no duplicate fighters.
 - **Input profiles** (`src/systems/InputProfiles.js`): `keyboard_full` (single player), `keyboard_left` (P1 in 2P), `keyboard_right` (P2 in 2P). `InputManager` accepts `profileId` parameter.
 - **TournamentManager**: `humanFighterIds` array tracks N humans. `getNextPlayableMatch()` routes matches. `isHumanVsHuman()` triggers split keyboard in FightScene.

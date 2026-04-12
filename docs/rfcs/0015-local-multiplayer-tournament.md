@@ -45,7 +45,7 @@ export const INPUT_PROFILES = {
     name: 'Teclado Izquierdo',
     type: 'keyboard',
     dirs:    { up: 'W', down: 'S', left: 'A', right: 'D' },
-    attacks: { lp: 'F', hp: 'G',  lk: 'C',   hk: 'V',   sp: 'E' },
+    attacks: { lp: 'F', hp: 'G',  lk: 'C',   hk: 'V',   sp: 'T' },
   },
   keyboard_right: {
     name: 'Teclado Derecho',
@@ -60,7 +60,7 @@ Physical layout — zero overlap between `keyboard_left` and `keyboard_right`:
 
 ```
 P1 (left hand)                    P2 (right hand)
-  q [W] [E]  r   t   y  [U] [I] [O] [P]          ↑
+  q [W]  e   r  [T]  y   u  [I] [O] [P]          ↑
  [A] [S] [D] [F] [G]  h   j  [K] [L]           ← ↓ →
   z   x  [C] [V]  b   n   m
 ```
