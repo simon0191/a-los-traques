@@ -61,8 +61,9 @@ describe('Leaderboard API', () => {
   });
 
   // Note: SQL correctness (COALESCE, ordering, filtering, LIMIT) is verified
-  // by integration tests against a real database. Unit tests here cover the
-  // HTTP contract: status codes, response shape, auth, and error handling.
+  // by integration tests in leaderboard.integration.test.js (PGLite).
+  // Unit tests here cover the HTTP contract: status codes, response shape,
+  // auth, and error handling.
 
   it('returns 405 for non-GET methods', async () => {
     req.method = 'POST';
