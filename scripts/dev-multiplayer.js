@@ -21,10 +21,13 @@ process.env.VITE_SUPABASE_URL = 'http://localhost:54321';
 process.env.VITE_SUPABASE_ANON_KEY = 'dev-anon-key';
 process.env.SUPABASE_JWT_SECRET = JWT_SECRET;
 process.env.DATABASE_URL = 'postgres://127.0.0.1:5432/postgres';
+if (process.platform === 'win32') {
+  process.env.PG_FRESH_CLIENT = '1';
+}
 
 // 2. Start PGLite in-process
 const db = await PGlite.create('.pglite');
-const dbServer = new PGLiteSocketServer({ db, port: 5432, host: '0.0.0.0' });
+const dbServer = new PGLiteSocketServer({ db, port: 5432, host: '127.0.0.1' });
 await dbServer.start();
 console.log('[db] PGLite running on localhost:5432');
 

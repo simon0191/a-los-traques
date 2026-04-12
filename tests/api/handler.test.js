@@ -1,5 +1,5 @@
 import { decodeProtectedHeader, jwtVerify } from 'jose';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withAuth } from '../../api/_lib/handler.js';
 
 const mockQuery = vi.fn();
@@ -13,28 +13,38 @@ const mockConnect = vi.fn().mockResolvedValue(mockClient);
 
 vi.mock('jose');
 vi.mock('pg', () => {
-  class MockPool {
-    async connect() {
-      return mockConnect();
-    }
-    async query(...args) {
-      return mockQuery(...args);
-    }
-    async end() {
-      return Promise.resolve();
-    }
-  }
-  class MockClient {
-    constructor() {
-      this.query = mockQuery;
-      this.connect = mockConnect;
-      this.end = mockClient.end;
-    }
-  }
   return {
-    default: { Pool: MockPool, Client: MockClient },
-    Pool: MockPool,
-    Client: MockClient,
+    default: {
+      Pool: class {
+        async connect() {
+          return mockConnect();
+        }
+        async query(...args) {
+          return mockQuery(...args);
+        }
+        async end() {
+          return Promise.resolve();
+        }
+      },
+      Client: class {
+        constructor() {
+          this.query = mockQuery;
+          this.connect = mockConnect;
+          this.end = mockClient.end;
+        }
+      },
+    },
+    // Also provide named exports just in case
+    Pool: class {
+      async connect() {
+        return mockConnect();
+      }
+    },
+    Client: class {
+      constructor() {
+        this.connect = mockConnect;
+      }
+    },
   };
 });
 
@@ -43,6 +53,7 @@ describe('withAuth middleware', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
     req = {
       headers: {},
     };
@@ -54,6 +65,11 @@ describe('withAuth middleware', () => {
     process.env.NODE_ENV = 'development';
     process.env.SUPABASE_JWT_SECRET = 'test-secret';
     process.env.SUPABASE_PROJECT_ID = 'test-project';
+    process.env.PG_FRESH_CLIENT = '0';
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('fails if no authorization header or dev bypass', async () => {
@@ -119,19 +135,42 @@ describe('withAuth middleware', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('fails if database connection fails', async () => {
-    // Make ALL retries fail
+  it('retries on database connection failure and succeeds', async () => {
+    mockConnect
+      .mockRejectedValueOnce(new Error('First fail'))
+      .mockRejectedValueOnce(new Error('Second fail'))
+      .mockResolvedValue(mockClient);
+
+    req.headers['x-dev-user-id'] = 'dev-user';
+    const handler = vi.fn();
+    const wrapped = withAuth(handler);
+
+    const promise = wrapped(req, res);
+
+    // Fast-forward through retries
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(mockConnect).toHaveBeenCalledTimes(3);
+    expect(handler).toHaveBeenCalled();
+  });
+
+  it('fails if database connection fails after all retries', async () => {
     mockConnect.mockRejectedValue(new Error('Connection refused'));
     req.headers['x-dev-user-id'] = 'dev-user';
     const handler = vi.fn();
     const wrapped = withAuth(handler);
 
-    // We need to wait for all retries to exhaust
-    await wrapped(req, res);
+    const promise = wrapped(req, res);
+
+    // Fast-forward through retries
+    await vi.runAllTimersAsync();
+    await promise;
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: expect.stringContaining('Database connection failed') }),
     );
-  }, 10000); // Increase timeout for retries
+    expect(mockConnect).toHaveBeenCalledTimes(4); // initial + 3 retries
+  });
 });

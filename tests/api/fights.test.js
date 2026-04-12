@@ -8,31 +8,41 @@ const mockClient = {
   release: vi.fn(),
   end: vi.fn().mockResolvedValue(undefined),
 };
+const mockConnect = vi.fn().mockResolvedValue(mockClient);
 
 vi.mock('jose');
 vi.mock('pg', () => {
-  class MockPool {
-    async connect() {
-      return mockClient;
-    }
-    async query(...args) {
-      return mockQuery(...args);
-    }
-    async end() {
-      return Promise.resolve();
-    }
-  }
-  class MockClient {
-    constructor() {
-      this.query = mockQuery;
-      this.connect = mockClient.connect;
-      this.end = mockClient.end;
-    }
-  }
   return {
-    default: { Pool: MockPool, Client: MockClient },
-    Pool: MockPool,
-    Client: MockClient,
+    default: {
+      Pool: class {
+        async connect() {
+          return mockConnect();
+        }
+        async query(...args) {
+          return mockQuery(...args);
+        }
+        async end() {
+          return Promise.resolve();
+        }
+      },
+      Client: class {
+        constructor() {
+          this.query = mockQuery;
+          this.connect = mockConnect;
+          this.end = mockClient.end;
+        }
+      },
+    },
+    Pool: class {
+      async connect() {
+        return mockConnect();
+      }
+    },
+    Client: class {
+      constructor() {
+        this.connect = mockConnect;
+      }
+    },
   };
 });
 
