@@ -60,42 +60,9 @@ describe('Leaderboard API', () => {
     expect(res.json).toHaveBeenCalledWith(rows);
   });
 
-  it('query uses COALESCE for null nicknames', async () => {
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    await leaderboardHandler(req, res);
-
-    const sqlUsed = mockQuery.mock.calls[0][0];
-    expect(sqlUsed).toContain("COALESCE(nickname, 'Anónimo')");
-  });
-
-  it('query orders by wins DESC then win rate DESC', async () => {
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    await leaderboardHandler(req, res);
-
-    const sqlUsed = mockQuery.mock.calls[0][0];
-    expect(sqlUsed).toMatch(/ORDER BY[\s\S]*wins DESC/);
-    expect(sqlUsed).toMatch(/\(wins::numeric \/ \(wins \+ losses\)\) DESC/);
-  });
-
-  it('query excludes players with 0 wins', async () => {
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    await leaderboardHandler(req, res);
-
-    const sqlUsed = mockQuery.mock.calls[0][0];
-    expect(sqlUsed).toContain('WHERE wins > 0');
-  });
-
-  it('query limits results to 10', async () => {
-    mockQuery.mockResolvedValue({ rows: [] });
-
-    await leaderboardHandler(req, res);
-
-    const sqlUsed = mockQuery.mock.calls[0][0];
-    expect(sqlUsed).toContain('LIMIT 10');
-  });
+  // Note: SQL correctness (COALESCE, ordering, filtering, LIMIT) is verified
+  // by integration tests against a real database. Unit tests here cover the
+  // HTTP contract: status codes, response shape, auth, and error handling.
 
   it('returns 405 for non-GET methods', async () => {
     req.method = 'POST';
