@@ -145,27 +145,31 @@ export class TitleScene extends Phaser.Scene {
       this.goToSelect();
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap, 'TORNEO', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap, 'VS AMIGO', () => {
+      this.goToVersus();
+    });
+
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 2, 'TORNEO', () => {
       this.goToTournamentSetup();
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 2, 'EN LINEA', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'EN LINEA', () => {
       this.goToLobby();
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'UNIRSE', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'UNIRSE', () => {
       this._showJoinOverlay();
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'COMO JUGAR', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 5, 'COMO JUGAR', () => {
       this.goToLearning();
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 5, 'INSPECTOR', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 6, 'INSPECTOR', () => {
       this.goToInspector();
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 6, 'MUSICA', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 7, 'MUSICA', () => {
       this.goToMusic();
     });
 
@@ -187,6 +191,21 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('SelectScene', { gameMode: 'local' });
+    });
+  }
+
+  goToVersus() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('SelectScene', {
+        gameMode: 'local',
+        matchContext: { type: 'versus' },
+      });
     });
   }
 
