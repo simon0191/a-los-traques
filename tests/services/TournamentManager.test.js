@@ -357,6 +357,350 @@ describe('TournamentManager', () => {
       // 8 unique fighters total (5 human + 3 AI)
       expect(new Set(allFighters).size).toBe(8);
     });
+
+    it('5 humans in size-8 bracket places max humans in P1 slots', () => {
+      const humans = fighters.slice(0, 5);
+      // With 4 matches and 5 humans, at most 4 can be P1 (one must be P2)
+      for (let seed = 0; seed < 20; seed++) {
+        const manager = TournamentManager.generate(fighters, 8, humans, seed);
+        let p1Count = 0;
+        for (const human of humans) {
+          const match = manager.rounds[0].find((m) => m.p1 === human || m.p2 === human);
+          if (match.p1 === human) p1Count++;
+        }
+        // All 4 even slots should go to humans (only 1 human in a P2 slot)
+        expect(p1Count).toBe(4);
+      }
+    });
+  });
+
+  describe('large bracket edge cases', () => {
+    it('1 human in size-16 bracket works correctly', () => {
+      const manager = TournamentManager.generate(fighters, 16, 'alv', 42);
+
+      expect(manager.rounds[0]).toHaveLength(8);
+      // Human should be in P1 slot
+      const humanMatch = manager.rounds[0].find((m) => m.p1 === 'alv' || m.p2 === 'alv');
+      expect(humanMatch.p1).toBe('alv');
+
+      // All 16 slots should be filled (no undefined/null)
+      const allFighters = manager.rounds[0].flatMap((m) => [m.p1, m.p2]);
+      expect(allFighters).toHaveLength(16);
+      for (const f of allFighters) {
+        expect(f).toBeDefined();
+        expect(f).not.toBeNull();
+      }
+    });
+
+    it('7 humans in size-8 bracket (only 1 AI slot)', () => {
+      const humans = fighters.slice(0, 7);
+      const manager = TournamentManager.generate(fighters, 8, humans, 42);
+
+      const allFighters = manager.rounds[0].flatMap((m) => [m.p1, m.p2]);
+      // All 7 humans present
+      for (const human of humans) {
+        expect(allFighters).toContain(human);
+      }
+      // Exactly 1 AI fighter
+      const aiCount = allFighters.filter((f) => !humans.includes(f)).length;
+      expect(aiCount).toBe(1);
+      // 8 unique total
+      expect(new Set(allFighters).size).toBe(8);
+    });
+
+    it('no undefined/null fighters in any round-1 slot after generate()', () => {
+      for (const size of [8, 16]) {
+        for (let seed = 0; seed < 10; seed++) {
+          const manager = TournamentManager.generate(fighters, size, 'alv', seed);
+          for (const match of manager.rounds[0]) {
+            expect(match.p1).toBeDefined();
+            expect(match.p1).not.toBeNull();
+            expect(match.p2).toBeDefined();
+            expect(match.p2).not.toBeNull();
+          }
+        }
+      }
+    });
+
+    it('no duplicate fighters across the entire first round', () => {
+      for (const size of [8, 16]) {
+        for (let seed = 0; seed < 10; seed++) {
+          const manager = TournamentManager.generate(fighters, size, 'alv', seed);
+          const allFighters = manager.rounds[0].flatMap((m) => [m.p1, m.p2]);
+          expect(new Set(allFighters).size).toBe(size);
+        }
+      }
+    });
+
+    it('no duplicate fighters with multiple humans', () => {
+      const humans = ['alv', 'simon', 'jeka', 'mao', 'peks'];
+      for (let seed = 0; seed < 10; seed++) {
+        const manager = TournamentManager.generate(fighters, 8, humans, seed);
+        const allFighters = manager.rounds[0].flatMap((m) => [m.p1, m.p2]);
+        expect(new Set(allFighters).size).toBe(8);
+      }
+    });
+  });
+
+  describe('tournament completion', () => {
+    it('all humans eliminated early -> simulateAllRemaining fills entire bracket', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      // Eliminate both humans in round 1
+      const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
+      manager.advance(alvMatch.p2);
+      const simonMatch = manager.rounds[0].find((m) => m.p1 === 'simon');
+      manager.advance(simonMatch.p2);
+
+      expect(manager.allHumansEliminated()).toBe(true);
+
+      // Simulate everything remaining
+      manager.simulateAllRemaining();
+
+      expect(manager.complete).toBe(true);
+      expect(manager.winnerId).not.toBeNull();
+
+      // Every match with two participants should have a winner
+      for (const round of manager.rounds) {
+        for (const match of round) {
+          if (match.p1 && match.p2) {
+            expect(match.winner).not.toBeNull();
+          }
+        }
+      }
+    });
+
+    it('getNextPlayableMatch() returns null when all humans eliminated', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      // Eliminate both
+      const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
+      manager.advance(alvMatch.p2);
+      const simonMatch = manager.rounds[0].find((m) => m.p1 === 'simon');
+      manager.advance(simonMatch.p2);
+
+      expect(manager.getNextPlayableMatch()).toBeNull();
+    });
+
+    it('getNextPlayableMatch() returns null when tournament is complete', () => {
+      const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
+      manager.simulateRound(0);
+      manager.advance('alv');
+      manager.advance('alv');
+
+      expect(manager.complete).toBe(true);
+      expect(manager.getNextPlayableMatch()).toBeNull();
+    });
+
+    it('advance() returns false when no playable match exists', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      // Eliminate both humans
+      const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
+      manager.advance(alvMatch.p2);
+      const simonMatch = manager.rounds[0].find((m) => m.p1 === 'simon');
+      manager.advance(simonMatch.p2);
+
+      // No more human matches, so advance should return false
+      expect(manager.advance('alv')).toBe(false);
+    });
+  });
+
+  describe('human-vs-human progression', () => {
+    it('both humans win to meet in later rounds with correct slotting', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      // Simulate AI matches in round 0
+      manager.simulateRound(0);
+
+      // Both humans win round 0
+      manager.advance('alv');
+      manager.advance('simon');
+
+      // Simulate AI matches in round 1
+      manager.simulateRound(1);
+
+      // Both humans win round 1
+      manager.advance('alv');
+      manager.advance('simon');
+
+      // They should meet in the final
+      const finalMatch = manager.rounds[manager.rounds.length - 1][0];
+      expect(finalMatch.p1).not.toBeNull();
+      expect(finalMatch.p2).not.toBeNull();
+      const finalists = [finalMatch.p1, finalMatch.p2];
+      expect(finalists).toContain('alv');
+      expect(finalists).toContain('simon');
+      expect(manager.isHumanVsHuman(finalMatch)).toBe(true);
+    });
+
+    it('human-vs-human match in semifinals (size-16, 4 humans)', () => {
+      const humans = ['alv', 'simon', 'jeka', 'mao'];
+      const manager = TournamentManager.generate(fighters, 16, humans, 42);
+
+      // Advance all humans through rounds until they start meeting
+      for (let round = 0; round < 3; round++) {
+        manager.simulateRound(round);
+        for (const human of humans) {
+          if (!manager.isHumanEliminated(human)) {
+            const match = manager.getNextPlayableMatch();
+            if (match && (match.p1 === human || match.p2 === human)) {
+              manager.advance(human);
+            }
+          }
+        }
+      }
+
+      // At some point, two humans should have met (at least in semis or final)
+      let foundHvH = false;
+      for (const round of manager.rounds) {
+        for (const match of round) {
+          if (match.p1 && match.p2 && manager.isHumanVsHuman(match)) {
+            foundHvH = true;
+          }
+        }
+      }
+      expect(foundHvH).toBe(true);
+    });
+  });
+
+  describe('serialization edge cases', () => {
+    it('round-trip preserves eliminatedHumans after multiple advances', () => {
+      const humans = ['alv', 'simon', 'jeka'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      // Eliminate alv
+      const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
+      manager.advance(alvMatch.p2);
+      expect(manager.eliminatedHumans).toEqual(['alv']);
+
+      // Serialize and restore
+      const state = manager.serialize();
+      const restored = new TournamentManager(state);
+
+      expect(restored.eliminatedHumans).toEqual(['alv']);
+      expect(restored.isHumanEliminated('alv')).toBe(true);
+      expect(restored.isHumanEliminated('simon')).toBe(false);
+      expect(restored.isHumanEliminated('jeka')).toBe(false);
+
+      // Eliminate simon through the restored instance
+      const simonMatch = restored.rounds[0].find((m) => m.p1 === 'simon' || m.p2 === 'simon');
+      const simonOpponent = simonMatch.p1 === 'simon' ? simonMatch.p2 : simonMatch.p1;
+      restored.advance(simonOpponent);
+
+      expect(restored.eliminatedHumans).toEqual(['alv', 'simon']);
+
+      // Second round-trip
+      const state2 = restored.serialize();
+      const restored2 = new TournamentManager(state2);
+      expect(restored2.eliminatedHumans).toEqual(['alv', 'simon']);
+      expect(restored2.humanFighterIds).toEqual(humans);
+    });
+
+    it('serialization preserves complete and winnerId', () => {
+      const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
+      manager.simulateRound(0);
+      manager.advance('alv');
+      manager.advance('alv');
+
+      expect(manager.complete).toBe(true);
+
+      const restored = new TournamentManager(manager.serialize());
+      expect(restored.complete).toBe(true);
+      expect(restored.winnerId).toBe('alv');
+    });
+  });
+
+  describe('non-happy paths', () => {
+    it('advance() with a winner not in the match still sets the winner', () => {
+      const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
+
+      // advance() sets match.winner to whatever winnerId is passed
+      // even if it's not p1 or p2 in the match
+      const result = manager.advance('nonexistent_fighter');
+      expect(result).toBe(true);
+
+      // The match got a winner assigned
+      const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv' || m.p2 === 'alv');
+      expect(alvMatch.winner).toBe('nonexistent_fighter');
+    });
+
+    it('simulateRound() on a round that does not exist returns false', () => {
+      const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
+      expect(manager.simulateRound(99)).toBe(false);
+      expect(manager.simulateRound(-1)).toBe(false);
+    });
+
+    it('simulateRound() on a round with no ready matches returns false', () => {
+      const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
+      // Round 1 has no fighters yet (all null)
+      expect(manager.simulateRound(1)).toBe(false);
+    });
+
+    it('advance() returns false when tournament is already complete', () => {
+      const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
+      manager.simulateRound(0);
+      manager.advance('alv');
+      manager.advance('alv');
+      expect(manager.complete).toBe(true);
+
+      // No more matches to advance
+      expect(manager.advance('alv')).toBe(false);
+    });
+  });
+
+  describe('determinism', () => {
+    it('same seed + same humans produce identical brackets regardless of call order', () => {
+      const humans = ['alv', 'simon', 'jeka'];
+      const seed = 777;
+
+      const m1 = TournamentManager.generate(fighters, 8, humans, seed);
+      const m2 = TournamentManager.generate(fighters, 8, humans, seed);
+
+      // Brackets should be identical
+      expect(m1.rounds[0]).toEqual(m2.rounds[0]);
+      expect(m1.playerInitialIndex).toBe(m2.playerInitialIndex);
+
+      // Now advance them differently, but the initial state must match
+      expect(m1.serialize().rounds).toEqual(m2.serialize().rounds);
+    });
+
+    it('different seeds produce different brackets', () => {
+      const humans = ['alv', 'simon'];
+      const m1 = TournamentManager.generate(fighters, 8, humans, 1);
+      const m2 = TournamentManager.generate(fighters, 8, humans, 2);
+
+      // At least round-1 fighter arrangement should differ
+      const r1_1 = m1.rounds[0].flatMap((m) => [m.p1, m.p2]);
+      const r1_2 = m2.rounds[0].flatMap((m) => [m.p1, m.p2]);
+      expect(r1_1).not.toEqual(r1_2);
+    });
+
+    it('determinism holds across multiple seeds with single human', () => {
+      // Start at seed 1: seed 0 is falsy and triggers random fallback in constructor
+      for (let seed = 1; seed < 20; seed++) {
+        const a = TournamentManager.generate(fighters, 8, 'alv', seed);
+        const b = TournamentManager.generate(fighters, 8, 'alv', seed);
+        expect(a.rounds).toEqual(b.rounds);
+        expect(a.playerInitialIndex).toBe(b.playerInitialIndex);
+        expect(a.humanFighterIds).toEqual(b.humanFighterIds);
+      }
+    });
+
+    it('determinism holds across multiple seeds with many humans', () => {
+      const humans = ['alv', 'simon', 'jeka', 'mao', 'peks'];
+      for (let seed = 1; seed < 20; seed++) {
+        const a = TournamentManager.generate(fighters, 16, humans, seed);
+        const b = TournamentManager.generate(fighters, 16, humans, seed);
+        expect(a.rounds).toEqual(b.rounds);
+        expect(a.playerInitialIndex).toBe(b.playerInitialIndex);
+        expect(a.humanFighterIds).toEqual(b.humanFighterIds);
+      }
+    });
   });
 
   describe('backward compatibility', () => {
