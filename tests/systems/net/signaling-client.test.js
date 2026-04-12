@@ -193,16 +193,28 @@ describe('SignalingClient', () => {
       expect(received.length).toBe(2);
       expect(sc._pendingCallbackMessages.get('sync').length).toBe(0);
     });
+it('does not buffer non-bufferable types', () => {
+  const sc = makeClient();
 
-    it('does not buffer non-bufferable types', () => {
+  sc._handleMessage({ type: 'shout', text: 'hola' });
+
+  // Now register handler — should NOT receive the message
+  const received = [];
+  sc.on('shout', (msg) => received.push(msg));
+      sc.on('disconnect', (msg) => received.push(msg));
+>>>>>>> origin/main
+      expect(received.length).toBe(0);
+    });
+
+    it('buffers opponent_unready messages', () => {
       const sc = makeClient();
 
-      sc._handleMessage({ type: 'shout', text: 'hola' });
+      sc._handleMessage({ type: 'opponent_unready' });
 
-      // Now register handler — should NOT receive the message
+      // Now register handler — should receive the buffered message
       const received = [];
-      sc.on('shout', (msg) => received.push(msg));
-      expect(received.length).toBe(0);
+      sc.on('opponent_unready', (msg) => received.push(msg));
+      expect(received.length).toBe(1);
     });
   });
 

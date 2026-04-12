@@ -10,6 +10,11 @@ const BUFFERABLE_TYPES = new Set([
   'start',
   'frame_sync',
   'go_to_stage_select',
+  'opponent_ready',
+  'opponent_unready',
+  'rematch',
+  'leave',
+  'opponent_joined',
 ]);
 
 /**

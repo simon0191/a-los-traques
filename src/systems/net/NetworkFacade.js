@@ -166,6 +166,12 @@ export class NetworkFacade {
   onOpponentReady(cb) {
     this.signaling.on('opponent_ready', (msg) => cb(msg.fighterId));
   }
+  onOpponentUnready(cb) {
+    this.signaling.on('opponent_unready', cb);
+  }
+  onUnreadyConfirmed(cb) {
+    this.signaling.on('unready_confirmed', cb);
+  }
   onGoToStageSelect(cb) {
     this.signaling.on('go_to_stage_select', cb);
   }
@@ -288,6 +294,9 @@ export class NetworkFacade {
   sendRematch() {
     this.signaling.send({ type: 'rematch' });
   }
+  sendUnready() {
+    this.signaling.send({ type: 'unready' });
+  }
   sendLeave() {
     this.signaling.send({ type: 'leave' });
   }
@@ -359,6 +368,8 @@ export class NetworkFacade {
     // Reset signaling handlers for scene-specific types
     this.signaling.resetHandlers([
       'opponent_ready',
+      'opponent_unready',
+      'unready_confirmed',
       'go_to_stage_select',
       'start',
       'rematch',
@@ -400,16 +411,8 @@ export class NetworkFacade {
     this.signaling.destroy();
 
     this._onOpponentJoined = null;
-    this._onOpponentReady = null;
-    this._onOpponentReconnected = null;
-    this._onDisconnect = null;
-    this._onRematch = null;
-    this._onFull = null;
-    this._onLeave = null;
     this._onError = null;
-    this._onOpponentReconnecting = null;
-    this._onReturnToSelect = null;
-    this._onRejoinAvailable = null;
+    this._onOpponentReconnected = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
   }
