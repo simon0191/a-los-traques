@@ -54,7 +54,6 @@ const config = {
   },
   scene: [
     BootScene,
-    ControllerScene,
     LoginScene,
     TitleScene,
     TournamentSetupScene,
@@ -69,6 +68,7 @@ const config = {
     InspectorScene,
     MusicScene,
     LearningScene,
+    ControllerScene,
   ],
 };
 

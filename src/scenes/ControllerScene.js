@@ -192,10 +192,13 @@ export class ControllerScene extends Phaser.Scene {
     
     if (this.isGrid) {
       const rows = this.menuItems.length;
-      const cols = this.menuItems[this.cursorY]?.length || 0;
       
-      this.cursorX = Phaser.Math.Clamp(this.cursorX + dx, 0, cols - 1);
+      // Move Y first
       this.cursorY = Phaser.Math.Clamp(this.cursorY + dy, 0, rows - 1);
+      
+      // Then clamp X to the new row's length
+      const cols = this.menuItems[this.cursorY]?.length || 0;
+      this.cursorX = Phaser.Math.Clamp(this.cursorX + dx, 0, cols - 1);
     } else {
       // 1D vertical list (dx ignored)
       if (dy !== 0) {

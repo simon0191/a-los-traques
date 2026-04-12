@@ -133,19 +133,30 @@ export class SelectScene extends Phaser.Scene {
 
       const rect = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, color, 0.2).setOrigin(0, 0);
       rect.setInteractive();
-      rect.on('pointerdown', () => {
+      
+      const onSelect = () => {
         if (this.transitioning) return;
         if (!this.p1Confirmed) {
           this.p1Index = i;
           this.updateP1Display();
           this._scrollToFit(i);
-          this.game.audioManager.play('ui_navigate');
         } else if (this.p2SelectionMode && !this.p2Confirmed) {
           this.p2Index = i;
           this.updateP2Display();
           this._scrollToFit(i);
-          this.game.audioManager.play('ui_navigate');
         }
+      };
+
+      rect.on('pointerover', () => {
+        onSelect();
+        this.game.audioManager.play('ui_navigate');
+      });
+
+      rect.on('pointerdown', () => {
+        if (this.transitioning) return;
+        onSelect();
+        if (!this.p1Confirmed) this.confirmP1();
+        else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
       });
 
       this.gridContainer.add(rect);
@@ -470,6 +481,8 @@ export class SelectScene extends Phaser.Scene {
           }
           if (rowArr.length > 0) matrix.push(rowArr);
         }
+
+
         // Add buttons at the bottom
         matrix.push([this.listoBtn, this.volverBtn]);
         
