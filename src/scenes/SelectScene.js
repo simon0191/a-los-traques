@@ -275,28 +275,35 @@ export class SelectScene extends Phaser.Scene {
       this.p1StatBars.push(bar);
     });
 
-    this.add.rectangle(panelX + 75, 150, 150, 1, 0x333355);
-    this.add.text(panelX, 158, 'JUGADOR 2', {
-      fontFamily: 'Arial Black, Arial',
-      fontSize: '10px',
-      color: '#ff3333',
-    });
+    this._p2PanelElements = [];
+    this._p2PanelElements.push(this.add.rectangle(panelX + 75, 150, 150, 1, 0x333355));
+    this._p2PanelElements.push(
+      this.add.text(panelX, 158, 'JUGADOR 2', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '10px',
+        color: '#ff3333',
+      }),
+    );
     this.p2NameText = this.add.text(panelX, 173, 'Aleatorio', {
       fontFamily: 'Arial Black, Arial',
       fontSize: '14px',
       color: '#888888',
     });
+    this._p2PanelElements.push(this.p2NameText);
     this.p2SubtitleText = this.add.text(panelX, 190, '', {
       fontFamily: 'Arial',
       fontSize: '9px',
       color: '#aaaacc',
       fontStyle: 'italic',
     });
+    this._p2PanelElements.push(this.p2SubtitleText);
     this.p2PreviewSprite = this.add
       .sprite(panelX + 110, 208, '__DEFAULT')
       .setScale(0.8)
       .setVisible(false);
+    this._p2PanelElements.push(this.p2PreviewSprite);
     this.p2Portrait = this.add.rectangle(panelX + 110, 178, 45, 45, 0x333333).setOrigin(0.5, 0.5);
+    this._p2PanelElements.push(this.p2Portrait);
     this.p2RandomText = this.add
       .text(panelX + 110, 178, '?', {
         fontFamily: 'Arial Black',
@@ -305,21 +312,25 @@ export class SelectScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setVisible(false);
+    this._p2PanelElements.push(this.p2RandomText);
 
     this.p2StatBars = [];
     statNames.forEach((_, i) => {
       const sy = 208 + i * 14;
-      this.add.text(panelX, sy, statLabels[i], {
+      const label = this.add.text(panelX, sy, statLabels[i], {
         fontFamily: 'Arial',
         fontSize: '8px',
         color: '#888899',
       });
-      this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
+      this._p2PanelElements.push(label);
+      const bgBar = this.add.rectangle(panelX + 30, sy + 4, 60, 6, 0x222233).setOrigin(0, 0.5);
+      this._p2PanelElements.push(bgBar);
       const bar = this.add
         .rectangle(panelX + 30, sy + 4, 60, 6, 0xcc4444)
         .setOrigin(0, 0.5)
         .setScale(0, 1);
       this.p2StatBars.push(bar);
+      this._p2PanelElements.push(bar);
     });
 
     this.cursors = this.input.keyboard.createCursorKeys();
@@ -333,7 +344,16 @@ export class SelectScene extends Phaser.Scene {
     });
 
     this.updateP1Display();
-    this.updateP2Display();
+
+    this._isTournament = this.matchContext?.type === 'tournament';
+    if (this._isTournament) {
+      // Hide P2 panel — not used in tournament mode
+      for (const el of this._p2PanelElements) el.setVisible(false);
+      this.p1CursorLabel.setText('J1');
+      this._createTournamentSelectionsList(panelX);
+    } else {
+      this.updateP2Display();
+    }
 
     if (this.gameMode === 'online' && this.networkManager) {
       this.add
@@ -584,7 +604,12 @@ export class SelectScene extends Phaser.Scene {
     const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
     const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
     this.p1Cursor.setPosition(cellX, cellY);
-    this.p1CursorLabel.setPosition(cellX + CELL_W / 2, cellY - 2);
+    if (this._isTournament) {
+      // Inside the cell, top-left — avoids overlap with name text of row above
+      this.p1CursorLabel.setPosition(cellX + 3, cellY + 2).setOrigin(0, 0);
+    } else {
+      this.p1CursorLabel.setPosition(cellX + CELL_W / 2, cellY - 2);
+    }
     const fighter = this.fighters[this.p1Index];
     this.p1NameText.setText(fighter.name);
     this.p1SubtitleText.setText(fighter.subtitle);
@@ -631,18 +656,23 @@ export class SelectScene extends Phaser.Scene {
       !this.p1Confirmed
     ) {
       // Undo last selection
+      this._updateSelectionListReset(this._currentSelectingPlayer);
       this._currentSelectingPlayer--;
       const removedId = this._humanSelections.pop();
       // Remove visual overlay for that player
-      if (this._takenOverlays.length >= 2) {
-        this._takenOverlays.pop().destroy();
-        this._takenOverlays.pop().destroy();
+      if (this._takenOverlays.length > 0) {
+        const entry = this._takenOverlays.pop();
+        entry.pDOM.node.style.opacity = '1';
+        entry.pDOM.node.style.filter = '';
+        entry.labelDOM.destroy();
       }
       // Restore cursor to the fighter that was undone
       const prevIdx = this.fighters.findIndex((f) => f.id === removedId);
       if (prevIdx !== -1) this.p1Index = prevIdx;
       this.updateP1Display();
+      this.p1CursorLabel.setText(`J${this._currentSelectingPlayer}`);
       this.headerText.setText(`ELIGE TU LUCHADOR: JUGADOR ${this._currentSelectingPlayer}`);
+      this._updateSelectionListActive(this._currentSelectingPlayer);
       this.confirmedText.setText('');
       this.game.audioManager.play('ui_cancel');
       return;
@@ -689,7 +719,13 @@ export class SelectScene extends Phaser.Scene {
     }
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('TitleScene');
+      if (this.matchContext?.type === 'tournament') {
+        this.scene.start('TournamentSetupScene');
+      } else if (this.matchContext?.type === 'versus' || this.gameMode === 'online') {
+        this.scene.start('MultiplayerMenuScene');
+      } else {
+        this.scene.start('TitleScene');
+      }
     });
   }
 
@@ -719,8 +755,10 @@ export class SelectScene extends Phaser.Scene {
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
     if (this.matchContext?.type === 'tournament') {
       const selectedId = this.fighters[this.p1Index].id;
+      const selectedName = this.fighters[this.p1Index].name;
       this._humanSelections.push(selectedId);
       this._markFighterTaken(this.p1Index, this._currentSelectingPlayer);
+      this._updateSelectionListConfirm(this._currentSelectingPlayer, selectedName);
 
       if (this._currentSelectingPlayer < this._localPlayers) {
         // More humans need to select — enter next player's selection phase
@@ -847,6 +885,7 @@ export class SelectScene extends Phaser.Scene {
     this.p1Cursor.setStrokeStyle(2, 0x3366ff);
     this.p1Cursor.setAlpha(1);
     this.p1CursorLabel.setAlpha(1);
+    this.p1CursorLabel.setText(`J${this._currentSelectingPlayer}`);
 
     // Move cursor to first non-taken fighter
     this.p1Index = this.fighters.findIndex(
@@ -857,40 +896,92 @@ export class SelectScene extends Phaser.Scene {
     this._scrollToFit(this.p1Index);
 
     this.headerText.setText(`ELIGE TU LUCHADOR: JUGADOR ${this._currentSelectingPlayer}`);
+    this._updateSelectionListActive(this._currentSelectingPlayer);
     this.confirmedText.setText(
       `Jugador ${this._currentSelectingPlayer - 1} listo. Jugador ${this._currentSelectingPlayer}, elige...`,
     );
   }
 
   _markFighterTaken(fighterIdx, playerNum) {
-    const col = fighterIdx % COLS;
-    const row = Math.floor(fighterIdx / COLS);
-    const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
-    const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
+    const cell = this.gridCells[fighterIdx];
+    if (!cell) return;
 
-    // Dark overlay
-    const overlay = this.add.rectangle(cellX + 2, cellY + 2, 40, 34, 0x000000, 0.6).setOrigin(0, 0);
-    this.gridContainer.add(overlay);
+    // Dim the DOM portrait image directly (DOM renders on top of canvas)
+    cell.pDOM.node.style.opacity = '0.25';
+    cell.pDOM.node.style.filter = 'grayscale(100%)';
 
-    // Player label
-    const label = this.add
-      .text(cellX + CELL_W / 2, cellY + CELL_H / 2, `J${playerNum}`, {
-        fontFamily: 'Arial Black',
-        fontSize: '12px',
-        color: '#ffcc00',
-        stroke: '#000000',
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5);
-    this.gridContainer.add(label);
+    // Add a DOM label overlay on top of the portrait
+    const labelDOM = this.add
+      .dom(
+        cell.x + 20,
+        cell.y + 17,
+        'div',
+        {
+          'font-family': 'Arial Black, sans-serif',
+          'font-size': '12px',
+          'font-weight': 'bold',
+          color: '#ffcc00',
+          'text-align': 'center',
+          'text-shadow': '1px 1px 2px #000000, -1px -1px 2px #000000',
+          'pointer-events': 'none',
+        },
+        `J${playerNum}`,
+      )
+      .setOrigin(0.5, 0.5);
 
-    this._takenOverlays.push(overlay, label);
+    this._takenOverlays.push({ pDOM: cell.pDOM, labelDOM });
   }
 
   _isFighterTaken(fighterIdx) {
     const fighter = this.fighters[fighterIdx];
     if (fighter.id === 'random') return false;
     return this._humanSelections.includes(fighter.id);
+  }
+
+  _createTournamentSelectionsList(panelX) {
+    this.add
+      .text(panelX, 155, 'SELECCIONES', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '10px',
+        color: '#ffcc00',
+      })
+      .setOrigin(0, 0);
+
+    this._selectionListTexts = [];
+    for (let i = 0; i < this._localPlayers; i++) {
+      const txt = this.add.text(panelX, 170 + i * 14, `J${i + 1}: ...`, {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: '#666666',
+      });
+      this._selectionListTexts.push(txt);
+    }
+    // Highlight first player as selecting
+    this._selectionListTexts[0].setText('J1: Eligiendo...').setColor('#ffcc00');
+  }
+
+  _updateSelectionListConfirm(playerNum, fighterName) {
+    if (!this._selectionListTexts) return;
+    const idx = playerNum - 1;
+    if (this._selectionListTexts[idx]) {
+      this._selectionListTexts[idx].setText(`J${playerNum}: ${fighterName}`).setColor('#44cc88');
+    }
+  }
+
+  _updateSelectionListActive(playerNum) {
+    if (!this._selectionListTexts) return;
+    const idx = playerNum - 1;
+    if (this._selectionListTexts[idx]) {
+      this._selectionListTexts[idx].setText(`J${playerNum}: Eligiendo...`).setColor('#ffcc00');
+    }
+  }
+
+  _updateSelectionListReset(playerNum) {
+    if (!this._selectionListTexts) return;
+    const idx = playerNum - 1;
+    if (this._selectionListTexts[idx]) {
+      this._selectionListTexts[idx].setText(`J${playerNum}: ...`).setColor('#666666');
+    }
   }
 
   goToStageSelect() {
