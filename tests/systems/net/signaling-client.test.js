@@ -197,12 +197,23 @@ describe('SignalingClient', () => {
     it('does not buffer non-bufferable types', () => {
       const sc = makeClient();
 
-      sc._handleMessage({ type: 'opponent_joined' });
+      sc._handleMessage({ type: 'disconnect' });
 
       // Now register handler — should NOT receive the message
       const received = [];
-      sc.on('opponent_joined', (msg) => received.push(msg));
+      sc.on('disconnect', (msg) => received.push(msg));
       expect(received.length).toBe(0);
+    });
+
+    it('buffers opponent_unready messages', () => {
+      const sc = makeClient();
+
+      sc._handleMessage({ type: 'opponent_unready' });
+
+      // Now register handler — should receive the buffered message
+      const received = [];
+      sc.on('opponent_unready', (msg) => received.push(msg));
+      expect(received.length).toBe(1);
     });
   });
 
