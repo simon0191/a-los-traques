@@ -106,15 +106,34 @@ export class TournamentManager {
     const aiFighters = available.slice(0, size - humans.length);
     const tournamentFighters = new Array(size);
 
-    // Place humans at evenly-spaced positions across the bracket
+    // Place humans at evenly-spaced positions, then promote odd-slot humans to P1 (even) slots
     for (let h = 0; h < humans.length; h++) {
-      let slot = Math.floor((h * size) / humans.length);
-      // Try P1 slot (even index) only if it won't collide with an already-placed human
-      if (slot % 2 !== 0) {
-        const p1Slot = slot - 1;
-        if (!tournamentFighters[p1Slot]) slot = p1Slot;
-      }
+      const slot = Math.floor((h * size) / humans.length);
       tournamentFighters[slot] = humans[h];
+    }
+    // Second pass: move odd-slot humans to nearby empty even slots
+    for (let i = 0; i < size; i++) {
+      if (i % 2 !== 0 && tournamentFighters[i] && humans.includes(tournamentFighters[i])) {
+        // Preferred: slot-1 (same match, P1 side)
+        if (!tournamentFighters[i - 1]) {
+          tournamentFighters[i - 1] = tournamentFighters[i];
+          tournamentFighters[i] = undefined;
+        } else {
+          // Find nearest empty even slot
+          let best = -1;
+          for (let e = 0; e < size; e += 2) {
+            if (!tournamentFighters[e]) {
+              if (best === -1 || Math.abs(e - i) < Math.abs(best - i)) {
+                best = e;
+              }
+            }
+          }
+          if (best !== -1) {
+            tournamentFighters[best] = tournamentFighters[i];
+            tournamentFighters[i] = undefined;
+          }
+        }
+      }
     }
 
     // Fill remaining slots with shuffled AI
