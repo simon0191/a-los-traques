@@ -2,21 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-
-// The exact query from api/leaderboard.js
-const LEADERBOARD_QUERY = `
-  SELECT
-    COALESCE(nickname, 'Anónimo') AS nickname,
-    wins,
-    losses,
-    ROUND(wins::numeric / (wins + losses) * 100) AS win_rate
-  FROM profiles
-  WHERE wins > 0
-  ORDER BY
-    wins DESC,
-    (wins::numeric / (wins + losses)) DESC
-  LIMIT 10;
-`;
+import { queryLeaderboard } from '../../api/leaderboard.js';
 
 function uuid(n) {
   return `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
@@ -58,7 +44,7 @@ describe('Leaderboard SQL (integration)', () => {
         ('${uuid(2)}', 'low_rate',  10, 8);
     `);
 
-    const result = await db.query(LEADERBOARD_QUERY);
+    const result = await queryLeaderboard(db);
 
     expect(result.rows).toHaveLength(2);
     expect(result.rows[0].nickname).toBe('high_rate');
@@ -71,7 +57,7 @@ describe('Leaderboard SQL (integration)', () => {
         ('${uuid(1)}', NULL, 5, 3);
     `);
 
-    const result = await db.query(LEADERBOARD_QUERY);
+    const result = await queryLeaderboard(db);
 
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].nickname).toBe('Anónimo');
@@ -85,7 +71,7 @@ describe('Leaderboard SQL (integration)', () => {
         ('${uuid(3)}', 'loser',    0, 10);
     `);
 
-    const result = await db.query(LEADERBOARD_QUERY);
+    const result = await queryLeaderboard(db);
 
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].nickname).toBe('winner');
@@ -98,7 +84,7 @@ describe('Leaderboard SQL (integration)', () => {
     });
     await db.exec(`INSERT INTO profiles (id, nickname, wins, losses) VALUES ${inserts.join(',')};`);
 
-    const result = await db.query(LEADERBOARD_QUERY);
+    const result = await queryLeaderboard(db);
 
     expect(result.rows).toHaveLength(10);
   });
@@ -110,7 +96,7 @@ describe('Leaderboard SQL (integration)', () => {
         ('${uuid(2)}', 'mixed',    7, 3);
     `);
 
-    const result = await db.query(LEADERBOARD_QUERY);
+    const result = await queryLeaderboard(db);
 
     expect(result.rows).toHaveLength(2);
     // 10 / (10+0) * 100 = 100
@@ -126,7 +112,7 @@ describe('Leaderboard SQL (integration)', () => {
         ('${uuid(2)}', 'newbie2', 0, 5);
     `);
 
-    const result = await db.query(LEADERBOARD_QUERY);
+    const result = await queryLeaderboard(db);
 
     expect(result.rows).toHaveLength(0);
   });
