@@ -33,6 +33,10 @@ This RFC implements that vision: **a multiplayer tournament where 4-16 friends e
 | Matchmaking / ELO seeding | This is a friend group, not ranked play. Bracket is shuffled randomly from a server seed |
 | Server-side game simulation | Matches remain P2P with rollback netcode. Server is a relay + result recorder |
 
+### Prerequisites
+
+- **Login required.** Tournament mode is only available to authenticated users (not guests). The TitleScene button "TORNEO EN LINEA" is hidden or disabled when `game.registry.get('user') === null`.
+
 ---
 
 ## 2. Architecture
@@ -115,6 +119,55 @@ The existing `TournamentManager` (`src/services/TournamentManager.js`) is pure J
 
 Preserved: `generate()`, `serialize()`, constructor restore, `getCurrentMatch()`, `isComplete()`.
 
+### 2.4 Identity & Authentication
+
+**Current gap:** The existing PartyKit server (`party/server.js`) is identity-blind. Players connect via `PartySocket({ query: { sessionId } })` where `sessionId` is a random UUID for log correlation only. The server sees `connection.id` (a WebSocket identifier) but has no knowledge of the Supabase user ID, nickname, or auth status. Identity is only known to the client and the Vercel API backend (which verifies JWTs via `withAuth()` in `api/_lib/handler.js`).
+
+**How it works today:**
+
+```mermaid
+graph LR
+    Login[LoginScene] -->|getSession| Supa[Supabase Auth]
+    Supa -->|session.user| Reg[game.registry]
+    Reg -->|Bearer JWT| API[Vercel API<br/>withAuth verifies]
+    Reg -->|sessionId only| PK[PartyKit<br/>identity-blind]
+    style PK fill:#ff9999
+```
+
+The Supabase JWT is verified by the Vercel backend using `jose` library + `SUPABASE_JWT_SECRET` (HS256) or JWKS endpoint (RS256). This happens in `api/_lib/handler.js:withAuth()`. But PartyKit never sees or verifies any JWT.
+
+**Tournament solution: JWT in query param.** This is the standard pattern for WebSocket auth (used by Socket.io, Pusher, etc.). PartyKit's `onConnect(connection, ctx)` receives `ctx.request` which contains the query params, so verification happens synchronously on connect — before the player can send any other messages.
+
+```javascript
+// Client (TournamentClient.js)
+const token = (await getSession())?.access_token;
+const socket = new PartySocket({
+  host,
+  party: 'tournament',
+  room: tournamentId,
+  query: { token, sessionId }
+});
+
+// Server (tournament-server.js)
+async onConnect(connection, ctx) {
+  const token = new URL(ctx.request.url).searchParams.get('token');
+  if (!token) return connection.close(4001, 'auth_required');
+
+  try {
+    const payload = await jwtVerify(token, secret);  // jose library
+    const userId = payload.sub;
+    const nickname = payload.user_metadata?.nickname;
+    this._addPlayer(connection, userId, nickname);
+  } catch {
+    connection.close(4003, 'invalid_token');
+  }
+}
+```
+
+**Nickname resolution:** The JWT `sub` claim gives us the user UUID. The nickname comes from `user_metadata` in the Supabase JWT payload (set during signup in `LoginScene`, matches what `syncProfile()` sends to the backend). No DB call needed on the hot path.
+
+**Dev bypass:** In development (when `SUPABASE_JWT_SECRET` is not set), accept `X-Dev-User-Id` and `X-Dev-Nickname` as query params, matching the existing dev bypass pattern in `api/_lib/handler.js`.
+
 ---
 
 ## 3. Data Persistence
@@ -186,8 +239,8 @@ ALTER TABLE profiles ADD COLUMN tournament_wins INT NOT NULL DEFAULT 0;
 
 | Message | Payload | When |
 |---------|---------|------|
-| `tournament_joined` | `{ slot, tournamentId, config, playerCount }` | On successful join |
-| `player_list` | `{ players: [{ slot, nickname, fighterId?, ready, connected }] }` | When roster changes |
+| `tournament_joined` | `{ slot, tournamentId, config, playerCount }` | On successful join (after JWT verified) |
+| `player_list` | `{ players: [{ slot, userId, nickname, fighterId?, ready, connected }] }` | When roster changes |
 | `tournament_full` | `{ }` | Room at capacity |
 | `all_fighters_selected` | `{ }` | All players locked in fighters |
 | `tournament_started` | `{ state: TournamentManager.serialize() }` | Bracket generated |
@@ -392,7 +445,7 @@ graph TD
 ### New Files
 | File | Purpose | ~Lines |
 |------|---------|--------|
-| `party/tournament-server.js` | TournamentRoom server (state machine, orchestration, durable storage) | 400-500 |
+| `party/tournament-server.js` | TournamentRoom server (JWT auth, state machine, orchestration, durable storage) | 400-500 |
 | `src/scenes/TournamentLobbyScene.js` | Tournament creation/join lobby UI | 200 |
 | `src/systems/net/TournamentClient.js` | WebSocket wrapper for tournament room communication | 150 |
 | `src/scenes/ChampionScene.js` | Champion celebration + standings | 150 |
