@@ -72,7 +72,7 @@ export class BracketScene extends Phaser.Scene {
         () => this.goToMatch(currentMatch),
       );
       createButton(this, GAME_WIDTH / 2 + 75, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
-        this.scene.start('TitleScene');
+        this.scene.start('MultiplayerMenuScene');
       });
     } else if (this.manager.complete) {
       const winner = fightersData.find((f) => f.id === this.manager.winnerId);
@@ -99,11 +99,11 @@ export class BracketScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       createButton(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
-        this.scene.start('TitleScene');
+        this.scene.start('MultiplayerMenuScene');
       });
     } else {
       createButton(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
-        this.scene.start('TitleScene');
+        this.scene.start('MultiplayerMenuScene');
       });
     }
   }

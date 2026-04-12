@@ -2078,7 +2078,11 @@ export class FightScene extends Phaser.Scene {
       }
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('TitleScene');
+        if (this.matchContext || this.gameMode === 'online') {
+          this.scene.start('MultiplayerMenuScene');
+        } else {
+          this.scene.start('TitleScene');
+        }
       });
     });
 

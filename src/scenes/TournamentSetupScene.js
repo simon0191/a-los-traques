@@ -9,7 +9,7 @@ export class TournamentSetupScene extends Phaser.Scene {
 
   create() {
     this.playerCount = 1;
-    this._maxPlayers = 8;
+    this._maxPlayers = 16;
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
@@ -50,11 +50,16 @@ export class TournamentSetupScene extends Phaser.Scene {
       fontSize: '14px',
     });
 
-    createButton(this, GAME_WIDTH / 2, 120, 'TORNEO CORTO (8)', () => this.startTournament(8), {
-      width: 180,
-      height: 30,
-      fontSize: '14px',
-    });
+    this._btn8 = createButton(
+      this,
+      GAME_WIDTH / 2,
+      120,
+      'TORNEO CORTO (8)',
+      () => {
+        if (this.playerCount <= 8) this.startTournament(8);
+      },
+      { width: 180, height: 30, fontSize: '14px' },
+    );
 
     createButton(this, GAME_WIDTH / 2, 160, 'TORNEO LARGO (16)', () => this.startTournament(16), {
       width: 180,
@@ -68,7 +73,7 @@ export class TournamentSetupScene extends Phaser.Scene {
       220,
       'VOLVER',
       () => {
-        this.scene.start('TitleScene');
+        this.scene.start('MultiplayerMenuScene');
       },
       { width: 180, height: 30, fontSize: '14px' },
     );
@@ -79,7 +84,14 @@ export class TournamentSetupScene extends Phaser.Scene {
     if (newCount >= 1 && newCount <= this._maxPlayers) {
       this.playerCount = newCount;
       this._playerCountText.setText(String(this.playerCount));
+      this._updateSizeButtons();
     }
+  }
+
+  _updateSizeButtons() {
+    const disabled = this.playerCount > 8;
+    this._btn8.bg.setAlpha(disabled ? 0.3 : 1);
+    this._btn8.text.setAlpha(disabled ? 0.3 : 1);
   }
 
   startTournament(size) {
