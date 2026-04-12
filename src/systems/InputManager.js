@@ -1,18 +1,42 @@
 import Phaser from 'phaser';
+import { INPUT_PROFILES } from './InputProfiles.js';
 
 export class InputManager {
-  constructor(scene) {
+  constructor(scene, profileId = 'keyboard_full') {
     this.scene = scene;
 
-    // Keyboard
-    this.cursors = scene.input.keyboard.createCursorKeys();
+    const profile = INPUT_PROFILES[profileId];
+    if (!profile) {
+      throw new Error(`Unknown input profile: ${profileId}`);
+    }
+
+    // Directions
+    const dirs = profile.dirs;
+    const isArrows =
+      dirs.up === Phaser.Input.Keyboard.KeyCodes.UP &&
+      dirs.down === Phaser.Input.Keyboard.KeyCodes.DOWN &&
+      dirs.left === Phaser.Input.Keyboard.KeyCodes.LEFT &&
+      dirs.right === Phaser.Input.Keyboard.KeyCodes.RIGHT;
+
+    if (isArrows) {
+      this.cursors = scene.input.keyboard.createCursorKeys();
+    } else {
+      this.cursors = {
+        up: scene.input.keyboard.addKey(dirs.up),
+        down: scene.input.keyboard.addKey(dirs.down),
+        left: scene.input.keyboard.addKey(dirs.left),
+        right: scene.input.keyboard.addKey(dirs.right),
+      };
+    }
+
+    // Attacks
+    const atk = profile.attacks;
     this.keys = {
-      z: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z),
-      x: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X),
-      a: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      s: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      d: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      space: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      lp: scene.input.keyboard.addKey(atk.lp),
+      hp: scene.input.keyboard.addKey(atk.hp),
+      lk: scene.input.keyboard.addKey(atk.lk),
+      hk: scene.input.keyboard.addKey(atk.hk),
+      sp: scene.input.keyboard.addKey(atk.sp),
     };
 
     // Touch input state (populated by TouchControls)
@@ -43,19 +67,19 @@ export class InputManager {
   }
 
   get lightPunch() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.z) || this.touchState.lightPunch;
+    return Phaser.Input.Keyboard.JustDown(this.keys.lp) || this.touchState.lightPunch;
   }
   get heavyPunch() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.a) || this.touchState.heavyPunch;
+    return Phaser.Input.Keyboard.JustDown(this.keys.hp) || this.touchState.heavyPunch;
   }
   get lightKick() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.x) || this.touchState.lightKick;
+    return Phaser.Input.Keyboard.JustDown(this.keys.lk) || this.touchState.lightKick;
   }
   get heavyKick() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.s) || this.touchState.heavyKick;
+    return Phaser.Input.Keyboard.JustDown(this.keys.hk) || this.touchState.heavyKick;
   }
   get special() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.d) || this.touchState.special;
+    return Phaser.Input.Keyboard.JustDown(this.keys.sp) || this.touchState.special;
   }
   get block() {
     return this.down;
