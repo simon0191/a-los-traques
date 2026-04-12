@@ -486,7 +486,7 @@ export class SelectScene extends Phaser.Scene {
         // Add buttons at the bottom
         matrix.push([this.listoBtn, this.volverBtn]);
         
-        controller.setNavMenu(matrix, true);
+        controller.setNavMenu(matrix, true, false);
       }
     });
   }

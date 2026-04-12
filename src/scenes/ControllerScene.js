@@ -15,12 +15,21 @@ export class ControllerScene extends Phaser.Scene {
     this.NAV_FREQ = 150;
 
     // Button state tracking for 'Just Down'
-    this.prevButtons = { cross: false, square: false, enter: false, space: false };
+    this.prevButtons = {
+      cross: false,
+      square: false,
+      circle: false,
+      options: false,
+      enter: false,
+      space: false,
+      esc: false,
+    };
 
     // Visual Cursor State
     this.targetBounds = { x: 0, y: 0, w: 0, h: 0 };
     this.currentBounds = { x: 0, y: 0, w: 0, h: 0 };
     this.LERP_SPEED = 0.25;
+    this.cursorVisible = true;
   }
 
   create() {
@@ -42,20 +51,45 @@ export class ControllerScene extends Phaser.Scene {
     this.input.gamepad.on('disconnected', (pad) => {
       this.showToast('Control desconectado');
     });
+
+    // Auto-clear menu when scenes change to prevent ghost cursors in FightScene
+    this.game.events.on('step', () => {
+      this._checkActiveScene();
+    });
+  }
+
+  _checkActiveScene() {
+    const activeScenes = this.game.scene.getScenes(true);
+    const mainScene = activeScenes.find(
+      (s) =>
+        s.scene.key !== 'ControllerScene' &&
+        s.scene.key !== 'DevConsole' &&
+        s.scene.key !== 'AudioManager',
+    );
+
+    if (mainScene && this.lastSceneKey !== mainScene.scene.key) {
+      this.lastSceneKey = mainScene.scene.key;
+      // If we move to a scene that doesn't usually have menus, clear the navigation
+      if (['FightScene', 'PreFightScene', 'BootScene'].includes(this.lastSceneKey)) {
+        this.setNavMenu(null);
+      }
+    }
   }
 
   /**
    * Set the current navigatable menu.
    * @param {GameObject[] | GameObject[][]} items - 1D array or 2D matrix of interactables.
    * @param {boolean} isGrid - Whether the items are a 2D matrix.
+   * @param {boolean} showCursor - Whether to show the global yellow selection square.
    */
-  setNavMenu(items, isGrid = false) {
+  setNavMenu(items, isGrid = false, showCursor = true) {
     // Reset previous focus
     const prev = this._getFocusedItem();
     if (prev) prev.emit('pointerout');
 
     this.menuItems = items || [];
     this.isGrid = isGrid;
+    this.cursorVisible = showCursor;
     this.cursorX = 0;
     this.cursorY = 0;
 
@@ -63,6 +97,8 @@ export class ControllerScene extends Phaser.Scene {
     if (focused) {
       focused.emit('pointerover');
       this._snapCursorTo(focused);
+    } else {
+      this.graphics.clear();
     }
   }
 
@@ -127,45 +163,74 @@ export class ControllerScene extends Phaser.Scene {
 
   _handleInput(time, delta) {
     const pad = this.input.gamepad.total > 0 ? this.input.gamepad.gamepads[0] : null;
-    const cursors = this.input.keyboard.createCursorKeys();
 
-    const up = cursors.up.isDown || (pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5)));
-    const down = cursors.down.isDown || (pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5)));
-    const left = cursors.left.isDown || (pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5)));
-    const right = cursors.right.isDown || (pad && (pad.right || (pad.axes[0] && pad.axes[0].getValue() > 0.5)));
+    // Only process navigation if we have a menu
+    if (this.menuItems.length > 0) {
+      const cursors = this.input.keyboard.createCursorKeys();
+      const up = cursors.up.isDown || (pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5)));
+      const down = cursors.down.isDown || (pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5)));
+      const left = cursors.left.isDown || (pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5)));
+      const right = cursors.right.isDown || (pad && (pad.right || (pad.axes[0] && pad.axes[0].getValue() > 0.5)));
 
-    this._processDir('up', up, 0, -1, delta);
-    this._processDir('down', down, 0, 1, delta);
-    this._processDir('left', left, -1, 0, delta);
-    this._processDir('right', right, 1, 0, delta);
+      this._processDir('up', up, 0, -1, delta);
+      this._processDir('down', down, 0, 1, delta);
+      this._processDir('left', left, -1, 0, delta);
+      this._processDir('right', right, 1, 0, delta);
+    }
 
     // Button states
     const crossDown = !!pad?.buttons[0]?.pressed;
+    const circleDown = !!pad?.buttons[1]?.pressed;
     const squareDown = !!pad?.buttons[2]?.pressed;
+    const optionsDown = !!pad?.buttons[9]?.pressed;
     const enterDown = this.keys.enter.isDown;
     const spaceDown = this.keys.space.isDown;
+    const escDown = this.keys.esc.isDown;
 
-    // Check for 'Just Down' (not pressed last frame, but pressed now)
+    // Check for 'Just Down'
     const crossJustDown = crossDown && !this.prevButtons.cross;
+    const circleJustDown = circleDown && !this.prevButtons.circle;
     const squareJustDown = squareDown && !this.prevButtons.square;
+    const optionsJustDown = optionsDown && !this.prevButtons.options;
     const enterJustDown = enterDown && !this.prevButtons.enter;
     const spaceJustDown = spaceDown && !this.prevButtons.space;
+    const escJustDown = escDown && !this.prevButtons.esc;
 
+    // Confirm Logic
     if (crossJustDown || squareJustDown || enterJustDown || spaceJustDown) {
       const focused = this._getFocusedItem();
       if (focused) {
         focused.emit('pointerdown');
-        // Some buttons might trigger on pointerup or need visual feedback
         focused.emit('pointerup');
         this.game.audioManager?.play('ui_confirm');
       }
     }
 
+    // Cancel / Back Logic
+    if (circleJustDown || optionsJustDown || escJustDown) {
+      const activeScenes = this.game.scene.getScenes(true);
+      const mainScene = activeScenes.find(
+        (s) => s.scene.key !== 'ControllerScene' && s.scene.key !== 'DevConsole',
+      );
+
+      if (mainScene) {
+        // Many scenes have a 'handleBack' or 'goBack' method
+        if (typeof mainScene.handleBack === 'function') mainScene.handleBack();
+        else if (typeof mainScene.goBack === 'function') mainScene.goBack();
+        else if (typeof mainScene._goBack === 'function') mainScene._goBack();
+
+        this.game.audioManager?.play('ui_cancel');
+      }
+    }
+
     // Update button states for next frame
     this.prevButtons.cross = crossDown;
+    this.prevButtons.circle = circleDown;
     this.prevButtons.square = squareDown;
+    this.prevButtons.options = optionsDown;
     this.prevButtons.enter = enterDown;
     this.prevButtons.space = spaceDown;
+    this.prevButtons.esc = escDown;
   }
 
   _processDir(name, isPressed, dx, dy, delta) {
@@ -219,7 +284,7 @@ export class ControllerScene extends Phaser.Scene {
 
   _updateCursor(delta) {
     this.graphics.clear();
-    if (this.menuItems.length === 0) return;
+    if (this.menuItems.length === 0 || !this.cursorVisible) return;
 
     // Lerp bounds
     this.currentBounds.x = Phaser.Math.Linear(this.currentBounds.x, this.targetBounds.x, this.LERP_SPEED);
