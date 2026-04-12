@@ -54,6 +54,8 @@ export class NetworkFacade {
       }
       if (this._onOpponentJoined) {
         this._onOpponentJoined(msg);
+      } else {
+        this._pendingOpponentJoined = msg;
       }
     });
 
@@ -65,19 +67,27 @@ export class NetworkFacade {
       }
       if (this._onOpponentReconnected) {
         this._onOpponentReconnected(msg);
+      } else {
+        this._pendingOpponentReconnected = msg;
       }
     });
 
     // Wire remaining room lifecycle events
     this._onOpponentJoined = null;
     this._onOpponentReconnected = null;
+    this._pendingOpponentJoined = null;
+    this._pendingOpponentReconnected = null;
 
     this.signaling.on('rejoin_ack', () => {
       this.transport.flushPendingWebRTCInit();
       // rejoin_ack confirms our rejoin succeeded. The server only sends
       // opponent_reconnected to the OTHER peer, so we must resume our own
       // ReconnectionManager here.
-      if (this._onOpponentReconnected) this._onOpponentReconnected();
+      if (this._onOpponentReconnected) {
+        this._onOpponentReconnected();
+      } else {
+        this._pendingOpponentReconnected = { type: 'opponent_reconnected' };
+      }
     });
 
     // Room lifecycle callbacks
@@ -358,12 +368,9 @@ export class NetworkFacade {
     this.inputSync.reset();
     this.spectator.reset();
     // Clear room lifecycle callbacks that are scene-specific
-    this._onOpponentReady = null;
-    this._onOpponentJoined = null;
     this._onOpponentReconnected = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
-    this._onError = null;
 
     // Reset signaling handlers for scene-specific types
     this.signaling.resetHandlers([
@@ -377,7 +384,6 @@ export class NetworkFacade {
       'disconnect',
       'frame_sync',
       'opponent_reconnecting',
-      'opponent_reconnected',
       'return_to_select',
       'rejoin_available',
     ]);
