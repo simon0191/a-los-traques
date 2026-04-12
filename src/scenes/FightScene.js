@@ -154,6 +154,20 @@ export class FightScene extends Phaser.Scene {
       this.inputManager = new InputManager(this, slot);
       this.touchControls = new TouchControls(this, this.inputManager, slot);
 
+      // Handle mid-fight gamepad status changes
+      this.input.gamepad.on('disconnected', () => {
+        if (this.inputManagerP2 && this.input.gamepad.total < 2) {
+          console.log('[FightScene] P2 Gamepad disconnected, falling back to AI');
+          this.inputManagerP2 = null;
+          this.aiController = new AIController(
+            this,
+            this.p2Fighter,
+            this.p1Fighter,
+            this.aiDifficulty,
+          );
+        }
+      });
+
       // -- AI controller (local mode only) --
       if (this.gameMode !== 'online') {
         // Replay mode: use recorded inputs instead of AI/keyboard
@@ -1272,6 +1286,10 @@ export class FightScene extends Phaser.Scene {
   }
 
   _handleLocalUpdate(time, delta) {
+    // 1. Update InputManager states (rotate prev/curr button buffers)
+    this.inputManager?.preUpdate();
+    this.inputManagerP2?.preUpdate();
+
     // Replay mode: use recorded inputs via simulateFrame
     if (this._replayP1 && this._replayP2) {
       // Handle frame-based round transition cooldown
@@ -1518,6 +1536,9 @@ export class FightScene extends Phaser.Scene {
   _handleOnlineUpdate(time, delta) {
     this.frameCounter++;
     const wasRoundActive = this.combat.roundActive;
+
+    // 1. Update InputManager states (rotate prev/curr button buffers)
+    this.inputManager?.preUpdate();
 
     // Read local input: from AI in autoplay mode, from InputManager otherwise
     let localInput;

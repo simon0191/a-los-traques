@@ -114,17 +114,6 @@ export class LobbyScene extends Phaser.Scene {
       { width: 110, height: 20, fontSize: '9px' },
     );
 
-    // Register with centralized controller
-    this.time.delayedCall(100, () => {
-      const controller = this.scene.get('ControllerScene');
-      if (controller) {
-        const buttons = this.children.list.filter(
-          (child) => child.input?.enabled && child.type === 'Rectangle',
-        );
-        controller.setNavMenu(buttons);
-      }
-    });
-
     // Start connection
     if (this.isCreator) {
       this.roomId = generateRoomId();
@@ -211,6 +200,13 @@ export class LobbyScene extends Phaser.Scene {
     this.network.onRejoinAvailable((slot) => {
       this.network.sendRejoin(slot, true);
     });
+  }
+
+  getNavMenu() {
+    const buttons = this.children.list.filter(
+      (child) => child.input?.enabled && child.type === 'Rectangle',
+    );
+    return { items: buttons };
   }
 
   _goBack() {

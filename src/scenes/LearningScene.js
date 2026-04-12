@@ -171,14 +171,10 @@ export class LearningScene extends Phaser.Scene {
     this._updateScrollIndicator();
 
     this.transitioning = false;
+  }
 
-    // Global navigation bindings
-    this.time.delayedCall(100, () => {
-      const controller = this.scene.get('ControllerScene');
-      if (controller) {
-        controller.setNavMenu([this.tabObjects[0], this.tabObjects[2]]);
-      }
-    });
+  getNavMenu() {
+    return { items: [this.tabObjects[0], this.tabObjects[2]] };
   }
 
   // Cards to load

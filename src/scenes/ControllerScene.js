@@ -31,11 +31,13 @@ export class ControllerScene extends Phaser.Scene {
     this.LERP_SPEED = 0.25;
     this.cursorVisible = true;
     this.lastSceneKey = '';
-  }
+    }
 
-  create() {
+    create() {
     this.graphics = this.add.graphics();
     this.graphics.setDepth(10000);
+
+    this.cursors = this.input.keyboard.createCursorKeys();
 
     // Pre-create keys for performance
     this.keys = {
@@ -53,11 +55,12 @@ export class ControllerScene extends Phaser.Scene {
       this.showToast('Control desconectado');
     });
 
-    // Auto-clear menu when scenes change to prevent ghost cursors in FightScene
-    this.game.events.on('step', () => {
+    // Auto-pull menu when scenes change (using scene-scoped event)
+    this.events.on('update', () => {
       this._checkActiveScene();
     });
-  }
+    }
+
 
   _checkActiveScene() {
     const mainScene = this._getMainScene();
@@ -65,8 +68,13 @@ export class ControllerScene extends Phaser.Scene {
 
     if (this.lastSceneKey !== mainScene.scene.key) {
       this.lastSceneKey = mainScene.scene.key;
-      // If we move to a scene that doesn't usually have menus, clear the navigation
-      if (['FightScene', 'PreFightScene', 'BootScene'].includes(this.lastSceneKey)) {
+      console.log(`[ControllerScene] Scene changed to: ${this.lastSceneKey}`);
+
+      // Pull-based navigation: check if scene provides its own menu
+      if (typeof mainScene.getNavMenu === 'function') {
+        const config = mainScene.getNavMenu();
+        this.setNavMenu(config.items, config.isGrid || false, config.showCursor ?? true);
+      } else {
         this.setNavMenu(null);
       }
     }
@@ -209,16 +217,16 @@ export class ControllerScene extends Phaser.Scene {
 
     // Only process navigation if we have a menu
     if (this.menuItems.length > 0) {
-      const cursors = this.input.keyboard.createCursorKeys();
       const up =
-        cursors.up.isDown || (pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5)));
+        this.cursors.up.isDown || (pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5)));
       const down =
-        cursors.down.isDown || (pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5)));
+        this.cursors.down.isDown ||
+        (pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5)));
       const left =
-        cursors.left.isDown ||
+        this.cursors.left.isDown ||
         (pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5)));
       const right =
-        cursors.right.isDown ||
+        this.cursors.right.isDown ||
         (pad && (pad.right || (pad.axes[0] && pad.axes[0].getValue() > 0.5)));
 
       this._processDir('up', up, 0, -1, delta);

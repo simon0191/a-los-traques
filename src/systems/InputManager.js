@@ -28,6 +28,22 @@ export class InputManager {
       heavyKick: false,
       special: false,
     };
+
+    // Button state tracking for 'Just Down'
+    this._prevPadButtons = new Array(16).fill(false);
+    this._currPadButtons = new Array(16).fill(false);
+  }
+
+  preUpdate() {
+    const pad = this._getGamepad();
+    for (let i = 0; i < this._currPadButtons.length; i++) {
+      this._prevPadButtons[i] = this._currPadButtons[i];
+      this._currPadButtons[i] = !!pad?.buttons[i]?.pressed;
+    }
+  }
+
+  _padJustDown(buttonIndex) {
+    return this._currPadButtons[buttonIndex] && !this._prevPadButtons[buttonIndex];
   }
 
   _getGamepad() {
@@ -58,34 +74,24 @@ export class InputManager {
   }
 
   get lightPunch() {
-    const pad = this._getGamepad();
-    // Square (Button 2)
-    const padPress = pad?.buttons[2]?.pressed;
-    return Phaser.Input.Keyboard.JustDown(this.keys.z) || this.touchState.lightPunch || padPress;
+    return Phaser.Input.Keyboard.JustDown(this.keys.z) || this.touchState.lightPunch || this._padJustDown(2);
   }
   get heavyPunch() {
-    const pad = this._getGamepad();
-    // Triangle (Button 3)
-    const padPress = pad?.buttons[3]?.pressed;
-    return Phaser.Input.Keyboard.JustDown(this.keys.a) || this.touchState.heavyPunch || padPress;
+    return Phaser.Input.Keyboard.JustDown(this.keys.a) || this.touchState.heavyPunch || this._padJustDown(3);
   }
   get lightKick() {
-    const pad = this._getGamepad();
-    // Cross (Button 0)
-    const padPress = pad?.buttons[0]?.pressed;
-    return Phaser.Input.Keyboard.JustDown(this.keys.x) || this.touchState.lightKick || padPress;
+    return Phaser.Input.Keyboard.JustDown(this.keys.x) || this.touchState.lightKick || this._padJustDown(0);
   }
   get heavyKick() {
-    const pad = this._getGamepad();
-    // Circle (Button 1)
-    const padPress = pad?.buttons[1]?.pressed;
-    return Phaser.Input.Keyboard.JustDown(this.keys.s) || this.touchState.heavyKick || padPress;
+    return Phaser.Input.Keyboard.JustDown(this.keys.s) || this.touchState.heavyKick || this._padJustDown(1);
   }
   get special() {
-    const pad = this._getGamepad();
-    // R1 (Button 5) or R2 (Button 7)
-    const padPress = pad?.buttons[5]?.pressed || pad?.buttons[7]?.pressed;
-    return Phaser.Input.Keyboard.JustDown(this.keys.d) || this.touchState.special || padPress;
+    return (
+      Phaser.Input.Keyboard.JustDown(this.keys.d) ||
+      this.touchState.special ||
+      this._padJustDown(5) ||
+      this._padJustDown(7)
+    );
   }
   get block() {
     return this.down;

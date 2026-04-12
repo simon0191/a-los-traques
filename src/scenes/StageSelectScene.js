@@ -206,36 +206,39 @@ export class StageSelectScene extends Phaser.Scene {
       });
     }
 
-    // Register with centralized controller
-    this.time.delayedCall(100, () => {
-      const controller = this.scene.get('ControllerScene');
-      if (controller && this.isP1) {
-        const matrix = [];
-        const rows = Math.ceil(this.stages.length / COLS);
-        for (let r = 0; r < rows; r++) {
-          const rowArr = [];
-          for (let c = 0; c < COLS; c++) {
-            const idx = r * COLS + c;
-            if (idx < this.gridCells.length) {
-              rowArr.push(this.gridCells[idx].rect);
-            }
-          }
-          if (rowArr.length > 0) matrix.push(rowArr);
-        }
-        // Add LISTO and VOLVER buttons at the bottom
-        const bottomRow = [];
-        if (this.listoBtn) bottomRow.push(this.listoBtn.bg);
-        if (this.backBtn) bottomRow.push(this.backBtn.bg);
-        if (bottomRow.length > 0) matrix.push(bottomRow);
-
-        controller.setNavMenu(matrix, true);
-      }
-    });
-
     this.updateSelection();
-  }
+    }
 
-  handleBack(remote = false) {
+    getNavMenu() {
+    if (!this.isP1) return { items: [] };
+
+    const matrix = [];
+    const rows = Math.ceil(this.stages.length / COLS);
+    for (let r = 0; r < rows; r++) {
+      const rowArr = [];
+      for (let c = 0; c < COLS; c++) {
+        const idx = r * COLS + c;
+        if (idx < this.gridCells.length) {
+          rowArr.push(this.gridCells[idx].rect);
+        }
+      }
+      if (rowArr.length > 0) matrix.push(rowArr);
+    }
+
+    // Add LISTO and VOLVER buttons at the bottom
+    const bottomRow = [];
+    if (this.listoBtn) bottomRow.push(this.listoBtn.bg);
+    if (this.backBtn) bottomRow.push(this.backBtn.bg);
+    if (bottomRow.length > 0) matrix.push(bottomRow);
+
+    return {
+      items: matrix,
+      isGrid: true,
+    };
+    }
+
+    handleBack(remote = false) {
+
     if (this.transitioning && !remote) return;
     const audio = this.game.audioManager;
     if (!remote) audio.play('ui_cancel');

@@ -145,15 +145,11 @@ export class MusicScene extends Phaser.Scene {
     this._createButton(60, GAME_HEIGHT - 20, 'VOLVER', () => this._goBack());
 
     this.transitioning = false;
+  }
 
-    // Global navigation bindings
-    this.time.delayedCall(100, () => {
-      const controller = this.scene.get('ControllerScene');
-      if (controller) {
-        const buttons = this.songRows.map((r) => r.bg);
-        controller.setNavMenu(buttons);
-      }
-    });
+  getNavMenu() {
+    const buttons = this.songRows.map((r) => r.bg);
+    return { items: buttons };
   }
 
   _toggleSong(index) {

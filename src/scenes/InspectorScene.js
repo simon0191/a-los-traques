@@ -209,14 +209,10 @@ export class InspectorScene extends Phaser.Scene {
     // Select first fighter with sprites, or first fighter
     const firstSpriteIdx = fightersData.findIndex((f) => FIGHTERS_WITH_SPRITES.includes(f.id));
     this.selectFighter(firstSpriteIdx >= 0 ? firstSpriteIdx : 0);
+  }
 
-    // Global navigation bindings
-    this.time.delayedCall(100, () => {
-      const controller = this.scene.get('ControllerScene');
-      if (controller) {
-        controller.setNavMenu(this.listTexts);
-      }
-    });
+  getNavMenu() {
+    return { items: this.listTexts };
   }
 
   selectFighter(index) {

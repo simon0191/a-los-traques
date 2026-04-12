@@ -466,29 +466,29 @@ export class SelectScene extends Phaser.Scene {
     });
 
     this._syncDOMPortraits();
+  }
 
-    // Register with centralized controller
-    this.time.delayedCall(100, () => {
-      const controller = this.scene.get('ControllerScene');
-      if (controller) {
-        const matrix = [];
-        for (let r = 0; r < ROWS; r++) {
-          const rowArr = [];
-          for (let c = 0; c < COLS; c++) {
-            const idx = r * COLS + c;
-            if (idx < this.gridCells.length) {
-              rowArr.push(this.gridCells[idx].rect);
-            }
-          }
-          if (rowArr.length > 0) matrix.push(rowArr);
+  getNavMenu() {
+    const matrix = [];
+    for (let r = 0; r < ROWS; r++) {
+      const rowArr = [];
+      for (let c = 0; c < COLS; c++) {
+        const idx = r * COLS + c;
+        if (idx < this.gridCells.length) {
+          rowArr.push(this.gridCells[idx].rect);
         }
-
-        // Add buttons at the bottom
-        matrix.push([this.listoBtn, this.volverBtn]);
-
-        controller.setNavMenu(matrix, true, true);
       }
-    });
+      if (rowArr.length > 0) matrix.push(rowArr);
+    }
+
+    // Add buttons at the bottom
+    matrix.push([this.listoBtn, this.volverBtn]);
+
+    return {
+      items: matrix,
+      isGrid: true,
+      showCursor: true,
+    };
   }
 
   update(_time, _delta) {
@@ -703,6 +703,14 @@ export class SelectScene extends Phaser.Scene {
       this.p2Index = this.fighters.length - 1;
       this.updateP2Display();
       this.confirmedText.setText('Jugador 1 Listo. Esperando Jugador 2...');
+      
+      // Refresh navigation for P2
+      const controller = this.scene.get('ControllerScene');
+      if (controller) {
+        controller._checkActiveScene(); // Re-pull menu
+        controller.focusItem(this.gridCells[this.p2Index].rect);
+      }
+
       if (this.game.autoplay?.enabled) {
         let p2Idx;
         do {

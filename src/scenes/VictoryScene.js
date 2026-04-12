@@ -249,15 +249,6 @@ export class VictoryScene extends Phaser.Scene {
       });
     });
 
-    // Register with centralized controller
-    this.time.delayedCall(100, () => {
-      const controller = this.scene.get('ControllerScene');
-      if (controller) {
-        const buttons = this.buttons.map((b) => b.ui.bg);
-        controller.setNavMenu(buttons);
-      }
-    });
-
     // In online mode, listen for rematch/leave from opponent
     if (this.gameMode === 'online' && this.networkManager) {
       this._rematchReceived = false;
@@ -299,56 +290,12 @@ export class VictoryScene extends Phaser.Scene {
         });
       });
     }
+
+    this._saveResult();
   }
 
-  _bindNavEvents() {
-    this._unbindNavEvents();
-    const e = this.game.events;
-    e.on('ui_left', this._navPrev, this);
-    e.on('ui_right', this._navNext, this);
-    e.on('ui_confirm', this._navConfirm, this);
-  }
-
-  _unbindNavEvents() {
-    const e = this.game.events;
-    e.off('ui_left', this._navPrev, this);
-    e.off('ui_right', this._navNext, this);
-    e.off('ui_confirm', this._navConfirm, this);
-  }
-
-  _navPrev() {
-    if (this.transitioning) return;
-    this.selectedIndex--;
-    if (this.selectedIndex < 0) this.selectedIndex = this.buttons.length - 1;
-    this.updateSelection();
-    this.game.audioManager.play('ui_navigate');
-  }
-
-  _navNext() {
-    if (this.transitioning) return;
-    this.selectedIndex++;
-    if (this.selectedIndex >= this.buttons.length) this.selectedIndex = 0;
-    this.updateSelection();
-    this.game.audioManager.play('ui_navigate');
-  }
-
-  _navConfirm() {
-    if (this.transitioning) return;
-    this.game.audioManager.play('ui_confirm');
-    this.buttons[this.selectedIndex].action();
-  }
-
-  updateSelection() {
-    this.buttons.forEach((btn, index) => {
-      const isSelected = index === this.selectedIndex;
-      if (isSelected) {
-        btn.ui.bg.setStrokeStyle(2, 0xffcc00);
-        btn.ui.text.setColor('#ffcc00');
-      } else {
-        btn.ui.bg.setStrokeStyle(1, 0x4444aa);
-        btn.ui.text.setColor('#ffffff');
-      }
-    });
+  getNavMenu() {
+    return { items: this.buttons.map((b) => b.ui.bg) };
   }
 
   async _saveResult() {

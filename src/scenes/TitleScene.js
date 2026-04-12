@@ -192,20 +192,17 @@ export class TitleScene extends Phaser.Scene {
     });
 
     this.transitioning = false;
+    }
 
-    // Register with centralized controller
-    this.time.delayedCall(100, () => {
-      const controller = this.scene.get('ControllerScene');
-      if (controller) {
-        const buttons = this.children.list
-          .filter((child) => child.input?.enabled && child.type === 'Rectangle')
-          .sort((a, b) => a.y - b.y);
-        controller.setNavMenu(buttons);
-      }
-    });
-  }
+    getNavMenu() {
+    const buttons = this.children.list
+      .filter((child) => child.input?.enabled && child.type === 'Rectangle')
+      .sort((a, b) => a.y - b.y);
+    return { items: buttons };
+    }
 
-  goToSelect() {
+    goToSelect() {
+
     if (this.transitioning) return;
     this.transitioning = true;
 
