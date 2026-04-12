@@ -41,7 +41,7 @@ export class TitleScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.4);
 
     // Layout anchor — shifted up to fit all buttons on screen
-    const cy = GAME_HEIGHT / 2 - 50;
+    const cy = GAME_HEIGHT / 2 - 65;
 
     // Game title
     this.add
@@ -169,6 +169,10 @@ export class TitleScene extends Phaser.Scene {
       this.goToMusic();
     });
 
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 7, 'LEADERBOARD', () => {
+      this.goToLeaderboard();
+    });
+
     this.transitioning = false;
   }
 
@@ -232,6 +236,15 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('MusicScene');
+    });
+  }
+
+  goToLeaderboard() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('LeaderboardScene');
     });
   }
 
