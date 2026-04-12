@@ -197,11 +197,11 @@ describe('SignalingClient', () => {
     it('does not buffer non-bufferable types', () => {
       const sc = makeClient();
 
-      sc._handleMessage({ type: 'opponent_joined' });
+      sc._handleMessage({ type: 'shout', text: 'hola' });
 
       // Now register handler — should NOT receive the message
       const received = [];
-      sc.on('opponent_joined', (msg) => received.push(msg));
+      sc.on('shout', (msg) => received.push(msg));
       expect(received.length).toBe(0);
     });
   });

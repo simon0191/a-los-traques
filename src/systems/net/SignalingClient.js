@@ -172,13 +172,17 @@ export class SignalingClient {
   }
 
   /**
-   * Clear handlers for the given message types.
+   * Clear handlers and pending buffers for the given message types.
    * Used during scene transitions (resetForReselect).
    * @param {string[]} types
    */
   resetHandlers(types) {
     for (const type of types) {
       this._handlers.delete(type);
+      const pending = this._pendingCallbackMessages.get(type);
+      if (pending) {
+        pending.length = 0;
+      }
     }
   }
 

@@ -52,7 +52,9 @@ export class NetworkFacade {
       if (!this.signaling.isSpectator) {
         this._fetchTurnThenInitWebRTC();
       }
-      if (this._onOpponentJoined) this._onOpponentJoined(msg);
+      if (this._onOpponentJoined) {
+        this._onOpponentJoined(msg);
+      }
     });
 
     // Wire opponent_reconnected → re-init WebRTC (credentials already cached)
@@ -61,37 +63,15 @@ export class NetworkFacade {
       if (!this.signaling.isSpectator) {
         this.transport.initWebRTC(this.signaling.playerSlot);
       }
-      if (this._onOpponentReconnected) this._onOpponentReconnected(msg);
+      if (this._onOpponentReconnected) {
+        this._onOpponentReconnected(msg);
+      }
     });
 
     // Wire remaining room lifecycle events
     this._onOpponentJoined = null;
     this._onOpponentReconnected = null;
 
-    this.signaling.on('opponent_ready', (msg) => {
-      if (this._onOpponentReady) this._onOpponentReady(msg.fighterId);
-    });
-    this.signaling.on('disconnect', () => {
-      if (this._onDisconnect) this._onDisconnect();
-    });
-    this.signaling.on('rematch', () => {
-      if (this._onRematch) this._onRematch();
-    });
-    this.signaling.on('full', () => {
-      if (this._onFull) this._onFull();
-    });
-    this.signaling.on('leave', () => {
-      if (this._onLeave) this._onLeave();
-    });
-    this.signaling.on('opponent_reconnecting', () => {
-      if (this._onOpponentReconnecting) this._onOpponentReconnecting();
-    });
-    this.signaling.on('return_to_select', () => {
-      if (this._onReturnToSelect) this._onReturnToSelect();
-    });
-    this.signaling.on('rejoin_available', (msg) => {
-      if (this._onRejoinAvailable) this._onRejoinAvailable(msg.slot);
-    });
     this.signaling.on('rejoin_ack', () => {
       this.transport.flushPendingWebRTCInit();
       // rejoin_ack confirms our rejoin succeeded. The server only sends
@@ -101,14 +81,6 @@ export class NetworkFacade {
     });
 
     // Room lifecycle callbacks
-    this._onOpponentReady = null;
-    this._onDisconnect = null;
-    this._onRematch = null;
-    this._onFull = null;
-    this._onLeave = null;
-    this._onOpponentReconnecting = null;
-    this._onReturnToSelect = null;
-    this._onRejoinAvailable = null;
     this._onError = null;
 
     // Wire monitor timeout → socket close callback
@@ -185,9 +157,14 @@ export class NetworkFacade {
   }
   onOpponentJoined(cb) {
     this._onOpponentJoined = cb;
+    if (cb && this._pendingOpponentJoined) {
+      const msg = this._pendingOpponentJoined;
+      this._pendingOpponentJoined = null;
+      cb(msg);
+    }
   }
   onOpponentReady(cb) {
-    this._onOpponentReady = cb;
+    this.signaling.on('opponent_ready', (msg) => cb(msg.fighterId));
   }
   onGoToStageSelect(cb) {
     this.signaling.on('go_to_stage_select', cb);
@@ -199,13 +176,13 @@ export class NetworkFacade {
     this.inputSync.onRemoteInput(cb);
   }
   onDisconnect(cb) {
-    this._onDisconnect = cb;
+    this.signaling.on('disconnect', cb);
   }
   onRematch(cb) {
-    this._onRematch = cb;
+    this.signaling.on('rematch', cb);
   }
   onFull(cb) {
-    this._onFull = cb;
+    this.signaling.on('full', cb);
   }
   onError(cb) {
     this._onError = cb;
@@ -217,7 +194,7 @@ export class NetworkFacade {
     this.spectator.onRoundEvent(cb);
   }
   onLeave(cb) {
-    this._onLeave = cb;
+    this.signaling.on('leave', cb);
   }
   onAssignSpectator(cb) {
     this.spectator.onAssignSpectator(cb);
@@ -238,16 +215,21 @@ export class NetworkFacade {
     this.spectator.onPotion(cb);
   }
   onOpponentReconnecting(cb) {
-    this._onOpponentReconnecting = cb;
+    this.signaling.on('opponent_reconnecting', cb);
   }
   onOpponentReconnected(cb) {
     this._onOpponentReconnected = cb;
+    if (cb && this._pendingOpponentReconnected) {
+      const msg = this._pendingOpponentReconnected;
+      this._pendingOpponentReconnected = null;
+      cb(msg);
+    }
   }
   onReturnToSelect(cb) {
-    this._onReturnToSelect = cb;
+    this.signaling.on('return_to_select', cb);
   }
   onRejoinAvailable(cb) {
-    this._onRejoinAvailable = cb;
+    this.signaling.on('rejoin_available', (msg) => cb(msg.slot));
   }
   onFrameZeroSync(cb) {
     this.signaling.on('frame_sync', cb);
@@ -368,14 +350,12 @@ export class NetworkFacade {
     this.spectator.reset();
     // Clear room lifecycle callbacks that are scene-specific
     this._onOpponentReady = null;
-    this._onRematch = null;
-    this._onLeave = null;
-    this._onOpponentReconnecting = null;
+    this._onOpponentJoined = null;
     this._onOpponentReconnected = null;
-    this._onReturnToSelect = null;
     this._onSocketClose = null;
     this._onSocketOpen = null;
-    this._onRejoinAvailable = null;
+    this._onError = null;
+
     // Reset signaling handlers for scene-specific types
     this.signaling.resetHandlers([
       'opponent_ready',
