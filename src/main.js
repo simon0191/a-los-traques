@@ -32,6 +32,9 @@ const config = {
   dom: {
     createContainer: true,
   },
+  input: {
+    gamepad: true,
+  },
   physics: {
     default: 'arcade',
     arcade: {

@@ -151,7 +151,7 @@ export class FightScene extends Phaser.Scene {
     } else {
       const slot =
         this.gameMode === 'online' && this.networkManager ? this.networkManager.getPlayerSlot() : 0;
-      this.inputManager = new InputManager(this);
+      this.inputManager = new InputManager(this, slot);
       this.touchControls = new TouchControls(this, this.inputManager, slot);
 
       // -- AI controller (local mode only) --
@@ -177,12 +177,16 @@ export class FightScene extends Phaser.Scene {
           this.aiController = null;
         } else {
           if (this.p1Fighter && this.p2Fighter) {
-            this.aiController = new AIController(
-              this,
-              this.p2Fighter,
-              this.p1Fighter,
-              this.aiDifficulty,
-            );
+            if (this.input.gamepad && this.input.gamepad.total >= 2) {
+              this.inputManagerP2 = new InputManager(this, 1);
+            } else {
+              this.aiController = new AIController(
+                this,
+                this.p2Fighter,
+                this.p1Fighter,
+                this.aiDifficulty,
+              );
+            }
           } else {
             console.error('[FightScene] Cannot initialize AI: fighters missing', {
               p1: !!this.p1Fighter,
@@ -1400,9 +1404,25 @@ export class FightScene extends Phaser.Scene {
         });
     input.consumeTouch();
 
-    // Build P2 input from AI
+    // Build P2 input
     let p2Input = 0;
-    if (this.aiController) {
+    if (this.inputManagerP2) {
+      const inputP2 = this.inputManagerP2;
+      p2Input = this.devConsole?.visible
+        ? 0
+        : encodeInput({
+            left: inputP2.left,
+            right: inputP2.right,
+            up: inputP2.up,
+            down: inputP2.down,
+            lp: inputP2.lightPunch,
+            hp: inputP2.heavyPunch,
+            lk: inputP2.lightKick,
+            hk: inputP2.heavyKick,
+            sp: inputP2.special,
+          });
+      inputP2.consumeTouch();
+    } else if (this.aiController) {
       this.aiController.update(time, delta);
       const d = this.aiController.decision;
       p2Input = encodeInput({
