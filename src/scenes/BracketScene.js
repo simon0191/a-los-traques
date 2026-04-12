@@ -28,7 +28,6 @@ export class BracketScene extends Phaser.Scene {
 
     // Track if we just came from a match result
     this.fromMatch = data.fromMatch || false;
-    this.lastMatchResult = data.winnerId || null;
   }
 
   create() {

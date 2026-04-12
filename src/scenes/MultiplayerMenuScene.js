@@ -12,6 +12,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     audio.setScene(this);
     audio.createMuteButton(this);
 
+    this.events.on('shutdown', () => this._hideJoinOverlay());
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);

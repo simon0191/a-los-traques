@@ -9,7 +9,7 @@ export class TournamentSetupScene extends Phaser.Scene {
 
   create() {
     this.playerCount = 1;
-    this._maxPlayers = 16;
+    this._maxPlayers = 8;
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
@@ -92,6 +92,11 @@ export class TournamentSetupScene extends Phaser.Scene {
     const disabled = this.playerCount > 8;
     this._btn8.bg.setAlpha(disabled ? 0.3 : 1);
     this._btn8.text.setAlpha(disabled ? 0.3 : 1);
+    if (disabled) {
+      this._btn8.bg.disableInteractive();
+    } else {
+      this._btn8.bg.setInteractive();
+    }
   }
 
   startTournament(size) {
