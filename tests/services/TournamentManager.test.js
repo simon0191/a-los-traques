@@ -313,6 +313,50 @@ describe('TournamentManager', () => {
       const uniqueQuarters = new Set(quarters);
       expect(uniqueQuarters.size).toBe(4);
     });
+
+    it('8 humans in size-8 bracket fills all slots', () => {
+      const humans = fighters.slice(0, 8);
+      const manager = TournamentManager.generate(fighters, 8, humans, 42);
+
+      // All 4 first-round matches must have both p1 and p2 filled
+      for (const match of manager.rounds[0]) {
+        expect(match.p1).not.toBeNull();
+        expect(match.p2).not.toBeNull();
+      }
+
+      // All 8 humans must appear exactly once in round 1
+      const allFighters = manager.rounds[0].flatMap((m) => [m.p1, m.p2]);
+      for (const human of humans) {
+        expect(allFighters).toContain(human);
+      }
+      expect(new Set(allFighters).size).toBe(8);
+
+      // getNextPlayableMatch must return a match
+      const next = manager.getNextPlayableMatch();
+      expect(next).not.toBeNull();
+      expect(next.p1).not.toBeNull();
+      expect(next.p2).not.toBeNull();
+    });
+
+    it('5 humans in size-8 bracket fills all slots without collisions', () => {
+      const humans = fighters.slice(0, 5);
+      const manager = TournamentManager.generate(fighters, 8, humans, 42);
+
+      // All matches must have both p1 and p2
+      for (const match of manager.rounds[0]) {
+        expect(match.p1).not.toBeNull();
+        expect(match.p2).not.toBeNull();
+      }
+
+      // All 5 humans must appear
+      const allFighters = manager.rounds[0].flatMap((m) => [m.p1, m.p2]);
+      for (const human of humans) {
+        expect(allFighters).toContain(human);
+      }
+
+      // 8 unique fighters total (5 human + 3 AI)
+      expect(new Set(allFighters).size).toBe(8);
+    });
   });
 
   describe('backward compatibility', () => {

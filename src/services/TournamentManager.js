@@ -106,12 +106,14 @@ export class TournamentManager {
     const aiFighters = available.slice(0, size - humans.length);
     const tournamentFighters = new Array(size);
 
-    // Place humans in evenly-spaced P1 slots (even indices) across the bracket
-    const segmentSize = Math.floor(size / humans.length);
+    // Place humans at evenly-spaced positions across the bracket
     for (let h = 0; h < humans.length; h++) {
-      // Each human gets placed at the start of their segment, in a P1 slot (even index)
-      let slot = h * segmentSize;
-      if (slot % 2 !== 0) slot--;
+      let slot = Math.floor((h * size) / humans.length);
+      // Try P1 slot (even index) only if it won't collide with an already-placed human
+      if (slot % 2 !== 0) {
+        const p1Slot = slot - 1;
+        if (!tournamentFighters[p1Slot]) slot = p1Slot;
+      }
       tournamentFighters[slot] = humans[h];
     }
 
