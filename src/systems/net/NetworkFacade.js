@@ -374,6 +374,8 @@ export class NetworkFacade {
       'start',
       'rematch',
       'leave',
+      'disconnect',
+      'frame_sync',
       'opponent_reconnecting',
       'opponent_reconnected',
       'return_to_select',
