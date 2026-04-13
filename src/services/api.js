@@ -63,6 +63,13 @@ export async function getProfile() {
 }
 
 /**
+ * Get the global leaderboard (top 10 players by wins)
+ */
+export async function getLeaderboard() {
+  return apiFetch('/leaderboard');
+}
+
+/**
  * Sync/Create the user profile (called on login)
  */
 export async function syncProfile(nickname) {

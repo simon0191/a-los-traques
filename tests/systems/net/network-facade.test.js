@@ -222,6 +222,28 @@ describe('NetworkFacade', () => {
       expect(received[0]).toMatchObject({ p1Id: 'simon', p2Id: 'jeka', isRandomStage: false });
     });
 
+    it('buffers opponent_joined messages and replays when callback is set', () => {
+      const nf = makeFacade();
+
+      emitMsg(nf, { type: 'opponent_joined' });
+
+      const received = [];
+      nf.onOpponentJoined((msg) => received.push(msg));
+
+      expect(received.length).toBe(1);
+    });
+
+    it('buffers opponent_reconnected messages and replays when callback is set', () => {
+      const nf = makeFacade();
+
+      emitMsg(nf, { type: 'opponent_reconnected' });
+
+      const received = [];
+      nf.onOpponentReconnected((msg) => received.push(msg));
+
+      expect(received.length).toBe(1);
+    });
+
     it('routes disconnect', () => {
       const nf = makeFacade();
       const received = [];

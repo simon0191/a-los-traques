@@ -1,20 +1,64 @@
 import Phaser from 'phaser';
+import { INPUT_PROFILES } from './InputProfiles.js';
 
 export class InputManager {
-  constructor(scene, gamepadIndex = 0) {
+  constructor(scene, profileId = 'keyboard_full') {
     this.scene = scene;
-    this.gamepadIndex = gamepadIndex;
+    this.profileId = profileId;
 
-    // Keyboard
-    this.cursors = scene.input.keyboard.createCursorKeys();
-    this.keys = {
-      z: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Z),
-      x: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X),
-      a: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      s: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
-      d: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      space: scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-    };
+    const profile = INPUT_PROFILES[profileId];
+    if (!profile) {
+      throw new Error(`Unknown input profile: ${profileId}`);
+    }
+
+    this.profile = profile;
+    this.gamepadIndex = profile.type === 'gamepad' ? profile.index : -1;
+
+    if (profile.type === 'keyboard') {
+      // Directions
+      const dirs = profile.dirs;
+      const isArrows =
+        dirs.up === Phaser.Input.Keyboard.KeyCodes.UP &&
+        dirs.down === Phaser.Input.Keyboard.KeyCodes.DOWN &&
+        dirs.left === Phaser.Input.Keyboard.KeyCodes.LEFT &&
+        dirs.right === Phaser.Input.Keyboard.KeyCodes.RIGHT;
+
+      if (isArrows) {
+        this.cursors = scene.input.keyboard.createCursorKeys();
+      } else {
+        this.cursors = {
+          up: scene.input.keyboard.addKey(dirs.up),
+          down: scene.input.keyboard.addKey(dirs.down),
+          left: scene.input.keyboard.addKey(dirs.left),
+          right: scene.input.keyboard.addKey(dirs.right),
+        };
+      }
+
+      // Attacks
+      const atk = profile.attacks;
+      this.keys = {
+        lp: scene.input.keyboard.addKey(atk.lp),
+        hp: scene.input.keyboard.addKey(atk.hp),
+        lk: scene.input.keyboard.addKey(atk.lk),
+        hk: scene.input.keyboard.addKey(atk.hk),
+        sp: scene.input.keyboard.addKey(atk.sp),
+      };
+    } else {
+      // Gamepad mode: cursors and keys are dummy or not used
+      this.cursors = {
+        up: { isDown: false },
+        down: { isDown: false },
+        left: { isDown: false },
+        right: { isDown: false },
+      };
+      this.keys = {
+        lp: null,
+        hp: null,
+        lk: null,
+        hk: null,
+        sp: null,
+      };
+    }
 
     // Touch input state (populated by TouchControls)
     this.touchState = {
@@ -47,7 +91,7 @@ export class InputManager {
   }
 
   _getGamepad() {
-    if (!this.scene.input.gamepad) return null;
+    if (this.gamepadIndex === -1 || !this.scene.input.gamepad) return null;
     // Check if the gamepad at the expected index exists
     return this.scene.input.gamepad.gamepads[this.gamepadIndex];
   }
@@ -55,43 +99,43 @@ export class InputManager {
   get left() {
     const pad = this._getGamepad();
     const padLeft = pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5));
-    return this.cursors.left.isDown || this.touchState.left || padLeft;
+    return (this.cursors.left?.isDown || false) || this.touchState.left || padLeft;
   }
   get right() {
     const pad = this._getGamepad();
     const padRight = pad && (pad.right || (pad.axes[0] && pad.axes[0].getValue() > 0.5));
-    return this.cursors.right.isDown || this.touchState.right || padRight;
+    return (this.cursors.right?.isDown || false) || this.touchState.right || padRight;
   }
   get up() {
     const pad = this._getGamepad();
     const padUp = pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5));
-    return this.cursors.up.isDown || this.touchState.up || padUp;
+    return (this.cursors.up?.isDown || false) || this.touchState.up || padUp;
   }
   get down() {
     const pad = this._getGamepad();
     const padDown = pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5));
-    return this.cursors.down.isDown || this.touchState.down || padDown;
+    return (this.cursors.down?.isDown || false) || this.touchState.down || padDown;
   }
 
   get lightPunch() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.z) || this.touchState.lightPunch || this._padJustDown(2);
+    const kb = this.keys.lp ? Phaser.Input.Keyboard.JustDown(this.keys.lp) : false;
+    return kb || this.touchState.lightPunch || this._padJustDown(2);
   }
   get heavyPunch() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.a) || this.touchState.heavyPunch || this._padJustDown(3);
+    const kb = this.keys.hp ? Phaser.Input.Keyboard.JustDown(this.keys.hp) : false;
+    return kb || this.touchState.heavyPunch || this._padJustDown(3);
   }
   get lightKick() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.x) || this.touchState.lightKick || this._padJustDown(0);
+    const kb = this.keys.lk ? Phaser.Input.Keyboard.JustDown(this.keys.lk) : false;
+    return kb || this.touchState.lightKick || this._padJustDown(0);
   }
   get heavyKick() {
-    return Phaser.Input.Keyboard.JustDown(this.keys.s) || this.touchState.heavyKick || this._padJustDown(1);
+    const kb = this.keys.hk ? Phaser.Input.Keyboard.JustDown(this.keys.hk) : false;
+    return kb || this.touchState.heavyKick || this._padJustDown(1);
   }
   get special() {
-    return (
-      Phaser.Input.Keyboard.JustDown(this.keys.d) ||
-      this.touchState.special ||
-      this._padJustDown(5) ||
-      this._padJustDown(7)
-    );
+    const kb = this.keys.sp ? Phaser.Input.Keyboard.JustDown(this.keys.sp) : false;
+    return kb || this.touchState.special || this._padJustDown(5) || this._padJustDown(7);
   }
   get block() {
     return this.down;

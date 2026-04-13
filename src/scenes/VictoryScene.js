@@ -167,7 +167,7 @@ export class VictoryScene extends Phaser.Scene {
         action: () => {
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('TitleScene');
+            this.scene.start('MultiplayerMenuScene');
           });
         },
         ui: createButton(this, GAME_WIDTH / 2 + 60, 252, 'SALIR AL MENÚ', () => {}, {
@@ -212,7 +212,10 @@ export class VictoryScene extends Phaser.Scene {
           } else {
             this.cameras.main.fadeOut(300, 0, 0, 0);
             this.cameras.main.once('camerafadeoutcomplete', () => {
-              this.scene.start('SelectScene', { gameMode: 'local' });
+              this.scene.start('SelectScene', {
+                gameMode: 'local',
+                matchContext: this.matchContext,
+              });
             });
           }
         },
@@ -230,7 +233,11 @@ export class VictoryScene extends Phaser.Scene {
           }
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('TitleScene');
+            const menuScene =
+              this.matchContext || this.gameMode === 'online'
+                ? 'MultiplayerMenuScene'
+                : 'TitleScene';
+            this.scene.start(menuScene);
           });
         },
         ui: createButton(this, GAME_WIDTH / 2 + 115, 252, 'MENU', () => {}, {
@@ -285,7 +292,7 @@ export class VictoryScene extends Phaser.Scene {
           this.networkManager.destroy();
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('TitleScene');
+            this.scene.start('MultiplayerMenuScene');
           });
         });
       });

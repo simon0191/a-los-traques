@@ -5,6 +5,17 @@ import stagesData from '../data/stages.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 
+const HUMAN_COLORS = [
+  '#ff3333',
+  '#3366ff',
+  '#33cc33',
+  '#ffcc00',
+  '#cc33ff',
+  '#33cccc',
+  '#ff8800',
+  '#ff66aa',
+];
+
 export class BracketScene extends Phaser.Scene {
   constructor() {
     super('BracketScene');
@@ -17,7 +28,6 @@ export class BracketScene extends Phaser.Scene {
 
     // Track if we just came from a match result
     this.fromMatch = data.fromMatch || false;
-    this.lastMatchResult = data.winnerId || null;
   }
 
   create() {
@@ -31,38 +41,41 @@ export class BracketScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Logic for revealing matches:
-    // 1. If we return from a match the player LOST, simulate EVERYTHING immediately.
-    // 2. If we return from a match the player WON, simulate only the OTHER matches of that same round.
-    // 3. If we are entering for the first time, don't simulate anything.
     if (this.fromMatch) {
-      if (this.lastMatchResult !== this.manager.playerFighterId) {
-        // Player lost, show everything
+      if (this.manager.allHumansEliminated()) {
+        // All humans out — reveal everything
         this.manager.simulateAllRemaining();
       } else {
-        // Player won, reveal only the peers of the round just completed
+        // Simulate AI-vs-AI matches in the completed round
         const completedRoundIdx = this.matchContext.matchInfo.roundIndex;
         this.manager.simulateRound(completedRoundIdx);
       }
-      // Update state in context and RE-INITIALIZE manager to reflect completion if it happened
       this.matchContext.tournamentState = this.manager.serialize();
       this.manager = new TournamentManager(this.matchContext.tournamentState);
     }
 
     this._drawBrackets();
 
-    const currentMatch = this.manager.getCurrentMatch();
+    const currentMatch = this.manager.getNextPlayableMatch();
     if (currentMatch) {
-      createButton(this, GAME_WIDTH / 2 - 75, GAME_HEIGHT - 30, 'SIGUIENTE COMBATE', () => {
-        this.goToMatch(currentMatch);
-      });
+      const p1Fighter = fightersData.find((f) => f.id === currentMatch.p1);
+      const p2Fighter = fightersData.find((f) => f.id === currentMatch.p2);
+      const p1Name = p1Fighter ? p1Fighter.name : '???';
+      const p2Name = p2Fighter ? p2Fighter.name : '???';
+
+      createButton(
+        this,
+        GAME_WIDTH / 2 - 75,
+        GAME_HEIGHT - 30,
+        `SIGUIENTE: ${p1Name} vs ${p2Name}`,
+        () => this.goToMatch(currentMatch),
+      );
       createButton(this, GAME_WIDTH / 2 + 75, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
-        this.scene.start('TitleScene');
+        this.scene.start('MultiplayerMenuScene');
       });
     } else if (this.manager.complete) {
       const winner = fightersData.find((f) => f.id === this.manager.winnerId);
 
-      // Display Champion Portrait
       if (this.textures.exists(`portrait_${this.manager.winnerId}`)) {
         this.add
           .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, `portrait_${this.manager.winnerId}`)
@@ -85,13 +98,20 @@ export class BracketScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       createButton(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
-        this.scene.start('TitleScene');
+        this.scene.start('MultiplayerMenuScene');
       });
     } else {
       createButton(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, 'SALIR AL MENÚ', () => {
-        this.scene.start('TitleScene');
+        this.scene.start('MultiplayerMenuScene');
       });
     }
+  }
+
+  getNavMenu() {
+    const buttons = this.children.list
+      .filter((child) => child.type === 'Rectangle' && child.input?.enabled)
+      .sort((a, b) => a.x - b.x);
+    return { items: buttons };
   }
 
   _drawBrackets() {
@@ -110,11 +130,16 @@ export class BracketScene extends Phaser.Scene {
     });
   }
 
+  _getHumanColor(fighterId) {
+    const idx = this.manager.humanFighterIds.indexOf(fighterId);
+    if (idx === -1) return null;
+    return HUMAN_COLORS[idx % HUMAN_COLORS.length];
+  }
+
   _drawMatch(x, y, match) {
     const boxW = 60;
     const boxH = 30;
 
-    // Draw match box
     this.add.rectangle(x, y, boxW, boxH, 0x222244).setStrokeStyle(1, 0x4444aa);
 
     const p1 = match.p1 ? fightersData.find((f) => f.id === match.p1) : null;
@@ -123,18 +148,19 @@ export class BracketScene extends Phaser.Scene {
     const p1Name = p1 ? p1.name : '???';
     const p2Name = p2 ? p2.name : '???';
 
-    const p1Color =
-      match.p1 === this.manager.playerFighterId
-        ? '#ff0000'
-        : match.winner === match.p1 && match.p1
-          ? '#00ff00'
-          : '#ffffff';
-    const p2Color =
-      match.p2 === this.manager.playerFighterId
-        ? '#ff0000'
-        : match.winner === match.p2 && match.p2
-          ? '#00ff00'
-          : '#ffffff';
+    const p1HumanColor = this._getHumanColor(match.p1);
+    const p2HumanColor = this._getHumanColor(match.p2);
+
+    const p1Color = p1HumanColor
+      ? p1HumanColor
+      : match.winner === match.p1 && match.p1
+        ? '#00ff00'
+        : '#ffffff';
+    const p2Color = p2HumanColor
+      ? p2HumanColor
+      : match.winner === match.p2 && match.p2
+        ? '#00ff00'
+        : '#ffffff';
 
     this.add
       .text(x, y - 7, p1Name, {
@@ -157,23 +183,21 @@ export class BracketScene extends Phaser.Scene {
   goToMatch(matchData) {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      // Deterministic stage selection using tournament seed
       const stageIndex = Math.floor(this.manager.nextRand() * stagesData.length);
 
-      // Update matchInfo in context before passing it
       this.matchContext.matchInfo = {
         roundIndex: matchData.roundIndex,
         matchIndex: matchData.matchIndex,
       };
 
-      // Persist the PRNG state after consumption
+      this.matchContext.isHumanVsHuman = this.manager.isHumanVsHuman(matchData);
       this.matchContext.tournamentState = this.manager.serialize();
 
       this.scene.start('PreFightScene', {
         p1Id: matchData.p1,
         p2Id: matchData.p2,
         stageId: stagesData[stageIndex].id,
-        isRandomStage: true, // Always show animation in tournament
+        isRandomStage: true,
         gameMode: this.gameMode,
         matchContext: this.matchContext,
       });

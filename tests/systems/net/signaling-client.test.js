@@ -193,15 +193,14 @@ describe('SignalingClient', () => {
       expect(received.length).toBe(2);
       expect(sc._pendingCallbackMessages.get('sync').length).toBe(0);
     });
-
     it('does not buffer non-bufferable types', () => {
       const sc = makeClient();
 
-      sc._handleMessage({ type: 'disconnect' });
+      sc._handleMessage({ type: 'shout', text: 'hola' });
 
       // Now register handler — should NOT receive the message
       const received = [];
-      sc.on('disconnect', (msg) => received.push(msg));
+      sc.on('shout', (msg) => received.push(msg));
       expect(received.length).toBe(0);
     });
 

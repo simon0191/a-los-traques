@@ -9,9 +9,11 @@ import { BracketScene } from './scenes/BracketScene.js';
 import { ControllerScene } from './scenes/ControllerScene.js';
 import { FightScene } from './scenes/FightScene.js';
 import { InspectorScene } from './scenes/InspectorScene.js';
+import { LeaderboardScene } from './scenes/LeaderboardScene.js';
 import { LearningScene } from './scenes/LearningScene.js';
 import { LobbyScene } from './scenes/LobbyScene.js';
 import { LoginScene } from './scenes/LoginScene.js';
+import { MultiplayerMenuScene } from './scenes/MultiplayerMenuScene.js';
 import { MusicScene } from './scenes/MusicScene.js';
 import { PreFightScene } from './scenes/PreFightScene.js';
 import { SelectScene } from './scenes/SelectScene.js';
@@ -56,6 +58,7 @@ const config = {
     BootScene,
     LoginScene,
     TitleScene,
+    MultiplayerMenuScene,
     TournamentSetupScene,
     BracketScene,
     LobbyScene,
@@ -67,6 +70,7 @@ const config = {
     VictoryScene,
     InspectorScene,
     MusicScene,
+    LeaderboardScene,
     LearningScene,
     ControllerScene,
   ],

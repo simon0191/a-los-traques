@@ -211,7 +211,7 @@ export class LobbyScene extends Phaser.Scene {
 
   _goBack() {
     if (this.network) this.network.destroy();
-    this.scene.start('TitleScene');
+    this.scene.start('MultiplayerMenuScene');
   }
 
   _goToSelect() {
