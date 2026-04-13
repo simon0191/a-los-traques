@@ -4,80 +4,139 @@ import {
   GAME_WIDTH,
   GROUND_Y,
   MAX_HP,
-  MAX_SPECIAL_FP,
   ROUNDS_TO_WIN,
-  FP_SCALE,
+  STAGE_LEFT,
+  STAGE_RIGHT,
 } from '../config.js';
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
 import { Fighter } from '../entities/Fighter.js';
+import { tick } from '../simulation/SimulationEngine.js';
+import { AIController } from '../systems/AIController.js';
+import { AudioBridge } from '../systems/AudioBridge.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
-import { InputManager } from '../systems/InputManager.js';
-import { TouchControls } from '../systems/TouchControls.js';
-import { NetworkFacade as NetworkManager } from '../systems/net/NetworkFacade.js';
-import { RollbackManager } from '../systems/RollbackManager.js';
-import { MatchState, MatchEvent } from '../simulation/MatchStateMachine.js';
-import { tick, simFrame } from '../simulation/SimulationStep.js';
-import { encodeInput } from '../systems/InputBuffer.js';
-import { ReplayInputSource } from '../systems/ReplayInputSource.js';
-import { Logger } from '../systems/Logger.js';
 import { DebugBundleExporter } from '../systems/DebugBundleExporter.js';
+import { DevConsole } from '../systems/DevConsole.js';
+import { FightRecorder } from '../systems/FightRecorder.js';
+import {
+  FP_SCALE,
+  MAX_SPECIAL_FP,
+  MAX_STAMINA_FP,
+  ONLINE_INPUT_DELAY_FRAMES,
+} from '../systems/FixedPoint.js';
+import { encodeInput } from '../systems/InputBuffer.js';
+import { InputManager } from '../systems/InputManager.js';
+import { Logger, LogLevel } from '../systems/Logger.js';
+import { MatchEvent, MatchState, MatchStateMachine } from '../systems/MatchStateMachine.js';
+import { MatchTelemetry } from '../systems/MatchTelemetry.js';
+import { ReconnectionManager } from '../systems/ReconnectionManager.js';
+import { ReplayInputSource } from '../systems/ReplayInputSource.js';
+import { RollbackManager } from '../systems/RollbackManager.js';
+import { simulateFrame as simFrame } from '../systems/SimulationStep.js';
+import { TouchControls } from '../systems/TouchControls.js';
+import { VFXBridge } from '../systems/VFXBridge.js';
 
+// ---------------------------------------------------------------------------
+// HUD layout constants
+// ---------------------------------------------------------------------------
 const log = Logger.create('FightScene');
+
+const BAR_W = 140;
+const BAR_H = 10;
+const BAR_Y = 12;
+const BAR_GAP = 54; // Gap for clock (was roughly 128)
+const BAR_P1_X = GAME_WIDTH / 2 - BAR_GAP / 2 - BAR_W;
+const BAR_P2_X = GAME_WIDTH / 2 + BAR_GAP / 2;
+
+const STAMINA_BAR_W = 100;
+const STAMINA_BAR_H = 4;
+const STAMINA_BAR_Y = BAR_Y + BAR_H + 3;
+const STAMINA_P1_X = GAME_WIDTH / 2 - BAR_GAP / 2 - STAMINA_BAR_W;
+const STAMINA_P2_X = GAME_WIDTH / 2 + BAR_GAP / 2;
+
+// Radial Special Indicator constants
+const RADIAL_RADIUS = 12;
+const RADIAL_Y = BAR_Y + BAR_H / 2;
+const RADIAL_OFFSET_X = 22; // Distance from the outer edge of health bar
+const RADIAL_P1_X = BAR_P1_X - RADIAL_OFFSET_X;
+const RADIAL_P2_X = BAR_P2_X + BAR_W + RADIAL_OFFSET_X;
+
+// Special meter bar is being replaced by radial indicator, but we'll keep
+// some relative positions for other UI if needed.
 
 export class FightScene extends Phaser.Scene {
   constructor() {
-    super('FightScene');
-    this._simAccumulator = 0;
-    this._localFrame = 0;
-    this._syncInterval = 10; // Spectator Autoritative sync rate (frames)
-    this._activeShouts = [];
+    super({ key: 'FightScene' });
   }
 
+  get isPaused() {
+    return this.matchState?.state === MatchState.PAUSED;
+  }
+
+  // =========================================================================
+  // INIT - receive data from character select (or use defaults)
+  // =========================================================================
   init(data) {
-    this.p1Id = data.p1Id;
-    this.p2Id = data.p2Id;
-    this.stageId = data.stageId;
-    this.gameMode = data.gameMode || 'local';
-    this.networkManager = data.networkManager || null;
-    this.matchContext = data.matchContext || null;
-    this.fightId = data.fightId || `local-${Date.now()}`;
-
-    this.isHost = true;
-    if (this.gameMode === 'online' && this.networkManager) {
-      this.isHost = this.networkManager.playerSlot === 0;
+    // Accept both string IDs (from PreFightScene) and numeric indices
+    if (data?.p1Id) {
+      this.p1Id = data.p1Id;
+      this.p2Id = data.p2Id;
+    } else {
+      this.p1Id = fightersData[data && data.p1 != null ? data.p1 : 0].id;
+      this.p2Id = fightersData[data && data.p2 != null ? data.p2 : 1].id;
     }
+    this.stageId = data && (data.stageId || data.stage) ? data.stageId || data.stage : null;
+    this.fightId = data?.fightId || null;
+    this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
+    this.gameMode = data?.gameMode || 'local';
+    this.networkManager = data?.networkManager || null;
+    this.matchContext = data?.matchContext || null;
   }
 
+  // =========================================================================
+  // CREATE
+  // =========================================================================
   create() {
     // -- Load fighter data by ID --
-    this.p1Data = fightersData.find((f) => f.id === this.p1Id);
-    this.p2Data = fightersData.find((f) => f.id === this.p2Id);
+    this.p1Data = fightersData.find((f) => f.id === this.p1Id) || fightersData[0];
+    this.p2Data = fightersData.find((f) => f.id === this.p2Id) || fightersData[1];
 
     // -- Draw background --
     this._createBackground();
 
     // -- Create Fighter entities --
-    this.p1Fighter = new Fighter(this, GAME_WIDTH * 0.3, GROUND_Y, this.p1Data, 0);
-    this.p2Fighter = new Fighter(this, GAME_WIDTH * 0.7, GROUND_Y, this.p2Data, 1);
+    const p1Tex = this.textures.exists(`fighter_${this.p1Id}_idle`)
+      ? `fighter_${this.p1Id}_idle`
+      : 'fighter_p1';
+    const p2Tex = this.textures.exists(`fighter_${this.p2Id}_idle`)
+      ? `fighter_${this.p2Id}_idle`
+      : 'fighter_p2';
+    this.p1Fighter = new Fighter(this, GAME_WIDTH * 0.3, GROUND_Y, p1Tex, this.p1Data, 0);
+    this.p2Fighter = new Fighter(this, GAME_WIDTH * 0.7, GROUND_Y, p2Tex, this.p2Data, 1);
 
     // -- Systems --
-    this.combat = new CombatSystem(this, this.p1Fighter, this.p2Fighter);
-    this.audioBridge = this.game.audioManager.getBridge(this);
-    this.vfxBridge = this.game.vfxBridge;
-    this.vfxBridge.setScene(this);
+    this.combat = new CombatSystem(this);
 
-    // -- Simulation State --
-    this.matchState = new MatchState();
+    // -- Event bridges (Phase 3: events → audio/VFX) --
+    this.audioBridge = new AudioBridge(this.game.audioManager);
+    this.vfxBridge = new VFXBridge(
+      this,
+      () => this.p1Fighter,
+      () => this.p2Fighter,
+    );
 
-    if (this.gameMode === 'online') {
-      this.rollbackManager = new RollbackManager(this.networkManager);
-      this.recorder = this.game.debugMode ? this.rollbackManager.inputBuffer : null;
-      this.telemetry = this.rollbackManager.telemetry;
-    } else {
-      this._localFrame = 0;
-      this.recorder = this.game.debugMode ? new RollbackManager().inputBuffer : null;
-    }
+    // -- Projectiles array --
+    this.projectiles = [];
+
+    // -- Active shouts tracking --
+    this._activeShouts = [];
+
+    // -- Build HUD --
+    this._createHUD();
+
+    // -- Dev console (backtick to toggle) --
+    DevConsole._AIController = AIController;
+    this.devConsole = new DevConsole(this);
 
     // -- Space key for restart --
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -154,7 +213,6 @@ export class FightScene extends Phaser.Scene {
           this.aiController = null;
         } else {
           if (this.p1Fighter && this.p2Fighter) {
-            this.aiDifficulty = this.game.registry.get('aiDifficulty') || 1;
             this.aiController = new AIController(
               this,
               this.p2Fighter,
@@ -194,25 +252,211 @@ export class FightScene extends Phaser.Scene {
     this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     this.escKey.on('down', () => this._togglePause());
 
-    // -- HUD --
-    this._createHUD();
+    // -- Fixed-timestep accumulator for simulation --
+    this._simAccumulator = 0;
+    this._localFrame = 0;
 
-    // -- Initial State --
-    if (this.gameMode === 'online') {
-      this.matchState.transition(MatchEvent.START_SYNC);
+    // -- Match state machine (RFC 0002 §2B.1) --
+    const smInitialState =
+      this.gameMode === 'online' ? MatchState.SYNCHRONIZING : MatchState.ROUND_INTRO;
+    this.matchState = new MatchStateMachine(smInitialState);
+
+    // -- Start first round intro --
+    if (this._replayP1) {
+      // Replay mode: skip intro animation, start round immediately with frame-based timer
+      // (no time.addEvent timer — simulateFrame's tickTimer handles it)
+      // Suppress direct KO/timeup handling — the replay loop handles round wins itself
+      this.combat.suppressRoundEvents = true;
+      this.combat.timer = 60;
+      this.combat._timerAccumulator = 0;
+      this.combat.roundActive = true;
+      this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+      console.log(
+        `[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`,
+      );
+    } else if (this.gameMode === 'online') {
+      // Online mode: prepare round state for frame-0 sync, but don't start simulation yet.
+      // Both peers exchange frame-0 hashes in SYNCHRONIZING state.
+      this.combat.startRound();
       this._startFrameZeroSync();
     } else {
-      this.matchState.transition(MatchEvent.START_INTRO);
       this._showRoundIntro();
+    }
+
+    // Triple-tap gesture to activate debug mode (top-right 60x40 region)
+    if (this.gameMode === 'online' && !this.game.debugMode) {
+      this._tripleTapTimes = [];
+      this.input.on('pointerdown', (pointer) => {
+        if (pointer.x > GAME_WIDTH - 60 && pointer.y < 40) {
+          const now = Date.now();
+          this._tripleTapTimes.push(now);
+          // Keep only taps within the last 1 second
+          this._tripleTapTimes = this._tripleTapTimes.filter((t) => now - t < 1000);
+          if (this._tripleTapTimes.length >= 3) {
+            this._tripleTapTimes = [];
+            this._activateDebugMode();
+          }
+        }
+      });
     }
   }
 
-  update(time, delta) {
-    if (this.gameMode !== 'spectator' && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-      this.scene.restart();
+  _activateDebugMode() {
+    if (this.game.debugMode) return;
+    this.game.debugMode = true;
+    Logger.setGlobalLevel(LogLevel.DEBUG);
+    log.info('Debug mode activated via triple-tap');
+
+    // Activate FightRecorder if not already running
+    if (!this.recorder && this.networkManager) {
+      const nm = this.networkManager;
+      const slot = nm.getPlayerSlot();
+      this.recorder = new FightRecorder({
+        fightId: this.fightId,
+        roomId: nm.roomId,
+        playerSlot: slot,
+        fighterId: slot === 0 ? this.p1Id : this.p2Id,
+        opponentId: slot === 0 ? this.p2Id : this.p1Id,
+        stageId: this.stageId,
+        config: {},
+      });
+      // Wire recorder to rollback manager
+      const origRollback = this.rollbackManager._onRollback;
+      this.rollbackManager._onRollback = (frame, depth) => {
+        this.recorder.recordRollback(frame, depth);
+        if (origRollback) origRollback(frame, depth);
+      };
+      this.rollbackManager._onLocalChecksum = (frame, hash) =>
+        this.recorder.recordChecksum(frame, hash);
+      this.rollbackManager._onConfirmedInputs = (frame, p1, p2) =>
+        this.recorder.recordConfirmedInputs(frame, p1, p2);
     }
 
-    // -- Simulation Ticks (Fixed Timestep) --
+    // Create debug overlay
+    import('../systems/DebugOverlay.js').then(({ DebugOverlay }) => {
+      const nm = this.networkManager;
+      this.debugOverlay = new DebugOverlay(this, {
+        getTelemetry: () => this.telemetry,
+        getConnectionMonitor: () => nm.monitor,
+        getTransportManager: () => nm.transport,
+        getInputSync: () => nm.inputSync,
+        getMatchState: () => this.matchState,
+        onExportDebug: () => this._exportDebugBundle(),
+        onExportAll: () => this._exportAllBundles(),
+      });
+    });
+  }
+
+  async _exportDebugBundle() {
+    const { DebugBundleExporter } = await import('../systems/DebugBundleExporter.js');
+    const bundle = DebugBundleExporter.generateBundle({
+      recorder: this.recorder,
+      telemetry: this.telemetry,
+      matchState: this.matchState,
+      sessionId: this.networkManager?.sessionId,
+      debugMode: !!this.game.debugMode,
+    });
+    const copied = await DebugBundleExporter.copyToClipboard(bundle);
+    if (this.debugOverlay) {
+      this.debugOverlay.showToast(copied ? 'Copiado!' : 'Descargado!');
+    }
+  }
+
+  async _exportAllBundles() {
+    if (this.debugOverlay) this.debugOverlay.showToast('Recopilando...');
+    const { DebugBundleExporter } = await import('../systems/DebugBundleExporter.js');
+
+    // Auto-respond to debug requests from the other peer
+    const nm = this.networkManager;
+    nm.onDebugRequest(() => {
+      const localBundle = DebugBundleExporter.generateBundle({
+        recorder: this.recorder,
+        telemetry: this.telemetry,
+        matchState: this.matchState,
+        sessionId: nm.sessionId,
+        debugMode: !!this.game.debugMode,
+      });
+      nm.sendDebugResponse(localBundle);
+    });
+
+    const combined = await DebugBundleExporter.collectAll({
+      generateLocalBundle: () =>
+        DebugBundleExporter.generateBundle({
+          recorder: this.recorder,
+          telemetry: this.telemetry,
+          matchState: this.matchState,
+          sessionId: nm.sessionId,
+          debugMode: !!this.game.debugMode,
+        }),
+      networkManager: nm,
+    });
+    const copied = await DebugBundleExporter.copyToClipboard(combined);
+    if (this.debugOverlay) {
+      this.debugOverlay.showToast(copied ? 'Copiado!' : 'Descargado!');
+    }
+  }
+
+  // =========================================================================
+  // UPDATE
+  // =========================================================================
+  update(time, delta) {
+    if (this.isPaused) return;
+
+    // Tick reconnection manager even while paused (for timeout detection)
+    if (this.reconnectionManager) {
+      this.reconnectionManager.tick();
+    }
+
+    // Skip game loop while reconnecting
+    if (this.matchState.state === MatchState.RECONNECTING) {
+      this._updateReconnectingOverlay();
+      return;
+    }
+
+    // Skip game loop while waiting for frame-0 sync (RFC 0002 §2B.3)
+    if (this.matchState.state === MatchState.SYNCHRONIZING) {
+      return;
+    }
+
+    // Update projectiles (delta-based, visual rate)
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const proj = this.projectiles[i];
+      proj.update(delta);
+      if (!proj.active) {
+        this.projectiles.splice(i, 1);
+      }
+    }
+
+    // Update touch controls each frame (visual rate for responsive input)
+    if (this.touchControls) this.touchControls.update();
+
+    if (this.gameMode === 'spectator') {
+      // Spectator: apply remote inputs for animation, update HUD, no combat
+      if (this.combat.roundActive) {
+        this._handleSpectatorUpdate();
+      }
+      this.p1Fighter.syncSprite();
+      this.p2Fighter.syncSprite();
+      this._updateHUD();
+      return;
+    }
+
+    if (!this.combat.roundActive && this.combat.matchOver) {
+      // Allow restart after match over (Space key or tap) — local mode only
+      if (
+        this.gameMode !== 'online' &&
+        this.spaceKey &&
+        Phaser.Input.Keyboard.JustDown(this.spaceKey)
+      ) {
+        this.scene.restart();
+      }
+      // Online/spectator wait for VictoryScene transition; local stays for space key
+      if (this.gameMode !== 'online' && !this._replayP1) return;
+    }
+    // When round is not active but match is not over, keep running tick()
+    // so the frame-based transitionTimer counts down and resets the round.
+
+    // Fixed-timestep accumulator: gate simulation to exactly 60fps
     const FIXED_DELTA = 1000 / 60; // 16.667ms
     // Overclock: in autoplay mode, inject extra time to run more sim steps per frame
     const speed = this.game.autoplay?.speed || 1;
@@ -246,176 +490,804 @@ export class FightScene extends Phaser.Scene {
   _createBackground() {
     const stage = stagesData.find((s) => s.id === this.stageId) || stagesData[0];
 
-    // Background color
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000);
-
-    // Load stage-specific background
-    if (stage.texture && this.textures.exists(stage.texture)) {
-      const bg = this.add.sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, stage.texture);
-      bg.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
-      if (stage.animated) {
-        bg.play(`${stage.id}_bg_anim`);
-      }
+    // Main background image (animated or static)
+    if (stage.animated && this.textures.exists(stage.texture)) {
+      const bgSprite = this.add
+        .sprite(GAME_WIDTH / 2, GAME_HEIGHT / 2, stage.texture)
+        .setOrigin(0.5)
+        .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+      bgSprite.play(`stage_anim_${stage.id}`);
     } else {
-      // Fallback: colored rectangle
-      const color = Phaser.Display.Color.HexStringToColor(stage.bgColor || '#333333').color;
-      this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, color);
+      this.add
+        .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, stage.texture)
+        .setOrigin(0.5)
+        .setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
     }
 
-    // Ground line (visual only)
-    this.add.rectangle(GAME_WIDTH / 2, GROUND_Y, GAME_WIDTH, 2, 0xffffff, 0.2);
+    // Optional: Add a subtle overlay to help fighters pop
+    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.15);
+
+    // Ground (subtle colored rectangle to ground the characters)
+    const groundColor = Phaser.Display.Color.HexStringToColor(stage.groundColor).color;
+    this.add.rectangle(GAME_WIDTH / 2, GROUND_Y + 25, GAME_WIDTH, 50, groundColor, 0.4).setDepth(1);
+
+    // Stage boundary lines (subtle)
+    this.add
+      .rectangle(STAGE_LEFT, GROUND_Y, 2, 20, 0xffffff)
+      .setOrigin(0.5, 1)
+      .setAlpha(0.2)
+      .setDepth(1);
+    this.add
+      .rectangle(STAGE_RIGHT, GROUND_Y, 2, 20, 0xffffff)
+      .setOrigin(0.5, 1)
+      .setAlpha(0.2)
+      .setDepth(1);
   }
 
   // =========================================================================
   // HUD
   // =========================================================================
   _createHUD() {
-    const barW = 180;
-    const barH = 12;
-    const padding = 10;
+    const depth = 20;
 
-    // P1 Health
-    this.add.rectangle(padding, padding + 10, barW, barH, 0x333333).setOrigin(0, 0);
-    this.p1HealthBar = this.add.rectangle(padding, padding + 10, barW, barH, 0x00ff00).setOrigin(0, 0);
-    this.p1NameLabel = this.add.text(padding, padding - 5, this.p1Data.name, {
-      fontSize: '10px',
-      fontFamily: 'Arial Black',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 2,
-    });
+    // --- Health bars ---
+    // P1 health (anchored at right, drains towards center)
+    this.hpBgP1 = this.add
+      .rectangle(BAR_P1_X, BAR_Y, BAR_W, BAR_H, 0x333333)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.hpBarP1 = this.add
+      .rectangle(BAR_P1_X + BAR_W, BAR_Y, BAR_W, BAR_H, 0x00cc44)
+      .setOrigin(1, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(BAR_P1_X + BAR_W / 2, BAR_Y + BAR_H / 2, BAR_W + 2, BAR_H + 2)
+      .setStrokeStyle(1, 0xffffff)
+      .setFillStyle()
+      .setDepth(depth + 2);
 
-    // P2 Health
-    this.add.rectangle(GAME_WIDTH - padding - barW, padding + 10, barW, barH, 0x333333).setOrigin(0, 0);
-    this.p2HealthBar = this.add
-      .rectangle(GAME_WIDTH - padding - barW, padding + 10, barW, barH, 0x00ff00)
-      .setOrigin(0, 0);
-    this.p2NameLabel = this.add
-      .text(GAME_WIDTH - padding, padding - 5, this.p2Data.name, {
+    // P2 health (anchored at left, drains towards center)
+    this.hpBgP2 = this.add
+      .rectangle(BAR_P2_X, BAR_Y, BAR_W, BAR_H, 0x333333)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.hpBarP2 = this.add
+      .rectangle(BAR_P2_X, BAR_Y, BAR_W, BAR_H, 0xcc2200)
+      .setOrigin(0, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(BAR_P2_X + BAR_W / 2, BAR_Y + BAR_H / 2, BAR_W + 2, BAR_H + 2)
+      .setStrokeStyle(1, 0xffffff)
+      .setFillStyle()
+      .setDepth(depth + 2);
+
+    // --- Special Indicators (Radial) ---
+    // P1 Special
+    this.spRadialP1 = this.add.graphics().setDepth(depth + 1);
+    this.add.circle(RADIAL_P1_X, RADIAL_Y, RADIAL_RADIUS, 0x222222).setDepth(depth);
+    this.add
+      .circle(RADIAL_P1_X, RADIAL_Y, RADIAL_RADIUS)
+      .setStrokeStyle(1, 0x666666)
+      .setDepth(depth + 2);
+    this.spRadialTextP1 = this.add
+      .text(RADIAL_P1_X, RADIAL_Y, '⚡', {
         fontSize: '10px',
-        fontFamily: 'Arial Black',
+        fontFamily: 'monospace',
         color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth + 3);
+
+    // P2 Special
+    this.spRadialP2 = this.add.graphics().setDepth(depth + 1);
+    this.add.circle(RADIAL_P2_X, RADIAL_Y, RADIAL_RADIUS, 0x222222).setDepth(depth);
+    this.add
+      .circle(RADIAL_P2_X, RADIAL_Y, RADIAL_RADIUS)
+      .setStrokeStyle(1, 0x666666)
+      .setDepth(depth + 2);
+    this.spRadialTextP2 = this.add
+      .text(RADIAL_P2_X, RADIAL_Y, '⚡', {
+        // P2 is usually AI or remote, so generic icon
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth + 3);
+
+    // Track previous special values for threshold effects
+    this.prevSpecialP1 = 0;
+    this.prevSpecialP2 = 0;
+
+    // --- Special effects for HUD bars ---
+    // HUD Particle emitters
+    const particleConfig = {
+      speed: { min: 10, max: 20 },
+      angle: { min: 0, max: 360 },
+      scale: { start: 1, end: 0 },
+      alpha: { start: 0.6, end: 0 },
+      lifespan: 400,
+      frequency: 100,
+      tint: 0xffcc00,
+      emitting: false,
+    };
+
+    this.spParticlesP1 = this.add
+      .particles(0, 0, 'white_pixel', particleConfig)
+      .setDepth(depth - 1);
+
+    this.spParticlesP2 = this.add
+      .particles(0, 0, 'white_pixel', particleConfig)
+      .setDepth(depth - 1);
+
+    // --- Player name labels ---
+    const p1Color = this.p1Data.color.replace('0x', '#');
+    const p2Color = this.p2Data.color.replace('0x', '#');
+
+    this.add
+      .text(BAR_P1_X + BAR_W, BAR_Y - 11, this.p1Data.name, {
+        fontSize: '9px',
+        fontFamily: 'monospace',
+        color: p1Color,
         stroke: '#000000',
         strokeThickness: 2,
       })
-      .setOrigin(1, 0);
-
-    // Special Bars (at the bottom)
-    const spW = 140;
-    const spH = 6;
-    this.add.rectangle(padding, GAME_HEIGHT - padding - 15, spW, spH, 0x333333).setOrigin(0, 0);
-    this.p1SpecialBar = this.add
-      .rectangle(padding, GAME_HEIGHT - padding - 15, spW, spH, 0x00ffff)
-      .setOrigin(0, 0);
+      .setOrigin(1, 0)
+      .setDepth(depth + 3);
 
     this.add
-      .rectangle(GAME_WIDTH - padding - spW, GAME_HEIGHT - padding - 15, spW, spH, 0x333333)
-      .setOrigin(0, 0);
-    this.p2SpecialBar = this.add
-      .rectangle(GAME_WIDTH - padding - spW, GAME_HEIGHT - padding - 15, spW, spH, 0x00ffff)
-      .setOrigin(0, 0);
+      .text(BAR_P2_X, BAR_Y - 11, this.p2Data.name, {
+        fontSize: '9px',
+        fontFamily: 'monospace',
+        color: p2Color,
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+      .setOrigin(0, 0)
+      .setDepth(depth + 3);
 
-    // Timer
+    // --- Timer display (center top) ---
     this.timerText = this.add
-      .text(GAME_WIDTH / 2, padding + 10, '99', {
-        fontSize: '24px',
+      .text(GAME_WIDTH / 2, BAR_Y + 2, '60', {
+        fontSize: '18px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(depth + 3);
+
+    // --- Round indicators (dots below timer) ---
+    this.roundDotsP1 = [];
+    this.roundDotsP2 = [];
+    const dotY = BAR_Y + 24;
+    const dotSpacing = 10;
+    for (let i = 0; i < ROUNDS_TO_WIN; i++) {
+      const p1Dot = this.add
+        .circle(GAME_WIDTH / 2 - 20 - i * dotSpacing, dotY, 3, 0x333333)
+        .setDepth(depth + 3)
+        .setStrokeStyle(1, 0x666666);
+      this.roundDotsP1.push(p1Dot);
+
+      const p2Dot = this.add
+        .circle(GAME_WIDTH / 2 + 20 + i * dotSpacing, dotY, 3, 0x333333)
+        .setDepth(depth + 3)
+        .setStrokeStyle(1, 0x666666);
+      this.roundDotsP2.push(p2Dot);
+    }
+
+    // --- Stamina bars ---
+    // P1 stamina (anchored at right, drains towards center)
+    this.staBgP1 = this.add
+      .rectangle(STAMINA_P1_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.staBarP1 = this.add
+      .rectangle(
+        STAMINA_P1_X + STAMINA_BAR_W,
+        STAMINA_BAR_Y,
+        STAMINA_BAR_W,
+        STAMINA_BAR_H,
+        0x00cccc,
+      )
+      .setOrigin(1, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(
+        STAMINA_P1_X + STAMINA_BAR_W / 2,
+        STAMINA_BAR_Y + STAMINA_BAR_H / 2,
+        STAMINA_BAR_W + 2,
+        STAMINA_BAR_H + 2,
+      )
+      .setStrokeStyle(1, 0x444444)
+      .setFillStyle()
+      .setDepth(depth + 2);
+
+    // P2 stamina (anchored at left, drains towards center)
+    this.staBgP2 = this.add
+      .rectangle(STAMINA_P2_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x222222)
+      .setOrigin(0, 0)
+      .setDepth(depth);
+    this.staBarP2 = this.add
+      .rectangle(STAMINA_P2_X, STAMINA_BAR_Y, STAMINA_BAR_W, STAMINA_BAR_H, 0x00cccc)
+      .setOrigin(0, 0)
+      .setDepth(depth + 1);
+    this.add
+      .rectangle(
+        STAMINA_P2_X + STAMINA_BAR_W / 2,
+        STAMINA_BAR_Y + STAMINA_BAR_H / 2,
+        STAMINA_BAR_W + 2,
+        STAMINA_BAR_H + 2,
+      )
+      .setStrokeStyle(1, 0x444444)
+      .setFillStyle()
+      .setDepth(depth + 2);
+
+    // --- Pause button (below timer, local mode only) ---
+    if (this.gameMode !== 'online') {
+      this.pauseBtn = this.add
+        .text(GAME_WIDTH / 2, BAR_Y + 34, '||', {
+          fontSize: '10px',
+          fontFamily: 'monospace',
+          color: '#888888',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(depth + 3)
+        .setInteractive({ useHandCursor: true });
+      this.pauseBtn.on('pointerdown', () => this._togglePause());
+    }
+
+    // --- Ping + room code (online/spectator, bottom center) ---
+    if ((this.gameMode === 'online' || this.gameMode === 'spectator') && this.networkManager) {
+      const infoY = GAME_HEIGHT - 8;
+      this._roomCodeText = this.add
+        .text(GAME_WIDTH / 2, infoY, `SALA: ${this.networkManager.roomId}`, {
+          fontSize: '7px',
+          fontFamily: 'monospace',
+          color: '#aaaacc',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(depth + 3);
+
+      if (this.gameMode === 'online') {
+        this._pingText = this.add
+          .text(GAME_WIDTH / 2, infoY - 10, '', {
+            fontSize: '7px',
+            fontFamily: 'monospace',
+            color: '#44ff44',
+            stroke: '#000000',
+            strokeThickness: 2,
+          })
+          .setOrigin(0.5, 1)
+          .setDepth(depth + 3);
+        this._pingUpdateCounter = 0;
+
+        // Transport indicator (bottom-left corner)
+        this._transportText = this.add
+          .text(4, infoY, 'WS', {
+            fontSize: '6px',
+            fontFamily: 'monospace',
+            color: '#666666',
+            stroke: '#000000',
+            strokeThickness: 2,
+          })
+          .setOrigin(0, 1)
+          .setDepth(depth + 3);
+      }
+    }
+
+    // --- Center text (for announcements) ---
+    this.centerText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, '', {
+        fontSize: '28px',
         fontFamily: 'monospace',
         color: '#ffffff',
         stroke: '#000000',
         strokeThickness: 4,
       })
-      .setOrigin(0.5, 0);
-
-    // Center Messages
-    this.centerText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, '', {
-        fontSize: '32px',
-        fontFamily: 'Arial Black',
-        color: '#ffcc00',
-        stroke: '#000000',
-        strokeThickness: 6,
-      })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(30);
 
     this.subtitleText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, '', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, '', {
         fontSize: '14px',
-        fontFamily: 'Arial Black',
-        color: '#ffffff',
+        fontFamily: 'monospace',
+        color: '#ffcc00',
         stroke: '#000000',
         strokeThickness: 3,
       })
-      .setOrigin(0.5);
-
-    // Round indicators
-    this.p1Rounds = [];
-    this.p2Rounds = [];
-    for (let i = 0; i < ROUNDS_TO_WIN; i++) {
-      this.p1Rounds.push(
-        this.add
-          .circle(padding + i * 15 + 5, padding + 28, 4, 0x333333)
-          .setStrokeStyle(1, 0xffffff, 0.5),
-      );
-      this.p2Rounds.push(
-        this.add
-          .circle(GAME_WIDTH - padding - i * 15 - 5, padding + 28, 4, 0x333333)
-          .setStrokeStyle(1, 0xffffff, 0.5),
-      );
-    }
+      .setOrigin(0.5)
+      .setDepth(30);
   }
 
   _updateHUD() {
-    this.p1HealthBar.scaleX = Math.max(0, this.p1Fighter.hp / 100);
-    this.p2HealthBar.scaleX = Math.max(0, this.p2Fighter.hp / 100);
+    // Health bars
+    const ratioP1 = Phaser.Math.Clamp(this.p1Fighter.hp / MAX_HP, 0, 1);
+    const ratioP2 = Phaser.Math.Clamp(this.p2Fighter.hp / MAX_HP, 0, 1);
 
-    this.p1SpecialBar.scaleX = Math.max(0, this.p1Fighter.special / MAX_SPECIAL_FP);
-    this.p2SpecialBar.scaleX = Math.max(0, this.p2Fighter.special / MAX_SPECIAL_FP);
+    this.hpBarP1.setScale(ratioP1, 1);
+    this.hpBarP2.setScale(ratioP2, 1);
 
-    this.timerText.setText(Math.ceil(this.combat.timer).toString());
+    // Color shifts as HP drops
+    if (ratioP1 < 0.3) this.hpBarP1.setFillStyle(0xff4444);
+    else if (ratioP1 < 0.6) this.hpBarP1.setFillStyle(0xffaa00);
+    else this.hpBarP1.setFillStyle(0x00cc44);
 
-    // Update round dots
-    this.p1Rounds.forEach((dot, i) => {
-      if (i < this.combat.p1RoundsWon) dot.setFillStyle(0xffcc00);
-    });
-    this.p2Rounds.forEach((dot, i) => {
-      if (i < this.combat.p2RoundsWon) dot.setFillStyle(0xffcc00);
-    });
+    if (ratioP2 < 0.3) this.hpBarP2.setFillStyle(0xff4444);
+    else if (ratioP2 < 0.6) this.hpBarP2.setFillStyle(0xffaa00);
+    else this.hpBarP2.setFillStyle(0xcc2200);
+
+    // Special Indicators (Radial)
+    this._updateRadialIndicator(this.spRadialP1, this.spRadialTextP1, this.p1Fighter, 'P1');
+    this._updateRadialIndicator(this.spRadialP2, this.spRadialTextP2, this.p2Fighter, 'P2');
+
+    // Stamina bars
+    const staRatioP1 = Phaser.Math.Clamp(this.p1Fighter.stamina / MAX_STAMINA_FP, 0, 1);
+    const staRatioP2 = Phaser.Math.Clamp(this.p2Fighter.stamina / MAX_STAMINA_FP, 0, 1);
+    this.staBarP1.setScale(staRatioP1, 1);
+    this.staBarP2.setScale(staRatioP2, 1);
+
+    // Flash red when depleted
+    this.staBarP1.setFillStyle(staRatioP1 < 0.15 ? 0xff4444 : 0x00cccc);
+    this.staBarP2.setFillStyle(staRatioP2 < 0.15 ? 0xff4444 : 0x00cccc);
+
+    // Timer
+    this.timerText.setText(String(Math.max(0, this.combat.timer)));
+    this._updateHUD_Extra();
   }
 
+  /**
+   * Updates a radial special indicator.
+   */
+  _updateRadialIndicator(graphics, text, fighter, playerKey) {
+    const spRatio = Phaser.Math.Clamp(fighter.special / MAX_SPECIAL_FP, 0, 1);
+    const prevSp = playerKey === 'P1' ? this.prevSpecialP1 : this.prevSpecialP2;
+    const prevSpRatio = Phaser.Math.Clamp(prevSp / MAX_SPECIAL_FP, 0, 1);
+
+    const centerX = playerKey === 'P1' ? RADIAL_P1_X : RADIAL_P2_X;
+    const centerY = RADIAL_Y;
+
+    // Threshold logic (50%)
+    if (spRatio >= 0.5 && prevSpRatio < 0.5) {
+      // Threshold reached!
+      this.tweens.add({
+        targets: [graphics, text],
+        scale: 1.4,
+        duration: 100,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+      });
+
+      // Vibration (only for local P1 or if on mobile)
+      if (
+        playerKey === 'P1' &&
+        this.gameMode !== 'spectator' &&
+        typeof navigator !== 'undefined' &&
+        navigator.vibrate
+      ) {
+        navigator.vibrate(50);
+      }
+    }
+
+    // Update previous value
+    if (playerKey === 'P1') this.prevSpecialP1 = fighter.special;
+    else this.prevSpecialP2 = fighter.special;
+
+    graphics.clear();
+
+    const flashTimer = Math.floor(Date.now() / 150) % 2 === 0;
+    let color = 0xffcc00;
+
+    if (spRatio >= 1.0) {
+      color = flashTimer ? 0xffff00 : 0xffcc00;
+    } else if (spRatio >= 0.5) {
+      color = flashTimer ? 0xffdd00 : 0xffaa00;
+    }
+
+    // Draw arc
+    if (spRatio > 0) {
+      graphics.lineStyle(3, color, 1);
+      // arc(x, y, radius, startAngle, endAngle, anticlockwise)
+      // angles in radians. -Math.PI/2 is top.
+      graphics.beginPath();
+      graphics.arc(
+        centerX,
+        centerY,
+        RADIAL_RADIUS - 1.5,
+        -Math.PI / 2,
+        -Math.PI / 2 + Math.PI * 2 * spRatio,
+        false,
+      );
+      graphics.strokePath();
+    }
+
+    // Text color
+    if (spRatio >= 0.5) {
+      text.setColor('#ffcc00');
+    } else {
+      text.setColor('#ffffff');
+    }
+
+    // Particle effects
+    const particles = playerKey === 'P1' ? this.spParticlesP1 : this.spParticlesP2;
+    if (spRatio >= 0.5) {
+      if (typeof particles.start === 'function' && !particles.emitting) {
+        particles.start();
+      } else {
+        particles.emitting = true;
+      }
+      particles.setPosition(centerX, centerY);
+      // Phaser 3.60+ uses setParticleTint for emitters
+      if (typeof particles.setParticleTint === 'function') {
+        particles.setParticleTint(color);
+      } else if (typeof particles.setTint === 'function') {
+        particles.setTint(color);
+      }
+    } else {
+      if (typeof particles.stop === 'function') {
+        particles.stop();
+      } else {
+        particles.emitting = false;
+      }
+    }
+  }
+
+  _updateHUD_Extra() {
+    // This is a helper to finish updating the HUD
+    if (this.combat.timer <= 10) {
+      this.timerText.setColor('#ff4444');
+    } else {
+      this.timerText.setColor('#ffffff');
+    }
+
+    // Round dots
+    for (let i = 0; i < ROUNDS_TO_WIN; i++) {
+      this.roundDotsP1[i].setFillStyle(i < this.combat.p1RoundsWon ? 0x00cc44 : 0x333333);
+      this.roundDotsP2[i].setFillStyle(i < this.combat.p2RoundsWon ? 0xcc2200 : 0x333333);
+    }
+
+    // Ping + transport indicator (update ~1x per second)
+    if (this._pingText && this.networkManager) {
+      this._pingUpdateCounter = (this._pingUpdateCounter || 0) + 1;
+      if (this._pingUpdateCounter >= 60) {
+        this._pingUpdateCounter = 0;
+        const ms = this.networkManager.latency;
+        this._pingText.setText(`${ms}ms`);
+        if (ms > 150) this._pingText.setColor('#ff4444');
+        else if (ms > 80) this._pingText.setColor('#ffcc00');
+        else this._pingText.setColor('#44ff44');
+
+        if (this._transportText) {
+          if (this.networkManager._webrtcReady) {
+            this._transportText.setText('P2P');
+            this._transportText.setColor('#44ff44');
+          } else {
+            this._transportText.setText('WS');
+            this._transportText.setColor('#666666');
+          }
+        }
+      }
+    }
+  }
+
+  // =========================================================================
+  // P1 INPUT
+  // =========================================================================
   // =========================================================================
   // ONLINE MODE
   // =========================================================================
   _setupOnlineMode() {
     const nm = this.networkManager;
+    const slot = nm.getPlayerSlot();
+    log.info('Online mode setup', {
+      slot,
+      room: nm.roomId,
+      p1: this.p1Id,
+      p2: this.p2Id,
+      stage: this.stageId,
+    });
 
-    nm.onDisconnect(() => {
-      this.transitioning = true;
-      this.add
-        .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Oponente desconectado', {
-          fontSize: '14px',
-          fontFamily: 'monospace',
-          color: '#ff4444',
-          stroke: '#000000',
-          strokeThickness: 3,
-        })
-        .setOrigin(0.5)
-        .setDepth(50);
-      this.time.delayedCall(1500, () => {
-        this.networkManager?.destroy();
+    // Both peers are equal in rollback netcode (no host/guest distinction for gameplay)
+    this.isHost = slot === 0;
+
+    // Suppress direct round event firing inside simulation for both P1 and P2.
+    // P1 handles round events from advance() return value.
+    // P2 waits for P1's network message.
+    this.combat.suppressRoundEvents = true;
+
+    // Determine which fighter is local vs remote
+    this.localFighter = slot === 0 ? this.p1Fighter : this.p2Fighter;
+    this.remoteFighter = slot === 0 ? this.p2Fighter : this.p1Fighter;
+
+    // Create RollbackManager — scale rollback window with overclock speed so the
+    // system has room to absorb the increased frame production rate.
+    const speed = this.game.autoplay?.speed || 1;
+    this.rollbackManager = new RollbackManager(nm, slot, {
+      inputDelay: ONLINE_INPUT_DELAY_FRAMES * speed,
+      maxRollbackFrames: 7 * speed,
+    });
+    // Disable adaptive delay when overclocked — it would clamp values back down
+    if (speed > 1) {
+      this.rollbackManager._adaptiveDelayEnabled = false;
+    }
+
+    // Autoplay: use AI controller for local input instead of InputManager
+    if (this.game.autoplay?.enabled) {
+      const difficulty = this.game.autoplay.aiDifficulty || 'medium';
+      const seed = this.game.autoplay.seed;
+      this.autoplayAI = new AIController(this, this.localFighter, this.remoteFighter, difficulty);
+      if (seed != null) {
+        this.autoplayAI.setSeed(seed + slot);
+      }
+    }
+
+    // Fight recorder for E2E testing and debug mode
+    if (this.game.autoplay?.enabled || this.game.debugMode) {
+      this.recorder = new FightRecorder({
+        fightId: this.fightId,
+        roomId: nm.roomId,
+        playerSlot: slot,
+        fighterId: slot === 0 ? this.p1Id : this.p2Id,
+        opponentId: slot === 0 ? this.p2Id : this.p1Id,
+        stageId: this.stageId,
+        config: {
+          seed: this.game.autoplay?.seed,
+          speed: this.game.autoplay?.speed,
+          aiDifficulty: this.game.autoplay?.aiDifficulty,
+        },
+      });
+    }
+
+    // Always-on telemetry
+    this.telemetry = new MatchTelemetry(nm.roomId);
+    this.telemetry.wireConnectionMonitor(nm.monitor);
+
+    // Wire recorder hooks into rollback manager
+    if (this.recorder) {
+      this.rollbackManager._onRollback = (frame, depth) =>
+        this.recorder.recordRollback(frame, depth);
+      this.rollbackManager._onLocalChecksum = (frame, hash) =>
+        this.recorder.recordChecksum(frame, hash);
+      this.rollbackManager._onConfirmedInputs = (frame, p1, p2) =>
+        this.recorder.recordConfirmedInputs(frame, p1, p2);
+    }
+
+    // Wire telemetry to rollback manager (augment existing callbacks)
+    const origRollback = this.rollbackManager._onRollback;
+    this.rollbackManager._onRollback = (frame, depth) => {
+      this.telemetry.recordRollback(frame, depth);
+      if (origRollback) origRollback(frame, depth);
+    };
+
+    // Wire transport changes to telemetry
+    nm.onTransportDegraded(() => this.telemetry.recordTransportChange('websocket'));
+    nm.onTransportRestored(() => this.telemetry.recordTransportChange('webrtc'));
+
+    // Debug overlay (only in debug mode)
+    if (this.game.debugMode) {
+      import('../systems/DebugOverlay.js').then(({ DebugOverlay }) => {
+        this.debugOverlay = new DebugOverlay(this, {
+          getTelemetry: () => this.telemetry,
+          getConnectionMonitor: () => nm.monitor,
+          getTransportManager: () => nm.transport,
+          getInputSync: () => nm.inputSync,
+          getMatchState: () => this.matchState,
+          onExportDebug: () => this._exportDebugBundle(),
+          onExportAll: () => this._exportAllBundles(),
+        });
+      });
+    }
+
+    // Auto-respond to debug_request from peer (always wired, even without debug mode)
+    nm.onDebugRequest(() => {
+      import('../systems/DebugBundleExporter.js').then(({ DebugBundleExporter }) => {
+        const bundle = DebugBundleExporter.generateBundle({
+          recorder: this.recorder,
+          telemetry: this.telemetry,
+          matchState: this.matchState,
+          sessionId: nm.sessionId,
+          debugMode: !!this.game.debugMode,
+        });
+        nm.sendDebugResponse(bundle);
+      });
+    });
+
+    // Wire desync detection + resync
+    nm.onChecksum((frame, hash) => this.rollbackManager.handleRemoteChecksum(frame, hash));
+    this.rollbackManager._onDesync = (frame, localHash, remoteHash) => {
+      log.warn('Desync detected', { frame, local: localHash, remote: remoteHash });
+      this.telemetry.recordDesync();
+      this.recorder?.recordDesync(frame, localHash, remoteHash);
+      this._showDesyncWarning();
+
+      if (this.isHost) {
+        if (this.rollbackManager.shouldReverseResync()) {
+          // P1 suspects its own state is wrong — request resync from P2 (RFC 0008)
+          if (this.rollbackManager.shouldRequestResync()) {
+            this.rollbackManager._resyncPending = true;
+            nm.sendResyncRequest(frame);
+          }
+        } else {
+          // P1 proactively sends authoritative state
+          const snapshot = this.rollbackManager.captureResyncSnapshot(
+            this.p1Fighter,
+            this.p2Fighter,
+            this.combat,
+          );
+          nm.sendResync(snapshot);
+        }
+      } else if (this.rollbackManager.shouldRequestResync()) {
+        // P2 requests resync from P1
+        this.rollbackManager._resyncPending = true;
+        nm.sendResyncRequest(frame);
+      }
+    };
+
+    // Both peers respond to resync requests from the other.
+    // P1 responds when P2 requests; P2 responds when P1 requests (reverse resync).
+    nm.onResyncRequest(() => {
+      const snapshot = this.rollbackManager.captureResyncSnapshot(
+        this.p1Fighter,
+        this.p2Fighter,
+        this.combat,
+      );
+      nm.sendResync(snapshot);
+    });
+
+    // Apply resync snapshots from the other peer.
+    // P2 always applies. P1 applies only when it requested a reverse resync.
+    nm.onResync((msg) => {
+      if (this.isHost && !this.rollbackManager._resyncPending) return;
+      log.warn('Resync applied', { frame: msg.snapshot.frame });
+      this.telemetry.recordResync();
+      this.rollbackManager.applyResync(msg.snapshot, this.p1Fighter, this.p2Fighter, this.combat);
+      if (this._desyncWarning) {
+        this._desyncWarning.destroy();
+        this._desyncWarning = null;
+      }
+    });
+
+    // Sync counter for spectator snapshots: P1 sends state every N frames
+    this._syncInterval = 3;
+
+    // Dedup guards for guest receiving round events
+    this._lastProcessedRound = 0;
+    this._matchOverProcessed = false;
+
+    // P2 (guest) receives round events from P1 via network.
+    // P1 detects round events locally from advance() return value;
+    // P2 suppresses local detection and waits for P1's authoritative message.
+    nm.onRoundEvent((msg) => {
+      if (this.isHost) return; // P1 already handled locally
+      if (msg.matchOver && this._matchOverProcessed) {
+        log.debug('P2 onRoundEvent ignored: matchOver already processed');
+        return;
+      }
+      if (!msg.matchOver && msg.roundNumber <= this._lastProcessedRound) {
+        log.debug('P2 onRoundEvent ignored: round already processed', {
+          round: msg.roundNumber,
+          last: this._lastProcessedRound,
+        });
+        return;
+      }
+
+      log.debug('P2 onRoundEvent', {
+        event: msg.event,
+        winner: msg.winnerIndex,
+        matchOver: msg.matchOver,
+        round: msg.roundNumber,
+        state: this.matchState.state,
+      });
+
+      // Don't modify combat state here — simulateFrame handles it deterministically.
+      // Fire round-end audio/VFX via bridges, then UI transitions.
+      if (msg.event === 'ko' || msg.event === 'timeup') {
+        const syntheticEvents = [
+          {
+            type: msg.event === 'ko' ? 'round_ko' : 'round_timeup',
+            winnerIndex: msg.winnerIndex,
+            matchOver: msg.matchOver,
+          },
+        ];
+        this.audioBridge.processEvents(syntheticEvents);
+        this.vfxBridge.processEvents(syntheticEvents);
+        if (msg.matchOver) {
+          this._matchOverProcessed = true;
+          this.onMatchOver(msg.winnerIndex);
+        } else {
+          this._lastProcessedRound = msg.roundNumber;
+          this.onRoundOver(msg.winnerIndex);
+        }
+      }
+    });
+
+    // --- Graceful reconnection ---
+    this.reconnectionManager = new ReconnectionManager({ gracePeriodMs: 20000 });
+
+    this.reconnectionManager.onPause(() => {
+      if (this.matchState.canTransition(MatchEvent.CONNECTION_LOST)) {
+        this.matchState.transition(MatchEvent.CONNECTION_LOST);
+      }
+      this._showReconnectingOverlay();
+      this.recorder?.recordNetworkEvent('reconnection_pause', {});
+    });
+
+    this.reconnectionManager.onResume(() => {
+      if (this.matchState.canTransition(MatchEvent.OPPONENT_RECONNECTED)) {
+        this.matchState.transition(MatchEvent.OPPONENT_RECONNECTED);
+      }
+      this._hideReconnectingOverlay();
+      this.recorder?.recordNetworkEvent('reconnection_resume', {});
+    });
+
+    this.reconnectionManager.onDisconnect(() => {
+      if (this.matchState.canTransition(MatchEvent.GRACE_EXPIRED)) {
+        this.matchState.transition(MatchEvent.GRACE_EXPIRED);
+      }
+      this._hideReconnectingOverlay();
+      this.recorder?.recordNetworkEvent('reconnection_disconnect', {});
+      this.combat.roundActive = false;
+      this.centerText.setText('DESCONECTADO');
+      this.subtitleText.setText('Oponente abandono la pelea');
+      this.localFighter.stop();
+      this.remoteFighter.stop();
+    });
+
+    // Wire NetworkManager socket events → ReconnectionManager
+    nm.onSocketClose(() => {
+      this.reconnectionManager.handleConnectionLost();
+      this.recorder?.recordNetworkEvent('socket_close', {});
+    });
+    nm.onSocketOpen(() => {
+      this.reconnectionManager.handleConnectionRestored();
+      nm.queueWebRTCInit(); // queue until rejoin_ack confirms signaling stable
+      nm.sendRejoin(nm.getPlayerSlot());
+      this.recorder?.recordNetworkEvent('socket_open', {});
+    });
+    nm.onOpponentReconnecting(() => this.reconnectionManager.handleOpponentReconnecting());
+    nm.onOpponentReconnected(() => this.reconnectionManager.handleOpponentReconnected());
+    nm.onDisconnect(() => this.reconnectionManager.handleOpponentDisconnected());
+
+    // Transport degradation: DataChannel dropped but WebSocket still works
+    nm.onTransportDegraded(() => {
+      if (this._transportText) {
+        this._transportText.setText('WS');
+        this._transportText.setColor('#ffcc00');
+      }
+      this.recorder?.recordNetworkEvent('transport_degraded', {});
+    });
+
+    // Grace expired during fight — return to fighter select
+    nm.onReturnToSelect(() => {
+      this._hideReconnectingOverlay();
+      this.combat.roundActive = false;
+      this.centerText.setText('DESCONECTADO');
+      this.subtitleText.setText('Oponente abandono la pelea');
+      this.localFighter.stop();
+      this.remoteFighter.stop();
+      this.time.delayedCall(2000, () => {
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('TitleScene');
+          this.scene.start('SelectScene', {
+            gameMode: 'online',
+            networkManager: this.networkManager,
+          });
         });
       });
     });
 
-    nm.onOpponentReconnecting(() => {
-      this._showReconnectingOverlay();
-    });
+    // Both peers detect KO/timeup independently (deterministic simulation guarantees agreement).
+    // P1 still sends round events for spectators only.
 
-    nm.onOpponentReconnected(() => {
-      this._hideReconnectingOverlay();
-    });
+    // All online players: register shout display + potion visuals + spectator count
+    nm.onShout((text) => this._displayShout(text));
+    nm.onPotionApplied((target, potionType) => this._showPotionEffect(target, potionType));
+    nm.onSpectatorCount((count) => this._updateSpectatorCount(count));
 
     // P1 handles potion requests from spectators (still needs one authority for potions)
     if (this.isHost) {
@@ -451,6 +1323,15 @@ export class FightScene extends Phaser.Scene {
           this.p2Fighter.reset(GAME_WIDTH * 0.7);
           this._updateHUD();
           // Start round without the time-based timer (replay uses frame-based tickTimer inside simulateFrame)
+          this.combat.timer = 60;
+          this.combat._timerAccumulator = 0;
+          this.combat.roundActive = true;
+          const nextState = this.matchState.transition(MatchEvent.TRANSITION_COMPLETE);
+          if (nextState === MatchState.ROUND_INTRO) {
+            this.matchState.transition(MatchEvent.INTRO_COMPLETE);
+          }
+          this.centerText.setText('');
+          this.subtitleText.setText('');
         }
         return;
       }
@@ -475,6 +1356,7 @@ export class FightScene extends Phaser.Scene {
               bundle?.p1?.finalState?.combat?.p1RoundsWon >= ROUNDS_TO_WIN
                 ? this.p1Data.id
                 : this.p2Data.id;
+            const loserId = winnerId === this.p1Data.id ? this.p2Data.id : this.p1Data.id;
             this.combat.matchOver = true;
             // Transition to victory using the bundle's recorded winner
             this.time.delayedCall(1000, () => {
@@ -482,7 +1364,7 @@ export class FightScene extends Phaser.Scene {
               this.cameras.main.once('camerafadeoutcomplete', () => {
                 this.scene.start('VictoryScene', {
                   winnerId,
-                  loserId: winnerId === this.p1Data.id ? this.p2Data.id : this.p1Data.id,
+                  loserId,
                   p1Id: this.p1Id,
                   p2Id: this.p2Id,
                   stageId: this.stageId,
@@ -558,24 +1440,24 @@ export class FightScene extends Phaser.Scene {
         });
     input.consumeTouch();
 
-    // Build P2 input from second keyboard, gamepad, or AI
+    // Build P2 input from second keyboard or AI
     let p2Input = 0;
     if (this.inputManager2) {
-      const input2 = this.inputManager2;
+      const i2 = this.inputManager2;
       p2Input = this.devConsole?.visible
         ? 0
         : encodeInput({
-            left: input2.left,
-            right: input2.right,
-            up: input2.up,
-            down: input2.down,
-            lp: input2.lightPunch,
-            hp: input2.heavyPunch,
-            lk: input2.lightKick,
-            hk: input2.heavyKick,
-            sp: input2.special,
+            left: i2.left,
+            right: i2.right,
+            up: i2.up,
+            down: i2.down,
+            lp: i2.lightPunch,
+            hp: i2.heavyPunch,
+            lk: i2.lightKick,
+            hk: i2.heavyKick,
+            sp: i2.special,
           });
-      input2.consumeTouch();
+      i2.consumeTouch();
     } else if (this.aiController) {
       this.aiController.update(time, delta);
       const d = this.aiController.decision;
@@ -1228,7 +2110,11 @@ export class FightScene extends Phaser.Scene {
       }
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('TitleScene');
+        if (this.matchContext || this.gameMode === 'online') {
+          this.scene.start('MultiplayerMenuScene');
+        } else {
+          this.scene.start('TitleScene');
+        }
       });
     });
 
