@@ -104,6 +104,7 @@ export class MultiplayerMenuScene extends Phaser.Scene {
       0x000000,
       0.85,
     );
+    bg.setInteractive();
     this._joinOverlay.add(bg);
 
     const title = this.add
