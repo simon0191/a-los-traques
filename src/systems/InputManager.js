@@ -99,22 +99,22 @@ export class InputManager {
   get left() {
     const pad = this._getGamepad();
     const padLeft = pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5));
-    return this.cursors.left?.isDown || false || this.touchState.left || padLeft;
+    return this.cursors.left?.isDown || this.touchState.left || padLeft;
   }
   get right() {
     const pad = this._getGamepad();
     const padRight = pad && (pad.right || (pad.axes[0] && pad.axes[0].getValue() > 0.5));
-    return this.cursors.right?.isDown || false || this.touchState.right || padRight;
+    return this.cursors.right?.isDown || this.touchState.right || padRight;
   }
   get up() {
     const pad = this._getGamepad();
     const padUp = pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5));
-    return this.cursors.up?.isDown || false || this.touchState.up || padUp;
+    return this.cursors.up?.isDown || this.touchState.up || padUp;
   }
   get down() {
     const pad = this._getGamepad();
     const padDown = pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5));
-    return this.cursors.down?.isDown || false || this.touchState.down || padDown;
+    return this.cursors.down?.isDown || this.touchState.down || padDown;
   }
 
   get lightPunch() {

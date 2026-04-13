@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH } from '../config.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('ControllerScene');
 
 export class ControllerScene extends Phaser.Scene {
   constructor() {
@@ -67,7 +70,7 @@ export class ControllerScene extends Phaser.Scene {
 
     if (this.lastSceneKey !== mainScene.scene.key) {
       this.lastSceneKey = mainScene.scene.key;
-      console.log(`[ControllerScene] Scene changed to: ${this.lastSceneKey}`);
+      log.info(`Scene changed to: ${this.lastSceneKey}`);
 
       // Pull-based navigation: check if scene provides its own menu
       if (typeof mainScene.getNavMenu === 'function') {
@@ -251,7 +254,6 @@ export class ControllerScene extends Phaser.Scene {
     // Check for 'Just Down'
     const crossJustDown = crossDown && !this.prevButtons.cross;
     const circleJustDown = circleDown && !this.prevButtons.circle;
-    const _squareJustDown = squareDown && !this.prevButtons.square;
     const optionsJustDown = optionsDown && !this.prevButtons.options;
     const escJustDown = escDown && !this.prevButtons.esc;
 

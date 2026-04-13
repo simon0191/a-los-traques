@@ -797,8 +797,6 @@ export class SelectScene extends Phaser.Scene {
       // Refresh navigation for P2
       const controller = this.scene.get('ControllerScene');
       if (controller) {
-        // Trigger a re-pull of the menu to ensure P2 is now in control
-        controller._checkActiveScene();
         controller.focusItem(this.gridCells[this.p2Index].rect);
       }
       if (this.game.autoplay?.enabled) {
