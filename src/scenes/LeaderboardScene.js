@@ -80,7 +80,7 @@ export class LeaderboardScene extends Phaser.Scene {
     this.statusText = null;
 
     const user = this.game.registry.get('user');
-    const currentNickname = user?.user_metadata?.nickname;
+    const userId = user?.id;
 
     const startY = 85;
     const rowHeight = 16;
@@ -100,7 +100,7 @@ export class LeaderboardScene extends Phaser.Scene {
       const winRate = `${row.win_rate}%`.padStart(8, ' ');
       const line = `${rank}${name}${wins}${losses}${winRate}`;
 
-      const isCurrentUser = currentNickname && row.nickname === currentNickname;
+      const isCurrentUser = userId && row.id === userId;
 
       const text = this.add
         .text(GAME_WIDTH / 2, y, line, {

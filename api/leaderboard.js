@@ -7,6 +7,7 @@ import { withAuth } from './_lib/handler.js';
 export function queryLeaderboard(db) {
   return db.query(`
     SELECT
+      id,
       COALESCE(nickname, 'Anónimo') AS nickname,
       wins,
       losses,

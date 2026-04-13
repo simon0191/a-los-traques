@@ -51,6 +51,19 @@ describe('Leaderboard SQL (integration)', () => {
     expect(result.rows[1].nickname).toBe('low_rate');
   });
 
+  it('includes profile id in each row', async () => {
+    const id = uuid(1);
+    await db.exec(`
+      INSERT INTO profiles (id, nickname, wins, losses) VALUES
+        ('${id}', 'player1', 5, 2);
+    `);
+
+    const result = await queryLeaderboard(db);
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].id).toBe(id);
+  });
+
   it('returns Anónimo for null nicknames via COALESCE', async () => {
     await db.exec(`
       INSERT INTO profiles (id, nickname, wins, losses) VALUES
