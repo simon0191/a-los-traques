@@ -2177,18 +2177,22 @@ export class FightScene extends Phaser.Scene {
     const createAssignmentRow = (y, playerLabel, currentProfile, onSwitch) => {
       const row = this.add.container(GAME_WIDTH / 2, y);
       const label = this.add
-        .text(-80, 0, playerLabel, { fontSize: '10px', color: '#aaaaaa' })
+        .text(-105, 0, playerLabel, { fontSize: '10px', color: '#aaaaaa' })
         .setOrigin(0, 0.5);
       const valueText = this.add
-        .text(0, 0, currentProfile, { fontSize: '10px', color: '#ffffff', fontFamily: 'monospace' })
+        .text(25, 0, currentProfile, {
+          fontSize: '10px',
+          color: '#ffffff',
+          fontFamily: 'monospace',
+        })
         .setOrigin(0.5);
 
       const leftBtn = this.add
-        .text(-40, 0, '<', { fontSize: '14px', color: '#ffcc00' })
+        .text(-20, 0, '<', { fontSize: '14px', color: '#ffcc00' })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true });
       const rightBtn = this.add
-        .text(40, 0, '>', { fontSize: '14px', color: '#ffcc00' })
+        .text(70, 0, '>', { fontSize: '14px', color: '#ffcc00' })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true });
 
