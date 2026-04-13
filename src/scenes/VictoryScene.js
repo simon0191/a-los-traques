@@ -302,7 +302,11 @@ export class VictoryScene extends Phaser.Scene {
   }
 
   getNavMenu() {
-    return { items: this.buttons.map((b) => b.ui.bg) };
+    // Return as a single-row grid to allow horizontal navigation
+    return {
+      items: [this.buttons.map((b) => b.ui.bg)],
+      isGrid: true,
+    };
   }
 
   async _saveResult() {

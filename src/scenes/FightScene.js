@@ -252,8 +252,6 @@ export class FightScene extends Phaser.Scene {
 
     // -- Pause system --
     this._pauseOverlay = null;
-    this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    this.escKey.on('down', () => this._togglePause());
 
     // -- Fixed-timestep accumulator for simulation --
     this._simAccumulator = 0;
@@ -2258,6 +2256,8 @@ export class FightScene extends Phaser.Scene {
       // Re-register pause menu
       const controller = this.scene.get('ControllerScene');
       if (controller) {
+        // Clear old buttons first to prevent ghost squares
+        controller.setNavMenu(null);
         // Find them again since we didn't store refs to all of them globally
         const buttons = this._pauseOverlay.list.filter((c) => c.type === 'Rectangle');
         controller.setNavMenu(buttons);
@@ -2269,7 +2269,13 @@ export class FightScene extends Phaser.Scene {
     // Register with controller scene
     const controller = this.scene.get('ControllerScene');
     if (controller) {
-      controller.setNavMenu([p1Row.leftBtn, p1Row.rightBtn, p2Row.leftBtn, p2Row.rightBtn, backBtn]);
+      controller.setNavMenu([
+        p1Row.leftBtn,
+        p1Row.rightBtn,
+        p2Row.leftBtn,
+        p2Row.rightBtn,
+        backBtn,
+      ]);
     }
   }
 
@@ -2279,6 +2285,12 @@ export class FightScene extends Phaser.Scene {
     }
     this.time.paused = false;
     this.tweens.resumeAll();
+
+    const controller = this.scene.get('ControllerScene');
+    if (controller) {
+      controller.setNavMenu(null);
+    }
+
     if (this._pauseOverlay) {
       this._pauseOverlay.destroy();
       this._pauseOverlay = null;

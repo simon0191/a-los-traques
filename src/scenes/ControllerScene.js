@@ -31,9 +31,9 @@ export class ControllerScene extends Phaser.Scene {
     this.LERP_SPEED = 0.25;
     this.cursorVisible = true;
     this.lastSceneKey = '';
-    }
+  }
 
-    create() {
+  create() {
     this.graphics = this.add.graphics();
     this.graphics.setDepth(10000);
 
@@ -59,8 +59,7 @@ export class ControllerScene extends Phaser.Scene {
     this.events.on('update', () => {
       this._checkActiveScene();
     });
-    }
-
+  }
 
   _checkActiveScene() {
     const mainScene = this._getMainScene();
@@ -223,9 +222,10 @@ export class ControllerScene extends Phaser.Scene {
     let right = cursors.right.isDown;
 
     let crossDown = this.keys.enter.isDown || this.keys.space.isDown;
+    let circleDown = false;
     let squareDown = false;
-    let circleDown = this.keys.esc.isDown;
     let optionsDown = false;
+    const escDown = this.keys.esc.isDown;
 
     for (const pad of pads) {
       if (!pad) continue;
@@ -248,12 +248,10 @@ export class ControllerScene extends Phaser.Scene {
       this._processDir('right', right, 1, 0, delta);
     }
 
-    const escDown = this.keys.esc.isDown;
-
     // Check for 'Just Down'
     const crossJustDown = crossDown && !this.prevButtons.cross;
     const circleJustDown = circleDown && !this.prevButtons.circle;
-    const squareJustDown = squareDown && !this.prevButtons.square;
+    const _squareJustDown = squareDown && !this.prevButtons.square;
     const optionsJustDown = optionsDown && !this.prevButtons.options;
     const escJustDown = escDown && !this.prevButtons.esc;
 
@@ -274,7 +272,6 @@ export class ControllerScene extends Phaser.Scene {
         if (optionsJustDown && mainScene.scene.key === 'FightScene') {
           if (typeof mainScene._togglePause === 'function') {
             mainScene._togglePause();
-            this.game.audioManager?.play('ui_confirm');
             return;
           }
         }
@@ -320,9 +317,16 @@ export class ControllerScene extends Phaser.Scene {
 
     if (this.isGrid) {
       const rows = this.menuItems.length;
-      this.cursorY = Phaser.Math.Clamp(this.cursorY + dy, 0, rows - 1);
+      // Wrap vertical
+      this.cursorY = (this.cursorY + dy + rows) % rows;
+
       const cols = this.menuItems[this.cursorY]?.length || 0;
-      this.cursorX = Phaser.Math.Clamp(this.cursorX + dx, 0, cols - 1);
+      if (cols > 0) {
+        // If we came from a wider row, clamp to the new row's width first
+        if (this.cursorX >= cols) this.cursorX = cols - 1;
+        // Wrap horizontal
+        this.cursorX = (this.cursorX + dx + cols) % cols;
+      }
     } else {
       if (dy !== 0) {
         this.cursorY += dy;
@@ -342,9 +346,15 @@ export class ControllerScene extends Phaser.Scene {
 
   _updateCursor(_delta) {
     this.graphics.clear();
-    if (this.menuItems.length === 0 || !this.cursorVisible) return;
 
+    // Auto-clear menu if focused item was destroyed (prevent ghost cursors)
     const focused = this._getFocusedItem();
+    if (focused && (!focused.scene || !focused.active)) {
+      this.setNavMenu(null);
+      return;
+    }
+
+    if (this.menuItems.length === 0 || !this.cursorVisible) return;
     if (focused?.noCursor) return;
 
     // Lerp bounds

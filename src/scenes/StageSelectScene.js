@@ -207,9 +207,9 @@ export class StageSelectScene extends Phaser.Scene {
     }
 
     this.updateSelection();
-    }
+  }
 
-    getNavMenu() {
+  getNavMenu() {
     if (!this.isP1) return { items: [] };
 
     const matrix = [];
@@ -225,20 +225,19 @@ export class StageSelectScene extends Phaser.Scene {
       if (rowArr.length > 0) matrix.push(rowArr);
     }
 
-    // Add LISTO and VOLVER buttons at the bottom
+    // Add LISTO and VOLVER buttons at the bottom (VOLVER is left of LISTO)
     const bottomRow = [];
-    if (this.listoBtn) bottomRow.push(this.listoBtn.bg);
     if (this.backBtn) bottomRow.push(this.backBtn.bg);
+    if (this.listoBtn) bottomRow.push(this.listoBtn.bg);
     if (bottomRow.length > 0) matrix.push(bottomRow);
 
     return {
       items: matrix,
       isGrid: true,
     };
-    }
+  }
 
-    handleBack(remote = false) {
-
+  handleBack(remote = false) {
     if (this.transitioning && !remote) return;
     const audio = this.game.audioManager;
     if (!remote) audio.play('ui_cancel');

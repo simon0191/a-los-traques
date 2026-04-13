@@ -507,8 +507,8 @@ export class SelectScene extends Phaser.Scene {
       if (rowArr.length > 0) matrix.push(rowArr);
     }
 
-    // Add buttons at the bottom
-    matrix.push([this.listoBtn, this.volverBtn]);
+    // Add buttons at the bottom (VOLVER is left of LISTO)
+    matrix.push([this.volverBtn, this.listoBtn]);
 
     return {
       items: matrix,

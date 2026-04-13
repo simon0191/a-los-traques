@@ -203,9 +203,9 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   getNavMenu() {
-    const buttons = this.children.list.filter(
-      (child) => child.input?.enabled && child.type === 'Rectangle',
-    );
+    const buttons = this.children.list
+      .filter((child) => child.input?.enabled && child.type === 'Rectangle')
+      .sort((a, b) => a.y - b.y);
     return { items: buttons };
   }
 

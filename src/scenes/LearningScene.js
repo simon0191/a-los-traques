@@ -174,7 +174,11 @@ export class LearningScene extends Phaser.Scene {
   }
 
   getNavMenu() {
-    return { items: [this.tabObjects[0], this.tabObjects[2]] };
+    // Return as a single-row grid to allow horizontal navigation between tabs
+    return {
+      items: [[this.tabObjects[0], this.tabObjects[2]]],
+      isGrid: true,
+    };
   }
 
   // Cards to load
