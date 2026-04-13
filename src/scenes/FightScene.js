@@ -2009,6 +2009,12 @@ export class FightScene extends Phaser.Scene {
   // =========================================================================
   // PAUSE SYSTEM
   // =========================================================================
+  handleBack() {
+    if (this.isPaused) {
+      this._resumeGame();
+    }
+  }
+
   _togglePause() {
     if (this.gameMode === 'online') {
       // Show brief "no pause online" message

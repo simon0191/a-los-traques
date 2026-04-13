@@ -272,15 +272,14 @@ export class ControllerScene extends Phaser.Scene {
         if (optionsJustDown && mainScene.scene.key === 'FightScene') {
           if (typeof mainScene._togglePause === 'function') {
             mainScene._togglePause();
-            return;
           }
-        }
-
-        if (typeof mainScene.handleBack === 'function') mainScene.handleBack();
-        else if (typeof mainScene.goBack === 'function') mainScene.goBack();
-        else if (typeof mainScene._goBack === 'function') mainScene._goBack();
-        else {
-          mainScene.events.emit('ui_cancel');
+        } else {
+          if (typeof mainScene.handleBack === 'function') mainScene.handleBack();
+          else if (typeof mainScene.goBack === 'function') mainScene.goBack();
+          else if (typeof mainScene._goBack === 'function') mainScene._goBack();
+          else {
+            mainScene.events.emit('ui_cancel');
+          }
         }
       }
     }
