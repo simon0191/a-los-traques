@@ -229,10 +229,10 @@ export class ControllerScene extends Phaser.Scene {
 
     for (const pad of pads) {
       if (!pad) continue;
-      up = up || pad.up || pad.axes[1].getValue() < -0.5;
-      down = down || pad.down || pad.axes[1].getValue() > 0.5;
-      left = left || pad.left || pad.axes[0].getValue() < -0.5;
-      right = right || pad.right || pad.axes[0].getValue() > 0.5;
+      up = up || pad.up || (pad.axes[1]?.getValue() ?? 0) < -0.5;
+      down = down || pad.down || (pad.axes[1]?.getValue() ?? 0) > 0.5;
+      left = left || pad.left || (pad.axes[0]?.getValue() ?? 0) < -0.5;
+      right = right || pad.right || (pad.axes[0]?.getValue() ?? 0) > 0.5;
 
       crossDown = crossDown || pad.buttons[0]?.pressed;
       circleDown = circleDown || pad.buttons[1]?.pressed;
