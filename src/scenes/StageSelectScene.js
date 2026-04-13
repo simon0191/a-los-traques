@@ -267,8 +267,6 @@ export class StageSelectScene extends Phaser.Scene {
 
   confirmSelection() {
     if (this.transitioning) return;
-    const audio = this.game.audioManager;
-    audio.play('ui_confirm');
     let stageId = this.stages[this.selectedIndex].id;
     const isRandom = stageId === 'random';
     if (isRandom) {

@@ -191,7 +191,6 @@ export class MultiplayerMenuScene extends Phaser.Scene {
         .filter((c) => VALID_CHARS.includes(c))
         .join('');
       if (code.length !== 4) return;
-      this.game.audioManager.play('ui_confirm');
       this._hideJoinOverlay();
       this._goTo('LobbyScene', { roomId: code });
     });
