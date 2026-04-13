@@ -793,14 +793,14 @@ export class SelectScene extends Phaser.Scene {
       this.p2Index = this.fighters.length - 1;
       this.updateP2Display();
       this.confirmedText.setText('Jugador 1 Listo. Esperando Jugador 2...');
-      
+
       // Refresh navigation for P2
       const controller = this.scene.get('ControllerScene');
       if (controller) {
-        controller._checkActiveScene(); // Re-pull menu
+        // Trigger a re-pull of the menu to ensure P2 is now in control
+        controller._checkActiveScene();
         controller.focusItem(this.gridCells[this.p2Index].rect);
       }
-
       if (this.game.autoplay?.enabled) {
         let p2Idx;
         do {

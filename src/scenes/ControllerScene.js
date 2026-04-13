@@ -213,35 +213,41 @@ export class ControllerScene extends Phaser.Scene {
   }
 
   _handleInput(_time, delta) {
-    const pad = this.input.gamepad.total > 0 ? this.input.gamepad.gamepads[0] : null;
+    const pads = this.input.gamepad.gamepads;
+    const cursors = this.cursors;
+
+    // Aggregate directional input from all pads + keyboard
+    let up = cursors.up.isDown;
+    let down = cursors.down.isDown;
+    let left = cursors.left.isDown;
+    let right = cursors.right.isDown;
+
+    let crossDown = this.keys.enter.isDown || this.keys.space.isDown;
+    let squareDown = false;
+    let circleDown = this.keys.esc.isDown;
+    let optionsDown = false;
+
+    for (const pad of pads) {
+      if (!pad) continue;
+      up = up || pad.up || pad.axes[1].getValue() < -0.5;
+      down = down || pad.down || pad.axes[1].getValue() > 0.5;
+      left = left || pad.left || pad.axes[0].getValue() < -0.5;
+      right = right || pad.right || pad.axes[0].getValue() > 0.5;
+
+      crossDown = crossDown || pad.buttons[0]?.pressed;
+      circleDown = circleDown || pad.buttons[1]?.pressed;
+      squareDown = squareDown || pad.buttons[2]?.pressed;
+      optionsDown = optionsDown || pad.buttons[9]?.pressed;
+    }
 
     // Only process navigation if we have a menu
     if (this.menuItems.length > 0) {
-      const up =
-        this.cursors.up.isDown || (pad && (pad.up || (pad.axes[1] && pad.axes[1].getValue() < -0.5)));
-      const down =
-        this.cursors.down.isDown ||
-        (pad && (pad.down || (pad.axes[1] && pad.axes[1].getValue() > 0.5)));
-      const left =
-        this.cursors.left.isDown ||
-        (pad && (pad.left || (pad.axes[0] && pad.axes[0].getValue() < -0.5)));
-      const right =
-        this.cursors.right.isDown ||
-        (pad && (pad.right || (pad.axes[0] && pad.axes[0].getValue() > 0.5)));
-
       this._processDir('up', up, 0, -1, delta);
       this._processDir('down', down, 0, 1, delta);
       this._processDir('left', left, -1, 0, delta);
       this._processDir('right', right, 1, 0, delta);
     }
 
-    // Button states
-    const crossDown = !!pad?.buttons[0]?.pressed;
-    const circleDown = !!pad?.buttons[1]?.pressed;
-    const squareDown = !!pad?.buttons[2]?.pressed;
-    const optionsDown = !!pad?.buttons[9]?.pressed;
-    const enterDown = this.keys.enter.isDown;
-    const spaceDown = this.keys.space.isDown;
     const escDown = this.keys.esc.isDown;
 
     // Check for 'Just Down'
@@ -249,12 +255,10 @@ export class ControllerScene extends Phaser.Scene {
     const circleJustDown = circleDown && !this.prevButtons.circle;
     const squareJustDown = squareDown && !this.prevButtons.square;
     const optionsJustDown = optionsDown && !this.prevButtons.options;
-    const enterJustDown = enterDown && !this.prevButtons.enter;
-    const spaceJustDown = spaceDown && !this.prevButtons.space;
-    const escJustDown = escDown && !this.prevButtons.esc;
+    const escJustDown = circleDown && !this.prevButtons.esc; // circle shares back logic with esc
 
     // Confirm Logic
-    if (crossJustDown || squareJustDown || enterJustDown || spaceJustDown) {
+    if (crossJustDown || squareJustDown) {
       const focused = this._getFocusedItem();
       if (focused) {
         focused.emit('pointerdown');
@@ -280,9 +284,7 @@ export class ControllerScene extends Phaser.Scene {
     this.prevButtons.circle = circleDown;
     this.prevButtons.square = squareDown;
     this.prevButtons.options = optionsDown;
-    this.prevButtons.enter = enterDown;
-    this.prevButtons.space = spaceDown;
-    this.prevButtons.esc = escDown;
+    this.prevButtons.esc = circleDown;
   }
 
   _processDir(name, isPressed, dx, dy, delta) {
