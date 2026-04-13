@@ -255,10 +255,10 @@ export class ControllerScene extends Phaser.Scene {
     const circleJustDown = circleDown && !this.prevButtons.circle;
     const squareJustDown = squareDown && !this.prevButtons.square;
     const optionsJustDown = optionsDown && !this.prevButtons.options;
-    const escJustDown = circleDown && !this.prevButtons.esc; // circle shares back logic with esc
+    const escJustDown = escDown && !this.prevButtons.esc;
 
-    // Confirm Logic
-    if (crossJustDown || squareJustDown) {
+    // Confirm Logic - Only Cross (X) or Enter/Space
+    if (crossJustDown) {
       const focused = this._getFocusedItem();
       if (focused) {
         focused.emit('pointerdown');
@@ -266,10 +266,19 @@ export class ControllerScene extends Phaser.Scene {
       }
     }
 
-    // Cancel / Back Logic
+    // Cancel / Back / Pause Logic
     if (circleJustDown || optionsJustDown || escJustDown) {
       const mainScene = this._getMainScene();
       if (mainScene) {
+        // Options button on pad should toggle pause in FightScene
+        if (optionsJustDown && mainScene.scene.key === 'FightScene') {
+          if (typeof mainScene._togglePause === 'function') {
+            mainScene._togglePause();
+            this.game.audioManager?.play('ui_confirm');
+            return;
+          }
+        }
+
         if (typeof mainScene.handleBack === 'function') mainScene.handleBack();
         else if (typeof mainScene.goBack === 'function') mainScene.goBack();
         else if (typeof mainScene._goBack === 'function') mainScene._goBack();
@@ -284,7 +293,7 @@ export class ControllerScene extends Phaser.Scene {
     this.prevButtons.circle = circleDown;
     this.prevButtons.square = squareDown;
     this.prevButtons.options = optionsDown;
-    this.prevButtons.esc = circleDown;
+    this.prevButtons.esc = escDown;
   }
 
   _processDir(name, isPressed, dx, dy, delta) {

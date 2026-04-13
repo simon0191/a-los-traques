@@ -153,10 +153,13 @@ export class FightScene extends Phaser.Scene {
       this.frameCounter = 0;
       this._setupSpectatorMode();
     } else if (isLocal2P) {
-      // Local 2-player: preference for gamepads, fallback to split keyboard
+      // Local 2-player: preference for gamepads, hybrid if 1 pad, fallback to split keyboard
       if (this.input.gamepad && this.input.gamepad.total >= 2) {
         this.inputManager = new InputManager(this, 'gamepad_0');
         this.inputManager2 = new InputManager(this, 'gamepad_1');
+      } else if (this.input.gamepad && this.input.gamepad.total === 1) {
+        this.inputManager = new InputManager(this, 'gamepad_0');
+        this.inputManager2 = new InputManager(this, 'keyboard_right');
       } else {
         this.inputManager = new InputManager(this, 'keyboard_left');
         this.inputManager2 = new InputManager(this, 'keyboard_right');
@@ -2063,11 +2066,11 @@ export class FightScene extends Phaser.Scene {
 
     // CONTINUAR button
     const contBg = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 110, 20, 0x222244)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 5, 110, 20, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
     const contText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 5, 'CONTINUAR', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 5, 'CONTINUAR', {
         fontSize: '9px',
         fontFamily: 'Arial',
         color: '#ffffff',
@@ -2083,13 +2086,35 @@ export class FightScene extends Phaser.Scene {
     });
     contBg.on('pointerdown', () => this._resumeGame());
 
+    // CONTROLES button
+    const ctrlBg = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 110, 20, 0x222244)
+      .setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor: true });
+    const ctrlText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20, 'CONTROLES', {
+        fontSize: '9px',
+        fontFamily: 'Arial',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    ctrlBg.on('pointerover', () => {
+      ctrlBg.setFillStyle(0x333366);
+      ctrlText.setColor('#ffcc00');
+    });
+    ctrlBg.on('pointerout', () => {
+      ctrlBg.setFillStyle(0x222244);
+      ctrlText.setColor('#ffffff');
+    });
+    ctrlBg.on('pointerdown', () => this._showControlsMenu());
+
     // SALIR button
     const salirBg = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 110, 20, 0x222244)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 45, 110, 20, 0x222244)
       .setStrokeStyle(1, 0x4444aa)
       .setInteractive({ useHandCursor: true });
     const salirText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 'SALIR', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 45, 'SALIR', {
         fontSize: '9px',
         fontFamily: 'Arial',
         color: '#ffffff',
@@ -2118,7 +2143,130 @@ export class FightScene extends Phaser.Scene {
       });
     });
 
-    this._pauseOverlay.add([bg, title, contBg, contText, salirBg, salirText]);
+    this._pauseOverlay.add([bg, title, contBg, contText, ctrlBg, ctrlText, salirBg, salirText]);
+
+    // Register with controller scene for navigation
+    const controller = this.scene.get('ControllerScene');
+    if (controller) {
+      controller.setNavMenu([contBg, ctrlBg, salirBg]);
+    }
+  }
+
+  _showControlsMenu() {
+    if (this._pauseOverlay) this._pauseOverlay.setVisible(false);
+    this._controlsOverlay = this.add.container(0, 0).setDepth(70);
+
+    const bg = this.add.rectangle(
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      GAME_WIDTH,
+      GAME_HEIGHT,
+      0x000000,
+      0.8,
+    );
+    const title = this.add
+      .text(GAME_WIDTH / 2, 40, 'ASIGNACIÓN DE CONTROLES', {
+        fontSize: '18px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+
+    const padCount = this.input.gamepad ? this.input.gamepad.total : 0;
+
+    const createAssignmentRow = (y, playerLabel, currentProfile, onSwitch) => {
+      const row = this.add.container(GAME_WIDTH / 2, y);
+      const label = this.add
+        .text(-80, 0, playerLabel, { fontSize: '10px', color: '#aaaaaa' })
+        .setOrigin(0, 0.5);
+      const valueText = this.add
+        .text(0, 0, currentProfile, { fontSize: '10px', color: '#ffffff', fontFamily: 'monospace' })
+        .setOrigin(0.5);
+
+      const leftBtn = this.add
+        .text(-40, 0, '<', { fontSize: '14px', color: '#ffcc00' })
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+      const rightBtn = this.add
+        .text(40, 0, '>', { fontSize: '14px', color: '#ffcc00' })
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+
+      leftBtn.on('pointerdown', () => onSwitch(-1));
+      rightBtn.on('pointerdown', () => onSwitch(1));
+
+      row.add([label, valueText, leftBtn, rightBtn]);
+      return { container: row, valueText, leftBtn, rightBtn };
+    };
+
+    const getProfileName = (id) => {
+      if (id === 'keyboard_full') return 'TECLADO COMPLETO';
+      if (id === 'keyboard_left') return 'TECLADO IZQ (WASD)';
+      if (id === 'keyboard_right') return 'TECLADO DER (Flechas)';
+      if (id === 'gamepad_0') return 'MANDO 1';
+      if (id === 'gamepad_1') return 'MANDO 2';
+      return id;
+    };
+
+    const availableLocalProfiles = ['keyboard_left', 'keyboard_right'];
+    if (padCount >= 1) availableLocalProfiles.push('gamepad_0');
+    if (padCount >= 2) availableLocalProfiles.push('gamepad_1');
+
+    const p1Row = createAssignmentRow(
+      GAME_HEIGHT / 2 - 20,
+      'JUGADOR 1:',
+      getProfileName(this.inputManager?.profileId),
+      (dir) => {
+        let idx = availableLocalProfiles.indexOf(this.inputManager?.profileId);
+        idx = (idx + dir + availableLocalProfiles.length) % availableLocalProfiles.length;
+        const newPid = availableLocalProfiles[idx];
+        this.inputManager = new InputManager(this, newPid);
+        p1Row.valueText.setText(getProfileName(newPid));
+      },
+    );
+
+    const p2Row = createAssignmentRow(
+      GAME_HEIGHT / 2 + 10,
+      'JUGADOR 2:',
+      this.aiController ? 'MÁQUINA (IA)' : getProfileName(this.inputManager2?.profileId),
+      (dir) => {
+        if (this.aiController) return; // Can't switch AI mid-fight for now in this simple menu
+        let idx = availableLocalProfiles.indexOf(this.inputManager2?.profileId);
+        idx = (idx + dir + availableLocalProfiles.length) % availableLocalProfiles.length;
+        const newPid = availableLocalProfiles[idx];
+        this.inputManager2 = new InputManager(this, newPid);
+        p2Row.valueText.setText(getProfileName(newPid));
+      },
+    );
+
+    const backBtn = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT - 40, 80, 20, 0x222244)
+      .setStrokeStyle(1, 0x4444aa)
+      .setInteractive({ useHandCursor: true });
+    const backText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT - 40, 'VOLVER', { fontSize: '9px', color: '#ffffff' })
+      .setOrigin(0.5);
+
+    backBtn.on('pointerdown', () => {
+      this._controlsOverlay.destroy();
+      this._controlsOverlay = null;
+      this._pauseOverlay.setVisible(true);
+      // Re-register pause menu
+      const controller = this.scene.get('ControllerScene');
+      if (controller) {
+        // Find them again since we didn't store refs to all of them globally
+        const buttons = this._pauseOverlay.list.filter((c) => c.type === 'Rectangle');
+        controller.setNavMenu(buttons);
+      }
+    });
+
+    this._controlsOverlay.add([bg, title, p1Row.container, p2Row.container, backBtn, backText]);
+
+    // Register with controller scene
+    const controller = this.scene.get('ControllerScene');
+    if (controller) {
+      controller.setNavMenu([p1Row.leftBtn, p1Row.rightBtn, p2Row.leftBtn, p2Row.rightBtn, backBtn]);
+    }
   }
 
   _resumeGame() {
