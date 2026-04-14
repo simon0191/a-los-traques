@@ -19,7 +19,7 @@ Three paths were considered in RFC 0017 Phase 2.5:
 A dev-only **Sprite Overlay Editor** scene that loads a fighter animation strip and an accessory image, lets a developer position and rotate the overlay per-frame with keyboard shortcuts, and exports both the baked overlay strip (consumed by the game) and a persistent session JSON (consumed by future re-edits).
 
 Design principles:
-- **Keyboard-only** for speed (no mouse hit-box tuning, copy/paste of transforms, frame navigation all at the home row)
+- **Mouse + keyboard hybrid**: mouse for gross positioning (click-drag to translate, Shift+click-drag to rotate, Ctrl+scroll to scale), keyboard for precision nudges, copy/paste, keyframes, interpolation, and batch navigation. Mouse is faster for "put the hat roughly on the head"; keyboard is faster for "nudge 1px left and advance to the next frame".
 - **Same repo, different scene**: reachable via `?editor=1` URL param, no separate build
 - **Output is a sprite**, not anchor data: the game plays the overlay strip in lockstep with the fighter animation with zero runtime positioning logic
 - **Resumable**: every session serializes to JSON so re-generating fighter sprites (or tweaking an existing overlay) doesn't require starting over
@@ -92,9 +92,22 @@ Example: `public/assets/overlays/cata/sombrero_catalina_walk.png` (128×512 for 
 
 Grouping by fighter (not by accessory) mirrors the existing `public/assets/fighters/{id}/{anim}.png` layout. This lets `BootScene` reuse a single traversal strategy and makes lazy-loading a fighter's full asset set (fighter + all equipped overlays) a single directory scan.
 
+### Mouse controls
+
+Mouse operates on the preview canvas and drives gross positioning. All mouse gestures target the **current frame only** — to apply the same transform to other frames, use `C`/`V` (copy/paste) or `I` (interpolate).
+
+| Gesture | Action |
+|---|---|
+| Left click + drag on overlay | Translate overlay under the cursor (1 canvas-px per 1 screen-px, respects zoom) |
+| `Shift` + left click + drag | Rotate overlay around its center; angle from drag vector |
+| `Ctrl` + mouse wheel | Scale overlay around its center (one notch = ±0.02, `Shift` modifier = ±0.1) |
+| Click on empty canvas | Deselect (no-op on current frame state) |
+| Left click on timeline dot | Jump to that frame |
+| Right click on timeline dot | Toggle keyframe on that frame |
+
 ### Keyboard shortcuts
 
-Home row centric. No mouse needed.
+Keyboard drives precision adjustments, batch navigation, and anything that doesn't map cleanly to a mouse gesture (copy/paste, interpolation, undo/save/export).
 
 | Keys | Action |
 |---|---|
@@ -108,6 +121,7 @@ Home row centric. No mouse needed.
 | `Shift` + `Q/E` | Rotate by 5° |
 | `-` / `=` | Scale down / up by 0.02 |
 | `Shift` + `-` / `=` | Scale by 0.1 |
+| `Ctrl` + `-` / `Ctrl` + `=` | Alias for scale down / up by 0.02 (matches the Ctrl+scroll muscle memory) |
 | `C` | Copy transform from previous frame |
 | `V` | Copy transform to next frame |
 | `F` | Mark/unmark current frame as keyframe |
@@ -304,7 +318,7 @@ Phases ordered by dependency. Phase 1 produces a working editor; Phase 2 wires o
 
 1. `OverlayEditorScene` scaffold: context bar, preview canvas, timeline, help text.
 2. Fighter + accessory loading: dropdowns replaced with keyboard selection (`W/S` fighter, `↑/↓` anim, `A/D` accessory).
-3. Per-frame transform state + keyboard handlers for translate / rotate / scale.
+3. Per-frame transform state + input handlers: keyboard for precision nudges, mouse (click-drag / Shift+drag / Ctrl+scroll) for gross positioning. Both paths dispatch into the same `OverlaySession.applyTransform()` entry point so undo/redo sees a unified stream.
 4. Onion-skin (previous frame at 30% alpha) and grid toggle.
 5. Play/pause animation preview (`Space`).
 6. Session load/save (`Ctrl+S`) via `POST /dev/overlay-export` or download fallback.
@@ -364,7 +378,7 @@ No tests for `OverlayEditorScene` itself — it's a Phaser scene, covered manual
 
 2. **CLI-only with numeric inputs (no visual editor)**: rejected. Aligning a 2° rotation by eye takes one second; by typing a number and re-rendering takes twenty. For 1152 frames this is the difference between a day of work and a week.
 
-3. **Mouse-driven editor**: rejected per the direct decision for v1. Keyboard-only avoids hit-box design and keeps the developer's hands at the home row, which matters when the dominant loop is "tweak 1px, advance frame, repeat". Mouse may be added later as a polish item.
+3. **Keyboard-only editor** (considered, rejected after initial review): would simplify the implementation but makes gross positioning ("put the hat near the head") slower than it needs to be. Mouse + keyboard hybrid is strictly more capable: mouse for rough placement, keyboard for nudges and batch operations. Mouse hit-boxes are kept trivial (the entire overlay sprite is draggable; no handles, no bounding-box corners in v1).
 
 4. **Store transforms as anchor data and skip the strip export**: rejected — RFC 0017 Phase 2.5 evaluated this path; the conclusion was that baked strips eliminate per-frame positioning logic at runtime and make the game code trivial. The anchor table still exists as the session JSON, but it's for re-editing, not runtime.
 
