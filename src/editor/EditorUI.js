@@ -9,6 +9,7 @@
 const STYLE_ID = 'overlay-editor-ui-style';
 
 const CSS = `
+#overlay-editor-root:focus { outline: none; }
 #overlay-editor-root {
   position: fixed; inset: 0;
   display: grid;
@@ -132,7 +133,10 @@ export class EditorUI {
 
   _build() {
     injectStyles();
-    this.root = el('div', { id: 'overlay-editor-root' });
+    // tabindex makes the root focusable so browser shortcuts (Ctrl+S, Ctrl+E)
+    // bubble to our capture-listener instead of hitting the browser's default
+    // "Save page" dialog on the very first key press.
+    this.root = el('div', { id: 'overlay-editor-root', tabindex: '-1' });
 
     // Fighter panel
     this.fighterPanel = el('section', { className: 'panel panel-fighters' });
@@ -236,6 +240,10 @@ export class EditorUI {
     this.root.appendChild(this.accPanel);
 
     document.body.appendChild(this.root);
+    // Grab focus so window-level keydown handlers fire before the browser
+    // acts on Ctrl+S/E/Z. Without this the first keypress after page load
+    // still pops the browser's Save dialog.
+    this.root.focus();
   }
 
   update(state) {
