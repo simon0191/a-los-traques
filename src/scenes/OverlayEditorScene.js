@@ -42,7 +42,9 @@ const FIGHTERS_WITH_SPRITES = [
   'alv', 'sun', 'gartner', 'richi', 'cami', 'migue', 'bozzi', 'angy',
 ];
 
-const ACCESSORY_IDS = ['dildo_frontal', 'sombrero_catalina'];
+// MVP (RFC 0018): ship with the hat first; other accessories added as their
+// art lands. The editor is catalog-driven so adding items is a one-line change.
+const ACCESSORY_IDS = ['sombrero_catalina'];
 
 const ZOOM = 1.5;
 const PREVIEW_CX = GAME_WIDTH / 2;
