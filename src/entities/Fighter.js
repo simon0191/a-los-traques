@@ -74,6 +74,15 @@ export class Fighter {
     if (this.hasAnims) {
       this.sprite.play(`${this.fighterId}_idle`);
     }
+
+    // Auto-attach the first calibrated accessory from the manifest, if any.
+    // Keeps the wiring simple until an accessory-selection UI exists.
+    const manifest = scene.game.registry.get('overlayManifest');
+    const accessoriesForFighter = manifest?.calibrations?.[this.fighterId];
+    if (accessoriesForFighter) {
+      const firstAccessory = Object.keys(accessoriesForFighter)[0];
+      if (firstAccessory) this.setOverlay(firstAccessory);
+    }
   }
 
   // --- Simulation methods: delegate to FighterSim, then apply presentation side effects ---
