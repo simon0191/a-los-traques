@@ -1,6 +1,6 @@
+import { decodeProtectedHeader, jwtVerify } from 'jose';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { withAdmin } from '../../api/_lib/handler.js';
-import { jwtVerify, decodeProtectedHeader } from 'jose';
 
 const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
 const mockClient = {
@@ -9,7 +9,7 @@ const mockClient = {
   release: vi.fn(),
   end: vi.fn().mockResolvedValue(undefined),
 };
-const mockConnect = vi.fn().mockResolvedValue(mockClient);
+const _mockConnect = vi.fn().mockResolvedValue(mockClient);
 
 vi.mock('jose', () => ({
   jwtVerify: vi.fn(),
