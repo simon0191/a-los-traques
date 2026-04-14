@@ -197,6 +197,7 @@ export class EditorUI {
     this.toolbar.appendChild(el('div', { className: 'tb-sep' }));
     this.toolbar.appendChild(tb('Keyframe [F]', 'keyframe'));
     this.toolbar.appendChild(tb('Interpolar [I]', 'interpolate'));
+    this.toolbar.appendChild(tb('Copiar a todos', 'fill-frames'));
     this.ctxText = el('span', { className: 'tb-ctx', text: '' });
     this.toolbar.appendChild(this.ctxText);
     this.toolbar.appendChild(tb('💾 Guardar', 'save', 'primary'));
