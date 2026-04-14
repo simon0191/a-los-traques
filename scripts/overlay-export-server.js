@@ -11,8 +11,9 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-// Writes are only allowed under these prefixes (relative to the repo root).
-const WRITE_PREFIXES = ['public/assets/overlays/', 'assets/overlay-editor/sessions/'];
+// Writes are only allowed under this prefix (relative to the repo root).
+// Consolidated manifest + per-combo PNG strips both live here.
+const WRITE_PREFIXES = ['public/assets/overlays/'];
 
 export function isSafeRelativePath(relPath) {
   if (typeof relPath !== 'string' || relPath.length === 0) return false;

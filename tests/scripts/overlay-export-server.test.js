@@ -37,7 +37,7 @@ function makeRes() {
 describe('isSafeRelativePath', () => {
   it('accepts paths under allowed prefixes', () => {
     expect(isSafeRelativePath('public/assets/overlays/cata/hat_walk.png')).toBe(true);
-    expect(isSafeRelativePath('assets/overlay-editor/sessions/cata/hat_walk.json')).toBe(true);
+    expect(isSafeRelativePath('public/assets/overlays/manifest.json')).toBe(true);
   });
 
   it('rejects path traversal attempts', () => {
@@ -95,14 +95,14 @@ describe('handleOverlayExport', () => {
     const res = makeRes();
     const req = makeReq({
       body: {
-        path: 'assets/overlay-editor/sessions/cata/hat_walk.json',
+        path: 'public/assets/overlays/manifest.json',
         json: { fighterId: 'cata', frameCount: 4 },
       },
     });
     await handleOverlayExport(req, res, { repoRoot: tmpDir });
     expect(res.statusCode).toBe(200);
     const written = await fs.readFile(
-      path.join(tmpDir, 'assets/overlay-editor/sessions/cata/hat_walk.json'),
+      path.join(tmpDir, 'public/assets/overlays/manifest.json'),
       'utf8',
     );
     expect(JSON.parse(written)).toMatchObject({ fighterId: 'cata', frameCount: 4 });
@@ -142,21 +142,21 @@ describe('handleOverlayExport', () => {
   it('rejects a POST with neither base64 nor json', async () => {
     const res = makeRes();
     const req = makeReq({
-      body: { path: 'assets/overlay-editor/sessions/c/h_walk.json' },
+      body: { path: 'public/assets/overlays/manifest.json' },
     });
     await handleOverlayExport(req, res, { repoRoot: tmpDir });
     expect(res.statusCode).toBe(400);
   });
 
   it('GET returns the session JSON if present', async () => {
-    const sessionPath = path.join(tmpDir, 'assets/overlay-editor/sessions/cata/hat_walk.json');
+    const sessionPath = path.join(tmpDir, 'public/assets/overlays/manifest.json');
     await fs.mkdir(path.dirname(sessionPath), { recursive: true });
     await fs.writeFile(sessionPath, JSON.stringify({ fighterId: 'cata', frameCount: 4 }));
 
     const res = makeRes();
     const req = makeReq({
       method: 'GET',
-      url: '/dev/overlay-export?path=assets%2Foverlay-editor%2Fsessions%2Fcata%2Fhat_walk.json',
+      url: '/dev/overlay-export?path=public%2Fassets%2Foverlays%2Fmanifest.json',
       body: null,
     });
     await handleOverlayExport(req, res, { repoRoot: tmpDir });
@@ -168,7 +168,7 @@ describe('handleOverlayExport', () => {
     const res = makeRes();
     const req = makeReq({
       method: 'GET',
-      url: '/dev/overlay-export?path=assets%2Foverlay-editor%2Fsessions%2Fno%2Fnope.json',
+      url: '/dev/overlay-export?path=public%2Fassets%2Foverlays%2Fnope.json',
       body: null,
     });
     await handleOverlayExport(req, res, { repoRoot: tmpDir });

@@ -216,14 +216,14 @@ export class Fighter {
     if (!accessoryId) return;
 
     const manifest = this.scene.game.registry.get('overlayManifest');
-    const entries = (manifest?.entries ?? []).filter(
-      (e) => e.fighterId === this.fighterId && e.accessoryId === accessoryId,
-    );
-    if (entries.length === 0) return; // no calibration yet, skip silently
+    const byAnim = manifest?.calibrations?.[this.fighterId]?.[accessoryId];
+    if (!byAnim) return; // no calibration yet, skip silently
+    const animations = Object.keys(byAnim);
+    if (animations.length === 0) return;
 
     // Use the idle animation (or the first available) as the initial texture.
-    const initial = entries.find((e) => e.animation === 'idle') ?? entries[0];
-    const key = `overlay_${this.fighterId}_${accessoryId}_${initial.animation}`;
+    const initialAnim = animations.includes('idle') ? 'idle' : animations[0];
+    const key = `overlay_${this.fighterId}_${accessoryId}_${initialAnim}`;
     if (!this.scene.textures.exists(key)) return;
 
     this._overlaySprite = this.scene.add.sprite(this.sprite.x, this.sprite.y, key);
