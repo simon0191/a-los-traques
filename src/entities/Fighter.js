@@ -237,22 +237,32 @@ export class Fighter {
 
     this._overlaySprite = this.scene.add.sprite(this.sprite.x, this.sprite.y, key);
     this._overlaySprite.setOrigin(0.5, 1);
-    if (this.scene.anims.exists(key)) this._overlaySprite.play(key);
     this._syncOverlayAnimation();
   }
 
+  /**
+   * Force the overlay sprite's texture + frame to exactly match the fighter
+   * sprite. No independent animation plays on the overlay — it renders the
+   * same frame index as the fighter, so per-frame calibration stays aligned
+   * even if the fighter anim's framerate changes (attack cooldowns, etc.).
+   */
   _syncOverlayAnimation() {
     if (!this._overlaySprite || !this._overlayAccessoryId) return;
     const current = this.sprite.anims?.currentAnim?.key;
     if (!current) return;
     const suffix = current.replace(`${this.fighterId}_`, '');
-    const key = `overlay_${this.fighterId}_${this._overlayAccessoryId}_${suffix}`;
-    if (this._overlaySprite.anims?.currentAnim?.key === key) return;
-    if (this.scene.anims.exists(key)) {
-      this._overlaySprite.play(key);
-    } else if (this.scene.textures.exists(key)) {
-      this._overlaySprite.setTexture(key);
+    const overlayKey = `overlay_${this.fighterId}_${this._overlayAccessoryId}_${suffix}`;
+    if (!this.scene.textures.exists(overlayKey)) {
+      // No calibrated strip for this anim — hide the overlay so the user
+      // doesn't see a stale frame from a previous animation.
+      this._overlaySprite.setVisible(false);
+      return;
     }
+    this._overlaySprite.setVisible(true);
+    // `sprite.frame.name` is the actual spritesheet frame index the fighter is
+    // rendering right now — mirror it exactly on the overlay.
+    const frameName = this.sprite.frame?.name ?? 0;
+    this._overlaySprite.setTexture(overlayKey, frameName);
   }
 
   reset(x) {

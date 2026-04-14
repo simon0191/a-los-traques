@@ -163,17 +163,17 @@ export class BootScene extends Phaser.Scene {
 
     // Queue overlay strips discovered in the manifest (phase 2). Animations
     // for them are created once the second loader pass completes, see below.
-    const overlayLoadSpecs = [];
+    let overlayCount = 0;
     for (const [fighterId, byAcc] of Object.entries(manifest.calibrations ?? {})) {
       for (const [accessoryId, byAnim] of Object.entries(byAcc)) {
-        for (const [animName, entry] of Object.entries(byAnim)) {
+        for (const animName of Object.keys(byAnim)) {
           const key = `overlay_${fighterId}_${accessoryId}_${animName}`;
           const url = `assets/overlays/${fighterId}/${accessoryId}_${animName}.png`;
           this.load.spritesheet(key, url, {
             frameWidth: FIGHTER_WIDTH,
             frameHeight: FIGHTER_HEIGHT,
           });
-          overlayLoadSpecs.push({ key, animName, entry });
+          overlayCount++;
         }
       }
     }
@@ -241,20 +241,10 @@ export class BootScene extends Phaser.Scene {
     }
 
     const startNextScene = () => {
-      // Animations for overlay strips that finished loading in phase 2.
-      for (const { key, animName, entry } of overlayLoadSpecs) {
-        if (!this.textures.exists(key)) continue;
-        const def = ANIM_DEFS[animName];
-        this.anims.create({
-          key,
-          frames: this.anims.generateFrameNumbers(key, {
-            start: 0,
-            end: (def?.frames ?? entry.frameCount) - 1,
-          }),
-          frameRate: 8,
-          repeat: def?.repeat ?? -1,
-        });
-      }
+      // Overlay strips are loaded; no Phaser animations created for them —
+      // Fighter._syncOverlayAnimation advances the overlay sprite one frame
+      // at a time by mirroring the fighter sprite's current frame index, so
+      // they never drift.
 
       // If URL has ?room=, go directly to lobby as joiner or spectator
       const roomId = params.get('room');
@@ -292,7 +282,7 @@ export class BootScene extends Phaser.Scene {
       }
     };
 
-    if (overlayLoadSpecs.length > 0) {
+    if (overlayCount > 0) {
       this.load.once('complete', startNextScene);
       this.load.start();
     } else {
