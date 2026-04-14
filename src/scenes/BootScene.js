@@ -140,6 +140,26 @@ export class BootScene extends Phaser.Scene {
     for (const id of ACCESSORY_IDS) {
       this.load.image(`accessory_${id}`, `assets/accessories/${id}.png`);
     }
+
+    // Overlay manifest + baked strips (RFC 0018 v2). Loaded via Phaser so
+    // `filecomplete` lets us queue the per-combo spritesheets before create().
+    this.load.json('overlayManifestData', 'assets/overlays/manifest.json');
+    this.load.on('filecomplete-json-overlayManifestData', (_key, _type, manifest) => {
+      const calibs = manifest?.calibrations;
+      if (!calibs) return;
+      for (const [fighterId, byAcc] of Object.entries(calibs)) {
+        for (const [accessoryId, byAnim] of Object.entries(byAcc)) {
+          for (const anim of Object.keys(byAnim)) {
+            const key = `overlay_${fighterId}_${accessoryId}_${anim}`;
+            const url = `assets/overlays/${fighterId}/${accessoryId}_${anim}.png`;
+            this.load.spritesheet(key, url, {
+              frameWidth: FIGHTER_WIDTH,
+              frameHeight: FIGHTER_HEIGHT,
+            });
+          }
+        }
+      }
+    });
   }
 
   create() {
@@ -147,14 +167,34 @@ export class BootScene extends Phaser.Scene {
     const count = fightMusicFiles.length > 0 ? fightMusicFiles.length : 1;
     this.game.registry.set('fightMusicCount', count);
 
-    // Overlay manifest (RFC 0018 v2). Loaded with a plain fetch so a 404 doesn't
-    // break the Phaser loader (Vite returns HTML for missing files, which
-    // crashes JSON.parse). Default empty if the editor hasn't produced one yet.
-    const emptyManifest = { version: 2, updatedAt: null, calibrations: {} };
-    fetch('assets/overlays/manifest.json')
-      .then((r) => (r.ok ? r.json() : emptyManifest))
-      .catch(() => emptyManifest)
-      .then((manifest) => this.game.registry.set('overlayManifest', manifest));
+    // Overlay manifest (RFC 0018 v2). Loaded via this.load.json in preload;
+    // fall back to empty if missing so the game still boots.
+    const manifest = this.cache.json.get('overlayManifestData') ?? {
+      version: 2,
+      updatedAt: null,
+      calibrations: {},
+    };
+    this.game.registry.set('overlayManifest', manifest);
+
+    // Create animations for the baked overlay strips that loaded successfully.
+    for (const [fighterId, byAcc] of Object.entries(manifest.calibrations ?? {})) {
+      for (const [accessoryId, byAnim] of Object.entries(byAcc)) {
+        for (const [animName, entry] of Object.entries(byAnim)) {
+          const key = `overlay_${fighterId}_${accessoryId}_${animName}`;
+          if (!this.textures.exists(key)) continue;
+          const def = ANIM_DEFS[animName];
+          this.anims.create({
+            key,
+            frames: this.anims.generateFrameNumbers(key, {
+              start: 0,
+              end: (def?.frames ?? entry.frameCount) - 1,
+            }),
+            frameRate: 8,
+            repeat: def?.repeat ?? -1,
+          });
+        }
+      }
+    }
 
     // Generate placeholder rectangle textures for fighters
     this.generateFighterPlaceholder('fighter_p1', FIGHTER_COLORS.p1);
