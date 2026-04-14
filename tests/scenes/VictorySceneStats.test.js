@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock Phaser before importing anything that uses it
 vi.mock('phaser', () => ({
   default: {
-    Scene: class MockScene {}
-  }
+    Scene: class MockScene {},
+  },
 }));
 
 import { VictoryScene } from '../../src/scenes/VictoryScene.js';
@@ -19,18 +19,18 @@ describe('VictoryScene Stats recording', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Minimal mock for Phaser.Scene
     scene = new VictoryScene();
-    
+
     // Mock game registry
     scene.game = {
       registry: {
         get: vi.fn((key) => {
           if (key === 'user') return { id: 'test-user' };
           return null;
-        })
-      }
+        }),
+      },
     };
 
     // Mock Phaser.Scene's methods used in _saveResult
@@ -38,10 +38,10 @@ describe('VictoryScene Stats recording', () => {
       text: vi.fn().mockReturnValue({
         setOrigin: vi.fn().mockReturnThis(),
         setAlpha: vi.fn().mockReturnThis(),
-      })
+      }),
     };
     scene.tweens = {
-      add: vi.fn()
+      add: vi.fn(),
     };
   });
 
@@ -55,7 +55,7 @@ describe('VictoryScene Stats recording', () => {
         p2Id: 'simon',
         winnerIndex: 0, // Player 1 (simon) won
         gameMode: 'online',
-        networkManager: { playerSlot: 0 } // Current player is P1
+        networkManager: { playerSlot: 0 }, // Current player is P1
       });
 
       await scene._saveResult();
@@ -73,7 +73,7 @@ describe('VictoryScene Stats recording', () => {
         p2Id: 'simon',
         winnerIndex: 1, // Player 2 (simon) won
         gameMode: 'online',
-        networkManager: { playerSlot: 0 } // Current player is P1
+        networkManager: { playerSlot: 0 }, // Current player is P1
       });
 
       await scene._saveResult();
@@ -90,7 +90,7 @@ describe('VictoryScene Stats recording', () => {
         p2Id: 'jeka',
         // winnerIndex: undefined,
         gameMode: 'online',
-        networkManager: { playerSlot: 0 }
+        networkManager: { playerSlot: 0 },
       });
 
       await scene._saveResult();
@@ -106,7 +106,7 @@ describe('VictoryScene Stats recording', () => {
         p1Id: 'simon',
         p2Id: 'jeka',
         winnerIndex: 1, // AI (P2) won
-        gameMode: 'local'
+        gameMode: 'local',
       });
 
       await scene._saveResult();
