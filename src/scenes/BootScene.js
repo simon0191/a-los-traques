@@ -227,7 +227,10 @@ export class BootScene extends Phaser.Scene {
         if (stored) window.__REPLAY_BUNDLE = JSON.parse(stored);
       }
     }
-    if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
+    // Editor routing (RFC 0018): skip login/title if ?editor=1 is present.
+    if (params.get('editor') === '1' && this.scene.get('OverlayEditorScene')) {
+      this.scene.start('OverlayEditorScene');
+    } else if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
       // Skip lobby, go straight to fight using bundle config
       const bundle = window.__REPLAY_BUNDLE;
       this.scene.start('PreFightScene', {
