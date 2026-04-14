@@ -432,16 +432,42 @@ Hardcoded accessory catalog, no DB, no API, no per-user state. Goal: let a dev b
 
 1. Create placeholder `public/assets/accessories/dildo_frontal.png` and `sombrero_catalina.png` (128×128 transparent PNGs; final art deferred to asset pipeline).
 2. Load both images in `BootScene`.
-3. Extend `InspectorScene` with a cycle button — `ACCESORIO: <NAME>` — that toggles a 128×128 overlay sprite on the preview. Overlay uses `setOrigin(0.5, 1)` and a hardcoded `anchorY` per item.
+3. Extend `InspectorScene` with a cycle button — `ACCESORIO: <NAME>` — that toggles an overlay sprite on the preview, plus live-calibration keys (`I/K` head Y per fighter, `J/L` accessory X, `,/.` accessory Y, `U/O` scale, `P` prints JSON).
 4. Manually verify visual fit across all fighters and animations.
 
 **Exit criteria**: The overlay tracks the head region well enough for shipping. If it doesn't (e.g., head moves too much during `hurt`/`special`), we revisit the design — maybe per-animation anchors or per-frame motion data — before building any persistence.
 
-### Phase 2 — Fighter rendering integration
+#### Phase 1 findings (2026-04-14)
 
-1. Add `setAccessory(accessoryId, anchorX, anchorY)` to `Fighter.js`.
-2. Extend `syncSprite()` to position/flip the accessory overlay.
-3. Hardcode a test accessory in `FightScene` to verify rendering end-to-end in combat.
+Phase 1 executed end-to-end with real art (pink RBD hat + forehead dildo) and full per-fighter calibration for 14/16 fighters. Result: **partial pass**.
+
+- **Idle pose reads well** across all calibrated fighters. Per-fighter `headOffsetY` was needed (range -89 to -108, ~20px spread between fighters), confirming the RFC's hypothesis that a single global anchor was insufficient but that per-fighter anchors are tractable.
+- **Moving animations drift badly.** During `walk` the fighter's head shifts horizontally inside the 128×128 frame while the overlay stays pinned — the accessory appears to float next to the head instead of on it. Same pattern in `hurt`, `special`, `knockdown`. Fighters with larger in-frame motion (e.g., Cata, Jeka) are worst affected.
+- Root cause: Phaser only tracks the sprite's transform (fixed `x, y`), not the pixel position of the head *within* the animation frames. Per-frame head anchor data does not exist in the asset pipeline.
+
+Implication: **static overlays are shippable for stationary contexts (idle, intros, portraits, victory) but not for active combat** without additional investment. This re-scopes Phase 2.
+
+### Phase 2 — Static-context rendering (re-scoped)
+
+Accessories render on fighter sprites **in stationary scenes only** — `SelectScene`, `PreFightScene`, `VictoryScene`, portraits. In-combat rendering (`FightScene`) is deferred to Phase 2.5 until the drift problem is solved.
+
+1. Add `setAccessory(accessoryId, anchorX, anchorY, scale)` to `Fighter.js` (and equivalent for portraits).
+2. Extend `syncSprite()` to position/flip the accessory overlay; pivot on `facingRight` like the RFC originally described.
+3. Wire accessory rendering into the stationary scenes above.
+4. **Do not** render accessories in `FightScene` yet — leave a feature-flag or clear TODO noting Phase 2.5 dependency.
+5. Move the calibrated `FIGHTER_HEAD_OFFSETS` map out of `InspectorScene` into `src/data/fighters.json` as a `headOffsetY` field per fighter.
+
+### Phase 2.5 — Moving-overlay strategy (decision gate, blocks FightScene integration)
+
+Before accessories can ship in combat, the team must choose one of:
+
+1. **Per-animation anchor offset**: coarse approximation; one `{x, y}` per animation name. Low effort (~1 day), improves average case but doesn't fix in-frame drift. Probably insufficient based on Phase 1 results.
+2. **Per-frame anchor data**: `{ fighterId: { animName: [[x,y], ...] } }` table populated via Inspector calibration (`X`/`C` already cycle frames). High data-entry cost (~16 × 13 × ~14 ≈ 2880 anchor points), perfect visual result. Reuses the existing calibration UI.
+3. **Accessory baked into sprites**: extend the Gemini asset pipeline with an `accessory_fighter` type that regenerates each fighter sheet with the accessory drawn in. Highest art authenticity, highest cost (~N × 16 regenerations + pipeline work per new accessory).
+
+Recommended for shipping: **(2) per-frame anchors**, because the calibration tooling already exists and the data-entry cost is bounded and one-time per fighter (not per accessory — the anchor tracks the head, not the item).
+
+This phase is a decision, not code — output is an amended RFC section and a concrete implementation plan for the chosen approach.
 
 ### Phase 3 — Scene chain wiring (hardcoded ownership)
 

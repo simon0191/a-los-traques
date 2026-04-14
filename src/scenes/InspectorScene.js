@@ -42,12 +42,35 @@ const FIGHTERS_WITH_SPRITES = [
 const ANIM_NAMES = Object.keys(ANIM_DEFS);
 
 // Accessory catalog for try-on POC (RFC 0017, Phase 1). Hardcoded hats only.
-// anchorY is offset from the preview sprite's feet-anchor (origin 0.5, 1).
+// anchorY/anchorX are offsets from the fighter's HEAD position (not feet).
+// scale is the display size as a fraction of FIGHTER_HEIGHT.
+// Values calibrated live in Inspector (2026-04-14); dev tool preserved below.
 const ACCESSORIES = [
-  { id: 'none', name: 'NINGUNO', anchorX: 0, anchorY: 0 },
-  { id: 'dildo_frontal', name: 'DILDO', anchorX: 0, anchorY: -110 },
-  { id: 'sombrero_catalina', name: 'SOMBRERO', anchorX: 0, anchorY: -120 },
+  { id: 'none', name: 'NINGUNO', anchorX: 0, anchorY: 0, scale: 1 },
+  { id: 'dildo_frontal', name: 'DILDO', anchorX: 11, anchorY: -5, scale: 0.15 },
+  { id: 'sombrero_catalina', name: 'SOMBRERO', anchorX: -2, anchorY: -1, scale: 0.33 },
 ];
+
+// Per-fighter head position offset from feet (negative = above feet).
+// Calibrated in Inspector (2026-04-14). Missing fighters fall back to default
+// and can be calibrated live with I/K keys, then P to print updated JSON.
+const DEFAULT_HEAD_OFFSET_Y = -100;
+const FIGHTER_HEAD_OFFSETS = {
+  simon: -100,
+  cata: -98,
+  jeka: -89,
+  chicha: -107,
+  carito: -99,
+  mao: -108,
+  peks: -108,
+  lini: -107,
+  alv: -105,
+  sun: -107,
+  gartner: -108,
+  richi: -90,
+  cami: -103,
+  migue: -99,
+};
 
 const LEFT_PANEL_WIDTH = 120;
 const RIGHT_X = LEFT_PANEL_WIDTH + (GAME_WIDTH - LEFT_PANEL_WIDTH) / 2;
@@ -227,6 +250,28 @@ export class InspectorScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-C', () => this.stepFrame(-1));
     this.input.keyboard.on('keydown-A', () => this.cycleAccessory());
 
+    // Calibration: per-fighter head offset + per-accessory tweaks.
+    // I/K: head Y (per fighter). J/L: accessory X. U/O: accessory scale.
+    // ,/. : accessory Y (per accessory). P: print current calibration JSON.
+    this.headOffsets = { ...FIGHTER_HEAD_OFFSETS }; // live-editable overrides
+    this.calibText = this.add
+      .text(GAME_WIDTH - 5, 5, '', {
+        fontFamily: 'monospace',
+        fontSize: '9px',
+        color: '#ffcc00',
+        align: 'right',
+      })
+      .setOrigin(1, 0);
+    this.input.keyboard.on('keydown-I', () => this._adjustHead(-1));
+    this.input.keyboard.on('keydown-K', () => this._adjustHead(1));
+    this.input.keyboard.on('keydown-J', () => this._adjustAccAnchorX(-1));
+    this.input.keyboard.on('keydown-L', () => this._adjustAccAnchorX(1));
+    this.input.keyboard.on('keydown-COMMA', () => this._adjustAccAnchorY(-1));
+    this.input.keyboard.on('keydown-PERIOD', () => this._adjustAccAnchorY(1));
+    this.input.keyboard.on('keydown-U', () => this._adjustAccScale(-0.02));
+    this.input.keyboard.on('keydown-O', () => this._adjustAccScale(0.02));
+    this.input.keyboard.on('keydown-P', () => this._printCalibration());
+
     // Select first fighter with sprites, or first fighter
     const firstSpriteIdx = fightersData.findIndex((f) => FIGHTERS_WITH_SPRITES.includes(f.id));
     this.selectFighter(firstSpriteIdx >= 0 ? firstSpriteIdx : 0);
@@ -281,6 +326,7 @@ export class InspectorScene extends Phaser.Scene {
 
     // Reset to idle
     this.selectAnim(0);
+    this._applyAccessory();
   }
 
   selectAnim(index) {
@@ -394,18 +440,81 @@ export class InspectorScene extends Phaser.Scene {
 
   _applyAccessory() {
     const acc = ACCESSORIES[this.accessoryIndex];
+    this._updateCalibHUD();
     if (acc.id === 'none') {
       this.accessorySprite.setVisible(false);
       return;
     }
     const textureKey = `accessory_${acc.id}`;
     if (!this.textures.exists(textureKey)) {
-      // Texture missing — keep hidden rather than showing a Phaser placeholder.
       this.accessorySprite.setVisible(false);
       return;
     }
     this.accessorySprite.setTexture(textureKey);
-    this.accessorySprite.setPosition(RIGHT_X + acc.anchorX, PREVIEW_Y + acc.anchorY);
+    const size = FIGHTER_HEIGHT * acc.scale;
+    this.accessorySprite.setDisplaySize(size, size);
+    const feetY = PREVIEW_Y + FIGHTER_HEIGHT / 2;
+    const headY = feetY + this._getHeadOffset();
+    this.accessorySprite.setPosition(RIGHT_X + acc.anchorX, headY + acc.anchorY);
+    this.accessorySprite.setAlpha(1);
     this.accessorySprite.setVisible(true);
+  }
+
+  _getHeadOffset() {
+    const f = fightersData[this.selectedIndex];
+    return this.headOffsets[f.id] ?? FIGHTER_HEAD_OFFSETS[f.id] ?? DEFAULT_HEAD_OFFSET_Y;
+  }
+
+  _adjustHead(delta) {
+    const f = fightersData[this.selectedIndex];
+    this.headOffsets[f.id] = this._getHeadOffset() + delta;
+    this._applyAccessory();
+  }
+
+  _adjustAccAnchorX(delta) {
+    const acc = ACCESSORIES[this.accessoryIndex];
+    if (acc.id === 'none') return;
+    acc.anchorX += delta;
+    this._applyAccessory();
+  }
+
+  _adjustAccAnchorY(delta) {
+    const acc = ACCESSORIES[this.accessoryIndex];
+    if (acc.id === 'none') return;
+    acc.anchorY += delta;
+    this._applyAccessory();
+  }
+
+  _adjustAccScale(delta) {
+    const acc = ACCESSORIES[this.accessoryIndex];
+    if (acc.id === 'none') return;
+    acc.scale = Math.max(0.1, Math.min(2, acc.scale + delta));
+    this._applyAccessory();
+  }
+
+  _updateCalibHUD() {
+    if (!this.calibText) return;
+    const f = fightersData[this.selectedIndex];
+    const acc = ACCESSORIES[this.accessoryIndex];
+    this.calibText.setText(
+      [
+        `${f.id} headY:${this._getHeadOffset()}`,
+        `${acc.name} x:${acc.anchorX} y:${acc.anchorY} s:${acc.scale.toFixed(2)}`,
+        'I/K head  J/L accX  ,/. accY  U/O scale  P print',
+      ].join('\n'),
+    );
+  }
+
+  _printCalibration() {
+    const out = {
+      accessories: ACCESSORIES.filter((a) => a.id !== 'none').map((a) => ({
+        id: a.id,
+        anchorX: a.anchorX,
+        anchorY: a.anchorY,
+        scale: Number(a.scale.toFixed(3)),
+      })),
+      fighterHeadOffsets: this.headOffsets,
+    };
+    console.log('[Accessory Calibration]', JSON.stringify(out, null, 2));
   }
 }
