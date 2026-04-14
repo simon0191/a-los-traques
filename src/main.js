@@ -15,6 +15,7 @@ import { LobbyScene } from './scenes/LobbyScene.js';
 import { LoginScene } from './scenes/LoginScene.js';
 import { MultiplayerMenuScene } from './scenes/MultiplayerMenuScene.js';
 import { MusicScene } from './scenes/MusicScene.js';
+import { OverlayEditorScene } from './scenes/OverlayEditorScene.js';
 import { PreFightScene } from './scenes/PreFightScene.js';
 import { SelectScene } from './scenes/SelectScene.js';
 import { SpectatorLobbyScene } from './scenes/SpectatorLobbyScene.js';
@@ -75,6 +76,12 @@ const config = {
     ControllerScene,
   ],
 };
+
+// Dev-only: register the overlay editor when `?editor=1` is in the URL (RFC 0018).
+const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+if (urlParams.get('editor') === '1') {
+  config.scene.push(OverlayEditorScene);
+}
 
 window.game = new Phaser.Game(config);
 window.game.autoplay = new AutoplayController();

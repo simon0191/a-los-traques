@@ -187,6 +187,63 @@ export class Fighter {
     } else {
       this.sprite.clearTint();
     }
+
+    // Keep the cosmetic overlay in lockstep with the fighter sprite (RFC 0018).
+    if (this._overlaySprite) {
+      this._overlaySprite.x = this.sprite.x;
+      this._overlaySprite.y = this.sprite.y;
+      this._overlaySprite.setFlipX(this.sprite.flipX);
+      this._overlaySprite.setDepth(this.sprite.depth + 1);
+      this._syncOverlayAnimation();
+    }
+  }
+
+  /**
+   * Attach a cosmetic overlay sprite (hat, accessory, etc.) to this fighter.
+   * Looks up the per-animation baked overlay strips produced by the RFC 0018
+   * editor via the `overlayManifest` registry entry written by BootScene.
+   *
+   * Silently no-ops if no manifest is loaded or no overlay is calibrated for
+   * this fighter × accessory combination. Passing `null` removes any attached
+   * overlay.
+   */
+  setOverlay(accessoryId) {
+    if (this._overlaySprite) {
+      this._overlaySprite.destroy();
+      this._overlaySprite = null;
+    }
+    this._overlayAccessoryId = accessoryId ?? null;
+    if (!accessoryId) return;
+
+    const manifest = this.scene.game.registry.get('overlayManifest');
+    const entries = (manifest?.entries ?? []).filter(
+      (e) => e.fighterId === this.fighterId && e.accessoryId === accessoryId,
+    );
+    if (entries.length === 0) return; // no calibration yet, skip silently
+
+    // Use the idle animation (or the first available) as the initial texture.
+    const initial = entries.find((e) => e.animation === 'idle') ?? entries[0];
+    const key = `overlay_${this.fighterId}_${accessoryId}_${initial.animation}`;
+    if (!this.scene.textures.exists(key)) return;
+
+    this._overlaySprite = this.scene.add.sprite(this.sprite.x, this.sprite.y, key);
+    this._overlaySprite.setOrigin(0.5, 1);
+    if (this.scene.anims.exists(key)) this._overlaySprite.play(key);
+    this._syncOverlayAnimation();
+  }
+
+  _syncOverlayAnimation() {
+    if (!this._overlaySprite || !this._overlayAccessoryId) return;
+    const current = this.sprite.anims?.currentAnim?.key;
+    if (!current) return;
+    const suffix = current.replace(`${this.fighterId}_`, '');
+    const key = `overlay_${this.fighterId}_${this._overlayAccessoryId}_${suffix}`;
+    if (this._overlaySprite.anims?.currentAnim?.key === key) return;
+    if (this.scene.anims.exists(key)) {
+      this._overlaySprite.play(key);
+    } else if (this.scene.textures.exists(key)) {
+      this._overlaySprite.setTexture(key);
+    }
   }
 
   reset(x) {
