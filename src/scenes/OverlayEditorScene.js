@@ -393,17 +393,45 @@ export class OverlayEditorScene extends Phaser.Scene {
     const anim = this._anim();
     const frameCount = ANIM_DEFS[anim];
     const entry = this.manifest.get(fighter, accessory, anim);
+    let frames = entry?.frames ?? null;
+    // If this combo isn't calibrated yet, inherit the shared scale from any
+    // sibling anim so scale stays uniform per (fighter, accessory).
+    if (!frames) {
+      const sharedScale = this._sharedScale(fighter, accessory);
+      if (sharedScale !== null) {
+        frames = Array.from({ length: frameCount }, () => ({
+          x: 64,
+          y: 32,
+          rotation: 0,
+          scale: sharedScale,
+        }));
+      }
+    }
     this.session = new OverlaySession({
       fighterId: fighter,
       accessoryId: accessory,
       animation: anim,
       frameCount,
-      frames: entry?.frames ?? null,
+      frames,
       keyframes: entry?.keyframes ?? null,
       lastEditedAt: entry?.lastEditedAt ?? null,
     });
     this.frameIdx = Math.min(this.frameIdx, frameCount - 1);
     this._render();
+  }
+
+  /**
+   * Return the scale currently used for this (fighter, accessory) in the
+   * manifest, or null if the combo has no calibrated sibling. Assumes all
+   * frames of all anims share the same scale (the UI enforces this).
+   */
+  _sharedScale(fighter, accessory) {
+    const byAnim = this.manifest.calibrations?.[fighter]?.[accessory];
+    if (!byAnim) return null;
+    for (const entry of Object.values(byAnim)) {
+      if (entry?.frames?.length) return entry.frames[0].scale;
+    }
+    return null;
   }
 
   _flushSessionToManifest() {
@@ -435,8 +463,44 @@ export class OverlayEditorScene extends Phaser.Scene {
 
   _applyDelta(delta) {
     if (!this.session) return;
-    this.session.applyTransform(this.frameIdx, delta);
+    // Scale is uniform across all frames of all anims for this (fighter,
+    // accessory). Apply the x/y/rotation parts to just the current frame,
+    // and broadcast any scale delta to every calibrated sibling.
+    const { scale: scaleDelta, ...nonScale } = delta;
+    if (Object.keys(nonScale).length > 0) {
+      this.session.applyTransform(this.frameIdx, nonScale);
+    }
+    if (scaleDelta !== undefined && scaleDelta !== 0) {
+      const newScale = this._clampScale(this.session.frames[this.frameIdx].scale + scaleDelta);
+      this._broadcastScale(newScale);
+    }
     this._render();
+  }
+
+  _clampScale(s) {
+    if (s < 0.05) return 0.05;
+    if (s > 4) return 4;
+    return s;
+  }
+
+  _broadcastScale(newScale) {
+    // Update every frame of the current in-memory session.
+    for (let i = 0; i < this.session.frameCount; i++) {
+      const f = this.session.frames[i];
+      this.session.setTransform(i, { x: f.x, y: f.y, rotation: f.rotation, scale: newScale });
+    }
+    // Update every other calibrated anim for this (fighter, accessory) so the
+    // scale stays uniform after the next save.
+    const fighter = this._fighter();
+    const accessory = this._accessory();
+    const currentAnim = this._anim();
+    const byAnim = this.manifest.calibrations?.[fighter]?.[accessory];
+    if (!byAnim) return;
+    for (const [anim, entry] of Object.entries(byAnim)) {
+      if (anim === currentAnim) continue;
+      for (const f of entry.frames) f.scale = newScale;
+      entry.lastEditedAt = new Date().toISOString();
+    }
   }
   _copyFromPrev() {
     this.session?.copyFromPrev(this.frameIdx);
