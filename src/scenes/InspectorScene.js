@@ -41,8 +41,17 @@ const FIGHTERS_WITH_SPRITES = [
 
 const ANIM_NAMES = Object.keys(ANIM_DEFS);
 
+// Accessory catalog for try-on POC (RFC 0017, Phase 1). Hardcoded hats only.
+// anchorY is offset from the preview sprite's feet-anchor (origin 0.5, 1).
+const ACCESSORIES = [
+  { id: 'none', name: 'NINGUNO', anchorX: 0, anchorY: 0 },
+  { id: 'dildo_frontal', name: 'DILDO', anchorX: 0, anchorY: -110 },
+  { id: 'sombrero_catalina', name: 'SOMBRERO', anchorX: 0, anchorY: -120 },
+];
+
 const LEFT_PANEL_WIDTH = 120;
 const RIGHT_X = LEFT_PANEL_WIDTH + (GAME_WIDTH - LEFT_PANEL_WIDTH) / 2;
+const PREVIEW_Y = 150;
 
 export class InspectorScene extends Phaser.Scene {
   constructor() {
@@ -180,8 +189,16 @@ export class InspectorScene extends Phaser.Scene {
 
     // Preview sprite
     this.previewSprite = this.add
-      .sprite(RIGHT_X, 150, 'fighter_p1')
+      .sprite(RIGHT_X, PREVIEW_Y, 'fighter_p1')
       .setDisplaySize(FIGHTER_WIDTH, FIGHTER_HEIGHT);
+
+    // Accessory overlay (RFC 0017 Phase 1 POC). Hidden until user cycles to an item.
+    this.accessoryIndex = 0;
+    this.accessorySprite = this.add
+      .sprite(RIGHT_X, PREVIEW_Y, '__DEFAULT')
+      .setOrigin(0.5, 1)
+      .setDepth(10)
+      .setVisible(false);
 
     // Anim info
     this.animInfoText = this.add
@@ -192,9 +209,12 @@ export class InspectorScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Prev / Next buttons
-    this._createButton(RIGHT_X - 60, 250, '< ANT', () => this.selectAnim(this.animIndex - 1));
-    this._createButton(RIGHT_X + 60, 250, 'SIG >', () => this.selectAnim(this.animIndex + 1));
+    // Prev / Next anim buttons + accessory cycle button (3 buttons on the same row)
+    this._createButton(RIGHT_X - 90, 250, '< ANT', () => this.selectAnim(this.animIndex - 1));
+    this._accessoryButton = this._createButton(RIGHT_X, 250, this._accessoryLabel(), () =>
+      this.cycleAccessory(),
+    );
+    this._createButton(RIGHT_X + 90, 250, 'SIG >', () => this.selectAnim(this.animIndex + 1));
 
     // Keyboard controls
     this.input.keyboard.on('keydown-UP', () => this.selectFighter(this.selectedIndex - 1));
@@ -205,6 +225,7 @@ export class InspectorScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-Z', () => this.replayAnim());
     this.input.keyboard.on('keydown-X', () => this.stepFrame(1));
     this.input.keyboard.on('keydown-C', () => this.stepFrame(-1));
+    this.input.keyboard.on('keydown-A', () => this.cycleAccessory());
 
     // Select first fighter with sprites, or first fighter
     const firstSpriteIdx = fightersData.findIndex((f) => FIGHTERS_WITH_SPRITES.includes(f.id));
@@ -357,5 +378,34 @@ export class InspectorScene extends Phaser.Scene {
       text.setColor('#ffffff');
     });
     bg.on('pointerdown', () => callback());
+
+    return { bg, text };
+  }
+
+  _accessoryLabel() {
+    return `ACC: ${ACCESSORIES[this.accessoryIndex].name}`;
+  }
+
+  cycleAccessory() {
+    this.accessoryIndex = (this.accessoryIndex + 1) % ACCESSORIES.length;
+    this._applyAccessory();
+    if (this._accessoryButton) this._accessoryButton.text.setText(this._accessoryLabel());
+  }
+
+  _applyAccessory() {
+    const acc = ACCESSORIES[this.accessoryIndex];
+    if (acc.id === 'none') {
+      this.accessorySprite.setVisible(false);
+      return;
+    }
+    const textureKey = `accessory_${acc.id}`;
+    if (!this.textures.exists(textureKey)) {
+      // Texture missing — keep hidden rather than showing a Phaser placeholder.
+      this.accessorySprite.setVisible(false);
+      return;
+    }
+    this.accessorySprite.setTexture(textureKey);
+    this.accessorySprite.setPosition(RIGHT_X + acc.anchorX, PREVIEW_Y + acc.anchorY);
+    this.accessorySprite.setVisible(true);
   }
 }

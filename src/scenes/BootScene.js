@@ -31,6 +31,9 @@ const ANIM_DEFS = {
   jump: { frames: 3, repeat: 0 },
 };
 
+// Accessories (cosmetic overlays). Hats-only MVP — see RFC 0017.
+const ACCESSORY_IDS = ['dildo_frontal', 'sombrero_catalina'];
+
 // Fighters that have real sprite assets (add IDs here as they're generated)
 const FIGHTERS_WITH_SPRITES = [
   'simon',
@@ -132,6 +135,11 @@ export class BootScene extends Phaser.Scene {
         );
       }
       this.load.image(`portrait_${id}`, `assets/portraits/${id}.png`);
+    }
+
+    // Load accessory overlay images
+    for (const id of ACCESSORY_IDS) {
+      this.load.image(`accessory_${id}`, `assets/accessories/${id}.png`);
     }
   }
 
