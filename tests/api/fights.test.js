@@ -8,7 +8,6 @@ const mockClient = {
   release: vi.fn(),
   end: vi.fn().mockResolvedValue(undefined),
 };
-const _mockConnect = vi.fn().mockResolvedValue(mockClient);
 
 vi.mock('jose', () => ({
   jwtVerify: vi.fn(),
