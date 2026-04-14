@@ -68,14 +68,27 @@ export class AccessorySelectScene extends Phaser.Scene {
     this._buildColumn(GAME_WIDTH * 0.25, this.p1);
     if (this.p2) this._buildColumn(GAME_WIDTH * 0.75, this.p2);
 
-    createButton(this, GAME_WIDTH / 2, GAME_HEIGHT - 14, 'CONFIRMAR', () => this._advance(), {
+    createButton(this, GAME_WIDTH / 2 - 60, GAME_HEIGHT - 14, 'ATRÁS', () => this._back(), {
+      width: 80,
+      height: 20,
+      fontSize: '10px',
+    });
+    createButton(this, GAME_WIDTH / 2 + 60, GAME_HEIGHT - 14, 'CONFIRMAR', () => this._advance(), {
       width: 96,
       height: 20,
       fontSize: '10px',
     });
 
     this.input.keyboard.on('keydown-ENTER', () => this._advance());
-    this.input.keyboard.on('keydown-ESC', () => {
+    this.input.keyboard.on('keydown-ESC', () => this._back());
+    this.input.keyboard.on('keydown-BACKSPACE', () => this._back());
+  }
+
+  _back() {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.cameras.main.fadeOut(200, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('SelectScene', {
         gameMode: this.gameMode,
         networkManager: this.networkManager,
@@ -128,6 +141,18 @@ export class AccessorySelectScene extends Phaser.Scene {
     }
     player.refs.overlaySprites = new Map();
     this._rebuildPreviewOverlays(player, centerX, previewY);
+
+    // Equipped-accessory label below the preview.
+    player.refs.equippedLabel = this.add
+      .text(centerX, previewY + 4, '', {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color: '#ffcc88',
+        align: 'center',
+        wordWrap: { width: 120 },
+      })
+      .setOrigin(0.5, 0);
+    this._updateEquippedLabel(player);
 
     if (player.calibrated.size === 0) {
       this.add
@@ -243,7 +268,21 @@ export class AccessorySelectScene extends Phaser.Scene {
     savePrefs(this.prefs);
     this._highlightPick(player);
     this._rebuildPreviewOverlays(player, previewCenterX, 90);
+    this._updateEquippedLabel(player);
     this.game.audioManager?.play?.('ui_navigate');
+  }
+
+  _updateEquippedLabel(player) {
+    if (!player.refs.equippedLabel) return;
+    const parts = [];
+    for (const cat of ALL_CATEGORIES) {
+      const id = player.choices[cat];
+      if (!id) continue;
+      const entry = accessoryCatalog.find((a) => a.id === id);
+      if (entry) parts.push(entry.label);
+    }
+    player.refs.equippedLabel.setText(parts.length > 0 ? parts.join(' · ') : '(sin accesorios)');
+    player.refs.equippedLabel.setColor(parts.length > 0 ? '#ffcc88' : '#666688');
   }
 
   _highlightPick(player) {
