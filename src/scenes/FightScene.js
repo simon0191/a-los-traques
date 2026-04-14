@@ -1356,11 +1356,10 @@ export class FightScene extends Phaser.Scene {
             );
             // Determine winner from HP or round score
             const bundle = window.__REPLAY_BUNDLE;
-            const winnerId =
-              bundle?.p1?.finalState?.combat?.p1RoundsWon >= ROUNDS_TO_WIN
-                ? this.p1Data.id
-                : this.p2Data.id;
-            const loserId = winnerId === this.p1Data.id ? this.p2Data.id : this.p1Data.id;
+            const p1Won = bundle?.p1?.finalState?.combat?.p1RoundsWon >= ROUNDS_TO_WIN;
+            const winnerIndex = p1Won ? 0 : 1;
+            const winnerId = p1Won ? this.p1Data.id : this.p2Data.id;
+            const loserId = p1Won ? this.p2Data.id : this.p1Data.id;
             this.combat.matchOver = true;
             // Transition to victory using the bundle's recorded winner
             this.time.delayedCall(1000, () => {
@@ -1371,6 +1370,7 @@ export class FightScene extends Phaser.Scene {
                   loserId,
                   p1Id: this.p1Id,
                   p2Id: this.p2Id,
+                  winnerIndex,
                   stageId: this.stageId,
                   gameMode: this.gameMode,
                   networkManager: this.networkManager,
@@ -2650,6 +2650,7 @@ export class FightScene extends Phaser.Scene {
           loserId: loserData.id,
           p1Id: this.p1Id,
           p2Id: this.p2Id,
+          winnerIndex,
           stageId: this.stageId,
           gameMode: this.gameMode,
           networkManager: this.networkManager,

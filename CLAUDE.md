@@ -18,6 +18,7 @@ Decoupled architecture: Supabase for Auth (JWT) + Vercel Functions for data pers
     - Migrations in `db/migrations/`.
     - `profiles` table (id, nickname, wins, losses, is_admin).
     - `fights` table (id, room_id, players, fighters, stage, result, debug bundle status/TTL).
+- **Win/Loss Recording**: Updated in `VictoryScene.js` via `_saveResult()`. Result is determined by comparing local player slot (`networkManager.playerSlot`) against `winnerIndex` (0 or 1) passed from `FightScene.js`. This ensures accuracy in mirror matches.
 - **Graceful Degradation**: If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` are missing, the game bypasses `LoginScene` and operates in "Guest Mode" automatically.
 
 ## Build & Run
