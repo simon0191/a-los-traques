@@ -177,6 +177,25 @@ export class OverlayEditorScene extends Phaser.Scene {
   _setupKeyboard() {
     const kb = this.input.keyboard;
 
+    // Stop the browser from stealing our Ctrl+S (save page), Ctrl+E (find in
+    // Firefox / focus URL bar), Ctrl+Shift+E, Ctrl+Z/Y, Ctrl+-/= etc. Phaser's
+    // own event loop runs after these are dispatched, so we need a window-level
+    // capture to call preventDefault before the browser acts.
+    this._globalKeyHandler = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const captured = ['s', 'e', 'z', 'y', '-', '=', '+'];
+      if (captured.includes(e.key.toLowerCase())) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', this._globalKeyHandler, { capture: true });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('keydown', this._globalKeyHandler, { capture: true });
+    });
+
+    // Also block the Space/Tab default scrolling inside the canvas.
+    kb.addCapture('SPACE,TAB');
+
     // Navigation
     kb.on('keydown-W', () => this._cycleFighter(-1));
     kb.on('keydown-S', (e) => {
@@ -537,16 +556,23 @@ export class OverlayEditorScene extends Phaser.Scene {
     this._render();
   }
 
-  _toggleKeyframe() {
-    if (!this.session) return;
-    this.session.toggleKeyframe(this.frameIdx);
-    this._render();
-  }
-
   _interpolate() {
     if (!this.session) return;
+    if (this.session.keyframes.length === 0) {
+      this._setStatus('no keyframes yet (press F to mark)');
+      return;
+    }
     this.session.interpolate();
     this._render();
+    this._setStatus(`interpolated ${this.session.keyframes.length} keyframes`);
+  }
+
+  _toggleKeyframe() {
+    if (!this.session) return;
+    const wasKF = this.session.keyframes.includes(this.frameIdx);
+    this.session.toggleKeyframe(this.frameIdx);
+    this._render();
+    this._setStatus(wasKF ? `frame ${this.frameIdx + 1} cleared` : `frame ${this.frameIdx + 1} keyframed`);
   }
 
   _resetFrame() {
