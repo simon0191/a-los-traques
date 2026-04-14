@@ -13,6 +13,12 @@ Add cosmetic accessories as static overlay sprites on fighter sprites during fig
 
 This MVP delivers the visual reward loop without the economic complexity. A future phase (RFC TBD) adds coins, a shop, and progressive rewards on top of this foundation.
 
+### Scope: hats only
+
+The MVP ships with a **single category: `hat`**. Initial catalog is two items: `dildo_frontal` and `sombrero_catalina`. Face and body categories are deferred until the hat approach is validated visually (see Phase 1 POC below and the "Multi-category from day one" alternative).
+
+The hardest unknown is visual fit: a fixed-anchor overlay sprite must look acceptable across 13 animations × 16 fighters. This RFC validates that with an in-Inspector POC **before** building DB schema, APIs, or the equip UI.
+
 ## Design
 
 ### Data flow
@@ -68,7 +74,7 @@ CREATE TABLE accessories (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('head', 'face', 'body')),
+  category TEXT NOT NULL CHECK (category IN ('hat')),
   anchor_x SMALLINT NOT NULL DEFAULT 0,
   anchor_y SMALLINT NOT NULL DEFAULT -100,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -80,7 +86,7 @@ CREATE TABLE accessories (
 | `id` | Stable string ID, e.g. `'dildo_frontal'`, `'sombrero_catalina'` |
 | `name` | Display name in Spanish |
 | `description` | Short description in Spanish |
-| `category` | Slot type: `'head'`, `'face'`, `'body'` — informational for MVP (one equipped at a time). CHECK constraint prevents typos. |
+| `category` | Slot type: currently only `'hat'` for MVP. Enum is pre-scaffolded so future categories (face, body) require only a CHECK update, not a schema change. |
 | `anchor_x` | Horizontal offset from fighter sprite center (pixels). 0 = centered |
 | `anchor_y` | Vertical offset from fighter sprite origin (bottom). Negative = above feet. e.g. `-110` for head items |
 
@@ -124,13 +130,14 @@ The flip inverts `anchor_x` so asymmetric accessories (e.g., face items) stay on
 
 ### Initial accessories
 
-Three seed items matching the examples from issue #103:
+Two seed items (hats only for MVP):
 
 | ID | Name | Category | anchor_y | Description |
 |---|---|---|---|---|
-| `dildo_frontal` | Dildo Frontal | head | -112 | Un dildo negro pegado en la frente. Máximo prestigio. |
-| `sombrero_catalina` | Sombrero de Catalina | head | -120 | El icónico sombrero rosado de Cata. |
-| `nariz_jessica` | Nariz Rota de Jessica | face | -95 | La nariz rota más famosa del grupo. |
+| `dildo_frontal` | Dildo Frontal | hat | -110 | Un dildo negro pegado en la frente. Máximo prestigio. |
+| `sombrero_catalina` | Sombrero de Catalina | hat | -120 | El icónico sombrero rosado de Cata. |
+
+`nariz_jessica` and other face/body items from issue #103 are deferred until hats are validated.
 
 Assets: 128x128 transparent PNGs in `public/assets/accessories/{id}.png`.
 
@@ -242,10 +249,10 @@ export async function unequipAccessory() {
 
 ### Asset loading (`src/scenes/BootScene.js`)
 
-Accessory textures are loaded alongside fighter sprites. For the MVP with 3 items, load all accessory images unconditionally (small payload):
+Accessory textures are loaded alongside fighter sprites. For the MVP with 2 items, load all accessory images unconditionally (small payload):
 
 ```js
-const ACCESSORY_IDS = ['dildo_frontal', 'sombrero_catalina', 'nariz_jessica'];
+const ACCESSORY_IDS = ['dildo_frontal', 'sombrero_catalina'];
 
 for (const id of ACCESSORY_IDS) {
   this.load.image(`accessory_${id}`, `assets/accessories/${id}.png`);
@@ -417,49 +424,58 @@ TitleScene currently has 6 buttons (VS MAQUINA, MULTIJUGADOR, COMO JUGAR, INSPEC
 
 ## Implementation plan
 
-### Phase 1 — Database and API
+Phases are ordered by **risk**, not by dependency graph. The tallest long pole is visual fit — whether a fixed-anchor overlay looks acceptable across 13 animations × 16 fighters. DB/API work is well-understood and retrofitted last.
 
-1. Create migration with `accessories`, `user_accessories` tables and `profiles.equipped_accessory_id` column (in dependency order, with `migrate:down`)
-2. Create `api/accessories.js` — GET list, POST equip (atomic single-query), POST unequip
-3. Create `api/admin/accessories/grant.js` — admin grant endpoint
-4. Create `api/admin/accessories/revoke.js` — admin revoke endpoint (transactional: delete ownership + clear equipped)
-5. Extend `api/profile.js` GET to return `equipped_accessory_id` with anchor data (LEFT JOIN accessories)
-6. Add client functions to `src/services/api.js`
-7. Write integration tests with PGLite (following `tests/api/leaderboard.integration.test.js` pattern)
+### Phase 1 — Visual POC in Inspector (ships with this RFC)
 
-### Phase 2 — Assets and loading
+Hardcoded accessory catalog, no DB, no API, no per-user state. Goal: let a dev browse every fighter × every animation with each hat overlaid and judge whether the design reads well.
 
-1. Create 3 initial accessory images (128x128 transparent PNGs) via asset pipeline or manual art
-2. Place in `public/assets/accessories/{id}.png`
-3. Seed the `accessories` table with the 3 initial items (SQL seed in migration or separate script)
-4. Add accessory image loading to `BootScene`
+1. Create placeholder `public/assets/accessories/dildo_frontal.png` and `sombrero_catalina.png` (128×128 transparent PNGs; final art deferred to asset pipeline).
+2. Load both images in `BootScene`.
+3. Extend `InspectorScene` with a cycle button — `ACCESORIO: <NAME>` — that toggles a 128×128 overlay sprite on the preview. Overlay uses `setOrigin(0.5, 1)` and a hardcoded `anchorY` per item.
+4. Manually verify visual fit across all fighters and animations.
 
-### Phase 3 — Fighter rendering
+**Exit criteria**: The overlay tracks the head region well enough for shipping. If it doesn't (e.g., head moves too much during `hurt`/`special`), we revisit the design — maybe per-animation anchors or per-frame motion data — before building any persistence.
 
-1. Add `setAccessory(textureKey, anchorX, anchorY)` to `Fighter.js`
-2. Extend `syncSprite()` to position/flip the accessory overlay
-3. Test with hardcoded accessory in FightScene to verify rendering
+### Phase 2 — Fighter rendering integration
+
+1. Add `setAccessory(accessoryId, anchorX, anchorY)` to `Fighter.js`.
+2. Extend `syncSprite()` to position/flip the accessory overlay.
+3. Hardcode a test accessory in `FightScene` to verify rendering end-to-end in combat.
+
+### Phase 3 — Scene chain wiring (hardcoded ownership)
+
+1. Introduce a hardcoded ownership map keyed by `user.id` (temporary, replaced by DB in Phase 6).
+2. Pass `p1AccessoryId`/`p2AccessoryId` through all scene transitions: SelectScene → StageSelectScene → PreFightScene → FightScene.
+3. Ensure accessory IDs propagate through every FightScene entry point: `VictoryScene` (rematch), `BracketScene` (tournament rounds), `SpectatorLobbyScene`.
+4. P2 AI never gets accessories.
 
 ### Phase 4 — AccessoryScene UI
 
-1. Create `AccessoryScene` with browse/equip/unequip functionality
-2. Add "ACCESORIOS" button to TitleScene (no layout adjustment needed — fits as 7th button)
-3. Register AccessoryScene in `main.js`
+1. Create `AccessoryScene` with browse/equip/unequip functionality, reading from the hardcoded ownership map.
+2. Add "ACCESORIOS" button to TitleScene (fits as 7th button).
+3. Register `AccessoryScene` in `main.js`.
 
-### Phase 5 — Scene chain wiring
+### Phase 5 — Online mode
 
-1. Store equipped accessory data (id + anchors) in `game.registry` on login via extended profile response
-2. Pass `p1AccessoryId`/`p2AccessoryId` through all scene transitions: SelectScene → StageSelectScene → PreFightScene → FightScene
-3. Ensure accessory IDs are preserved through all FightScene entry points: VictoryScene (rematch), BracketScene (tournament rounds), SpectatorLobbyScene
-4. FightScene reads anchor data from registry, calls `setAccessory()` on P1 fighter. AI P2 never gets accessories.
+1. Extend `NetworkFacade.sendReady(fighterId)` to accept and send `accessoryId`.
+2. `SelectScene` `onReady` handler stores opponent's `accessoryId`.
+3. Extend server `start` message to include both players' accessory IDs.
+4. `SpectatorLobbyScene` reads accessory IDs from `start` message and passes to FightScene.
+5. Backward compatible — old clients ignore the new field.
 
-### Phase 6 — Online mode
+### Phase 6 — Database and API
 
-1. Extend `NetworkFacade.sendReady(fighterId)` to accept and send `accessoryId`
-2. SelectScene `onReady` handler stores opponent's accessoryId
-3. Extend server `start` message to include both players' accessory IDs
-4. SpectatorLobbyScene reads accessory IDs from `start` message and passes to FightScene
-5. Backward compatible — old clients ignore the new field
+Replaces the hardcoded ownership map with real persistence.
+
+1. Create migration with `accessories`, `user_accessories` tables and `profiles.equipped_accessory_id` column (in dependency order, with `migrate:down`).
+2. Create `api/accessories.js` — GET list, POST equip (atomic single-query), POST unequip.
+3. Create `api/admin/accessories/grant.js` — admin grant endpoint.
+4. Create `api/admin/accessories/revoke.js` — admin revoke endpoint (transactional: delete ownership + clear equipped).
+5. Extend `api/profile.js` GET to return `equipped_accessory_id` with anchor data (LEFT JOIN accessories).
+6. Add client functions to `src/services/api.js`.
+7. Replace hardcoded ownership map with API calls.
+8. Write integration tests with PGLite (following `tests/api/leaderboard.integration.test.js` pattern).
 
 ## Tests
 
@@ -506,7 +522,11 @@ No tests for AccessoryScene or Fighter rendering — those are Phaser-dependent 
 
 5. **Portrait-only rendering (no in-fight overlay)**: Rejected. The user specifically wants accessories visible during fights, which is the most impactful place visually. Portrait rendering can be added later as a low-effort follow-up.
 
-6. **Per-fighter accessory equipment**: Rejected for MVP. Global per-user is simpler (one column on profiles). Per-fighter would require a junction table with `(user_id, fighter_id, accessory_id)` — overkill for 3 initial items.
+6. **Per-fighter accessory equipment**: Rejected for MVP. Global per-user is simpler (one column on profiles). Per-fighter would require a junction table with `(user_id, fighter_id, accessory_id)` — overkill for 2 initial items.
+
+7. **Multi-category from day one (head, face, body)**: Rejected. Face accessories (noses, glasses) need to track eye position, which shifts during `hurt`/`special` animations and would require per-animation anchors. Body accessories clip with attack poses. Hats are the easiest category to anchor reliably because the head stays mostly within a predictable vertical band across animations. Validating hats first de-risks the feature; more categories can be added once the anchor system proves out.
+
+8. **POC with DB from day one**: Rejected. The feedback from the dev team was explicit: the visual validation is the hardest and riskiest unknown. Writing migrations, endpoints, tests, and an equip UI first wastes effort if the overlay approach turns out to look bad. The Phase 1 POC in Inspector costs ~1 file and validates the entire premise before any backend work.
 
 ## Risks
 
