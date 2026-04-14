@@ -1,13 +1,13 @@
 [
   {
     "id": "sombrero_catalina",
-    "category": "sombrero",
+    "category": "sombreros",
     "label": "Sombrero Cata",
     "image": "assets/accessories/sombrero_catalina.png"
   },
   {
     "id": "sombrero_volteado",
-    "category": "sombrero",
+    "category": "sombreros",
     "label": "Sombrero Vueltiao",
     "image": "assets/accessories/sombrero_volteado.png"
   }

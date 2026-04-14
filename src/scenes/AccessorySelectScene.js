@@ -165,12 +165,13 @@ export class AccessorySelectScene extends Phaser.Scene {
       return;
     }
 
-    // Category tab row
-    const tabsY = previewY + 16;
+    // Category tab row — leave room for the equipped-accessory label between
+    // the preview's foot line and the tabs, so a two-word name doesn't clash.
+    const tabsY = previewY + 28;
     this._buildCategoryTabs(centerX, tabsY, player);
 
     // Accessory thumbnails for active category
-    const accY = tabsY + 22;
+    const accY = tabsY + 24;
     player.refs.accContainer = this.add.container(0, 0);
     this._rebuildAccessoryRow(player, centerX, accY);
   }

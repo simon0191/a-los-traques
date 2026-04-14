@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "updatedAt": "2026-04-14T17:57:51.466Z",
+  "updatedAt": "2026-04-14T19:07:56.707Z",
   "calibrations": {
     "alv": {
-      "sombrero": {
+      "sombreros": {
         "idle": {
           "frameCount": 4,
           "frames": [
@@ -38,7 +38,7 @@
       }
     },
     "angy": {
-      "sombrero": {
+      "sombreros": {
         "idle": {
           "frameCount": 4,
           "frames": [
@@ -73,7 +73,7 @@
       }
     },
     "simon": {
-      "sombrero": {
+      "sombreros": {
         "idle": {
           "frameCount": 4,
           "frames": [
@@ -108,7 +108,7 @@
       }
     },
     "jeka": {
-      "sombrero": {
+      "sombreros": {
         "idle": {
           "frameCount": 4,
           "frames": [
@@ -143,7 +143,7 @@
       }
     },
     "cata": {
-      "sombrero": {
+      "sombreros": {
         "idle": {
           "frameCount": 4,
           "frames": [
