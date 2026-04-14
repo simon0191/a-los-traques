@@ -25,7 +25,7 @@ export const joseMock = {
  */
 export const dbMock = {
   createPool: vi.fn().mockImplementation(() => ({
-    connect: (...args) => mockConnect(...args),
+    connect: () => Promise.resolve(mockClient),
   })),
   createClient: vi.fn().mockImplementation(() => mockClient),
 };

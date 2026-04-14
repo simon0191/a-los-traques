@@ -1,11 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { withAdmin } from '../../api/_lib/handler.js';
-import { dbMock, joseMock, mockQuery } from './_helpers/api-mocks.js';
+import { jwtVerify, decodeProtectedHeader } from 'jose';
 
-vi.mock('jose', () => joseMock);
-vi.mock('../../api/_lib/db.js', () => dbMock);
+const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+const mockClient = {
+  query: (...args) => mockQuery(...args),
+  connect: vi.fn().mockResolvedValue(undefined),
+  release: vi.fn(),
+  end: vi.fn().mockResolvedValue(undefined),
+};
+const mockConnect = vi.fn().mockResolvedValue(mockClient);
 
-const { jwtVerify, decodeProtectedHeader } = joseMock;
+vi.mock('jose', () => ({
+  jwtVerify: vi.fn(),
+  decodeProtectedHeader: vi.fn(),
+  createRemoteJWKSet: vi.fn(),
+}));
+
+vi.mock('../../api/_lib/db.js', () => ({
+  createPool: vi.fn().mockImplementation(() => ({
+    connect: () => Promise.resolve(mockClient),
+  })),
+  createClient: vi.fn().mockImplementation(() => mockClient),
+}));
 
 function setupDevAuth(req) {
   req.headers['x-dev-user-id'] = 'admin-user-id';

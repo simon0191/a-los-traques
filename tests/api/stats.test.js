@@ -1,9 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import statsHandler from '../../api/stats.js';
-import { dbMock, joseMock, mockQuery } from './_helpers/api-mocks.js';
 
-vi.mock('jose', () => joseMock);
-vi.mock('../../api/_lib/db.js', () => dbMock);
+const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+const mockClient = {
+  query: (...args) => mockQuery(...args),
+  connect: vi.fn().mockResolvedValue(undefined),
+  release: vi.fn(),
+  end: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mock('jose', () => ({
+  jwtVerify: vi.fn(),
+  decodeProtectedHeader: vi.fn(),
+  createRemoteJWKSet: vi.fn(),
+}));
+
+vi.mock('../../api/_lib/db.js', () => ({
+  createPool: vi.fn().mockImplementation(() => ({
+    connect: () => Promise.resolve(mockClient),
+  })),
+  createClient: vi.fn().mockImplementation(() => mockClient),
+}));
 
 describe('Stats API', () => {
   let req, res;

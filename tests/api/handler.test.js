@@ -1,11 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withAuth } from '../../api/_lib/handler.js';
-import { dbMock, joseMock, mockClient, mockConnect } from './_helpers/api-mocks.js';
+import { jwtVerify, decodeProtectedHeader } from 'jose';
 
-vi.mock('jose', () => joseMock);
-vi.mock('../../api/_lib/db.js', () => dbMock);
+const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+const mockClient = {
+  query: (...args) => mockQuery(...args),
+  connect: vi.fn().mockResolvedValue(undefined),
+  release: vi.fn(),
+  end: vi.fn().mockResolvedValue(undefined),
+};
+const mockConnect = vi.fn().mockResolvedValue(mockClient);
 
-const { jwtVerify, decodeProtectedHeader } = joseMock;
+vi.mock('jose', () => ({
+  jwtVerify: vi.fn(),
+  decodeProtectedHeader: vi.fn(),
+  createRemoteJWKSet: vi.fn(),
+}));
+
+vi.mock('../../api/_lib/db.js', () => ({
+  createPool: vi.fn().mockImplementation(() => ({
+    connect: mockConnect,
+  })),
+  createClient: vi.fn().mockImplementation(() => {
+    mockClient.connect = mockConnect;
+    return mockClient;
+  }),
+}));
 
 describe('withAuth middleware', () => {
   let req, res;
@@ -107,7 +127,7 @@ describe('withAuth middleware', () => {
     const promise = wrapped(req, res);
 
     // Fast-forward through retries
-    await vi.runAllTimers();
+    await vi.runAllTimersAsync();
     await promise;
 
     expect(mockConnect).toHaveBeenCalledTimes(3);
@@ -123,7 +143,7 @@ describe('withAuth middleware', () => {
     const promise = wrapped(req, res);
 
     // Fast-forward through retries
-    await vi.runAllTimers();
+    await vi.runAllTimersAsync();
     await promise;
 
     expect(res.status).toHaveBeenCalledWith(500);
