@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OverlaySession } from '../../src/editor/OverlaySession.js';
 import { exportOverlayStrip } from '../../src/editor/OverlayExporter.js';
+import { OverlaySession } from '../../src/editor/OverlaySession.js';
 
 /**
  * Fake canvas / context that records the sequence of drawing operations.
@@ -134,10 +134,20 @@ describe('OverlayExporter', () => {
   it('throws when inputs are missing', () => {
     const create = vi.fn();
     expect(() =>
-      exportOverlayStrip({ accessoryImage: {}, frameWidth: 1, frameHeight: 1, createCanvas: create }),
+      exportOverlayStrip({
+        accessoryImage: {},
+        frameWidth: 1,
+        frameHeight: 1,
+        createCanvas: create,
+      }),
     ).toThrow(/session/);
     expect(() =>
-      exportOverlayStrip({ session: makeSession(), frameWidth: 1, frameHeight: 1, createCanvas: create }),
+      exportOverlayStrip({
+        session: makeSession(),
+        frameWidth: 1,
+        frameHeight: 1,
+        createCanvas: create,
+      }),
     ).toThrow(/accessoryImage/);
     expect(() =>
       exportOverlayStrip({
