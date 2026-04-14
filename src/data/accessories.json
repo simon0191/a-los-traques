@@ -1,0 +1,14 @@
+[
+  {
+    "id": "sombrero_catalina",
+    "category": "sombrero",
+    "label": "Sombrero Cata",
+    "image": "assets/accessories/sombrero_catalina.png"
+  },
+  {
+    "id": "gorro_navidad",
+    "category": "sombrero",
+    "label": "Gorro Navidad",
+    "image": "assets/accessories/gorro_navidad.png"
+  }
+]

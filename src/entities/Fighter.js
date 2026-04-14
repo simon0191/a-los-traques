@@ -1,5 +1,10 @@
+import accessoryCatalog from '../data/accessories.json';
 import { FighterSim } from '../simulation/FighterSim.js';
 import { FP_SCALE } from '../systems/FixedPoint.js';
+
+const ACCESSORY_CATEGORY_BY_ID = Object.fromEntries(
+  accessoryCatalog.map((a) => [a.id, a.category]),
+);
 
 export { calculateBlockDamage } from './combat-block.js';
 
@@ -76,12 +81,15 @@ export class Fighter {
     }
 
     // Auto-attach the first calibrated accessory from the manifest, if any.
-    // Keeps the wiring simple until an accessory-selection UI exists.
+    // The manifest stores calibrations by category; we pick any accessory
+    // from the catalog matching the first calibrated category for this
+    // fighter. Keeps wiring simple until an accessory-selection UI exists.
     const manifest = scene.game.registry.get('overlayManifest');
-    const accessoriesForFighter = manifest?.calibrations?.[this.fighterId];
-    if (accessoriesForFighter) {
-      const firstAccessory = Object.keys(accessoriesForFighter)[0];
-      if (firstAccessory) this.setOverlay(firstAccessory);
+    const categoriesForFighter = manifest?.calibrations?.[this.fighterId];
+    if (categoriesForFighter) {
+      const firstCategory = Object.keys(categoriesForFighter)[0];
+      const match = accessoryCatalog.find((a) => a.category === firstCategory);
+      if (match) this.setOverlay(match.id);
     }
   }
 
@@ -224,8 +232,12 @@ export class Fighter {
     this._overlayAccessoryId = accessoryId ?? null;
     if (!accessoryId) return;
 
+    // Calibration is keyed by category — shared across all accessories of
+    // the same category (e.g. every "sombrero" uses the same placement).
+    const category = ACCESSORY_CATEGORY_BY_ID[accessoryId];
+    if (!category) return;
     const manifest = this.scene.game.registry.get('overlayManifest');
-    const byAnim = manifest?.calibrations?.[this.fighterId]?.[accessoryId];
+    const byAnim = manifest?.calibrations?.[this.fighterId]?.[category];
     if (!byAnim) return; // no calibration yet, skip silently
     const animations = Object.keys(byAnim);
     if (animations.length === 0) return;
