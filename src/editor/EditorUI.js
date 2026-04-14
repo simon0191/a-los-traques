@@ -244,6 +244,20 @@ export class EditorUI {
     // acts on Ctrl+S/E/Z. Without this the first keypress after page load
     // still pops the browser's Save dialog.
     this.root.focus();
+
+    // Stop mouse clicks on buttons from stealing focus. If focus lands on a
+    // button inside a scrollable panel, the browser's native arrow-key
+    // scroll makes the fighter/anim list "jump" — confusing since Phaser's
+    // arrow handlers cycle frames/anims, not that panel. preventDefault on
+    // mousedown keeps focus on the root while still letting click handlers
+    // fire normally.
+    this.root.addEventListener('mousedown', (e) => {
+      if (e.target.closest('button')) {
+        e.preventDefault();
+        // Refocus root asynchronously so the click still processes first.
+        setTimeout(() => this.root?.focus(), 0);
+      }
+    });
   }
 
   update(state) {
