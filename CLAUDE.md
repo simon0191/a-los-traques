@@ -25,6 +25,7 @@ Decoupled architecture: Supabase for Auth (JWT) + Vercel Functions for data pers
 ```bash
 bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + Vite + Vercel Dev + PartyKit)
                      # Log in as p1@test.local or p2@test.local (password: password)
+                     # Windows: Auto-sets PG_FRESH_CLIENT=1 to avoid ECONNRESET.
 bun run dev:all      # Run both Vite and Vercel Dev (recommended)
 bun run dev          # Vite dev server only
 bun run party:dev    # PartyKit dev server (port 1999)
@@ -39,6 +40,8 @@ bun run balance      # Run fighter balance simulation (full 16×16 matrix)
 bun run balance -- --fights=50           # Fewer fights per matchup (faster)
 bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 ```
+
+**Windows Support**: If you experience `ECONNRESET` errors with the local database on Windows, ensure `PG_FRESH_CLIENT=1` is set in your environment. This forces a fresh database connection per request instead of using a pool. This is automatically handled by `bun run dev:mp`.
 
 ## Project Structure
 

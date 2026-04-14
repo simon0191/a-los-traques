@@ -1,15 +1,10 @@
-import pg from 'pg';
+import { createPool } from '../_lib/db.js';
 import { storage } from '../_lib/storage.js';
-
-const { Pool } = pg;
 
 let pool;
 function getPool() {
   if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
-    });
+    pool = createPool();
   }
   return pool;
 }

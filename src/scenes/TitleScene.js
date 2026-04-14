@@ -112,7 +112,8 @@ export class TitleScene extends Phaser.Scene {
       // Fetch real stats
       getProfile()
         .then((profile) => {
-          if (profile) {
+          if (!this.scene.isActive()) return;
+          if (profile && greeting.active && statsText.active) {
             greeting.setText(`Hola, ${profile.nickname || userName}`);
             statsText.setText(`W: ${profile.wins} | L: ${profile.losses}`);
             statsText.setColor('#44cc88');
@@ -120,7 +121,9 @@ export class TitleScene extends Phaser.Scene {
         })
         .catch((e) => {
           log.warn('Profile fetch failed', { err: e.message });
-          statsText.setText('Estadísticas no disponibles');
+          if (this.scene.isActive() && statsText.active) {
+            statsText.setText('Estadísticas no disponibles');
+          }
         });
     } else {
       const loginBtn = this.add

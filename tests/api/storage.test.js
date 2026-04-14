@@ -1,7 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { storage, validatePathComponent } from '../../api/_lib/storage.js';
+
+vi.unmock('../../api/_lib/storage.js');
 
 const TEST_BASE = path.join(process.cwd(), 'tmp', 'debug-bundles');
 

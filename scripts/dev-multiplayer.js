@@ -20,7 +20,10 @@ const JWT_SECRET = 'dev-jwt-secret-at-least-32-characters-long!!';
 process.env.VITE_SUPABASE_URL = 'http://localhost:54321';
 process.env.VITE_SUPABASE_ANON_KEY = 'dev-anon-key';
 process.env.SUPABASE_JWT_SECRET = JWT_SECRET;
-process.env.DATABASE_URL = 'postgres://localhost:5432/postgres';
+process.env.DATABASE_URL = 'postgres://127.0.0.1:5432/postgres';
+if (process.platform === 'win32') {
+  process.env.PG_FRESH_CLIENT = '1';
+}
 
 // 2. Start PGLite in-process
 const db = await PGlite.create('.pglite');

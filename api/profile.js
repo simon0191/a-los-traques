@@ -42,4 +42,4 @@ export default withAuth(async (req, res, { userId, db }) => {
   }
   
   return res.status(405).json({ error: 'Method Not Allowed' });
-});
+}, { maxRetries: 0 });

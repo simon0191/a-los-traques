@@ -32,4 +32,4 @@ export default withAuth(async (req, res, { userId, db }) => {
     console.error('Error updating stats:', err);
     return res.status(500).json({ error: 'Database Error', message: err.message });
   }
-});
+}, { maxRetries: 0 });

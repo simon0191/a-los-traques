@@ -1256,7 +1256,8 @@ export class FightScene extends Phaser.Scene {
 
     // Transport degradation: DataChannel dropped but WebSocket still works
     nm.onTransportDegraded(() => {
-      if (this._transportText) {
+      if (!this.scene.isActive()) return;
+      if (this._transportText?.active) {
         this._transportText.setText('WS');
         this._transportText.setColor('#ffcc00');
       }
@@ -1265,13 +1266,15 @@ export class FightScene extends Phaser.Scene {
 
     // Grace expired during fight — return to fighter select
     nm.onReturnToSelect(() => {
+      if (!this.scene.isActive()) return;
       this._hideReconnectingOverlay();
       this.combat.roundActive = false;
-      this.centerText.setText('DESCONECTADO');
-      this.subtitleText.setText('Oponente abandono la pelea');
+      if (this.centerText?.active) this.centerText.setText('DESCONECTADO');
+      if (this.subtitleText?.active) this.subtitleText.setText('Oponente abandono la pelea');
       this.localFighter.stop();
       this.remoteFighter.stop();
       this.time.delayedCall(2000, () => {
+        if (!this.scene.isActive()) return;
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start('SelectScene', {

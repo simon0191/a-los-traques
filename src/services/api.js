@@ -20,9 +20,7 @@ async function apiFetch(endpoint, options = {}) {
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-  }
-  // Local development bypass (only if not in production and no token)
-  else if (import.meta.env.DEV && !token) {
+  } else if (import.meta.env.DEV && !token) {
     headers['X-Dev-User-Id'] = '00000000-0000-0000-0000-000000000000';
   }
 
@@ -41,7 +39,6 @@ async function apiFetch(endpoint, options = {}) {
       log.warn('JSON parse error', { endpoint, err: e.message });
     }
   } else {
-    // Handle non-JSON or empty responses
     const text = await response.text();
     if (text) {
       data = { message: text };
@@ -59,7 +56,8 @@ async function apiFetch(endpoint, options = {}) {
  * Get the current user's profile
  */
 export async function getProfile() {
-  return apiFetch('/profile');
+  // Only retry idempotent reads once
+  return withRetry(() => apiFetch('/profile'), { maxRetries: 1, label: 'getProfile' });
 }
 
 /**
@@ -92,7 +90,7 @@ export async function updateStats(isWin = true) {
 /**
  * Retry a function with exponential backoff.
  */
-async function withRetry(fn, { maxRetries = 3, label = 'request' } = {}) {
+async function withRetry(fn, { maxRetries = 1, label = 'request' } = {}) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
@@ -110,7 +108,7 @@ async function withRetry(fn, { maxRetries = 3, label = 'request' } = {}) {
  */
 export async function createFight({ fightId, roomId, p1Fighter, p2Fighter, stageId }) {
   const body = JSON.stringify({ fightId, roomId, p1Fighter, p2Fighter, stageId });
-  return withRetry(() => apiFetch('/fights', { method: 'POST', body }), { label: 'createFight' });
+  return apiFetch('/fights', { method: 'POST', body });
 }
 
 /**
@@ -118,16 +116,13 @@ export async function createFight({ fightId, roomId, p1Fighter, p2Fighter, stage
  */
 export async function updateFight(fields) {
   const body = JSON.stringify(fields);
-  return withRetry(() => apiFetch('/fights', { method: 'PATCH', body }), { label: 'updateFight' });
+  return apiFetch('/fights', { method: 'PATCH', body });
 }
 
 /**
  * Upload a debug bundle for a fight round.
- * Retries up to 3 times with exponential backoff on failure.
  */
 export async function uploadDebugBundle({ fightId, slot, round, bundle }) {
   const body = JSON.stringify({ fightId, slot, round, bundle });
-  return withRetry(() => apiFetch('/debug-bundles', { method: 'POST', body }), {
-    label: 'uploadBundle',
-  });
+  return apiFetch('/debug-bundles', { method: 'POST', body });
 }

@@ -1,24 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import adminFightsHandler from '../../../api/admin/fights.js';
 
-const mockQuery = vi.fn();
-const mockConnect = vi.fn(async () => ({
-  query: mockQuery,
+const mockQuery = vi.fn().mockResolvedValue({ rows: [] });
+const mockClient = {
+  query: (...args) => mockQuery(...args),
+  connect: vi.fn().mockResolvedValue(undefined),
   release: vi.fn(),
+  end: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mock('jose', () => ({
+  jwtVerify: vi.fn(),
+  decodeProtectedHeader: vi.fn(),
+  createRemoteJWKSet: vi.fn(),
 }));
 
-vi.mock('jose');
-vi.mock('pg', () => {
-  class Pool {
-    constructor() {
-      this.connect = mockConnect;
-    }
-  }
-  return {
-    default: { Pool },
-    Pool,
-  };
-});
+vi.mock('../../../api/_lib/db.js', () => ({
+  createPool: vi.fn().mockImplementation(() => ({
+    connect: () => Promise.resolve(mockClient),
+  })),
+  createClient: vi.fn().mockImplementation(() => mockClient),
+}));
 
 const mockListBundles = vi.fn();
 vi.mock('../../../api/_lib/storage.js', () => ({
