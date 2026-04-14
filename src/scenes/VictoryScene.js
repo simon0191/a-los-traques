@@ -18,6 +18,7 @@ export class VictoryScene extends Phaser.Scene {
     this.loserId = data.loserId;
     this.p1Id = data.p1Id;
     this.p2Id = data.p2Id;
+    this.winnerIndex = data.winnerIndex;
     this.stageId = data.stageId;
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
@@ -292,8 +293,6 @@ export class VictoryScene extends Phaser.Scene {
         });
       });
     }
-
-    this._saveResult();
   }
 
   getNavMenu() {
@@ -311,11 +310,20 @@ export class VictoryScene extends Phaser.Scene {
     // Determine if local player won or lost
     let isP1 = true;
     if (this.gameMode === 'online' && this.networkManager) {
-      isP1 = this.networkManager.slot === 0;
+      isP1 = this.networkManager.playerSlot === 0;
     }
 
-    const localPlayerId = isP1 ? this.p1Id : this.p2Id;
-    const didWin = this.winnerId === localPlayerId;
+    let didWin = false;
+    // In a mirror match, p1Id and p2Id are identical. Checking winnerId === localPlayerId fails.
+    // Instead we check the player slot vs winnerIndex.
+    if (this.winnerIndex !== undefined) {
+      const localPlayerIndex = isP1 ? 0 : 1;
+      didWin = this.winnerIndex === localPlayerIndex;
+    } else {
+      // Fallback for older code/tests that might not pass winnerIndex
+      const localPlayerId = isP1 ? this.p1Id : this.p2Id;
+      didWin = this.winnerId === localPlayerId;
+    }
 
     try {
       await updateStats(didWin);
