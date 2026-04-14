@@ -140,7 +140,6 @@ export class BootScene extends Phaser.Scene {
     for (const id of ACCESSORY_IDS) {
       this.load.image(`accessory_${id}`, `assets/accessories/${id}.png`);
     }
-
   }
 
   create() {

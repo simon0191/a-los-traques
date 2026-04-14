@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OverlaySession, _internals } from '../../src/editor/OverlaySession.js';
+import { _internals, OverlaySession } from '../../src/editor/OverlaySession.js';
 
 function makeSession(overrides = {}) {
   return new OverlaySession({
@@ -25,9 +25,15 @@ describe('OverlaySession — construction', () => {
   });
 
   it('throws on missing identity fields', () => {
-    expect(() => new OverlaySession({ accessoryId: 'a', animation: 'walk', frameCount: 4 })).toThrow(/fighterId/);
-    expect(() => new OverlaySession({ fighterId: 'c', animation: 'walk', frameCount: 4 })).toThrow(/accessoryId/);
-    expect(() => new OverlaySession({ fighterId: 'c', accessoryId: 'a', frameCount: 4 })).toThrow(/animation/);
+    expect(
+      () => new OverlaySession({ accessoryId: 'a', animation: 'walk', frameCount: 4 }),
+    ).toThrow(/fighterId/);
+    expect(() => new OverlaySession({ fighterId: 'c', animation: 'walk', frameCount: 4 })).toThrow(
+      /accessoryId/,
+    );
+    expect(() => new OverlaySession({ fighterId: 'c', accessoryId: 'a', frameCount: 4 })).toThrow(
+      /animation/,
+    );
   });
 
   it('rejects non-positive frameCount', () => {

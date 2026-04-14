@@ -13,8 +13,8 @@
  */
 import Phaser from 'phaser';
 import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
-import { OverlaySession } from '../editor/OverlaySession.js';
 import { exportOverlayStrip } from '../editor/OverlayExporter.js';
+import { OverlaySession } from '../editor/OverlaySession.js';
 import { Logger } from '../systems/Logger.js';
 
 const log = Logger.create('OverlayEditor');
@@ -38,8 +38,22 @@ const ANIM_NAMES = Object.keys(ANIM_DEFS);
 
 // Must match BootScene's FIGHTERS_WITH_SPRITES.
 const FIGHTERS_WITH_SPRITES = [
-  'simon', 'jeka', 'chicha', 'cata', 'carito', 'mao', 'peks', 'lini',
-  'alv', 'sun', 'gartner', 'richi', 'cami', 'migue', 'bozzi', 'angy',
+  'simon',
+  'jeka',
+  'chicha',
+  'cata',
+  'carito',
+  'mao',
+  'peks',
+  'lini',
+  'alv',
+  'sun',
+  'gartner',
+  'richi',
+  'cami',
+  'migue',
+  'bozzi',
+  'angy',
 ];
 
 // MVP (RFC 0018): ship with the hat first; other accessories added as their
@@ -291,7 +305,10 @@ export class OverlayEditorScene extends Phaser.Scene {
 
   _setupMouse() {
     const withinPreview = (x, y) =>
-      x >= PREVIEW_LEFT && x <= PREVIEW_LEFT + PREVIEW_SIZE && y >= PREVIEW_TOP && y <= PREVIEW_TOP + PREVIEW_SIZE;
+      x >= PREVIEW_LEFT &&
+      x <= PREVIEW_LEFT + PREVIEW_SIZE &&
+      y >= PREVIEW_TOP &&
+      y <= PREVIEW_TOP + PREVIEW_SIZE;
 
     this.overlaySprite.on('pointerdown', (pointer) => {
       if (!this.session) return;
@@ -394,8 +411,9 @@ export class OverlayEditorScene extends Phaser.Scene {
       log.debug('session load failed', { err: e.message });
     }
 
-    this.session = loaded
-      ?? new OverlaySession({
+    this.session =
+      loaded ??
+      new OverlaySession({
         fighterId: fighter,
         accessoryId: accessory,
         animation: anim,
@@ -515,7 +533,10 @@ export class OverlayEditorScene extends Phaser.Scene {
         this._setStatus(`export failed: ${res.status}`);
       }
     } catch (_e) {
-      this._downloadBlob(blob, `${this.session.fighterId}_${this.session.accessoryId}_${this.session.animation}.png`);
+      this._downloadBlob(
+        blob,
+        `${this.session.fighterId}_${this.session.accessoryId}_${this.session.animation}.png`,
+      );
       this._setStatus('strip downloaded (no dev server)');
     }
   }
@@ -580,7 +601,9 @@ export class OverlayEditorScene extends Phaser.Scene {
     const wasKF = this.session.keyframes.includes(this.frameIdx);
     this.session.toggleKeyframe(this.frameIdx);
     this._render();
-    this._setStatus(wasKF ? `frame ${this.frameIdx + 1} cleared` : `frame ${this.frameIdx + 1} keyframed`);
+    this._setStatus(
+      wasKF ? `frame ${this.frameIdx + 1} cleared` : `frame ${this.frameIdx + 1} keyframed`,
+    );
   }
 
   _resetFrame() {

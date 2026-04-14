@@ -3,10 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  handleOverlayExport,
-  isSafeRelativePath,
-} from '../../scripts/overlay-export-server.js';
+import { handleOverlayExport, isSafeRelativePath } from '../../scripts/overlay-export-server.js';
 
 function makeReq({ method = 'POST', url = '/dev/overlay-export', body = null } = {}) {
   const stream = Readable.from(body ? [Buffer.from(JSON.stringify(body))] : []);
@@ -122,7 +119,9 @@ describe('handleOverlayExport', () => {
     });
     await handleOverlayExport(req, res, { repoRoot: tmpDir });
     expect(res.statusCode).toBe(200);
-    const written = await fs.readFile(path.join(tmpDir, 'public/assets/overlays/cata/hat_walk.png'));
+    const written = await fs.readFile(
+      path.join(tmpDir, 'public/assets/overlays/cata/hat_walk.png'),
+    );
     expect(written.equals(pngBytes)).toBe(true);
   });
 
