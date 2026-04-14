@@ -9,10 +9,10 @@ RFC 0017 Phase 1 validated that static accessory overlays read well on idle pose
 
 Three paths were considered in RFC 0017 Phase 2.5:
 1. Per-animation offset (coarse, doesn't fix in-frame drift)
-2. Per-frame anchor data (~2880 points, current keyboard calibration is too slow for that scale)
+2. Per-frame anchor data, baked into overlay strips (current keyboard calibration is too slow for that scale)
 3. Baked-in sprites via Gemini (expensive, N×16 regenerations per accessory)
 
-Option 2 is the most pragmatic for the scale of the accessory catalog, **but the tooling has to exist before the calibration is feasible**. Typing `I`/`K`/`J`/`L` once per frame across 3 accessories × 16 fighters × 6 combat-relevant animations × 4 frames average = 1152 calibrations is untenable without dedicated UX.
+**This RFC commits to option 2** and, if approved, supersedes the Phase 2.5 decision gate in RFC 0017. Option 2 is the most pragmatic for the scale of the accessory catalog, **but the tooling has to exist before the calibration is feasible**. Typing `I`/`K`/`J`/`L` once per frame across the combat-relevant subset of animations (idle, walk, 4 attacks, hurt, knockdown, block, jump — ~40 frames/fighter average from `ANIM_DEFS`) is **3 × 16 × 40 = 1920 frames** for the current 3-accessory catalog — untenable without dedicated UX.
 
 ## Solution
 
@@ -86,9 +86,11 @@ Rendered PNG at the same dimensions as the source fighter strip (e.g., `128 × f
 - Accessory composited at the session's per-frame transform
 - Same frame count and frame order as the fighter strip
 
-Naming: `public/assets/overlays/{accessoryId}/{fighterId}_{animation}.png`
+Naming: `public/assets/overlays/{fighterId}/{accessoryId}_{animation}.png`
 
-Example: `public/assets/overlays/sombrero_catalina/cata_walk.png` (128×512 for a 4-frame walk).
+Example: `public/assets/overlays/cata/sombrero_catalina_walk.png` (128×512 for a 4-frame walk).
+
+Grouping by fighter (not by accessory) mirrors the existing `public/assets/fighters/{id}/{anim}.png` layout. This lets `BootScene` reuse a single traversal strategy and makes lazy-loading a fighter's full asset set (fighter + all equipped overlays) a single directory scan.
 
 ### Keyboard shortcuts
 
@@ -143,7 +145,7 @@ Home row centric. No mouse needed.
 ```
 
 - Context bar (top): current fighter/anim/accessory + frame index + transform values
-- Preview canvas (center): fighter frame composited with overlay using current transform, optionally with onion-skin and grid
+- Preview canvas (center): fighter frame composited with overlay using current transform, rendered at **3× zoom** (128×128 source → 384×384 on screen) so 1-pixel adjustments are visually distinguishable. Transform values displayed in context bar stay in native coords. Onion-skin and grid toggles both respect the zoom.
 - Frame timeline (bottom-ish): colored dots, one per frame, highlighting the current frame and keyframes
 - Shortcut help (bottom): always-visible cheat sheet for the most common keys
 
@@ -194,6 +196,40 @@ The editor prefers the dev endpoint when present and falls back to browser downl
 
 Scans `assets/overlay-editor/sessions/` for sessions whose `lastEditedAt` is newer than the output strip's file mtime (or whose strip is missing), exports them all in sequence, and reports a summary.
 
+### Manifest and loading strategy
+
+A single `public/assets/overlays/manifest.json` lists every calibrated combination:
+
+```json
+{
+  "version": 1,
+  "entries": [
+    {
+      "fighterId": "cata",
+      "accessoryId": "sombrero_catalina",
+      "animation": "walk",
+      "frameCount": 4,
+      "stripPath": "assets/overlays/cata/sombrero_catalina_walk.png",
+      "exportedAt": "2026-04-14T18:30:00Z"
+    }
+  ]
+}
+```
+
+- The editor **atomically rewrites** the manifest on each export: write to `manifest.json.tmp`, then rename. No partial states visible to other processes.
+- Merge conflicts at commit time are human-resolved — JSON diffs are line-oriented, conflicts are rare because edits target different `(fighter, accessory, anim)` triples.
+- `BootScene` loads only the manifest at boot (~KB), not the strips.
+- Overlay strips load **lazily** per scene: `SelectScene`/`PreFightScene`/`FightScene` each load only the strips matching the current fighters and their equipped accessories (typically 2 fighters × 1 accessory × ~6 combat animations = 12 strips in memory). A `FightScene` teardown unloads them.
+- Missing strip referenced by manifest: warn via `Logger.create('Overlays')`, skip silently (don't crash).
+- Strip PNG present without manifest entry: ignored by `BootScene`. The editor's batch export reconciles the manifest on every run.
+
+### Interpolation details
+
+- **Translation and scale**: straight linear lerp between surrounding keyframes.
+- **Rotation**: shortest-arc lerp. Delta is clamped to `[-π, π]` before applying the fraction, so a keyframe at `170°` followed by `-170°` interpolates through `180°` (20° of rotation), not backward through `0°` (340° of rotation).
+- If only one keyframe exists, all non-keyframe frames copy its transform.
+- If no keyframes exist, `I` is a no-op.
+
 ### Integration with `Fighter.js`
 
 ```js
@@ -229,9 +265,11 @@ syncSprite() {
 ### Where sessions live
 
 - `assets/overlay-editor/sessions/{accessoryId}/{fighterId}_{animation}.json` — checked into repo (small, ~1 KB each)
-- `public/assets/overlays/{accessoryId}/{fighterId}_{animation}.png` — checked into repo (larger, ~5–20 KB each)
+- `public/assets/overlays/{fighterId}/{accessoryId}_{animation}.png` — checked into repo (larger, ~5–20 KB each)
 
-Both are committed so the game is playable without re-running the editor, and the editor is re-entrant for tweaks. Pre-commit hook / CI check could verify session JSON matches strip PNG mtime (not in v1).
+Both are committed, because they serve different purposes: the **strips are runtime assets** (shipped to the browser via `public/`) and the **sessions are dev-only edit state** (source of truth for re-export after fighter sprite regeneration). Generating strips on CI from sessions was considered and rejected — it adds a build step that only benefits the ~12 MB repo-size saving, while making first-time dev setup and production hosting more brittle. Sessions are line-diffable JSON so PR review of calibration tweaks stays readable.
+
+Pre-commit hook / CI check could verify session JSON matches strip PNG mtime (not in v1).
 
 ## File plan
 
@@ -281,7 +319,7 @@ Phases ordered by dependency. Phase 1 produces a working editor; Phase 2 wires o
 
 1. Extend `BootScene` to discover and load overlay strips using a manifest file (`public/assets/overlays/manifest.json`) that the editor maintains on each export.
 2. Add `setOverlay(accessoryId)` to `Fighter.js`, wire into `syncSprite()`.
-3. Feature flag the rendering behind `window.__ENABLE_OVERLAYS` until enough sessions are calibrated (avoid half-empty combat visuals).
+3. No separate feature flag: rendering is already gated by "user has an accessory equipped" (RFC 0017) and "overlay exists in manifest for this fighter × accessory × animation" (this RFC). A missing combination silently skips rendering. If an accessory is partially calibrated (e.g., only `idle` + `walk` done), only those animations show the overlay until more are exported.
 4. Update the hardcoded accessory catalog in RFC 0017 to reference the new per-fighter overlay strips.
 5. Manual QA of a single fighter × all accessories to validate lockstep playback.
 
@@ -303,11 +341,13 @@ Not code — a dedicated session (or multiple) where a developer runs through th
 | Linear interpolation fills gaps correctly | Two keyframes + one gap → middle frame is the midpoint |
 | Interpolation with no keyframes is no-op | Empty `keyframes` array leaves frames unchanged |
 | Interpolation with one keyframe sets all frames to that transform | Single keyframe broadcasts |
+| Rotation interpolation uses shortest arc | Keyframes at `170°` → `-170°` produce intermediate frame at `180°` (or `-180°`), not `0°` |
+| Rotation interpolation handles the ±π boundary correctly | Keyframes at `3.0` and `-3.0` rad interpolate through `π`, total arc < `0.3` rad |
 | Exporter writes correct PNG dimensions | 4-frame strip → 512×128 canvas |
 | Exporter applies translate / rotate / scale in the right order | Known transform → predictable pixel output |
 | Export-server plugin writes files only under `public/assets/overlays/` | Reject paths with `..` or absolute paths |
 
-No tests for `OverlayEditorScene` itself — it's a Phaser scene, covered manually during dev.
+No tests for `OverlayEditorScene` itself — it's a Phaser scene, covered manually during dev. The testable logic (session state machine, frame navigation, keyframe toggling, interpolation, undo stack) is **extracted into `OverlaySession.js`** as pure functions/classes following the `src/systems/combat-math.js` and `src/entities/combat-block.js` pattern, and unit-tested directly.
 
 ## Reused infrastructure
 
@@ -346,6 +386,6 @@ No tests for `OverlayEditorScene` itself — it's a Phaser scene, covered manual
 
 - **Dev-endpoint attack surface**: `POST /dev/overlay-export` must only be active in dev mode and must reject path traversal. Mitigation: plugin is conditionally registered based on `command === 'serve'`, and path validation rejects anything containing `..` or not starting with `public/assets/overlays/`.
 
-- **Undo scope**: session-scoped, not global. Switching fighter/anim drops the undo history. Documented in the shortcut help. Full cross-session undo is out of scope for v1.
+- **Undo scope**: per-session, but **persisted to the session JSON** so that closing and re-opening a session (or switching fighter/anim and returning) preserves the undo buffer. Bounded at 50 entries × ~100 bytes = 5 KB per session file. Global cross-session undo is out of scope for v1.
 
 - **Browser canvas vs Phaser coordinate systems**: the exporter composites in raw canvas coordinates, while the Phaser preview uses Phaser's scene coordinates. Both must agree or the preview lies. Mitigation: a shared `transformToCanvas()` helper, unit-tested against known inputs, used by both the preview and the exporter.
