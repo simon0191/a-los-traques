@@ -135,6 +135,13 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`portrait_${id}`, `assets/portraits/${id}.png`);
     }
 
+    // Accessory source images for the overlay editor (RFC 0018 MVP: hat only).
+    // These are the raw art that the editor composites per-frame into strips.
+    const ACCESSORY_IDS = ['sombrero_catalina'];
+    for (const id of ACCESSORY_IDS) {
+      this.load.image(`accessory_${id}`, `assets/accessories/${id}.png`);
+    }
+
     // Overlay manifest (RFC 0018). Individual overlay strips are loaded lazily
     // by the scenes that need them; BootScene only ships the tiny index file.
     this.load.json('overlay-manifest', 'assets/overlays/manifest.json');
