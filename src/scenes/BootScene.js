@@ -134,12 +134,28 @@ export class BootScene extends Phaser.Scene {
       }
       this.load.image(`portrait_${id}`, `assets/portraits/${id}.png`);
     }
+
+    // Overlay manifest (RFC 0018). Individual overlay strips are loaded lazily
+    // by the scenes that need them; BootScene only ships the tiny index file.
+    this.load.json('overlay-manifest', 'assets/overlays/manifest.json');
+    this.load.on('loaderror', (file) => {
+      // Missing manifest is expected until the editor has produced one.
+      if (file?.key === 'overlay-manifest') {
+        this.cache.json.remove('overlay-manifest');
+      }
+    });
   }
 
   create() {
     // Store fight music count in registry so FightScene can pick randomly
     const count = fightMusicFiles.length > 0 ? fightMusicFiles.length : 1;
     this.game.registry.set('fightMusicCount', count);
+
+    // Expose overlay manifest (if any) to other scenes via registry.
+    const manifest = this.cache.json.exists('overlay-manifest')
+      ? this.cache.json.get('overlay-manifest')
+      : { version: 1, entries: [] };
+    this.game.registry.set('overlayManifest', manifest);
 
     // Generate placeholder rectangle textures for fighters
     this.generateFighterPlaceholder('fighter_p1', FIGHTER_COLORS.p1);
