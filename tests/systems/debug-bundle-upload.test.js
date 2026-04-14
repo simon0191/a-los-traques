@@ -14,6 +14,7 @@ vi.mock('../../src/systems/Logger.js', () => ({
       warn: vi.fn(),
       debug: vi.fn(),
       error: vi.fn(),
+      trace: vi.fn(),
     }),
     getBuffer: () => [],
   },

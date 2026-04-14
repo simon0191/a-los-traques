@@ -95,10 +95,11 @@ export function withAuth(handler, options = {}) {
         if (db && useFreshClient) await db.end().catch(() => {});
         
         if (attempts > maxRetries) {
-          return res.status(500).json({ 
-            error: 'Internal Server Error: Database connection failed',
-            details: err.message 
-          });
+          const response = { error: 'Internal Server Error: Database connection failed' };
+          if (process.env.NODE_ENV !== 'production') {
+            response.details = err.message;
+          }
+          return res.status(500).json(response);
         }
         await new Promise((r) => setTimeout(r, retryDelay));
       }
@@ -108,7 +109,11 @@ export function withAuth(handler, options = {}) {
       return await handler(req, res, { userId, db });
     } catch (err) {
       console.error('API Handler Error:', err);
-      return res.status(500).json({ error: 'Internal Server Error', message: err.message });
+      const response = { error: 'Internal Server Error' };
+      if (process.env.NODE_ENV !== 'production') {
+        response.message = err.message;
+      }
+      return res.status(500).json(response);
     } finally {
       if (db) {
         if (useFreshClient) await db.end().catch(() => {});
