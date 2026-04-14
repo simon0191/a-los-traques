@@ -142,25 +142,10 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`accessory_${id}`, `assets/accessories/${id}.png`);
     }
 
-    // Overlay manifest + baked strips (RFC 0018 v2). Loaded via Phaser so
-    // `filecomplete` lets us queue the per-combo spritesheets before create().
+    // Overlay manifest (RFC 0018 v2). Strips are loaded in a second phase
+    // from create() once we can scan the manifest — filecomplete-driven
+    // queueing during preload proved unreliable across Phaser versions.
     this.load.json('overlayManifestData', 'assets/overlays/manifest.json');
-    this.load.on('filecomplete-json-overlayManifestData', (_key, _type, manifest) => {
-      const calibs = manifest?.calibrations;
-      if (!calibs) return;
-      for (const [fighterId, byAcc] of Object.entries(calibs)) {
-        for (const [accessoryId, byAnim] of Object.entries(byAcc)) {
-          for (const anim of Object.keys(byAnim)) {
-            const key = `overlay_${fighterId}_${accessoryId}_${anim}`;
-            const url = `assets/overlays/${fighterId}/${accessoryId}_${anim}.png`;
-            this.load.spritesheet(key, url, {
-              frameWidth: FIGHTER_WIDTH,
-              frameHeight: FIGHTER_HEIGHT,
-            });
-          }
-        }
-      }
-    });
   }
 
   create() {
@@ -177,22 +162,19 @@ export class BootScene extends Phaser.Scene {
     };
     this.game.registry.set('overlayManifest', manifest);
 
-    // Create animations for the baked overlay strips that loaded successfully.
+    // Queue overlay strips discovered in the manifest (phase 2). Animations
+    // for them are created once the second loader pass completes, see below.
+    const overlayLoadSpecs = [];
     for (const [fighterId, byAcc] of Object.entries(manifest.calibrations ?? {})) {
       for (const [accessoryId, byAnim] of Object.entries(byAcc)) {
         for (const [animName, entry] of Object.entries(byAnim)) {
           const key = `overlay_${fighterId}_${accessoryId}_${animName}`;
-          if (!this.textures.exists(key)) continue;
-          const def = ANIM_DEFS[animName];
-          this.anims.create({
-            key,
-            frames: this.anims.generateFrameNumbers(key, {
-              start: 0,
-              end: (def?.frames ?? entry.frameCount) - 1,
-            }),
-            frameRate: 8,
-            repeat: def?.repeat ?? -1,
+          const url = `assets/overlays/${fighterId}/${accessoryId}_${animName}.png`;
+          this.load.spritesheet(key, url, {
+            frameWidth: FIGHTER_WIDTH,
+            frameHeight: FIGHTER_HEIGHT,
           });
+          overlayLoadSpecs.push({ key, animName, entry });
         }
       }
     }
@@ -259,39 +241,63 @@ export class BootScene extends Phaser.Scene {
       });
     }
 
-    // If URL has ?room=, go directly to lobby as joiner or spectator
-    const roomId = params.get('room');
-    // Replay mode: load bundle from window global or sessionStorage
-    if (this.game.autoplay?.replay) {
-      if (!window.__REPLAY_BUNDLE) {
-        const stored = sessionStorage.getItem('__REPLAY_BUNDLE');
-        if (stored) window.__REPLAY_BUNDLE = JSON.parse(stored);
+    const startNextScene = () => {
+      // Animations for overlay strips that finished loading in phase 2.
+      for (const { key, animName, entry } of overlayLoadSpecs) {
+        if (!this.textures.exists(key)) continue;
+        const def = ANIM_DEFS[animName];
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(key, {
+            start: 0,
+            end: (def?.frames ?? entry.frameCount) - 1,
+          }),
+          frameRate: 8,
+          repeat: def?.repeat ?? -1,
+        });
       }
-    }
-    // Editor routing (RFC 0018): skip login/title if ?editor=1 is present.
-    if (params.get('editor') === '1' && this.scene.get('OverlayEditorScene')) {
-      this.scene.start('OverlayEditorScene');
-    } else if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
-      // Skip lobby, go straight to fight using bundle config
-      const bundle = window.__REPLAY_BUNDLE;
-      this.scene.start('PreFightScene', {
-        p1Id: bundle.config.p1FighterId,
-        p2Id: bundle.config.p2FighterId,
-        stageId: bundle.config.stageId,
-        gameMode: 'local',
-      });
-    } else if (roomId && params.get('spectate') === '1') {
-      this.scene.start('SpectatorLobbyScene', { roomId });
-    } else if (roomId) {
-      this.scene.start('LobbyScene', { roomId });
-    } else if (this.game.autoplay?.enabled && this.game.autoplay.createRoom) {
-      // Autoplay mode: create a new room automatically
-      this.scene.start('LobbyScene', {});
-    } else if (!authEnabled || this.game.autoplay?.enabled) {
-      // Bypass login if Supabase not configured or in E2E/autoplay mode
-      this.scene.start('TitleScene');
+
+      // If URL has ?room=, go directly to lobby as joiner or spectator
+      const roomId = params.get('room');
+      // Replay mode: load bundle from window global or sessionStorage
+      if (this.game.autoplay?.replay) {
+        if (!window.__REPLAY_BUNDLE) {
+          const stored = sessionStorage.getItem('__REPLAY_BUNDLE');
+          if (stored) window.__REPLAY_BUNDLE = JSON.parse(stored);
+        }
+      }
+      // Editor routing (RFC 0018): skip login/title if ?editor=1 is present.
+      if (params.get('editor') === '1' && this.scene.get('OverlayEditorScene')) {
+        this.scene.start('OverlayEditorScene');
+      } else if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
+        // Skip lobby, go straight to fight using bundle config
+        const bundle = window.__REPLAY_BUNDLE;
+        this.scene.start('PreFightScene', {
+          p1Id: bundle.config.p1FighterId,
+          p2Id: bundle.config.p2FighterId,
+          stageId: bundle.config.stageId,
+          gameMode: 'local',
+        });
+      } else if (roomId && params.get('spectate') === '1') {
+        this.scene.start('SpectatorLobbyScene', { roomId });
+      } else if (roomId) {
+        this.scene.start('LobbyScene', { roomId });
+      } else if (this.game.autoplay?.enabled && this.game.autoplay.createRoom) {
+        // Autoplay mode: create a new room automatically
+        this.scene.start('LobbyScene', {});
+      } else if (!authEnabled || this.game.autoplay?.enabled) {
+        // Bypass login if Supabase not configured or in E2E/autoplay mode
+        this.scene.start('TitleScene');
+      } else {
+        this.scene.start('LoginScene');
+      }
+    };
+
+    if (overlayLoadSpecs.length > 0) {
+      this.load.once('complete', startNextScene);
+      this.load.start();
     } else {
-      this.scene.start('LoginScene');
+      startNextScene();
     }
   }
 

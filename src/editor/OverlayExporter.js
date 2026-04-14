@@ -46,12 +46,16 @@ export function exportOverlayStrip({
   const imgW = accessoryImage.width;
   const imgH = accessoryImage.height;
 
+  // Match the editor preview's sizing: the accessory renders at
+  // `frameHeight * scale` wide (preserving aspect ratio) inside each frame.
+  // This keeps calibrations visually consistent between editor and export.
   for (let i = 0; i < frameCount; i++) {
     const t = frames[i];
+    const effScale = (frameHeight * t.scale) / imgW;
     ctx.save();
     ctx.translate(i * frameWidth + t.x, t.y);
     ctx.rotate(t.rotation);
-    ctx.scale(t.scale, t.scale);
+    ctx.scale(effScale, effScale);
     ctx.drawImage(accessoryImage, -imgW / 2, -imgH / 2);
     ctx.restore();
   }
