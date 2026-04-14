@@ -10,5 +10,11 @@
     "category": "sombreros",
     "label": "Sombrero Vueltiao",
     "image": "assets/accessories/sombrero_volteado.png"
+  },
+  {
+    "id": "gafas_rapidas",
+    "category": "gafas",
+    "label": "Gafas Rápidas",
+    "image": "assets/accessories/gafas_rapidas.png"
   }
 ]
