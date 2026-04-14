@@ -186,6 +186,19 @@ export class OverlayEditorScene extends Phaser.Scene {
       const captured = ['s', 'e', 'z', 'y', '-', '=', '+'];
       if (captured.includes(e.key.toLowerCase())) {
         e.preventDefault();
+        // Route Ctrl-combos directly from the window listener so they work
+        // regardless of whether Phaser also sees the keydown. Phaser's keyboard
+        // plugin in some builds doesn't dispatch modified keys reliably.
+        if (e.key.toLowerCase() === 's') this._saveSession();
+        else if (e.key.toLowerCase() === 'e') {
+          if (e.shiftKey) this._batchExport();
+          else this._exportStrip();
+        } else if (e.key.toLowerCase() === 'z') {
+          if (e.shiftKey) this._redo();
+          else this._undo();
+        } else if (e.key.toLowerCase() === 'y') this._redo();
+        else if (e.key === '-') this._applyDelta({ scale: -0.02 });
+        else if (e.key === '=' || e.key === '+') this._applyDelta({ scale: 0.02 });
       }
     };
     window.addEventListener('keydown', this._globalKeyHandler, { capture: true });
@@ -199,11 +212,9 @@ export class OverlayEditorScene extends Phaser.Scene {
     // Navigation
     kb.on('keydown-W', () => this._cycleFighter(-1));
     kb.on('keydown-S', (e) => {
-      if (e.ctrlKey) {
-        this._saveSession();
-      } else {
-        this._cycleFighter(1);
-      }
+      // Ctrl+S is handled by the window-level listener above; guard here too.
+      if (e.ctrlKey || e.metaKey) return;
+      this._cycleFighter(1);
     });
     kb.on('keydown-UP', () => this._cycleAnim(-1));
     kb.on('keydown-DOWN', () => this._cycleAnim(1));
@@ -226,21 +237,25 @@ export class OverlayEditorScene extends Phaser.Scene {
 
     // Rotate (Q/E)
     kb.on('keydown-Q', (e) => {
+      if (e.ctrlKey || e.metaKey) return;
       const mult = e.shiftKey ? 5 : 1;
       this._applyDelta({ rotation: -(Math.PI / 180) * mult });
     });
     kb.on('keydown-E', (e) => {
+      if (e.ctrlKey || e.metaKey) return; // Ctrl+E is export, handled by window
       const mult = e.shiftKey ? 5 : 1;
       this._applyDelta({ rotation: (Math.PI / 180) * mult });
     });
 
-    // Scale (-/=) with Shift for 5x, Ctrl as alias
+    // Scale (-/=) with Shift for 5x. Ctrl+-/Ctrl+= is aliased via window handler.
     kb.on('keydown-MINUS', (e) => {
+      if (e.ctrlKey || e.metaKey) return;
       const base = 0.02;
       const mult = e.shiftKey ? 5 : 1;
       this._applyDelta({ scale: -base * mult });
     });
     kb.on('keydown-EQUAL', (e) => {
+      if (e.ctrlKey || e.metaKey) return;
       const base = 0.02;
       const mult = e.shiftKey ? 5 : 1;
       this._applyDelta({ scale: base * mult });
@@ -253,23 +268,8 @@ export class OverlayEditorScene extends Phaser.Scene {
     kb.on('keydown-I', () => this._interpolate());
     kb.on('keydown-R', () => this._resetFrame());
 
-    // Undo / Redo
-    kb.on('keydown-Z', (e) => {
-      if (e.ctrlKey && !e.shiftKey) this._undo();
-      if (e.ctrlKey && e.shiftKey) this._redo();
-    });
-    kb.on('keydown-Y', (e) => {
-      if (e.ctrlKey) this._redo();
-    });
-
-    // Export
-    kb.on('keydown-E', (e) => {
-      // Handled above for rotate; only intercept when Ctrl is held
-      if (e.ctrlKey) {
-        if (e.shiftKey) this._batchExport();
-        else this._exportStrip();
-      }
-    });
+    // Ctrl+Z, Ctrl+Y, Ctrl+E, Ctrl+Shift+E are all handled by the window-level
+    // capture listener (which also preventDefault's the browser shortcuts).
 
     // Toggles
     kb.on('keydown-TAB', (e) => {
