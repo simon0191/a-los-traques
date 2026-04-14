@@ -247,12 +247,16 @@ export class EditorUI {
   }
 
   update(state) {
-    const { fighter, accessory, animation, frameIdx, frameCount, keyframes, manifest } = state;
+    const { fighter, accessory, category, animation, frameIdx, frameCount, keyframes, manifest } =
+      state;
+    // Calibrations are keyed by category (v3), fall back to accessory for
+    // older payloads.
+    const key = category ?? accessory;
 
     // Fighter buttons: active + overall status across animations
     for (const [id, btn] of this._fighterBtns) {
       btn.classList.toggle('active', id === fighter);
-      const calibsForFighter = manifest.calibrations?.[id]?.[accessory] ?? {};
+      const calibsForFighter = manifest.calibrations?.[id]?.[key] ?? {};
       const count = Object.keys(calibsForFighter).length;
       if (count === 0) {
         btn._status.textContent = '❓';
@@ -269,7 +273,7 @@ export class EditorUI {
     // Animation buttons: active + per-anim status
     for (const [name, btn] of this._animBtns) {
       btn.classList.toggle('active', name === animation);
-      const has = manifest.has(fighter, accessory, name);
+      const has = manifest.has(fighter, key, name);
       btn._status.textContent = has ? '✅' : '❓';
       btn._status.className = `status ${has ? 'ok' : 'miss'}`;
     }

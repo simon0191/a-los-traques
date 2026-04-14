@@ -8,6 +8,7 @@
  */
 import Phaser from 'phaser';
 import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import accessoryCatalog from '../data/accessories.json';
 import { EditorUI } from '../editor/EditorUI.js';
 import { exportOverlayStrip } from '../editor/OverlayExporter.js';
 import { MANIFEST_PATH, OverlayManifest } from '../editor/OverlayManifest.js';
@@ -52,13 +53,15 @@ const FIGHTERS_WITH_SPRITES = [
   'angy',
 ];
 
-const ACCESSORIES = [
-  {
-    id: 'sombrero_catalina',
-    label: 'Sombrero',
-    imageUrl: 'assets/accessories/sombrero_catalina.png',
-  },
-];
+// Accessory catalog is the single source of truth (src/data/accessories.json).
+// Each accessory has a `category` — calibrations are shared per category so
+// two different hats on the same fighter inherit the same placement.
+const ACCESSORIES = accessoryCatalog.map((a) => ({
+  id: a.id,
+  category: a.category,
+  label: a.label,
+  imageUrl: a.image,
+}));
 
 const ZOOM = 2;
 const PREVIEW_CX = GAME_WIDTH / 2;
@@ -365,7 +368,12 @@ export class OverlayEditorScene extends Phaser.Scene {
   _anim() {
     return ANIM_NAMES[this.animIdx];
   }
-  _accessory() {
+  // Calibration key — shared across all accessories of the same category.
+  _category() {
+    return ACCESSORIES[this.accessoryIdx].category;
+  }
+  // Specific accessory id — used for preview art and strip filename.
+  _accessoryId() {
     return ACCESSORIES[this.accessoryIdx].id;
   }
 
@@ -391,15 +399,16 @@ export class OverlayEditorScene extends Phaser.Scene {
 
   _syncSessionFromManifest() {
     const fighter = this._fighter();
-    const accessory = this._accessory();
+    const category = this._category();
+    const accessoryId = this._accessoryId();
     const anim = this._anim();
     const frameCount = ANIM_DEFS[anim];
-    const entry = this.manifest.get(fighter, accessory, anim);
+    const entry = this.manifest.get(fighter, category, anim);
     let frames = entry?.frames ?? null;
     // If this combo isn't calibrated yet, inherit the shared scale from any
-    // sibling anim so scale stays uniform per (fighter, accessory).
+    // sibling anim so scale stays uniform per (fighter, category).
     if (!frames) {
-      const sharedScale = this._sharedScale(fighter, accessory);
+      const sharedScale = this._sharedScale(fighter, category);
       if (sharedScale !== null) {
         frames = Array.from({ length: frameCount }, () => ({
           x: 64,
@@ -411,7 +420,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     }
     this.session = new OverlaySession({
       fighterId: fighter,
-      accessoryId: accessory,
+      accessoryId,
       animation: anim,
       frameCount,
       frames,
@@ -423,12 +432,12 @@ export class OverlayEditorScene extends Phaser.Scene {
   }
 
   /**
-   * Return the scale currently used for this (fighter, accessory) in the
+   * Return the scale currently used for this (fighter, category) in the
    * manifest, or null if the combo has no calibrated sibling. Assumes all
    * frames of all anims share the same scale (the UI enforces this).
    */
-  _sharedScale(fighter, accessory) {
-    const byAnim = this.manifest.calibrations?.[fighter]?.[accessory];
+  _sharedScale(fighter, category) {
+    const byAnim = this.manifest.calibrations?.[fighter]?.[category];
     if (!byAnim) return null;
     for (const entry of Object.values(byAnim)) {
       if (entry?.frames?.length) return entry.frames[0].scale;
@@ -442,7 +451,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     // or non-default frames). Cheap heuristic: if any frame differs from
     // default, keep it; else skip to avoid polluting the manifest.
     if (!this._sessionHasEdits()) return;
-    this.manifest.set(this._fighter(), this._accessory(), this._anim(), {
+    this.manifest.set(this._fighter(), this._category(), this._anim(), {
       frameCount: this.session.frameCount,
       frames: this.session.frames,
       keyframes: this.session.keyframes,
@@ -491,12 +500,12 @@ export class OverlayEditorScene extends Phaser.Scene {
       const f = this.session.frames[i];
       this.session.setTransform(i, { x: f.x, y: f.y, rotation: f.rotation, scale: newScale });
     }
-    // Update every other calibrated anim for this (fighter, accessory) so the
+    // Update every other calibrated anim for this (fighter, category) so the
     // scale stays uniform after the next save.
     const fighter = this._fighter();
-    const accessory = this._accessory();
+    const category = this._category();
     const currentAnim = this._anim();
-    const byAnim = this.manifest.calibrations?.[fighter]?.[accessory];
+    const byAnim = this.manifest.calibrations?.[fighter]?.[category];
     if (!byAnim) return;
     for (const [anim, entry] of Object.entries(byAnim)) {
       if (anim === currentAnim) continue;
@@ -635,16 +644,18 @@ export class OverlayEditorScene extends Phaser.Scene {
       for (let a = 0; a < ACCESSORIES.length; a++) {
         for (let n = 0; n < ANIM_NAMES.length; n++) {
           const fid = FIGHTERS_WITH_SPRITES[f];
-          const aid = ACCESSORIES[a].id;
+          const acc = ACCESSORIES[a];
           const nm = ANIM_NAMES[n];
-          const entry = this.manifest.get(fid, aid, nm);
+          // Calibration is per (fighter, category), shared across all
+          // accessories of the same category.
+          const entry = this.manifest.get(fid, acc.category, nm);
           if (!entry) continue;
           this.fighterIdx = f;
           this.accessoryIdx = a;
           this.animIdx = n;
           this.session = new OverlaySession({
             fighterId: fid,
-            accessoryId: aid,
+            accessoryId: acc.id,
             animation: nm,
             frameCount: entry.frameCount,
             frames: entry.frames,
@@ -667,7 +678,7 @@ export class OverlayEditorScene extends Phaser.Scene {
   }
 
   _stripPath() {
-    return `public/assets/overlays/${this._fighter()}/${this._accessory()}_${this._anim()}.png`;
+    return `public/assets/overlays/${this._fighter()}/${this._accessoryId()}_${this._anim()}.png`;
   }
 
   async _persistStrip(canvas) {
@@ -686,7 +697,7 @@ export class OverlayEditorScene extends Phaser.Scene {
       if (res.ok) this.ui.setStatus('strip guardado ✓');
       else this.ui.setStatus(`export fallo: ${res.status}`);
     } catch (_e) {
-      this._downloadBlob(blob, `${this._fighter()}_${this._accessory()}_${this._anim()}.png`);
+      this._downloadBlob(blob, `${this._fighter()}_${this._accessoryId()}_${this._anim()}.png`);
       this.ui.setStatus('strip descargado');
     }
   }
@@ -719,7 +730,8 @@ export class OverlayEditorScene extends Phaser.Scene {
   _render() {
     if (!this.session) return;
     const fighter = this._fighter();
-    const accessory = this._accessory();
+    const accessoryId = this._accessoryId();
+    const category = this._category();
     const anim = this._anim();
     const frame = this.session.frames[this.frameIdx];
 
@@ -739,7 +751,7 @@ export class OverlayEditorScene extends Phaser.Scene {
       this.onionSprite.setVisible(false);
     }
 
-    const accKey = `accessory_${accessory}`;
+    const accKey = `accessory_${accessoryId}`;
     if (this.textures.exists(accKey)) {
       this.overlaySprite.setTexture(accKey);
       const src = this.textures.get(accKey).getSourceImage();
@@ -754,7 +766,8 @@ export class OverlayEditorScene extends Phaser.Scene {
 
     this.ui?.update({
       fighter,
-      accessory,
+      accessory: accessoryId,
+      category,
       animation: anim,
       frameIdx: this.frameIdx,
       frameCount: this.session.frameCount,

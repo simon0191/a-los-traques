@@ -6,6 +6,7 @@ import {
   GAME_HEIGHT,
   GAME_WIDTH,
 } from '../config.js';
+import accessories from '../data/accessories.json';
 import stages from '../data/stages.json';
 import { authEnabled } from '../services/supabase.js';
 
@@ -134,11 +135,10 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`portrait_${id}`, `assets/portraits/${id}.png`);
     }
 
-    // Accessory source images for the overlay editor (RFC 0018 MVP: hat only).
-    // These are the raw art that the editor composites per-frame into strips.
-    const ACCESSORY_IDS = ['sombrero_catalina'];
-    for (const id of ACCESSORY_IDS) {
-      this.load.image(`accessory_${id}`, `assets/accessories/${id}.png`);
+    // Accessory source images (editor needs them to composite per-frame
+    // strips; game doesn't strictly need them but loading is cheap).
+    for (const acc of accessories) {
+      this.load.image(`accessory_${acc.id}`, acc.image);
     }
 
     // Overlay manifest (RFC 0018 v2). Strips are loaded in a second phase
@@ -161,19 +161,30 @@ export class BootScene extends Phaser.Scene {
     };
     this.game.registry.set('overlayManifest', manifest);
 
-    // Queue overlay strips discovered in the manifest (phase 2). Animations
-    // for them are created once the second loader pass completes, see below.
+    // Queue overlay strips discovered in the manifest (phase 2). Calibrations
+    // are keyed by category; the actual PNGs are baked per specific accessory
+    // (different art per hat, same placement across the category), so we
+    // expand: for each calibrated (fighter, category), load strips for every
+    // accessory in the catalog matching that category.
+    const accessoriesByCategory = {};
+    for (const a of accessories) {
+      if (!accessoriesByCategory[a.category]) accessoriesByCategory[a.category] = [];
+      accessoriesByCategory[a.category].push(a);
+    }
     let overlayCount = 0;
-    for (const [fighterId, byAcc] of Object.entries(manifest.calibrations ?? {})) {
-      for (const [accessoryId, byAnim] of Object.entries(byAcc)) {
-        for (const animName of Object.keys(byAnim)) {
-          const key = `overlay_${fighterId}_${accessoryId}_${animName}`;
-          const url = `assets/overlays/${fighterId}/${accessoryId}_${animName}.png`;
-          this.load.spritesheet(key, url, {
-            frameWidth: FIGHTER_WIDTH,
-            frameHeight: FIGHTER_HEIGHT,
-          });
-          overlayCount++;
+    for (const [fighterId, byCat] of Object.entries(manifest.calibrations ?? {})) {
+      for (const [category, byAnim] of Object.entries(byCat)) {
+        const accs = accessoriesByCategory[category] ?? [];
+        for (const acc of accs) {
+          for (const animName of Object.keys(byAnim)) {
+            const key = `overlay_${fighterId}_${acc.id}_${animName}`;
+            const url = `assets/overlays/${fighterId}/${acc.id}_${animName}.png`;
+            this.load.spritesheet(key, url, {
+              frameWidth: FIGHTER_WIDTH,
+              frameHeight: FIGHTER_HEIGHT,
+            });
+            overlayCount++;
+          }
         }
       }
     }
