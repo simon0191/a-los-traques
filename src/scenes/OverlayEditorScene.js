@@ -410,18 +410,26 @@ export class OverlayEditorScene extends Phaser.Scene {
 
   async _saveSession() {
     if (!this.session) return;
+    console.log('[OverlayEditor] save', this._sessionPath());
+    this._setStatus('saving...');
     try {
       const res = await fetch(DEV_EXPORT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: this._sessionPath(), json: this.session.toJSON() }),
       });
+      const contentType = res.headers.get('content-type') || '';
+      console.log('[OverlayEditor] save response', { status: res.status, contentType });
       if (res.ok) {
         this._setStatus('session saved');
+      } else if (contentType.includes('text/html')) {
+        // Vite SPA fallback — plugin not loaded. Warn explicitly.
+        this._setStatus('plugin not loaded (restart vite)');
       } else {
         this._setStatus(`save failed: ${res.status}`);
       }
-    } catch (_e) {
+    } catch (e) {
+      console.warn('[OverlayEditor] save failed', e.message);
       this._downloadBlob(
         new Blob([JSON.stringify(this.session.toJSON(), null, 2)], { type: 'application/json' }),
         `${this.session.fighterId}_${this.session.accessoryId}_${this.session.animation}.json`,
