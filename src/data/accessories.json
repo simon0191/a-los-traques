@@ -6,9 +6,9 @@
     "image": "assets/accessories/sombrero_catalina.png"
   },
   {
-    "id": "gorro_navidad",
+    "id": "sombrero_volteado",
     "category": "sombrero",
-    "label": "Gorro Navidad",
-    "image": "assets/accessories/gorro_navidad.png"
+    "label": "Sombrero Vueltiao",
+    "image": "assets/accessories/sombrero_volteado.png"
   }
 ]
