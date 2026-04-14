@@ -121,6 +121,11 @@ export class FightScene extends Phaser.Scene {
     this.p1Fighter = new Fighter(this, GAME_WIDTH * 0.3, GROUND_Y, p1Tex, this.p1Data, 0);
     this.p2Fighter = new Fighter(this, GAME_WIDTH * 0.7, GROUND_Y, p2Tex, this.p2Data, 1);
 
+    // Apply accessory selections from AccessorySelectScene, if any.
+    const accessories = this.matchContext?.accessories;
+    if (accessories?.p1) this.p1Fighter.setAccessories(accessories.p1);
+    if (accessories?.p2) this.p2Fighter.setAccessories(accessories.p2);
+
     // -- Systems --
     this.combat = new CombatSystem(this);
 
