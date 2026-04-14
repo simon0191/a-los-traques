@@ -195,6 +195,8 @@ export class OverlayEditorScene extends Phaser.Scene {
         return this._toggleKeyframe();
       case 'interpolate':
         return this._interpolate();
+      case 'fill-frames':
+        return this._fillAllFrames();
       case 'save':
         return this._saveManifest();
       case 'export':
@@ -534,6 +536,22 @@ export class OverlayEditorScene extends Phaser.Scene {
   _resetFrame() {
     this.session?.resetFrame(this.frameIdx);
     this._render();
+  }
+
+  _fillAllFrames() {
+    if (!this.session) return;
+    const src = this.session.frames[this.frameIdx];
+    for (let i = 0; i < this.session.frameCount; i++) {
+      if (i === this.frameIdx) continue;
+      this.session.setTransform(i, {
+        x: src.x,
+        y: src.y,
+        rotation: src.rotation,
+        scale: src.scale,
+      });
+    }
+    this._render();
+    this.ui.setStatus(`copiado a los ${this.session.frameCount - 1} frames restantes`);
   }
   _undo() {
     this.session?.undo();
