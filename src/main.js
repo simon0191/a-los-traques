@@ -4,6 +4,7 @@ import { Logger } from './systems/Logger.js';
 
 const log = Logger.create('Main');
 
+import { AccessorySelectScene } from './scenes/AccessorySelectScene.js';
 import { BootScene } from './scenes/BootScene.js';
 import { BracketScene } from './scenes/BracketScene.js';
 import { ControllerScene } from './scenes/ControllerScene.js';
@@ -65,6 +66,7 @@ const config = {
     LobbyScene,
     SpectatorLobbyScene,
     SelectScene,
+    AccessorySelectScene,
     StageSelectScene,
     PreFightScene,
     FightScene,

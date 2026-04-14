@@ -80,17 +80,8 @@ export class Fighter {
       this.sprite.play(`${this.fighterId}_idle`);
     }
 
-    // Auto-attach the first calibrated accessory from the manifest, if any.
-    // The manifest stores calibrations by category; we pick any accessory
-    // from the catalog matching the first calibrated category for this
-    // fighter. Keeps wiring simple until an accessory-selection UI exists.
-    const manifest = scene.game.registry.get('overlayManifest');
-    const categoriesForFighter = manifest?.calibrations?.[this.fighterId];
-    if (categoriesForFighter) {
-      const firstCategory = Object.keys(categoriesForFighter)[0];
-      const match = accessoryCatalog.find((a) => a.category === firstCategory);
-      if (match) this.setOverlay(match.id);
-    }
+    // Multi-overlay state: one sprite per active category.
+    this._overlaySprites = new Map();
   }
 
   // --- Simulation methods: delegate to FighterSim, then apply presentation side effects ---
@@ -205,76 +196,90 @@ export class Fighter {
       this.sprite.clearTint();
     }
 
-    // Keep the cosmetic overlay in lockstep with the fighter sprite (RFC 0018).
-    if (this._overlaySprite) {
-      this._overlaySprite.x = this.sprite.x;
-      this._overlaySprite.y = this.sprite.y;
-      this._overlaySprite.setFlipX(this.sprite.flipX);
-      this._overlaySprite.setDepth(this.sprite.depth + 1);
-      this._syncOverlayAnimation();
-    }
+    // Keep every cosmetic overlay in lockstep with the fighter sprite.
+    if (this._overlaySprites.size > 0) this._syncOverlays();
   }
 
   /**
-   * Attach a cosmetic overlay sprite (hat, accessory, etc.) to this fighter.
-   * Looks up the per-animation baked overlay strips produced by the RFC 0018
-   * editor via the `overlayManifest` registry entry written by BootScene.
+   * Attach a set of accessories to this fighter. `accessoriesByCategory` is
+   * a `{ category: accessoryId | null }` map — one calibrated overlay sprite
+   * is created per non-null entry. Calibration is shared across accessories
+   * of the same category, so two different sombreros land in the same place.
    *
-   * Silently no-ops if no manifest is loaded or no overlay is calibrated for
-   * this fighter × accessory combination. Passing `null` removes any attached
-   * overlay.
+   * Passing `null` (or no value) for a category removes that overlay.
+   * Passing `null` as the whole argument clears everything.
+   */
+  setAccessories(accessoriesByCategory) {
+    // Destroy previous overlays.
+    for (const sprite of this._overlaySprites.values()) sprite.destroy();
+    this._overlaySprites.clear();
+    if (!accessoriesByCategory) return;
+
+    const manifest = this.scene.game.registry.get('overlayManifest');
+    for (const [category, accessoryId] of Object.entries(accessoriesByCategory)) {
+      if (!accessoryId) continue;
+      const byAnim = manifest?.calibrations?.[this.fighterId]?.[category];
+      if (!byAnim) continue;
+      const animations = Object.keys(byAnim);
+      if (animations.length === 0) continue;
+
+      const initialAnim = animations.includes('idle') ? 'idle' : animations[0];
+      const key = `overlay_${this.fighterId}_${accessoryId}_${initialAnim}`;
+      if (!this.scene.textures.exists(key)) continue;
+
+      const sprite = this.scene.add.sprite(this.sprite.x, this.sprite.y, key);
+      sprite.setOrigin(0.5, 1);
+      sprite._accessoryId = accessoryId;
+      this._overlaySprites.set(category, sprite);
+    }
+    this._syncOverlays();
+  }
+
+  /**
+   * Backward-compat shim: single accessory by id. Resolves the category
+   * from the catalog and delegates to setAccessories.
    */
   setOverlay(accessoryId) {
-    if (this._overlaySprite) {
-      this._overlaySprite.destroy();
-      this._overlaySprite = null;
+    if (!accessoryId) {
+      this.setAccessories(null);
+      return;
     }
-    this._overlayAccessoryId = accessoryId ?? null;
-    if (!accessoryId) return;
-
-    // Calibration is keyed by category — shared across all accessories of
-    // the same category (e.g. every "sombrero" uses the same placement).
     const category = ACCESSORY_CATEGORY_BY_ID[accessoryId];
     if (!category) return;
-    const manifest = this.scene.game.registry.get('overlayManifest');
-    const byAnim = manifest?.calibrations?.[this.fighterId]?.[category];
-    if (!byAnim) return; // no calibration yet, skip silently
-    const animations = Object.keys(byAnim);
-    if (animations.length === 0) return;
+    this.setAccessories({ [category]: accessoryId });
+  }
 
-    // Use the idle animation (or the first available) as the initial texture.
-    const initialAnim = animations.includes('idle') ? 'idle' : animations[0];
-    const key = `overlay_${this.fighterId}_${accessoryId}_${initialAnim}`;
-    if (!this.scene.textures.exists(key)) return;
-
-    this._overlaySprite = this.scene.add.sprite(this.sprite.x, this.sprite.y, key);
-    this._overlaySprite.setOrigin(0.5, 1);
+  _syncOverlays() {
+    for (const sprite of this._overlaySprites.values()) {
+      sprite.x = this.sprite.x;
+      sprite.y = this.sprite.y;
+      sprite.setFlipX(this.sprite.flipX);
+      sprite.setDepth(this.sprite.depth + 1);
+    }
     this._syncOverlayAnimation();
   }
 
   /**
-   * Force the overlay sprite's texture + frame to exactly match the fighter
-   * sprite. No independent animation plays on the overlay — it renders the
+   * Force each overlay sprite's texture + frame to exactly match the fighter
+   * sprite. No independent animation plays on the overlays — they render the
    * same frame index as the fighter, so per-frame calibration stays aligned
-   * even if the fighter anim's framerate changes (attack cooldowns, etc.).
+   * even if the fighter anim's framerate changes.
    */
   _syncOverlayAnimation() {
-    if (!this._overlaySprite || !this._overlayAccessoryId) return;
+    if (this._overlaySprites.size === 0) return;
     const current = this.sprite.anims?.currentAnim?.key;
     if (!current) return;
     const suffix = current.replace(`${this.fighterId}_`, '');
-    const overlayKey = `overlay_${this.fighterId}_${this._overlayAccessoryId}_${suffix}`;
-    if (!this.scene.textures.exists(overlayKey)) {
-      // No calibrated strip for this anim — hide the overlay so the user
-      // doesn't see a stale frame from a previous animation.
-      this._overlaySprite.setVisible(false);
-      return;
-    }
-    this._overlaySprite.setVisible(true);
-    // `sprite.frame.name` is the actual spritesheet frame index the fighter is
-    // rendering right now — mirror it exactly on the overlay.
     const frameName = this.sprite.frame?.name ?? 0;
-    this._overlaySprite.setTexture(overlayKey, frameName);
+    for (const sprite of this._overlaySprites.values()) {
+      const overlayKey = `overlay_${this.fighterId}_${sprite._accessoryId}_${suffix}`;
+      if (!this.scene.textures.exists(overlayKey)) {
+        sprite.setVisible(false);
+        continue;
+      }
+      sprite.setVisible(true);
+      sprite.setTexture(overlayKey, frameName);
+    }
   }
 
   reset(x) {

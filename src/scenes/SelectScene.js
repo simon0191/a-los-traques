@@ -991,7 +991,11 @@ export class SelectScene extends Phaser.Scene {
     }
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('StageSelectScene', {
+      // Route through AccessorySelectScene for local modes (it auto-skips
+      // when neither fighter has calibrated categories). Online play still
+      // goes straight to stage select until accessory sync is added.
+      const nextScene = this.gameMode === 'online' ? 'StageSelectScene' : 'AccessorySelectScene';
+      this.scene.start(nextScene, {
         p1Id,
         p2Id,
         gameMode: this.gameMode,
