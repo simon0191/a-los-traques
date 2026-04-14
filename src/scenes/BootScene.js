@@ -147,12 +147,13 @@ export class BootScene extends Phaser.Scene {
     const count = fightMusicFiles.length > 0 ? fightMusicFiles.length : 1;
     this.game.registry.set('fightMusicCount', count);
 
-    // Overlay manifest (RFC 0018). Loaded with a plain fetch so a 404 doesn't
+    // Overlay manifest (RFC 0018 v2). Loaded with a plain fetch so a 404 doesn't
     // break the Phaser loader (Vite returns HTML for missing files, which
     // crashes JSON.parse). Default empty if the editor hasn't produced one yet.
+    const emptyManifest = { version: 2, updatedAt: null, calibrations: {} };
     fetch('assets/overlays/manifest.json')
-      .then((r) => (r.ok ? r.json() : { version: 1, entries: [] }))
-      .catch(() => ({ version: 1, entries: [] }))
+      .then((r) => (r.ok ? r.json() : emptyManifest))
+      .catch(() => emptyManifest)
       .then((manifest) => this.game.registry.set('overlayManifest', manifest));
 
     // Generate placeholder rectangle textures for fighters

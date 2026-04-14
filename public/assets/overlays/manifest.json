@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "updatedAt": "2026-04-14T15:55:54.096Z",
+  "calibrations": {
+    "alv": {
+      "sombrero_catalina": {
+        "idle": {
+          "frameCount": 4,
+          "frames": [
+            {
+              "x": 64,
+              "y": 5.509157509157501,
+              "rotation": 0,
+              "scale": 0.31999999999999984
+            },
+            {
+              "x": 64,
+              "y": 32,
+              "rotation": 0,
+              "scale": 0.5
+            },
+            {
+              "x": 64,
+              "y": 32,
+              "rotation": 0,
+              "scale": 0.5
+            },
+            {
+              "x": 64,
+              "y": 32,
+              "rotation": 0,
+              "scale": 0.5
+            }
+          ],
+          "keyframes": [],
+          "lastEditedAt": "2026-04-14T13:52:04.673Z"
+        }
+      }
+    },
+    "angy": {
+      "sombrero_catalina": {
+        "idle": {
+          "frameCount": 4,
+          "frames": [
+            {
+              "x": 66.57875457875457,
+              "y": 3.63369963369963,
+              "rotation": 0,
+              "scale": 0.2599999999999998
+            },
+            {
+              "x": 64,
+              "y": 32,
+              "rotation": 0,
+              "scale": 0.5
+            },
+            {
+              "x": 64,
+              "y": 32,
+              "rotation": 0,
+              "scale": 0.5
+            },
+            {
+              "x": 64,
+              "y": 32,
+              "rotation": 0,
+              "scale": 0.5
+            }
+          ],
+          "keyframes": [],
+          "lastEditedAt": "2026-04-14T13:51:16.007Z"
+        }
+      }
+    }
+  }
+}
