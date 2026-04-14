@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TournamentManager } from '../../src/services/TournamentManager.js';
 
 describe('TournamentManager', () => {
@@ -63,9 +63,11 @@ describe('TournamentManager', () => {
 
     it('is deterministic with the same seed', () => {
       const seed = 999;
+      vi.spyOn(Date, 'now').mockReturnValue(123456789);
       const m1 = TournamentManager.generate(fighters, 8, 'alv', seed);
       const m2 = TournamentManager.generate(fighters, 8, 'alv', seed);
       expect(m1.serialize()).toEqual(m2.serialize());
+      vi.restoreAllMocks();
     });
   });
 

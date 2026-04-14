@@ -76,6 +76,31 @@ export class MultiplayerMenuScene extends Phaser.Scene {
     );
   }
 
+  getNavMenu() {
+    // Return main buttons or overlay buttons if visible
+    if (this._joinOverlay) {
+      // Find buttons inside container
+      const buttons = this._joinOverlay.list
+        .filter((child) => child.type === 'Rectangle' && child.input?.enabled)
+        .sort((a, b) => a.y - b.y);
+      return { items: buttons };
+    }
+
+    const buttons = this.children.list
+      .filter((child) => child.type === 'Rectangle' && child.input?.enabled)
+      .sort((a, b) => a.y - b.y);
+    return { items: buttons };
+  }
+
+  handleBack() {
+    if (this._joinOverlay) {
+      this._hideJoinOverlay();
+      this.game.events.emit('ui_refresh_nav'); // Not implemented yet, but good to have
+      return;
+    }
+    this._goTo('TitleScene');
+  }
+
   _goTo(scene, data) {
     if (this.transitioning) return;
     this.transitioning = true;
@@ -166,7 +191,6 @@ export class MultiplayerMenuScene extends Phaser.Scene {
         .filter((c) => VALID_CHARS.includes(c))
         .join('');
       if (code.length !== 4) return;
-      this.game.audioManager.play('ui_confirm');
       this._hideJoinOverlay();
       this._goTo('LobbyScene', { roomId: code });
     });

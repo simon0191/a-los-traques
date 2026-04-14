@@ -6,6 +6,7 @@ const log = Logger.create('Main');
 
 import { BootScene } from './scenes/BootScene.js';
 import { BracketScene } from './scenes/BracketScene.js';
+import { ControllerScene } from './scenes/ControllerScene.js';
 import { FightScene } from './scenes/FightScene.js';
 import { InspectorScene } from './scenes/InspectorScene.js';
 import { LeaderboardScene } from './scenes/LeaderboardScene.js';
@@ -33,6 +34,9 @@ const config = {
   backgroundColor: '#1a1a2e',
   dom: {
     createContainer: true,
+  },
+  input: {
+    gamepad: true,
   },
   physics: {
     default: 'arcade',
@@ -68,6 +72,7 @@ const config = {
     MusicScene,
     LeaderboardScene,
     LearningScene,
+    ControllerScene,
   ],
 };
 

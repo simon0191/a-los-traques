@@ -140,109 +140,115 @@ export class VictoryScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Buttons
+    this.buttons = [];
+    this.selectedIndex = 0;
+
     if (this.matchContext?.type === 'tournament') {
-      createButton(
-        this,
-        GAME_WIDTH / 2 - 60,
-        252,
-        'CONTINUAR TORNEO',
-        () => {
-          this.cameras.main.fadeOut(300, 0, 0, 0);
-          this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('BracketScene', {
-              gameMode: this.gameMode,
-              matchContext: this.matchContext,
-              fromMatch: true,
-              winnerId: this.winnerId,
-            });
+      const continueTournament = () => {
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('BracketScene', {
+            gameMode: this.gameMode,
+            matchContext: this.matchContext,
+            fromMatch: true,
+            winnerId: this.winnerId,
           });
-        },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+        });
+      };
 
-      createButton(
-        this,
-        GAME_WIDTH / 2 + 60,
-        252,
-        'SALIR AL MENÚ',
-        () => {
-          this.cameras.main.fadeOut(300, 0, 0, 0);
-          this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('MultiplayerMenuScene');
-          });
-        },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+      const exitToMenu = () => {
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.scene.start('MultiplayerMenuScene');
+        });
+      };
+
+      this.buttons.push({
+        ui: createButton(this, GAME_WIDTH / 2 - 60, 252, 'CONTINUAR TORNEO', continueTournament, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
+
+      this.buttons.push({
+        ui: createButton(this, GAME_WIDTH / 2 + 60, 252, 'SALIR AL MENÚ', exitToMenu, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
     } else {
-      createButton(
-        this,
-        GAME_WIDTH / 2 - 115,
-        252,
-        'REVANCHA',
-        () => {
-          if (this.gameMode === 'online' && this.networkManager) {
-            this.networkManager.sendRematch();
-            this._waitingRematch = true;
-            this._rematchText = this.add
-              .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
-                fontFamily: 'Arial',
-                fontSize: '8px',
-                color: '#ffcc00',
-              })
-              .setOrigin(0.5);
+      const rematch = () => {
+        if (this.gameMode === 'online' && this.networkManager) {
+          this.networkManager.sendRematch();
+          this._waitingRematch = true;
+          this._rematchText = this.add
+            .text(GAME_WIDTH / 2, 235, 'Esperando oponente...', {
+              fontFamily: 'Arial',
+              fontSize: '8px',
+              color: '#ffcc00',
+            })
+            .setOrigin(0.5);
 
-            if (this._rematchReceived) {
-              this._goToFight();
-            }
-          } else {
+          if (this._rematchReceived) {
             this._goToFight();
           }
-        },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+        } else {
+          this._goToFight();
+        }
+      };
 
-      createButton(
-        this,
-        GAME_WIDTH / 2,
-        252,
-        'ELEGIR OTRO',
-        () => {
-          if (this.gameMode === 'online' && this.networkManager) {
-            this.networkManager.sendLeave();
-            this._goToSelect();
-          } else {
-            this.cameras.main.fadeOut(300, 0, 0, 0);
-            this.cameras.main.once('camerafadeoutcomplete', () => {
-              this.scene.start('SelectScene', {
-                gameMode: 'local',
-                matchContext: this.matchContext,
-              });
-            });
-          }
-        },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
-
-      createButton(
-        this,
-        GAME_WIDTH / 2 + 115,
-        252,
-        'MENU',
-        () => {
-          if (this.gameMode === 'online' && this.networkManager) {
-            this.networkManager.destroy();
-          }
+      const chooseOther = () => {
+        if (this.gameMode === 'online' && this.networkManager) {
+          this.networkManager.sendLeave();
+          this._goToSelect();
+        } else {
           this.cameras.main.fadeOut(300, 0, 0, 0);
           this.cameras.main.once('camerafadeoutcomplete', () => {
-            const menuScene =
-              this.matchContext || this.gameMode === 'online'
-                ? 'MultiplayerMenuScene'
-                : 'TitleScene';
-            this.scene.start(menuScene);
+            this.scene.start('SelectScene', {
+              gameMode: 'local',
+              matchContext: this.matchContext,
+            });
           });
-        },
-        { width: 100, height: 22, fontSize: '10px' },
-      );
+        }
+      };
+
+      const backToMenu = () => {
+        if (this.gameMode === 'online' && this.networkManager) {
+          this.networkManager.destroy();
+        }
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          const menuScene =
+            this.matchContext || this.gameMode === 'online' ? 'MultiplayerMenuScene' : 'TitleScene';
+          this.scene.start(menuScene);
+        });
+      };
+
+      this.buttons.push({
+        ui: createButton(this, GAME_WIDTH / 2 - 115, 252, 'REVANCHA', rematch, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
+
+      this.buttons.push({
+        ui: createButton(this, GAME_WIDTH / 2, 252, 'ELEGIR OTRO', chooseOther, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
+
+      this.buttons.push({
+        ui: createButton(this, GAME_WIDTH / 2 + 115, 252, 'MENU', backToMenu, {
+          width: 100,
+          height: 22,
+          fontSize: '10px',
+        }),
+      });
     }
 
     // In online mode, listen for rematch/leave from opponent
@@ -286,6 +292,16 @@ export class VictoryScene extends Phaser.Scene {
         });
       });
     }
+
+    this._saveResult();
+  }
+
+  getNavMenu() {
+    // Return as a single-row grid to allow horizontal navigation
+    return {
+      items: [this.buttons.map((b) => b.ui.bg)],
+      isGrid: true,
+    };
   }
 
   async _saveResult() {

@@ -2,17 +2,31 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 
 const CONTROLES_ORDENADOR = {
-  title: 'CONTROLES (ORDENADOR)',
+  title: 'CONTROLES (TECLADO)',
   body:
-    'Mover: Flechas [←] [→]\n' +
-    'Saltar: [↑] / Bloquear: [↓]\n\n' +
+    'Mover: Flechas [←] [→] o WASD\n' +
+    'Saltar: [↑] o [W] / Bloquear: [↓] o [S]\n\n' +
     'Ataques:\n' +
-    '[Z] Puno Liviano (PL)\n' +
-    '[X] Patada Liviana (PaL)\n' +
-    '[A] Puno Pesado (PP)\n' +
-    '[S] Patada Pesada (PaP)\n' +
-    '[D] Especial (ES)\n\n' +
+    '[Z] o [J]: Puño Liviano (PL)\n' +
+    '[X] o [K]: Patada Liviana (PaL)\n' +
+    '[A] o [U]: Puño Pesado (PP)\n' +
+    '[S] o [I]: Patada Pesada (PaP)\n' +
+    '[D] o [O]: Especial (ES)\n\n' +
     'Pausa: [ESC]',
+};
+
+const CONTROLES_MANDO = {
+  title: 'CONTROLES (MANDO / GAMEPAD)',
+  body:
+    'Mover: D-Pad o Joystick Izquierdo\n' +
+    'Saltar: Arriba / Bloquear: Abajo\n\n' +
+    'Ataques:\n' +
+    '[Cuadrado / X]: Puño Liviano (PL)\n' +
+    '[Cruz / A]: Patada Liviana (PaL)\n' +
+    '[Triangulo / Y]: Puño Pesado (PP)\n' +
+    '[Circulo / B]: Patada Pesada (PaP)\n' +
+    '[R1 / R2]: Especial (ES)\n\n' +
+    'Pausa: [Options / Start]',
 };
 
 const CONTROLES_MOVIL = {
@@ -21,9 +35,9 @@ const CONTROLES_MOVIL = {
     'Lado izquierdo:\n' +
     'Joystick virtual para movimiento.\n\n' +
     'Lado derecho (5 botones):\n' +
-    'PL (Puno Liviano)\n' +
+    'PL (Puño Liviano)\n' +
     'PaL (Patada Liviana)\n' +
-    'PP (Puno Pesado)\n' +
+    'PP (Puño Pesado)\n' +
     'PaP (Patada Pesada)\n' +
     'ES (Especial)\n\n' +
     'Soporta Multi-touch (mover y atacar).',
@@ -173,14 +187,45 @@ export class LearningScene extends Phaser.Scene {
     this.transitioning = false;
   }
 
+  update(_time, delta) {
+    if (this.transitioning) return;
+
+    let scrollDir = 0;
+    const cursors = this.input.keyboard.createCursorKeys();
+    if (cursors.up.isDown) scrollDir = -1;
+    if (cursors.down.isDown) scrollDir = 1;
+
+    const pads = this.input.gamepad?.gamepads || [];
+    for (const pad of pads) {
+      if (!pad) continue;
+      if (pad.up || (pad.axes[1]?.getValue() ?? 0) < -0.5) scrollDir = -1;
+      if (pad.down || (pad.axes[1]?.getValue() ?? 0) > 0.5) scrollDir = 1;
+    }
+
+    if (scrollDir !== 0) {
+      const speed = 0.3; // pixels per ms
+      this._setScroll(this.scrollY + scrollDir * speed * delta);
+    }
+  }
+
+  getNavMenu() {
+    // Return as a single-row grid to allow horizontal navigation between tabs
+    return {
+      items: [[this.tabObjects[0], this.tabObjects[2]]],
+      isGrid: true,
+    };
+  }
+
   // Cards to load
   _buildCardsForActiveTab() {
     if (this.activeTab === 'basico') {
       const cardsToShow = [...BASICO_CARDS];
 
       if (this.isMobile) {
+        cardsToShow.unshift(CONTROLES_MANDO);
         cardsToShow.unshift(CONTROLES_MOVIL);
       } else {
+        cardsToShow.unshift(CONTROLES_MANDO);
         cardsToShow.unshift(CONTROLES_ORDENADOR);
       }
 
@@ -196,60 +241,76 @@ export class LearningScene extends Phaser.Scene {
     const tabH = 18;
     const gap = 4;
 
-    // Destroy old tabs if they exist
-    if (this.tabObjects) {
-      for (const obj of this.tabObjects) obj.destroy();
-    }
-    this.tabObjects = [];
-
     const basicoX = GAME_WIDTH / 2 - tabW / 2 - gap / 2;
     const avanzadoX = GAME_WIDTH / 2 + tabW / 2 + gap / 2;
 
-    // BASICO tab
-    const bBg = this.add
-      .rectangle(basicoX, tabY, tabW, tabH, this.activeTab === 'basico' ? 0x997700 : 0x222244)
-      .setStrokeStyle(1, this.activeTab === 'basico' ? 0xffcc00 : 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-    const bText = this.add
-      .text(basicoX, tabY, 'BASICO', {
-        fontFamily: 'Arial',
-        fontSize: '10px',
-        color: this.activeTab === 'basico' ? '#ffcc00' : '#ffffff',
-        fontStyle: this.activeTab === 'basico' ? 'bold' : 'normal',
-      })
-      .setOrigin(0.5);
-    bBg.on('pointerdown', () => {
-      if (this.activeTab === 'basico') return;
-      this.activeTab = 'basico';
-      this._createTabs();
-      this._buildCardsForActiveTab();
-      this.scrollY = 0;
-      this._applyScroll();
-    });
+    if (!this.tabObjects) {
+      this.tabObjects = [];
 
-    // AVANZADO tab
-    const aBg = this.add
-      .rectangle(avanzadoX, tabY, tabW, tabH, this.activeTab === 'avanzado' ? 0x997700 : 0x222244)
-      .setStrokeStyle(1, this.activeTab === 'avanzado' ? 0xffcc00 : 0x4444aa)
-      .setInteractive({ useHandCursor: true });
-    const aText = this.add
-      .text(avanzadoX, tabY, 'AVANZADO', {
-        fontFamily: 'Arial',
-        fontSize: '10px',
-        color: this.activeTab === 'avanzado' ? '#ffcc00' : '#ffffff',
-        fontStyle: this.activeTab === 'avanzado' ? 'bold' : 'normal',
-      })
-      .setOrigin(0.5);
-    aBg.on('pointerdown', () => {
-      if (this.activeTab === 'avanzado') return;
-      this.activeTab = 'avanzado';
-      this._createTabs();
-      this._buildCardsForActiveTab();
-      this.scrollY = 0;
-      this._applyScroll();
-    });
+      // BASICO tab
+      const bBg = this.add
+        .rectangle(basicoX, tabY, tabW, tabH, 0x222244)
+        .setStrokeStyle(1, 0x4444aa)
+        .setInteractive({ useHandCursor: true });
+      const bText = this.add
+        .text(basicoX, tabY, 'BÁSICO', {
+          fontFamily: 'Arial',
+          fontSize: '10px',
+          color: '#ffffff',
+          fontStyle: 'normal',
+        })
+        .setOrigin(0.5);
+      bBg.on('pointerdown', () => {
+        if (this.activeTab === 'basico') return;
+        this.game.audioManager?.play('ui_confirm');
+        this.activeTab = 'basico';
+        this._updateTabs();
+        this._buildCardsForActiveTab();
+        this.scrollY = 0;
+        this._applyScroll();
+      });
 
-    this.tabObjects.push(bBg, bText, aBg, aText);
+      // AVANZADO tab
+      const aBg = this.add
+        .rectangle(avanzadoX, tabY, tabW, tabH, 0x222244)
+        .setStrokeStyle(1, 0x4444aa)
+        .setInteractive({ useHandCursor: true });
+      const aText = this.add
+        .text(avanzadoX, tabY, 'AVANZADO', {
+          fontFamily: 'Arial',
+          fontSize: '10px',
+          color: '#ffffff',
+          fontStyle: 'normal',
+        })
+        .setOrigin(0.5);
+      aBg.on('pointerdown', () => {
+        if (this.activeTab === 'avanzado') return;
+        this.game.audioManager?.play('ui_confirm');
+        this.activeTab = 'avanzado';
+        this._updateTabs();
+        this._buildCardsForActiveTab();
+        this.scrollY = 0;
+        this._applyScroll();
+      });
+
+      this.tabObjects.push(bBg, bText, aBg, aText);
+    }
+
+    this._updateTabs();
+  }
+
+  _updateTabs() {
+    const isBasico = this.activeTab === 'basico';
+
+    this.tabObjects[0].setFillStyle(isBasico ? 0x997700 : 0x222244);
+    this.tabObjects[0].setStrokeStyle(1, isBasico ? 0xffcc00 : 0x4444aa);
+    this.tabObjects[1].setColor(isBasico ? '#ffcc00' : '#ffffff');
+    this.tabObjects[1].setFontStyle(isBasico ? 'bold' : 'normal');
+
+    this.tabObjects[2].setFillStyle(!isBasico ? 0x997700 : 0x222244);
+    this.tabObjects[2].setStrokeStyle(1, !isBasico ? 0xffcc00 : 0x4444aa);
+    this.tabObjects[3].setColor(!isBasico ? '#ffcc00' : '#ffffff');
+    this.tabObjects[3].setFontStyle(!isBasico ? 'bold' : 'normal');
   }
 
   _buildCards(cards) {

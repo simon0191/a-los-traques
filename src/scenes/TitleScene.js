@@ -141,6 +141,7 @@ export class TitleScene extends Phaser.Scene {
 
     // Mode buttons
     const btnGap = 22;
+
     createButton(this, GAME_WIDTH / 2, cy + 30, 'VS MAQUINA', () => {
       this.goToSelect();
     });
@@ -166,6 +167,13 @@ export class TitleScene extends Phaser.Scene {
     });
 
     this.transitioning = false;
+  }
+
+  getNavMenu() {
+    const buttons = this.children.list
+      .filter((child) => child.input?.enabled && child.type === 'Rectangle')
+      .sort((a, b) => a.y - b.y);
+    return { items: buttons };
   }
 
   goToSelect() {

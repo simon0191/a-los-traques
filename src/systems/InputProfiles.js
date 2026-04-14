@@ -57,4 +57,14 @@ export const INPUT_PROFILES = {
       sp: Phaser.Input.Keyboard.KeyCodes.P,
     },
   },
+  gamepad_0: {
+    name: 'Mando 1',
+    type: 'gamepad',
+    index: 0,
+  },
+  gamepad_1: {
+    name: 'Mando 2',
+    type: 'gamepad',
+    index: 1,
+  },
 };

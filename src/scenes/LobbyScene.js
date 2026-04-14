@@ -103,14 +103,13 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Back button
-    createButton(
+    this.backBtn = createButton(
       this,
       60,
       GAME_HEIGHT - 20,
       'VOLVER',
       () => {
-        if (this.network) this.network.destroy();
-        this.scene.start('MultiplayerMenuScene');
+        this._goBack();
       },
       { width: 110, height: 20, fontSize: '9px' },
     );
@@ -201,6 +200,18 @@ export class LobbyScene extends Phaser.Scene {
     this.network.onRejoinAvailable((slot) => {
       this.network.sendRejoin(slot, true);
     });
+  }
+
+  getNavMenu() {
+    const buttons = this.children.list
+      .filter((child) => child.input?.enabled && child.type === 'Rectangle')
+      .sort((a, b) => a.y - b.y);
+    return { items: buttons };
+  }
+
+  _goBack() {
+    if (this.network) this.network.destroy();
+    this.scene.start('MultiplayerMenuScene');
   }
 
   _goToSelect() {

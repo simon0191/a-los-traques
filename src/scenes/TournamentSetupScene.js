@@ -38,17 +38,31 @@ export class TournamentSetupScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    createButton(this, GAME_WIDTH / 2 + 50, 80, '−', () => this._changePlayerCount(-1), {
-      width: 24,
-      height: 20,
-      fontSize: '14px',
-    });
+    this._minusBtn = createButton(
+      this,
+      GAME_WIDTH / 2 + 50,
+      80,
+      '−',
+      () => this._changePlayerCount(-1),
+      {
+        width: 24,
+        height: 20,
+        fontSize: '14px',
+      },
+    );
 
-    createButton(this, GAME_WIDTH / 2 + 80, 80, '+', () => this._changePlayerCount(1), {
-      width: 24,
-      height: 20,
-      fontSize: '14px',
-    });
+    this._plusBtn = createButton(
+      this,
+      GAME_WIDTH / 2 + 80,
+      80,
+      '+',
+      () => this._changePlayerCount(1),
+      {
+        width: 24,
+        height: 20,
+        fontSize: '14px',
+      },
+    );
 
     this._btn8 = createButton(
       this,
@@ -61,13 +75,20 @@ export class TournamentSetupScene extends Phaser.Scene {
       { width: 180, height: 30, fontSize: '14px' },
     );
 
-    createButton(this, GAME_WIDTH / 2, 160, 'TORNEO LARGO (16)', () => this.startTournament(16), {
-      width: 180,
-      height: 30,
-      fontSize: '14px',
-    });
+    this._btn16 = createButton(
+      this,
+      GAME_WIDTH / 2,
+      160,
+      'TORNEO LARGO (16)',
+      () => this.startTournament(16),
+      {
+        width: 180,
+        height: 30,
+        fontSize: '14px',
+      },
+    );
 
-    createButton(
+    this._volverBtn = createButton(
       this,
       GAME_WIDTH / 2,
       220,
@@ -77,6 +98,19 @@ export class TournamentSetupScene extends Phaser.Scene {
       },
       { width: 180, height: 30, fontSize: '14px' },
     );
+  }
+
+  getNavMenu() {
+    // Return a 2D matrix to allow horizontal navigation between '-' and '+'
+    return {
+      items: [
+        [this._minusBtn.bg, this._plusBtn.bg],
+        [this._btn8.bg],
+        [this._btn16.bg],
+        [this._volverBtn.bg],
+      ],
+      isGrid: true,
+    };
   }
 
   _changePlayerCount(delta) {

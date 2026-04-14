@@ -107,6 +107,13 @@ export class BracketScene extends Phaser.Scene {
     }
   }
 
+  getNavMenu() {
+    const buttons = this.children.list
+      .filter((child) => child.type === 'Rectangle' && child.input?.enabled)
+      .sort((a, b) => a.x - b.x);
+    return { items: buttons };
+  }
+
   _drawBrackets() {
     const rounds = this.manager.rounds;
     const numRounds = rounds.length;

@@ -211,6 +211,10 @@ export class InspectorScene extends Phaser.Scene {
     this.selectFighter(firstSpriteIdx >= 0 ? firstSpriteIdx : 0);
   }
 
+  getNavMenu() {
+    return { items: this.listTexts };
+  }
+
   selectFighter(index) {
     // Wrap around
     const len = fightersData.length;

@@ -147,6 +147,11 @@ export class MusicScene extends Phaser.Scene {
     this.transitioning = false;
   }
 
+  getNavMenu() {
+    const buttons = this.songRows.map((r) => r.bg);
+    return { items: buttons };
+  }
+
   _toggleSong(index) {
     const audio = this.game.audioManager;
 
