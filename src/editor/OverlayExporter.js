@@ -9,6 +9,8 @@
  * See RFC 0018 for the full design.
  */
 
+import { overlayCanvasScale } from './math.js';
+
 /**
  * Render an overlay strip canvas from a session.
  *
@@ -46,12 +48,11 @@ export function exportOverlayStrip({
   const imgW = accessoryImage.width;
   const imgH = accessoryImage.height;
 
-  // Match the editor preview's sizing: the accessory renders at
-  // `frameHeight * scale` wide (preserving aspect ratio) inside each frame.
-  // This keeps calibrations visually consistent between editor and export.
+  // Sizing formula lives in src/editor/math.js and is shared with the editor
+  // preview so calibrations stay visually consistent between editor and export.
   for (let i = 0; i < frameCount; i++) {
     const t = frames[i];
-    const effScale = (frameHeight * t.scale) / imgW;
+    const effScale = overlayCanvasScale(frameHeight, t.scale, imgW);
     ctx.save();
     ctx.translate(i * frameWidth + t.x, t.y);
     ctx.rotate(t.rotation);
