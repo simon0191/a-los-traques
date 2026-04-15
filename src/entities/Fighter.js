@@ -1,4 +1,5 @@
 import accessoryCatalog from '../data/accessories.json';
+import { resolveOverlayFrame } from '../editor/OverlayFrameResolver.js';
 import { FighterSim } from '../simulation/FighterSim.js';
 import { FP_SCALE } from '../systems/FixedPoint.js';
 
@@ -264,21 +265,31 @@ export class Fighter {
    * sprite. No independent animation plays on the overlays — they render the
    * same frame index as the fighter, so per-frame calibration stays aligned
    * even if the fighter anim's framerate changes.
+   *
+   * Resolution logic lives in `OverlayFrameResolver` (pure, unit-tested) —
+   * this method is only responsible for applying the resolver's output to
+   * the Phaser sprite.
    */
   _syncOverlayAnimation() {
     if (this._overlaySprites.size === 0) return;
-    const current = this.sprite.anims?.currentAnim?.key;
-    if (!current) return;
-    const suffix = current.replace(`${this.fighterId}_`, '');
-    const frameName = this.sprite.frame?.name ?? 0;
+    const animKey = this.sprite.anims?.currentAnim?.key;
+    if (!animKey) return;
+    const frameName = this.sprite.frame?.name;
+    const textureExists = (key) => this.scene.textures.exists(key);
     for (const sprite of this._overlaySprites.values()) {
-      const overlayKey = `overlay_${this.fighterId}_${sprite._accessoryId}_${suffix}`;
-      if (!this.scene.textures.exists(overlayKey)) {
+      const resolved = resolveOverlayFrame({
+        fighterId: this.fighterId,
+        accessoryId: sprite._accessoryId,
+        animKey,
+        frameName,
+        textureExists,
+      });
+      if (!resolved) {
         sprite.setVisible(false);
         continue;
       }
       sprite.setVisible(true);
-      sprite.setTexture(overlayKey, frameName);
+      sprite.setTexture(resolved.overlayKey, resolved.frameName);
     }
   }
 
