@@ -99,59 +99,59 @@ export class OverlaySession {
   /** Merge a partial transform delta into a frame; pushes previous state onto undo. */
   applyTransform(frameIndex, delta) {
     this._assertFrame(frameIndex);
-    this._pushUndo();
-    const prev = this.frames[frameIndex];
-    this.frames[frameIndex] = {
-      x: prev.x + (delta.x ?? 0),
-      y: prev.y + (delta.y ?? 0),
-      rotation: prev.rotation + (delta.rotation ?? 0),
-      scale: clampScale(prev.scale + (delta.scale ?? 0)),
-    };
-    this._touch();
+    this._mutate(() => {
+      const prev = this.frames[frameIndex];
+      this.frames[frameIndex] = {
+        x: prev.x + (delta.x ?? 0),
+        y: prev.y + (delta.y ?? 0),
+        rotation: prev.rotation + (delta.rotation ?? 0),
+        scale: clampScale(prev.scale + (delta.scale ?? 0)),
+      };
+    });
   }
 
   /** Replace a frame's transform wholesale; pushes previous state onto undo. */
   setTransform(frameIndex, transform) {
     this._assertFrame(frameIndex);
-    this._pushUndo();
-    this.frames[frameIndex] = {
-      x: transform.x,
-      y: transform.y,
-      rotation: transform.rotation,
-      scale: clampScale(transform.scale),
-    };
-    this._touch();
+    this._mutate(() => {
+      this.frames[frameIndex] = {
+        x: transform.x,
+        y: transform.y,
+        rotation: transform.rotation,
+        scale: clampScale(transform.scale),
+      };
+    });
   }
 
   /** Reset a frame to the default transform; pushes previous state onto undo. */
   resetFrame(frameIndex) {
     this._assertFrame(frameIndex);
-    this._pushUndo();
-    this.frames[frameIndex] = defaultTransform();
-    this._touch();
+    this._mutate(() => {
+      this.frames[frameIndex] = defaultTransform();
+    });
   }
 
   /** Toggle whether `frameIndex` is a keyframe. */
   toggleKeyframe(frameIndex) {
     this._assertFrame(frameIndex);
-    this._pushUndo();
-    const idx = this.keyframes.indexOf(frameIndex);
-    if (idx >= 0) {
-      this.keyframes.splice(idx, 1);
-    } else {
-      this.keyframes.push(frameIndex);
-      this.keyframes.sort((a, b) => a - b);
-    }
-    this._touch();
+    this._mutate(() => {
+      const idx = this.keyframes.indexOf(frameIndex);
+      if (idx >= 0) {
+        this.keyframes.splice(idx, 1);
+      } else {
+        this.keyframes.push(frameIndex);
+        this.keyframes.sort((a, b) => a - b);
+      }
+    });
   }
 
   /** Copy the transform from frame `frameIndex - 1` onto `frameIndex` (no-op on frame 0). */
   copyFromPrev(frameIndex) {
     this._assertFrame(frameIndex);
     if (frameIndex === 0) return;
-    this._pushUndo();
-    this.frames[frameIndex] = cloneTransform(this.frames[frameIndex - 1]);
-    this._touch();
+    this._mutate(() => {
+      this.frames[frameIndex] = cloneTransform(this.frames[frameIndex - 1]);
+    });
   }
 
   /**
@@ -164,39 +164,37 @@ export class OverlaySession {
    */
   interpolate() {
     if (this.keyframes.length === 0) return;
-    this._pushUndo();
-
-    if (this.keyframes.length === 1) {
-      const kf = this.keyframes[0];
-      const t = cloneTransform(this.frames[kf]);
-      for (let i = 0; i < this.frameCount; i++) {
-        if (i !== kf) this.frames[i] = cloneTransform(t);
+    this._mutate(() => {
+      if (this.keyframes.length === 1) {
+        const kf = this.keyframes[0];
+        const t = cloneTransform(this.frames[kf]);
+        for (let i = 0; i < this.frameCount; i++) {
+          if (i !== kf) this.frames[i] = cloneTransform(t);
+        }
+        return;
       }
-      this._touch();
-      return;
-    }
 
-    const kfs = this.keyframes;
-    // Clamp frames before the first keyframe
-    const first = kfs[0];
-    for (let i = 0; i < first; i++) {
-      this.frames[i] = cloneTransform(this.frames[first]);
-    }
-    // Clamp frames after the last keyframe
-    const last = kfs[kfs.length - 1];
-    for (let i = last + 1; i < this.frameCount; i++) {
-      this.frames[i] = cloneTransform(this.frames[last]);
-    }
-    // Interpolate between adjacent keyframe pairs
-    for (let p = 0; p < kfs.length - 1; p++) {
-      const a = kfs[p];
-      const b = kfs[p + 1];
-      const span = b - a;
-      for (let i = a + 1; i < b; i++) {
-        this.frames[i] = lerpTransform(this.frames[a], this.frames[b], (i - a) / span);
+      const kfs = this.keyframes;
+      // Clamp frames before the first keyframe
+      const first = kfs[0];
+      for (let i = 0; i < first; i++) {
+        this.frames[i] = cloneTransform(this.frames[first]);
       }
-    }
-    this._touch();
+      // Clamp frames after the last keyframe
+      const last = kfs[kfs.length - 1];
+      for (let i = last + 1; i < this.frameCount; i++) {
+        this.frames[i] = cloneTransform(this.frames[last]);
+      }
+      // Interpolate between adjacent keyframe pairs
+      for (let p = 0; p < kfs.length - 1; p++) {
+        const a = kfs[p];
+        const b = kfs[p + 1];
+        const span = b - a;
+        for (let i = a + 1; i < b; i++) {
+          this.frames[i] = lerpTransform(this.frames[a], this.frames[b], (i - a) / span);
+        }
+      }
+    });
   }
 
   /** Pop the last mutation off the undo stack; pushes current state onto redo. */
@@ -276,6 +274,19 @@ export class OverlaySession {
     this.undoStack.push(this._snapshot());
     if (this.undoStack.length > UNDO_STACK_MAX) this.undoStack.shift();
     this.redoStack.length = 0;
+  }
+
+  /**
+   * Wrap a mutation in the standard undo/touch lifecycle: snapshot the
+   * current state onto the undo stack, run the mutation, then bump
+   * `lastEditedAt`. Centralizing this eliminates the repeated
+   * `_pushUndo(); ...; _touch();` boilerplate across transform methods
+   * and removes a whole class of "forgot to push undo" bugs.
+   */
+  _mutate(fn) {
+    this._pushUndo();
+    fn();
+    this._touch();
   }
 
   _touch() {
