@@ -394,6 +394,15 @@ export class SelectScene extends Phaser.Scene {
         if (this.p1Confirmed) this._showOpponentSelection(id);
       });
       this.networkManager.onOpponentUnready(() => {
+        // Cleanup visual overlay and selection list if they were already marked
+        if (this.opponentFighterId) {
+          const idx = this._humanSelections.indexOf(this.opponentFighterId);
+          if (idx !== -1) {
+            this._humanSelections.splice(idx, 1);
+            this._clearLastTakenOverlay(); // Note: This assumes only P1 and P2 can be in _takenOverlays in online mode
+          }
+        }
+
         this.opponentReady = false;
         this.opponentFighterId = null;
         this.p2Cursor.setVisible(false);
