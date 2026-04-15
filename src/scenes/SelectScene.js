@@ -765,7 +765,6 @@ export class SelectScene extends Phaser.Scene {
     this._markFighterTaken(this.p1Index, this._currentSelectingPlayer);
 
     if (this.matchContext?.type === 'tournament') {
-      const _selectedId = this.fighters[this.p1Index].id;
       const selectedName = this.fighters[this.p1Index].name;
       this._updateSelectionListConfirm(this._currentSelectingPlayer, selectedName);
 
