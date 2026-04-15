@@ -162,8 +162,12 @@ export class SelectScene extends Phaser.Scene {
       rect.on('pointerdown', () => {
         if (this.transitioning) return;
         onSelect();
-        if (!this.p1Confirmed) this.confirmP1();
-        else if (this.p2SelectionMode && !this.p2Confirmed) this.confirmP2();
+
+        // Move focus to LISTO button
+        const controller = this.scene.get('ControllerScene');
+        if (controller && this.listoBtn) {
+          controller.focusItem(this.listoBtn);
+        }
       });
 
       this.gridContainer.add(rect);
@@ -390,6 +394,15 @@ export class SelectScene extends Phaser.Scene {
         if (this.p1Confirmed) this._showOpponentSelection(id);
       });
       this.networkManager.onOpponentUnready(() => {
+        // Cleanup visual overlay and selection list if they were already marked
+        if (this.opponentFighterId) {
+          const idx = this._humanSelections.indexOf(this.opponentFighterId);
+          if (idx !== -1) {
+            this._humanSelections.splice(idx, 1);
+            this._clearLastTakenOverlay(); // Note: This assumes only P1 and P2 can be in _takenOverlays in online mode
+          }
+        }
+
         this.opponentReady = false;
         this.opponentFighterId = null;
         this.p2Cursor.setVisible(false);
@@ -636,6 +649,15 @@ export class SelectScene extends Phaser.Scene {
     this._showP2Selection(this.p2Index);
   }
 
+  _clearLastTakenOverlay() {
+    if (this._takenOverlays.length > 0) {
+      const entry = this._takenOverlays.pop();
+      entry.pDOM.node.style.opacity = '1';
+      entry.pDOM.node.style.filter = '';
+      entry.labelDOM.destroy();
+    }
+  }
+
   handleBack() {
     if (this.transitioning) return;
 
@@ -650,12 +672,8 @@ export class SelectScene extends Phaser.Scene {
       this._currentSelectingPlayer--;
       const removedId = this._humanSelections.pop();
       // Remove visual overlay for that player
-      if (this._takenOverlays.length > 0) {
-        const entry = this._takenOverlays.pop();
-        entry.pDOM.node.style.opacity = '1';
-        entry.pDOM.node.style.filter = '';
-        entry.labelDOM.destroy();
-      }
+      this._clearLastTakenOverlay();
+
       // Restore cursor to the fighter that was undone
       const prevIdx = this.fighters.findIndex((f) => f.id === removedId);
       if (prevIdx !== -1) this.p1Index = prevIdx;
@@ -678,6 +696,11 @@ export class SelectScene extends Phaser.Scene {
       this.p1CursorLabel.setAlpha(1);
       this.p1Cursor.setStrokeStyle(2, 0x3366ff);
       this.confirmedText.setText('');
+
+      // Remove P1 visual overlay
+      this._clearLastTakenOverlay();
+      this._humanSelections.pop();
+
       this.game.audioManager.play('ui_cancel');
       return;
     }
@@ -723,10 +746,12 @@ export class SelectScene extends Phaser.Scene {
     this.p1Confirmed = false;
     this.p1Cursor.setStrokeStyle(2, 0x3366ff);
     this.confirmedText.setText('');
+    this._clearLastTakenOverlay();
+    this._humanSelections.pop();
   }
 
   confirmP1() {
-    // Block selection of taken fighters in multi-player tournament
+    // Block selection of taken fighters
     if (this._isFighterTaken(this.p1Index)) {
       this.game.audioManager.play('ui_cancel');
       return;
@@ -743,11 +768,13 @@ export class SelectScene extends Phaser.Scene {
       this.updateP1Display();
     }
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
+
+    // Apply visual overlay for the current player
+    this._humanSelections.push(this.fighters[this.p1Index].id);
+    this._markFighterTaken(this.p1Index, this._currentSelectingPlayer);
+
     if (this.matchContext?.type === 'tournament') {
-      const selectedId = this.fighters[this.p1Index].id;
       const selectedName = this.fighters[this.p1Index].name;
-      this._humanSelections.push(selectedId);
-      this._markFighterTaken(this.p1Index, this._currentSelectingPlayer);
       this._updateSelectionListConfirm(this._currentSelectingPlayer, selectedName);
 
       if (this._currentSelectingPlayer < this._localPlayers) {
@@ -812,6 +839,12 @@ export class SelectScene extends Phaser.Scene {
   }
 
   confirmP2() {
+    // Block selection of taken fighters
+    if (this._isFighterTaken(this.p2Index)) {
+      this.game.audioManager.play('ui_cancel');
+      return;
+    }
+
     this.game.audioManager.play('ui_confirm');
     this.p2Confirmed = true;
     this.p2Cursor.setStrokeStyle(3, 0xff8800);
@@ -819,10 +852,15 @@ export class SelectScene extends Phaser.Scene {
       let idx;
       do {
         idx = Phaser.Math.Between(0, this.fighters.length - 2);
-      } while (idx === this.p1Index);
+      } while (this._humanSelections.includes(this.fighters[idx].id));
       this.p2Index = idx;
       this.updateP2Display();
     }
+
+    // Apply visual overlay for P2
+    this._humanSelections.push(this.fighters[this.p2Index].id);
+    this._markFighterTaken(this.p2Index, 2);
+
     this.confirmedText.setText('Listo! Preparando combate...');
     const delay = this.game.autoplay?.enabled ? 100 : 1000;
     this.time.delayedCall(delay, () => this.goToStageSelect());
@@ -833,6 +871,12 @@ export class SelectScene extends Phaser.Scene {
     if (idx !== -1) {
       this.p2Index = idx;
       this._showP2Selection(idx);
+
+      // Apply visual overlay for Online Opponent (J2)
+      if (!this._humanSelections.includes(id)) {
+        this._humanSelections.push(id);
+        this._markFighterTaken(idx, 2);
+      }
     }
   }
 
@@ -841,8 +885,12 @@ export class SelectScene extends Phaser.Scene {
     const row = Math.floor(idx / COLS);
     const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
     const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
-    this.p2Cursor.setPosition(cellX, cellY).setVisible(true);
-    this.p2CursorLabel.setPosition(cellX + CELL_W / 2, cellY - 2).setVisible(true);
+
+    // Only show grid cursor if in P2 selection mode or online
+    const showGridCursor = this.p2SelectionMode || this.gameMode === 'online';
+    this.p2Cursor.setPosition(cellX, cellY).setVisible(showGridCursor);
+    this.p2CursorLabel.setPosition(cellX + CELL_W / 2, cellY - 2).setVisible(showGridCursor);
+
     const fighter = this.fighters[idx];
     this.p2NameText.setText(fighter.name);
     this.p2SubtitleText.setText(fighter.subtitle);
@@ -896,6 +944,12 @@ export class SelectScene extends Phaser.Scene {
     this.confirmedText.setText(
       `Jugador ${this._currentSelectingPlayer - 1} listo. Jugador ${this._currentSelectingPlayer}, elige...`,
     );
+
+    // Reset focus to the grid for the next player
+    const controller = this.scene.get('ControllerScene');
+    if (controller && this.gridCells[this.p1Index]) {
+      controller.focusItem(this.gridCells[this.p1Index].rect);
+    }
   }
 
   _markFighterTaken(fighterIdx, playerNum) {
