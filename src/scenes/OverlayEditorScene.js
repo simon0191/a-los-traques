@@ -10,6 +10,7 @@ import Phaser from 'phaser';
 import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import accessoryCatalog from '../data/accessories.json';
 import { EditorUI } from '../editor/EditorUI.js';
+import { overlayBaseWidth } from '../editor/math.js';
 import { exportOverlayStrip } from '../editor/OverlayExporter.js';
 import { MANIFEST_PATH, OverlayManifest } from '../editor/OverlayManifest.js';
 import { OverlaySession } from '../editor/OverlaySession.js';
@@ -755,7 +756,9 @@ export class OverlayEditorScene extends Phaser.Scene {
     if (this.textures.exists(accKey)) {
       this.overlaySprite.setTexture(accKey);
       const src = this.textures.get(accKey).getSourceImage();
-      const sizePx = FIGHTER_HEIGHT * frame.scale * ZOOM;
+      // Base width formula is shared with OverlayExporter via src/editor/math.js
+      // so editor preview and exported strip render at identical sizes.
+      const sizePx = overlayBaseWidth(FIGHTER_HEIGHT, frame.scale) * ZOOM;
       this.overlaySprite.setDisplaySize(sizePx, sizePx * (src.height / src.width));
       this.overlaySprite.setPosition(this._frameToScreenX(frame.x), this._frameToScreenY(frame.y));
       this.overlaySprite.setRotation(frame.rotation);
