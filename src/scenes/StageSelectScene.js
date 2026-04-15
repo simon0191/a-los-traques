@@ -257,6 +257,20 @@ export class StageSelectScene extends Phaser.Scene {
   }
 
   updateSelection() {
+    this.gridCells.forEach((cell, i) => {
+      const isSelected = i === this.selectedIndex;
+      cell.border.setStrokeStyle(
+        isSelected ? 3 : 1,
+        isSelected ? 0xffcc00 : 0x444444,
+        isSelected ? 1 : 0.5,
+      );
+      if (isSelected) {
+        cell.rect.setFillStyle(0x444466);
+      } else {
+        cell.rect.setFillStyle(0x333333);
+      }
+    });
+
     const stage = this.stages[this.selectedIndex];
     const cell = this.gridCells[this.selectedIndex];
     if (cell) {
