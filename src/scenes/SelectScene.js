@@ -768,11 +768,18 @@ export class SelectScene extends Phaser.Scene {
     this.game.audioManager.play('ui_confirm');
     this.p1Confirmed = true;
     if (this.fighters[this.p1Index].id === 'random') {
-      let idx;
-      do {
-        idx = Phaser.Math.Between(0, this.fighters.length - 2);
-      } while (this._humanSelections.includes(this.fighters[idx].id));
-      this.p1Index = idx;
+      // Filter available fighters (exclude 'random' and already selected)
+      const available = this.fighters.filter(
+        (f) => f.id !== 'random' && !this._humanSelections.includes(f.id),
+      );
+
+      if (available.length > 0) {
+        const randomFighter = Phaser.Utils.Array.GetRandom(available);
+        this.p1Index = this.fighters.findIndex((f) => f.id === randomFighter.id);
+      } else {
+        // Fallback: if somehow everything is taken, just pick any non-random fighter
+        this.p1Index = Phaser.Math.Between(0, this.fighters.length - 2);
+      }
       this.updateP1Display();
     }
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
