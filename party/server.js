@@ -387,13 +387,6 @@ export default class FightRoom {
         this._log({ type: 'init_tournament_forced', roomId: this.party.id });
         this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
         break;
-      case 'lobby_update':
-        // Legacy/Host-only fallback for specific size changes
-        if (data.lobbyState) {
-          this.lobbyState = data.lobbyState;
-          this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
-        }
-        break;
       case 'lobby_action':
         this._handleLobbyAction(data, connection);
         break;
@@ -412,9 +405,9 @@ export default class FightRoom {
     let changed = false;
 
     switch (action) {
-      case 'join': {
+      case 'JOIN_SLOT': {
         const { id, name, type } = payload;
-        // Check if already joined
+        // Atomic check: is this ID already in a slot?
         if (this.lobbyState.slots.some((s) => s?.id === id)) break;
 
         const emptyIdx = this.lobbyState.slots.indexOf(null);
@@ -429,7 +422,7 @@ export default class FightRoom {
         }
         break;
       }
-      case 'add_bot': {
+      case 'UPDATE_BOT': {
         const { index, level } = payload;
         if (index >= 0 && index < this.lobbyState.size) {
           const targetLevel =
@@ -447,7 +440,7 @@ export default class FightRoom {
         }
         break;
       }
-      case 'add_guest': {
+      case 'ADD_GUEST': {
         const { index } = payload;
         if (index >= 0 && index < this.lobbyState.size) {
           const guestNum = this.lobbyState.slots.filter((s) => s?.type === 'guest').length + 1;
@@ -460,7 +453,7 @@ export default class FightRoom {
         }
         break;
       }
-      case 'remove_slot': {
+      case 'REMOVE_SLOT': {
         const { index } = payload;
         if (index > 0 && index < this.lobbyState.size) {
           this.lobbyState.slots[index] = null;
@@ -468,7 +461,7 @@ export default class FightRoom {
         }
         break;
       }
-      case 'update_size': {
+      case 'UPDATE_SIZE': {
         const { newSize } = payload;
         const oldSize = this.lobbyState.size;
         this.lobbyState.size = newSize;

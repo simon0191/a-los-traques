@@ -69,7 +69,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
   updateSize(newSize) {
     this.send({
       type: 'lobby_action',
-      action: 'update_size',
+      action: 'UPDATE_SIZE',
       payload: { newSize },
     });
   }
@@ -77,7 +77,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
   addGuest(slotIndex) {
     this.send({
       type: 'lobby_action',
-      action: 'add_guest',
+      action: 'ADD_GUEST',
       payload: { index: slotIndex },
     });
   }
@@ -85,7 +85,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
   addBot(slotIndex, level = 3) {
     this.send({
       type: 'lobby_action',
-      action: 'add_bot',
+      action: 'UPDATE_BOT',
       payload: { index: slotIndex, level },
     });
   }
@@ -94,7 +94,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
     if (slotIndex === 0) return; // Cannot remove host
     this.send({
       type: 'lobby_action',
-      action: 'remove_slot',
+      action: 'REMOVE_SLOT',
       payload: { index: slotIndex },
     });
   }
