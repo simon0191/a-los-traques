@@ -226,20 +226,18 @@ export class DevConsole {
           break;
         }
 
-        const emptyIdx = lobby.state.slots.indexOf(null);
-        if (emptyIdx === -1) {
-          this.print('Lobby is full.');
-          break;
-        }
+        // Use authoritative join action instead of local mutation
+        lobby.send({
+          type: 'lobby_action',
+          action: 'JOIN_SLOT',
+          payload: {
+            id: `dev-${playerId}`,
+            name: name,
+            type: 'human',
+          },
+        });
 
-        lobby.state.slots[emptyIdx] = {
-          type: 'human',
-          id: `dev-${playerId}`,
-          name: name,
-          status: 'ready',
-        };
-        lobby._broadcast();
-        this.print(`Joined as ${name} to slot ${emptyIdx + 1}.`);
+        this.print(`Join request sent for ${name}.`);
         break;
       }
 

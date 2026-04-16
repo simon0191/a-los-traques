@@ -398,6 +398,10 @@ export default class FightRoom {
       case 'init_tournament':
         this._transition('init_tournament');
         this.lobbyState = data.lobbyState;
+        // Initialize guest counter if not present
+        if (this.lobbyState && this.lobbyState.nextGuestNum === undefined) {
+          this.lobbyState.nextGuestNum = 1;
+        }
         this._log({ type: 'init_tournament', roomId: this.party.id });
         this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
         break;
@@ -443,12 +447,9 @@ export default class FightRoom {
       case 'UPDATE_BOT': {
         const { index, level } = payload;
         if (index >= 0 && index < this.lobbyState.size) {
-          const targetLevel =
-            this.lobbyState.slots[index]?.type === 'bot'
-              ? (this.lobbyState.slots[index].level % 5) + 1
-              : level || 3;
-
+          const targetLevel = level || 3;
           this.lobbyState.slots[index] = {
+            id: `bot-${index}-${Date.now()}`, // unique id for bots
             type: 'bot',
             name: `Bot Nivel ${targetLevel}`,
             level: targetLevel,
@@ -458,11 +459,29 @@ export default class FightRoom {
         }
         break;
       }
+      case 'CYCLE_BOT': {
+        const { index } = payload;
+        if (index >= 0 && index < this.lobbyState.size) {
+          const current = this.lobbyState.slots[index];
+          const nextLevel = current?.type === 'bot' ? (current.level % 5) + 1 : 3;
+
+          this.lobbyState.slots[index] = {
+            id: current?.id || `bot-${index}-${Date.now()}`,
+            type: 'bot',
+            name: `Bot Nivel ${nextLevel}`,
+            level: nextLevel,
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
       case 'ADD_GUEST': {
         const { index } = payload;
         if (index >= 0 && index < this.lobbyState.size) {
-          const guestNum = this.lobbyState.slots.filter((s) => s?.type === 'guest').length + 1;
+          const guestNum = this.lobbyState.nextGuestNum++;
           this.lobbyState.slots[index] = {
+            id: `guest-${guestNum}-${Date.now()}`,
             type: 'guest',
             name: `Invitado ${guestNum}`,
             status: 'ready',

@@ -13,6 +13,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
     this.state = {
       size: 8,
       slots: [],
+      nextGuestNum: 1,
     };
 
     this._onUpdateCallbacks = [];
@@ -100,6 +101,14 @@ export class TournamentLobbyService extends BaseSignalingClient {
     });
   }
 
+  cycleBot(slotIndex) {
+    this.send({
+      type: 'lobby_action',
+      action: 'CYCLE_BOT',
+      payload: { index: slotIndex },
+    });
+  }
+
   removeSlot(slotIndex) {
     if (slotIndex === 0) return; // Cannot remove host
     this.send({
@@ -107,10 +116,6 @@ export class TournamentLobbyService extends BaseSignalingClient {
       action: 'REMOVE_SLOT',
       payload: { index: slotIndex },
     });
-  }
-
-  _broadcast() {
-    // No longer used for granular updates, now using lobby_action
   }
 
   getJoinUrl() {
