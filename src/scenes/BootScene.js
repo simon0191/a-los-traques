@@ -172,6 +172,15 @@ export class BootScene extends Phaser.Scene {
       if (!accessoriesByCategory[a.category]) accessoriesByCategory[a.category] = [];
       accessoriesByCategory[a.category].push(a);
     }
+    // Overlay strip PNGs are optional — a fighter might have calibration in
+    // the manifest but the strips weren't exported yet. Suppress Phaser's
+    // noisy "Failed to process file" console errors for overlay_ assets.
+    this.load.on('loaderror', (file) => {
+      if (file.key?.startsWith('overlay_')) {
+        file.state = Phaser.Loader.FILE_ERRORED;
+      }
+    });
+
     let overlayCount = 0;
     for (const [fighterId, byCat] of Object.entries(manifest.calibrations ?? {})) {
       for (const [category, byAnim] of Object.entries(byCat)) {
