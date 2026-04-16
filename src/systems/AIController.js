@@ -90,6 +90,10 @@ export class AIController {
           tooCloseRange: 20,
           punishRecovery: false,
           readOpponentState: false,
+          reactionJump: false,
+          specialChance: 0,
+          attackWeights: [0.4, 0.7, 0.85], // lightP, lightK, heavyP (rest is heavyK)
+          wallJumpChance: 0,
         };
       case 'easy_plus':
         return {
@@ -105,6 +109,10 @@ export class AIController {
           tooCloseRange: 25,
           punishRecovery: false,
           readOpponentState: false,
+          reactionJump: false,
+          specialChance: 0,
+          attackWeights: [0.35, 0.65, 0.8],
+          wallJumpChance: 0.1,
         };
       case 'medium':
         return {
@@ -120,6 +128,10 @@ export class AIController {
           tooCloseRange: 35,
           punishRecovery: false,
           readOpponentState: true,
+          reactionJump: false,
+          specialChance: 0.4,
+          attackWeights: [0.3, 0.5, 0.7],
+          wallJumpChance: 0.3,
         };
       case 'hard':
         return {
@@ -135,6 +147,10 @@ export class AIController {
           tooCloseRange: 30,
           punishRecovery: true,
           readOpponentState: true,
+          reactionJump: true,
+          specialChance: 0.65,
+          attackWeights: [0.35, 0.55, 0.75],
+          wallJumpChance: 1.0,
         };
       case 'hard_plus':
         return {
@@ -150,6 +166,10 @@ export class AIController {
           tooCloseRange: 35,
           punishRecovery: true,
           readOpponentState: true,
+          reactionJump: true,
+          specialChance: 0.85,
+          attackWeights: [0.4, 0.6, 0.8],
+          wallJumpChance: 1.0,
         };
       default:
         return this.getDifficultyConfig('medium');
@@ -277,8 +297,7 @@ export class AIController {
     // 7. Jumping (mix-up / evasion)
     // ------------------------------------------------------------------
     if (this._rng() < cfg.jumpChance) {
-      // Hard mode: jump to dodge or when opponent jumps
-      if (this.difficulty === 'hard') {
+      if (cfg.reactionJump) {
         if (oppJumping || (oppAttacking && absDist < cfg.approachRange)) {
           this.decision.jump = true;
         }
@@ -298,35 +317,18 @@ export class AIController {
 
     // Special attack when meter is full and in range
     if (cfg.canSpecial && me.special >= SPECIAL_COST && absDist < cfg.idealRange + 10) {
-      // Hard: always use when available and close. Medium: 40 % chance.
-      const specialChance = this.difficulty === 'hard' ? 0.65 : 0.4;
-      if (this._rng() < specialChance) {
+      if (this._rng() < cfg.specialChance) {
         return 'special';
       }
     }
 
     // Weighted random pick – favour lights for speed, heavies for damage
     const roll = this._rng();
+    const w = cfg.attackWeights;
 
-    if (this.difficulty === 'hard') {
-      // Hard prefers fast attacks, uses heavies to punish
-      if (roll < 0.35) return 'lightPunch';
-      if (roll < 0.55) return 'lightKick';
-      if (roll < 0.75) return 'heavyPunch';
-      return 'heavyKick';
-    }
-
-    if (this.difficulty === 'medium') {
-      if (roll < 0.3) return 'lightPunch';
-      if (roll < 0.5) return 'lightKick';
-      if (roll < 0.7) return 'heavyPunch';
-      return 'heavyKick';
-    }
-
-    // Easy – mostly lights
-    if (roll < 0.4) return 'lightPunch';
-    if (roll < 0.7) return 'lightKick';
-    if (roll < 0.85) return 'heavyPunch';
+    if (roll < w[0]) return 'lightPunch';
+    if (roll < w[1]) return 'lightKick';
+    if (roll < w[2]) return 'heavyPunch';
     return 'heavyKick';
   }
 
@@ -359,11 +361,9 @@ export class AIController {
       this.decision.jump = false;
     }
 
-    // Wall jump: hard always, medium 30% chance
+    // Wall jump
     if (fighter._isTouchingWall && !fighter._hasWallJumped) {
-      const wallJumpChance =
-        this.difficulty === 'hard' ? 1.0 : this.difficulty === 'medium' ? 0.3 : 0;
-      if (this._rng() < wallJumpChance) {
+      if (this._rng() < this.config.wallJumpChance) {
         fighter.jump(events);
       }
     }
