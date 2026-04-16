@@ -35,7 +35,7 @@ export class TournamentSetupScene extends Phaser.Scene {
 
     this.slotContainers = [];
     this.currentPage = 0;
-    this._renderGrid();
+    this._createGrid(); // Create fixed 8 slots once
 
     // QR Code Area
     const qrX = GAME_WIDTH / 2;
@@ -92,26 +92,14 @@ export class TournamentSetupScene extends Phaser.Scene {
     this._nextBtn.bg.setVisible(false);
     this._nextBtn.text.setVisible(false);
 
-    this._startBtn = createButton(
-      this,
-      GAME_WIDTH - 60,
-      GAME_HEIGHT - 35,
-      'EMPEZAR',
-      () => this.startTournament(),
-      { width: 80, height: 30, fontSize: '11px' },
+    this._startBtn = createButton(this, GAME_WIDTH - 60, GAME_HEIGHT - 35, 'EMPEZAR', () =>
+      this.startTournament(),
     );
 
-    this._volverBtn = createButton(
-      this,
-      60,
-      GAME_HEIGHT - 35,
-      'VOLVER',
-      () => {
-        this.lobby.destroy();
-        this.scene.start('MultiplayerMenuScene');
-      },
-      { width: 80, height: 25, fontSize: '10px' },
-    );
+    this._volverBtn = createButton(this, 60, GAME_HEIGHT - 35, 'VOLVER', () => {
+      this.lobby.destroy();
+      this.scene.start('MultiplayerMenuScene');
+    });
 
     this.lobby.onUpdate((state) => this._updateUI(state));
   }
@@ -138,45 +126,21 @@ export class TournamentSetupScene extends Phaser.Scene {
   _toggleSize() {
     const newSize = this.lobby.state.size === 8 ? 16 : 8;
     this.lobby.updateSize(newSize);
-    this._sizeBtn.text.setText(`JUGADORES: ${newSize}`);
+    this._sizeBtn.text.setText(`TAMAÑO: ${newSize}`);
     this.currentPage = 0;
-    this._renderGrid();
+    // UI will update via onUpdate callback
   }
 
   _changePage(delta) {
     this.currentPage += delta;
-    this._renderGrid();
+    this._updateUI(this.lobby.state);
   }
 
-  _renderGrid() {
-    // Clear existing
-    this.slotContainers.forEach((c) => {
-      c.container.destroy();
-    });
-    this.slotContainers = [];
-
-    const size = this.lobby.state.size;
+  _createGrid() {
     const slotsPerPage = 8;
-    const startIndex = this.currentPage * slotsPerPage;
-    const endIndex = Math.min(startIndex + slotsPerPage, size);
-
-    // Update Pagination Buttons
-    const hasPrev = this.currentPage > 0;
-    const hasNext = size > slotsPerPage && endIndex < size;
-
-    if (this._prevBtn) {
-      this._prevBtn.bg.setVisible(hasPrev);
-      this._prevBtn.text.setVisible(hasPrev);
-    }
-    if (this._nextBtn) {
-      this._nextBtn.bg.setVisible(hasNext);
-      this._nextBtn.text.setVisible(hasNext);
-    }
-
-    for (let i = startIndex; i < endIndex; i++) {
-      const localIdx = i - startIndex;
-      const col = localIdx % GRID_COLS;
-      const row = Math.floor(localIdx / GRID_COLS);
+    for (let i = 0; i < slotsPerPage; i++) {
+      const col = i % GRID_COLS;
+      const row = Math.floor(i / GRID_COLS);
       const x = GRID_START_X + col * (SLOT_WIDTH + GRID_GAP);
       const y = GRID_START_Y + row * (SLOT_HEIGHT + GRID_GAP);
 
@@ -184,7 +148,7 @@ export class TournamentSetupScene extends Phaser.Scene {
       const bg = this.add.rectangle(0, 0, SLOT_WIDTH, SLOT_HEIGHT, 0x1a1a3a).setOrigin(0);
       bg.setStrokeStyle(1, 0x333366);
 
-      const title = this.add.text(5, 5, `SLOT ${i + 1}`, {
+      const title = this.add.text(5, 5, '', {
         fontFamily: 'monospace',
         fontSize: '8px',
         color: '#444466',
@@ -200,51 +164,65 @@ export class TournamentSetupScene extends Phaser.Scene {
 
       const guestBtn = this.add
         .text(5, SLOT_HEIGHT - 12, '[+INV]', { fontSize: '8px', color: '#66bb66' })
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => this.lobby.addGuest(i));
+        .setInteractive({ useHandCursor: true });
 
       const botBtn = this.add
         .text(SLOT_WIDTH - 35, SLOT_HEIGHT - 12, '[+BOT]', { fontSize: '8px', color: '#6666bb' })
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => this.lobby.addBot(i));
+        .setInteractive({ useHandCursor: true });
 
       const removeBtn = this.add
         .text(SLOT_WIDTH - 15, 5, 'X', { fontSize: '10px', color: '#ff4444' })
         .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => this.lobby.removeSlot(i))
-        .setVisible(false);
+        .setInteractive({ useHandCursor: true });
 
       container.add([bg, title, nameText, guestBtn, botBtn, removeBtn]);
 
       this.slotContainers.push({
-        globalIndex: i,
         container,
         bg,
+        title,
         nameText,
         guestBtn,
         botBtn,
         removeBtn,
       });
     }
-
-    // Refresh visual state if we already have lobby data
-    if (this.lobby?.state) this._updateUI(this.lobby.state);
   }
 
   _updateUI(state) {
-    // Re-render if size changed externally
-    if (state.size !== this.lobby.state.size) {
-      // logic handled by _toggleSize for now
+    const size = state.size;
+    const slotsPerPage = 8;
+    const startIndex = this.currentPage * slotsPerPage;
+
+    // Update Pagination Buttons
+    const hasPrev = this.currentPage > 0;
+    const hasNext = size > slotsPerPage && startIndex + slotsPerPage < size;
+
+    if (this._prevBtn) {
+      this._prevBtn.bg.setVisible(hasPrev);
+      this._prevBtn.text.setVisible(hasPrev);
+    }
+    if (this._nextBtn) {
+      this._nextBtn.bg.setVisible(hasNext);
+      this._nextBtn.text.setVisible(hasNext);
     }
 
-    this.slotContainers.forEach((ui) => {
-      const slot = state.slots[ui.globalIndex];
+    this.slotContainers.forEach((ui, i) => {
+      const globalIdx = startIndex + i;
+      const slot = state.slots[globalIdx];
+
+      ui.title.setText(`SLOT ${globalIdx + 1}`);
+
+      // Update click handlers for the current page indices
+      ui.guestBtn.off('pointerdown').on('pointerdown', () => this.lobby.addGuest(globalIdx));
+      ui.botBtn.off('pointerdown').on('pointerdown', () => this.lobby.addBot(globalIdx));
+      ui.removeBtn.off('pointerdown').on('pointerdown', () => this.lobby.removeSlot(globalIdx));
+
       if (slot) {
         ui.nameText.setText(slot.name.toUpperCase()).setColor('#ffffff');
         ui.botBtn.setVisible(slot.type === 'bot').setText('[NIV]');
         ui.guestBtn.setVisible(false);
-        ui.removeBtn.setVisible(ui.globalIndex > 0);
+        ui.removeBtn.setVisible(globalIdx > 0);
         ui.bg.setFillStyle(slot.type === 'bot' ? 0x2a1a3a : 0x1a2a3a);
       } else {
         ui.nameText.setText('VACÍO').setColor('#555555');
@@ -254,16 +232,6 @@ export class TournamentSetupScene extends Phaser.Scene {
         ui.bg.setFillStyle(0x1a1a3a);
       }
     });
-  }
-
-  _changeSize(newSize) {
-    this.lobby.updateSize(newSize);
-    this._updateSizeButtons(newSize);
-  }
-
-  _updateSizeButtons(currentSize) {
-    this._btn8.bg.setAlpha(currentSize === 8 ? 1 : 0.4);
-    this._btn16.bg.setAlpha(currentSize === 16 ? 1 : 0.4);
   }
 
   startTournament() {
