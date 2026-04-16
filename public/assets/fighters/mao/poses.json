@@ -1,0 +1,6452 @@
+{
+  "version": 1,
+  "fighter": "mao",
+  "frameSize": 128,
+  "model": "mediapipe-pose-blazepose-ghum-heavy",
+  "generatedAt": "2026-04-16T20:40:28.301Z",
+  "animations": {
+    "idle": {
+      "frameCount": 4,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.968,
+          "keypoints": {
+            "nose": {
+              "x": 70.5,
+              "y": 13.6,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 70.5,
+              "y": 10.8,
+              "v": 0.999
+            },
+            "rightEye": {
+              "x": 67,
+              "y": 11,
+              "v": 0.999
+            },
+            "leftEar": {
+              "x": 69.3,
+              "y": 11.3,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 62.5,
+              "y": 11.2,
+              "v": 0.999
+            },
+            "leftShoulder": {
+              "x": 76.4,
+              "y": 25.9,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 50.9,
+              "y": 23.3,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 86.6,
+              "y": 42.7,
+              "v": 0.981
+            },
+            "rightElbow": {
+              "x": 34.7,
+              "y": 40.4,
+              "v": 0.989
+            },
+            "leftWrist": {
+              "x": 97.1,
+              "y": 37.2,
+              "v": 0.993
+            },
+            "rightWrist": {
+              "x": 54.8,
+              "y": 35,
+              "v": 0.972
+            },
+            "leftIndex": {
+              "x": 99.2,
+              "y": 31.7,
+              "v": 0.988
+            },
+            "rightIndex": {
+              "x": 62.2,
+              "y": 33.1,
+              "v": 0.95
+            },
+            "leftHip": {
+              "x": 68,
+              "y": 64.2,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 52.3,
+              "y": 63.7,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 80.5,
+              "y": 88.3,
+              "v": 0.906
+            },
+            "rightKnee": {
+              "x": 42.1,
+              "y": 90.6,
+              "v": 0.995
+            },
+            "leftAnkle": {
+              "x": 86.4,
+              "y": 117.6,
+              "v": 0.932
+            },
+            "rightAnkle": {
+              "x": 30.7,
+              "y": 119.5,
+              "v": 0.988
+            },
+            "leftHeel": {
+              "x": 83.5,
+              "y": 124.2,
+              "v": 0.844
+            },
+            "rightHeel": {
+              "x": 29.8,
+              "y": 123.7,
+              "v": 0.851
+            },
+            "leftFootIndex": {
+              "x": 99.5,
+              "y": 123.9,
+              "v": 0.905
+            },
+            "rightFootIndex": {
+              "x": 28.4,
+              "y": 133.3,
+              "v": 0.971
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 68.8,
+                "y": 10.9
+              },
+              "roll": -176.7,
+              "yaw": 0.499,
+              "pitch": 0.77
+            },
+            "torso": {
+              "center": {
+                "x": 63.7,
+                "y": 24.6
+              },
+              "angle": 84.9
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 97.1,
+                "y": 37.2
+              },
+              "angle": 69.1
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 54.8,
+                "y": 35
+              },
+              "angle": 14.4
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 83.5,
+                "y": 124.2
+              },
+              "angle": 1.1
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 29.8,
+                "y": 123.7
+              },
+              "angle": -98.3
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.992,
+          "keypoints": {
+            "nose": {
+              "x": 71.1,
+              "y": 12.1,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 71.5,
+              "y": 9.1,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 67.1,
+              "y": 9.8,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 71.3,
+              "y": 10.6,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 63,
+              "y": 11,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 76.2,
+              "y": 26.3,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 51.3,
+              "y": 24.1,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 86.4,
+              "y": 42.8,
+              "v": 0.961
+            },
+            "rightElbow": {
+              "x": 35.3,
+              "y": 41.2,
+              "v": 0.995
+            },
+            "leftWrist": {
+              "x": 98.3,
+              "y": 36.3,
+              "v": 0.991
+            },
+            "rightWrist": {
+              "x": 55.2,
+              "y": 35,
+              "v": 0.988
+            },
+            "leftIndex": {
+              "x": 99.5,
+              "y": 32.4,
+              "v": 0.985
+            },
+            "rightIndex": {
+              "x": 60.9,
+              "y": 31.5,
+              "v": 0.974
+            },
+            "leftHip": {
+              "x": 67.2,
+              "y": 66.1,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 52,
+              "y": 65.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 81.1,
+              "y": 88.9,
+              "v": 0.987
+            },
+            "rightKnee": {
+              "x": 41.9,
+              "y": 91.1,
+              "v": 0.999
+            },
+            "leftAnkle": {
+              "x": 86.3,
+              "y": 116.3,
+              "v": 0.991
+            },
+            "rightAnkle": {
+              "x": 29.7,
+              "y": 121.6,
+              "v": 0.999
+            },
+            "leftHeel": {
+              "x": 82.4,
+              "y": 123.1,
+              "v": 0.978
+            },
+            "rightHeel": {
+              "x": 28,
+              "y": 125.3,
+              "v": 0.979
+            },
+            "leftFootIndex": {
+              "x": 98.6,
+              "y": 123.3,
+              "v": 0.989
+            },
+            "rightFootIndex": {
+              "x": 30.7,
+              "y": 128.9,
+              "v": 0.997
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 69.3,
+                "y": 9.5
+              },
+              "roll": -171,
+              "yaw": 0.404,
+              "pitch": 0.595
+            },
+            "torso": {
+              "center": {
+                "x": 63.8,
+                "y": 25.2
+              },
+              "angle": 84.2
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 98.3,
+                "y": 36.3
+              },
+              "angle": 72.9
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 55.2,
+                "y": 35
+              },
+              "angle": 31.6
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 82.4,
+                "y": 123.1
+              },
+              "angle": -0.7
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 28,
+                "y": 125.3
+              },
+              "angle": -53.1
+            }
+          }
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.975,
+          "keypoints": {
+            "nose": {
+              "x": 70.7,
+              "y": 11.7,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 70.3,
+              "y": 9.7,
+              "v": 0.999
+            },
+            "rightEye": {
+              "x": 67.4,
+              "y": 9.4,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 69.2,
+              "y": 11.1,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 63.4,
+              "y": 10.6,
+              "v": 0.999
+            },
+            "leftShoulder": {
+              "x": 76.4,
+              "y": 26.5,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 51.6,
+              "y": 23.2,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 86.3,
+              "y": 42.8,
+              "v": 0.979
+            },
+            "rightElbow": {
+              "x": 36.5,
+              "y": 39.9,
+              "v": 0.986
+            },
+            "leftWrist": {
+              "x": 97.1,
+              "y": 37.2,
+              "v": 0.994
+            },
+            "rightWrist": {
+              "x": 51.6,
+              "y": 32.7,
+              "v": 0.973
+            },
+            "leftIndex": {
+              "x": 99.6,
+              "y": 32.6,
+              "v": 0.991
+            },
+            "rightIndex": {
+              "x": 59.6,
+              "y": 30.8,
+              "v": 0.956
+            },
+            "leftHip": {
+              "x": 68.7,
+              "y": 65.2,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 52.7,
+              "y": 64.6,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 80.3,
+              "y": 90,
+              "v": 0.934
+            },
+            "rightKnee": {
+              "x": 41.3,
+              "y": 91,
+              "v": 0.996
+            },
+            "leftAnkle": {
+              "x": 87.9,
+              "y": 118.1,
+              "v": 0.961
+            },
+            "rightAnkle": {
+              "x": 30.5,
+              "y": 121,
+              "v": 0.991
+            },
+            "leftHeel": {
+              "x": 85.1,
+              "y": 123.9,
+              "v": 0.876
+            },
+            "rightHeel": {
+              "x": 30.2,
+              "y": 125.3,
+              "v": 0.86
+            },
+            "leftFootIndex": {
+              "x": 98.9,
+              "y": 123.9,
+              "v": 0.948
+            },
+            "rightFootIndex": {
+              "x": 28.1,
+              "y": 133.6,
+              "v": 0.978
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 68.9,
+                "y": 9.6
+              },
+              "roll": 174.1,
+              "yaw": 0.635,
+              "pitch": 0.737
+            },
+            "torso": {
+              "center": {
+                "x": 64,
+                "y": 24.9
+              },
+              "angle": 85.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 97.1,
+                "y": 37.2
+              },
+              "angle": 61.5
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 51.6,
+                "y": 32.7
+              },
+              "angle": 13.4
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 85.1,
+                "y": 123.9
+              },
+              "angle": 0
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 30.2,
+                "y": 125.3
+              },
+              "angle": -104.2
+            }
+          }
+        },
+        {
+          "index": 3,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        }
+      ]
+    },
+    "walk": {
+      "frameCount": 4,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.915,
+          "keypoints": {
+            "nose": {
+              "x": 69.8,
+              "y": 12,
+              "v": 0.998
+            },
+            "leftEye": {
+              "x": 71.8,
+              "y": 10.1,
+              "v": 0.996
+            },
+            "rightEye": {
+              "x": 67.4,
+              "y": 9.6,
+              "v": 0.998
+            },
+            "leftEar": {
+              "x": 71.4,
+              "y": 12.1,
+              "v": 0.997
+            },
+            "rightEar": {
+              "x": 62.8,
+              "y": 9.9,
+              "v": 0.995
+            },
+            "leftShoulder": {
+              "x": 75.5,
+              "y": 26.9,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 49.4,
+              "y": 21.9,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 77,
+              "y": 45.9,
+              "v": 0.781
+            },
+            "rightElbow": {
+              "x": 36,
+              "y": 42.3,
+              "v": 0.971
+            },
+            "leftWrist": {
+              "x": 84.7,
+              "y": 61.5,
+              "v": 0.778
+            },
+            "rightWrist": {
+              "x": 54.7,
+              "y": 33.6,
+              "v": 0.961
+            },
+            "leftIndex": {
+              "x": 87.9,
+              "y": 63.8,
+              "v": 0.771
+            },
+            "rightIndex": {
+              "x": 60.9,
+              "y": 30.4,
+              "v": 0.936
+            },
+            "leftHip": {
+              "x": 68.1,
+              "y": 64.6,
+              "v": 0.999
+            },
+            "rightHip": {
+              "x": 52.8,
+              "y": 64,
+              "v": 0.999
+            },
+            "leftKnee": {
+              "x": 80.3,
+              "y": 89.5,
+              "v": 0.855
+            },
+            "rightKnee": {
+              "x": 43.8,
+              "y": 92.3,
+              "v": 0.97
+            },
+            "leftAnkle": {
+              "x": 82.4,
+              "y": 118.6,
+              "v": 0.914
+            },
+            "rightAnkle": {
+              "x": 34.2,
+              "y": 120,
+              "v": 0.956
+            },
+            "leftHeel": {
+              "x": 78.8,
+              "y": 123.9,
+              "v": 0.759
+            },
+            "rightHeel": {
+              "x": 32.3,
+              "y": 123.6,
+              "v": 0.621
+            },
+            "leftFootIndex": {
+              "x": 93.4,
+              "y": 125,
+              "v": 0.877
+            },
+            "rightFootIndex": {
+              "x": 34.6,
+              "y": 129.7,
+              "v": 0.903
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 69.6,
+                "y": 9.9
+              },
+              "roll": 173.5,
+              "yaw": 0.045,
+              "pitch": 0.486
+            },
+            "torso": {
+              "center": {
+                "x": 62.5,
+                "y": 24.4
+              },
+              "angle": 87.1
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 84.7,
+                "y": 61.5
+              },
+              "angle": -35.7
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 54.7,
+                "y": 33.6
+              },
+              "angle": 27.3
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 78.8,
+                "y": 123.9
+              },
+              "angle": -4.3
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 32.3,
+                "y": 123.6
+              },
+              "angle": -69.3
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.995,
+          "keypoints": {
+            "nose": {
+              "x": 72.4,
+              "y": 14.2,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 71,
+              "y": 11.2,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 69.4,
+              "y": 11,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 68.3,
+              "y": 12,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 64.2,
+              "y": 12,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 75.9,
+              "y": 27,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 50.6,
+              "y": 24.5,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 86.8,
+              "y": 42.9,
+              "v": 0.982
+            },
+            "rightElbow": {
+              "x": 36.2,
+              "y": 39.3,
+              "v": 0.997
+            },
+            "leftWrist": {
+              "x": 97.3,
+              "y": 36.6,
+              "v": 0.996
+            },
+            "rightWrist": {
+              "x": 51.8,
+              "y": 35.9,
+              "v": 0.99
+            },
+            "leftIndex": {
+              "x": 98.7,
+              "y": 32,
+              "v": 0.993
+            },
+            "rightIndex": {
+              "x": 58.2,
+              "y": 32.1,
+              "v": 0.982
+            },
+            "leftHip": {
+              "x": 67.4,
+              "y": 65.8,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 52.6,
+              "y": 65.3,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 80.6,
+              "y": 89.4,
+              "v": 0.996
+            },
+            "rightKnee": {
+              "x": 41.2,
+              "y": 91,
+              "v": 0.999
+            },
+            "leftAnkle": {
+              "x": 86.7,
+              "y": 116.6,
+              "v": 0.997
+            },
+            "rightAnkle": {
+              "x": 31.1,
+              "y": 119.5,
+              "v": 0.999
+            },
+            "leftHeel": {
+              "x": 83.6,
+              "y": 122.1,
+              "v": 0.989
+            },
+            "rightHeel": {
+              "x": 32.2,
+              "y": 121.7,
+              "v": 0.975
+            },
+            "leftFootIndex": {
+              "x": 98,
+              "y": 123.9,
+              "v": 0.996
+            },
+            "rightFootIndex": {
+              "x": 27.6,
+              "y": 128.8,
+              "v": 0.997
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 70.2,
+                "y": 11.1
+              },
+              "roll": 172.9,
+              "yaw": 1.364,
+              "pitch": 1.923
+            },
+            "torso": {
+              "center": {
+                "x": 63.3,
+                "y": 25.8
+              },
+              "angle": 85.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 97.3,
+                "y": 36.6
+              },
+              "angle": 73.1
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 51.8,
+                "y": 35.9
+              },
+              "angle": 30.7
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 83.6,
+                "y": 122.1
+              },
+              "angle": -7.1
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 32.2,
+                "y": 121.7
+              },
+              "angle": -122.9
+            }
+          }
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.99,
+          "keypoints": {
+            "nose": {
+              "x": 72.1,
+              "y": 13.7,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 70.5,
+              "y": 11.3,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 69,
+              "y": 11.1,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 67.8,
+              "y": 12,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 63.8,
+              "y": 11.8,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 76.2,
+              "y": 26.9,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 51.3,
+              "y": 23.9,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 86.1,
+              "y": 42.3,
+              "v": 0.978
+            },
+            "rightElbow": {
+              "x": 37,
+              "y": 39.4,
+              "v": 0.991
+            },
+            "leftWrist": {
+              "x": 97.4,
+              "y": 36.7,
+              "v": 0.991
+            },
+            "rightWrist": {
+              "x": 47.6,
+              "y": 30,
+              "v": 0.977
+            },
+            "leftIndex": {
+              "x": 99.4,
+              "y": 32.5,
+              "v": 0.985
+            },
+            "rightIndex": {
+              "x": 51.9,
+              "y": 25.1,
+              "v": 0.968
+            },
+            "leftHip": {
+              "x": 68,
+              "y": 66.6,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 52.7,
+              "y": 66,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 80,
+              "y": 88.7,
+              "v": 0.989
+            },
+            "rightKnee": {
+              "x": 42.3,
+              "y": 90.6,
+              "v": 0.999
+            },
+            "leftAnkle": {
+              "x": 85.7,
+              "y": 116.4,
+              "v": 0.987
+            },
+            "rightAnkle": {
+              "x": 30.9,
+              "y": 121.4,
+              "v": 0.998
+            },
+            "leftHeel": {
+              "x": 82.8,
+              "y": 123.2,
+              "v": 0.967
+            },
+            "rightHeel": {
+              "x": 30.8,
+              "y": 125.3,
+              "v": 0.971
+            },
+            "leftFootIndex": {
+              "x": 97.4,
+              "y": 123.4,
+              "v": 0.983
+            },
+            "rightFootIndex": {
+              "x": 27.9,
+              "y": 131.7,
+              "v": 0.996
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 69.8,
+                "y": 11.2
+              },
+              "roll": 172.4,
+              "yaw": 1.553,
+              "pitch": 1.652
+            },
+            "torso": {
+              "center": {
+                "x": 63.8,
+                "y": 25.4
+              },
+              "angle": 85.2
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 97.4,
+                "y": 36.7
+              },
+              "angle": 64.5
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 47.6,
+                "y": 30
+              },
+              "angle": 48.7
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 82.8,
+                "y": 123.2
+              },
+              "angle": -0.8
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 30.8,
+                "y": 125.3
+              },
+              "angle": -114.4
+            }
+          }
+        },
+        {
+          "index": 3,
+          "detected": true,
+          "avgVisibility": 0.991,
+          "keypoints": {
+            "nose": {
+              "x": 71.8,
+              "y": 12.4,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 70.8,
+              "y": 10.3,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 68,
+              "y": 10.2,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 68.3,
+              "y": 11.4,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 63.2,
+              "y": 11.1,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 75.9,
+              "y": 26.4,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 50.4,
+              "y": 24.6,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 86.4,
+              "y": 42.3,
+              "v": 0.976
+            },
+            "rightElbow": {
+              "x": 35.6,
+              "y": 40.8,
+              "v": 0.994
+            },
+            "leftWrist": {
+              "x": 96.7,
+              "y": 37.5,
+              "v": 0.994
+            },
+            "rightWrist": {
+              "x": 55.3,
+              "y": 35,
+              "v": 0.989
+            },
+            "leftIndex": {
+              "x": 99.1,
+              "y": 32.4,
+              "v": 0.99
+            },
+            "rightIndex": {
+              "x": 60.9,
+              "y": 31.7,
+              "v": 0.978
+            },
+            "leftHip": {
+              "x": 68.4,
+              "y": 66.1,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 53.3,
+              "y": 65.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 81,
+              "y": 89,
+              "v": 0.986
+            },
+            "rightKnee": {
+              "x": 41.9,
+              "y": 90.4,
+              "v": 0.998
+            },
+            "leftAnkle": {
+              "x": 86.3,
+              "y": 116.4,
+              "v": 0.989
+            },
+            "rightAnkle": {
+              "x": 31.1,
+              "y": 119.7,
+              "v": 0.997
+            },
+            "leftHeel": {
+              "x": 83.5,
+              "y": 122.6,
+              "v": 0.967
+            },
+            "rightHeel": {
+              "x": 30.9,
+              "y": 124.4,
+              "v": 0.953
+            },
+            "leftFootIndex": {
+              "x": 97.9,
+              "y": 123.5,
+              "v": 0.985
+            },
+            "rightFootIndex": {
+              "x": 28,
+              "y": 128.2,
+              "v": 0.993
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 69.4,
+                "y": 10.3
+              },
+              "roll": 178,
+              "yaw": 0.857,
+              "pitch": 0.767
+            },
+            "torso": {
+              "center": {
+                "x": 63.2,
+                "y": 25.5
+              },
+              "angle": 86.7
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 96.7,
+                "y": 37.5
+              },
+              "angle": 64.8
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 55.3,
+                "y": 35
+              },
+              "angle": 30.5
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 83.5,
+                "y": 122.6
+              },
+              "angle": -3.6
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 30.9,
+                "y": 124.4
+              },
+              "angle": -127.3
+            }
+          }
+        }
+      ]
+    },
+    "light_punch": {
+      "frameCount": 4,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.971,
+          "keypoints": {
+            "nose": {
+              "x": 64.5,
+              "y": 14.9,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 64.4,
+              "y": 12.5,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 60.9,
+              "y": 12.4,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 63.2,
+              "y": 13,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 56.2,
+              "y": 13.1,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 67.5,
+              "y": 26.3,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 45.7,
+              "y": 25.8,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 85,
+              "y": 29.7,
+              "v": 0.988
+            },
+            "rightElbow": {
+              "x": 31.9,
+              "y": 37.7,
+              "v": 0.986
+            },
+            "leftWrist": {
+              "x": 101.6,
+              "y": 30.1,
+              "v": 0.985
+            },
+            "rightWrist": {
+              "x": 47.7,
+              "y": 33.6,
+              "v": 0.95
+            },
+            "leftIndex": {
+              "x": 106.9,
+              "y": 31.2,
+              "v": 0.98
+            },
+            "rightIndex": {
+              "x": 52.9,
+              "y": 30.2,
+              "v": 0.912
+            },
+            "leftHip": {
+              "x": 59.1,
+              "y": 58.1,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 46.7,
+              "y": 57.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 71,
+              "y": 82.6,
+              "v": 0.954
+            },
+            "rightKnee": {
+              "x": 37.7,
+              "y": 78.6,
+              "v": 0.98
+            },
+            "leftAnkle": {
+              "x": 72.6,
+              "y": 103,
+              "v": 0.978
+            },
+            "rightAnkle": {
+              "x": 32,
+              "y": 98,
+              "v": 0.977
+            },
+            "leftHeel": {
+              "x": 68.7,
+              "y": 110.3,
+              "v": 0.913
+            },
+            "rightHeel": {
+              "x": 32.1,
+              "y": 102.8,
+              "v": 0.843
+            },
+            "leftFootIndex": {
+              "x": 76.3,
+              "y": 113.2,
+              "v": 0.955
+            },
+            "rightFootIndex": {
+              "x": 28.5,
+              "y": 106.8,
+              "v": 0.941
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 62.7,
+                "y": 12.5
+              },
+              "roll": 178.4,
+              "yaw": 0.528,
+              "pitch": 0.7
+            },
+            "torso": {
+              "center": {
+                "x": 56.6,
+                "y": 26.1
+              },
+              "angle": 83.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 101.6,
+                "y": 30.1
+              },
+              "angle": -11.7
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 47.7,
+                "y": 33.6
+              },
+              "angle": 33.2
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 68.7,
+                "y": 110.3
+              },
+              "angle": -20.9
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 32.1,
+                "y": 102.8
+              },
+              "angle": -132
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 2,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 3,
+          "detected": true,
+          "avgVisibility": 0.725,
+          "keypoints": {
+            "nose": {
+              "x": 35.3,
+              "y": 37,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 32.4,
+              "y": 35.9,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 34.6,
+              "y": 38.7,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 31.7,
+              "y": 34.3,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 35.2,
+              "y": 39.4,
+              "v": 0.999
+            },
+            "leftShoulder": {
+              "x": 38.5,
+              "y": 22.9,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 41.6,
+              "y": 40.1,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 51.1,
+              "y": 15.8,
+              "v": 0.896
+            },
+            "rightElbow": {
+              "x": 52.4,
+              "y": 44.1,
+              "v": 0.446
+            },
+            "leftWrist": {
+              "x": 57.7,
+              "y": 16,
+              "v": 0.722
+            },
+            "rightWrist": {
+              "x": 54.1,
+              "y": 39.5,
+              "v": 0.259
+            },
+            "leftIndex": {
+              "x": 60.5,
+              "y": 17.4,
+              "v": 0.702
+            },
+            "rightIndex": {
+              "x": 53.2,
+              "y": 37,
+              "v": 0.263
+            },
+            "leftHip": {
+              "x": 64.5,
+              "y": 26,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 64.6,
+              "y": 33.8,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 83.2,
+              "y": 29.7,
+              "v": 0.438
+            },
+            "rightKnee": {
+              "x": 82.9,
+              "y": 33.1,
+              "v": 0.288
+            },
+            "leftAnkle": {
+              "x": 103.4,
+              "y": 32.3,
+              "v": 0.747
+            },
+            "rightAnkle": {
+              "x": 103.3,
+              "y": 32.8,
+              "v": 0.665
+            },
+            "leftHeel": {
+              "x": 106.2,
+              "y": 32,
+              "v": 0.425
+            },
+            "rightHeel": {
+              "x": 106,
+              "y": 32.3,
+              "v": 0.398
+            },
+            "leftFootIndex": {
+              "x": 108.2,
+              "y": 34.7,
+              "v": 0.762
+            },
+            "rightFootIndex": {
+              "x": 107.8,
+              "y": 33.9,
+              "v": 0.674
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 33.5,
+                "y": 37.3
+              },
+              "roll": -51.8,
+              "yaw": 0.505,
+              "pitch": -0.084
+            },
+            "torso": {
+              "center": {
+                "x": 40.1,
+                "y": 31.5
+              },
+              "angle": -176.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 57.7,
+                "y": 16
+              },
+              "angle": -26.6
+            },
+            "rightHand": null,
+            "leftFoot": {
+              "anchor": {
+                "x": 106.2,
+                "y": 32
+              },
+              "angle": -53.5
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 106,
+                "y": 32.3
+              },
+              "angle": -41.6
+            }
+          }
+        }
+      ]
+    },
+    "heavy_punch": {
+      "frameCount": 5,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.994,
+          "keypoints": {
+            "nose": {
+              "x": 65.2,
+              "y": 16.4,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 64.9,
+              "y": 13.4,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 62.9,
+              "y": 13.6,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 62.1,
+              "y": 12.9,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 57.6,
+              "y": 13.3,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 68.3,
+              "y": 25.4,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 44.6,
+              "y": 25.1,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 86.6,
+              "y": 27.5,
+              "v": 0.997
+            },
+            "rightElbow": {
+              "x": 30.1,
+              "y": 39.5,
+              "v": 0.998
+            },
+            "leftWrist": {
+              "x": 103.5,
+              "y": 28.5,
+              "v": 0.999
+            },
+            "rightWrist": {
+              "x": 47.1,
+              "y": 36.4,
+              "v": 0.993
+            },
+            "leftIndex": {
+              "x": 108.8,
+              "y": 29.1,
+              "v": 0.998
+            },
+            "rightIndex": {
+              "x": 52.7,
+              "y": 32.8,
+              "v": 0.987
+            },
+            "leftHip": {
+              "x": 61.1,
+              "y": 63.8,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 46.8,
+              "y": 63.7,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 74.6,
+              "y": 89,
+              "v": 0.995
+            },
+            "rightKnee": {
+              "x": 35.3,
+              "y": 90.8,
+              "v": 0.997
+            },
+            "leftAnkle": {
+              "x": 79.6,
+              "y": 118.3,
+              "v": 0.996
+            },
+            "rightAnkle": {
+              "x": 25.9,
+              "y": 115.1,
+              "v": 0.997
+            },
+            "leftHeel": {
+              "x": 76.7,
+              "y": 123.5,
+              "v": 0.982
+            },
+            "rightHeel": {
+              "x": 24.3,
+              "y": 123.5,
+              "v": 0.942
+            },
+            "leftFootIndex": {
+              "x": 91.3,
+              "y": 123.1,
+              "v": 0.994
+            },
+            "rightFootIndex": {
+              "x": 22.2,
+              "y": 126.3,
+              "v": 0.992
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 63.9,
+                "y": 13.5
+              },
+              "roll": -174.3,
+              "yaw": 0.647,
+              "pitch": 1.443
+            },
+            "torso": {
+              "center": {
+                "x": 56.5,
+                "y": 25.3
+              },
+              "angle": 86.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 103.5,
+                "y": 28.5
+              },
+              "angle": -6.5
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 47.1,
+                "y": 36.4
+              },
+              "angle": 32.7
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 76.7,
+                "y": 123.5
+              },
+              "angle": 1.6
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 24.3,
+                "y": 123.5
+              },
+              "angle": -126.9
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.818,
+          "keypoints": {
+            "nose": {
+              "x": 62.3,
+              "y": 15.7,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 61.7,
+              "y": 13.4,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 61,
+              "y": 13.8,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 60.2,
+              "y": 13.8,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 56.3,
+              "y": 14.4,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 59.2,
+              "y": 23.6,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 50,
+              "y": 24.1,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 63.3,
+              "y": 33.1,
+              "v": 0.287
+            },
+            "rightElbow": {
+              "x": 43.6,
+              "y": 36,
+              "v": 0.89
+            },
+            "leftWrist": {
+              "x": 63.7,
+              "y": 36.4,
+              "v": 0.277
+            },
+            "rightWrist": {
+              "x": 36.7,
+              "y": 39.4,
+              "v": 0.887
+            },
+            "leftIndex": {
+              "x": 63.4,
+              "y": 36.4,
+              "v": 0.336
+            },
+            "rightIndex": {
+              "x": 34.4,
+              "y": 39.2,
+              "v": 0.876
+            },
+            "leftHip": {
+              "x": 57.1,
+              "y": 49.2,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 51.8,
+              "y": 51.1,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 65.6,
+              "y": 67.6,
+              "v": 0.744
+            },
+            "rightKnee": {
+              "x": 67,
+              "y": 66.7,
+              "v": 0.786
+            },
+            "leftAnkle": {
+              "x": 70.3,
+              "y": 86.8,
+              "v": 0.888
+            },
+            "rightAnkle": {
+              "x": 71.5,
+              "y": 84.2,
+              "v": 0.841
+            },
+            "leftHeel": {
+              "x": 69.8,
+              "y": 89.9,
+              "v": 0.729
+            },
+            "rightHeel": {
+              "x": 71.2,
+              "y": 86.8,
+              "v": 0.606
+            },
+            "leftFootIndex": {
+              "x": 73.8,
+              "y": 92.9,
+              "v": 0.877
+            },
+            "rightFootIndex": {
+              "x": 76.1,
+              "y": 89.6,
+              "v": 0.782
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 61.4,
+                "y": 13.6
+              },
+              "roll": -150.3,
+              "yaw": 1.178,
+              "pitch": 2.605
+            },
+            "torso": {
+              "center": {
+                "x": 54.6,
+                "y": 23.9
+              },
+              "angle": 89.7
+            },
+            "leftHand": null,
+            "rightHand": {
+              "anchor": {
+                "x": 36.7,
+                "y": 39.4
+              },
+              "angle": 175
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 69.8,
+                "y": 89.9
+              },
+              "angle": -36.9
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 71.2,
+                "y": 86.8
+              },
+              "angle": -29.7
+            }
+          }
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.994,
+          "keypoints": {
+            "nose": {
+              "x": 64.8,
+              "y": 12.4,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 64,
+              "y": 9.9,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 62.7,
+              "y": 10.3,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 64.2,
+              "y": 11.4,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 57.7,
+              "y": 12.4,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 67.3,
+              "y": 24.2,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 47.5,
+              "y": 25,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 85.5,
+              "y": 25.5,
+              "v": 0.999
+            },
+            "rightElbow": {
+              "x": 37.8,
+              "y": 35.2,
+              "v": 0.997
+            },
+            "leftWrist": {
+              "x": 103.5,
+              "y": 26.3,
+              "v": 0.999
+            },
+            "rightWrist": {
+              "x": 31.2,
+              "y": 39.7,
+              "v": 0.969
+            },
+            "leftIndex": {
+              "x": 108.4,
+              "y": 27.1,
+              "v": 0.998
+            },
+            "rightIndex": {
+              "x": 29.1,
+              "y": 40.2,
+              "v": 0.96
+            },
+            "leftHip": {
+              "x": 60.8,
+              "y": 53.4,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 48.5,
+              "y": 52.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 70.6,
+              "y": 78.7,
+              "v": 0.998
+            },
+            "rightKnee": {
+              "x": 44,
+              "y": 73.1,
+              "v": 0.998
+            },
+            "leftAnkle": {
+              "x": 72.3,
+              "y": 102.6,
+              "v": 0.999
+            },
+            "rightAnkle": {
+              "x": 33.2,
+              "y": 93.7,
+              "v": 0.997
+            },
+            "leftHeel": {
+              "x": 71,
+              "y": 102,
+              "v": 0.99
+            },
+            "rightHeel": {
+              "x": 33.3,
+              "y": 97.7,
+              "v": 0.974
+            },
+            "leftFootIndex": {
+              "x": 78,
+              "y": 110.1,
+              "v": 0.998
+            },
+            "rightFootIndex": {
+              "x": 29.6,
+              "y": 103.4,
+              "v": 0.995
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 63.4,
+                "y": 10.1
+              },
+              "roll": -162.9,
+              "yaw": 1.066,
+              "pitch": 1.691
+            },
+            "torso": {
+              "center": {
+                "x": 57.4,
+                "y": 24.6
+              },
+              "angle": 84.4
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 103.5,
+                "y": 26.3
+              },
+              "angle": -9.3
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 31.2,
+                "y": 39.7
+              },
+              "angle": -166.6
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 71,
+                "y": 102
+              },
+              "angle": -49.2
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 33.3,
+                "y": 97.7
+              },
+              "angle": -123
+            }
+          }
+        },
+        {
+          "index": 3,
+          "detected": true,
+          "avgVisibility": 0.444,
+          "keypoints": {
+            "nose": {
+              "x": 64.3,
+              "y": 16,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 64,
+              "y": 14.1,
+              "v": 0.999
+            },
+            "rightEye": {
+              "x": 62.6,
+              "y": 14.3,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 63.3,
+              "y": 15.6,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 58.2,
+              "y": 14.5,
+              "v": 0.999
+            },
+            "leftShoulder": {
+              "x": 61.2,
+              "y": 23.3,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 50.8,
+              "y": 21.4,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 62.6,
+              "y": 28.9,
+              "v": 0.064
+            },
+            "rightElbow": {
+              "x": 47.5,
+              "y": 26.1,
+              "v": 0.398
+            },
+            "leftWrist": {
+              "x": 60.4,
+              "y": 30.7,
+              "v": 0.052
+            },
+            "rightWrist": {
+              "x": 53,
+              "y": 28.2,
+              "v": 0.214
+            },
+            "leftIndex": {
+              "x": 59.3,
+              "y": 29.9,
+              "v": 0.075
+            },
+            "rightIndex": {
+              "x": 55.6,
+              "y": 27.9,
+              "v": 0.205
+            },
+            "leftHip": {
+              "x": 57.9,
+              "y": 43.2,
+              "v": 0.999
+            },
+            "rightHip": {
+              "x": 50.7,
+              "y": 42.5,
+              "v": 0.999
+            },
+            "leftKnee": {
+              "x": 64.9,
+              "y": 42.4,
+              "v": 0.07
+            },
+            "rightKnee": {
+              "x": 42.9,
+              "y": 35.6,
+              "v": 0.013
+            },
+            "leftAnkle": {
+              "x": 58.1,
+              "y": 46.7,
+              "v": 0.016
+            },
+            "rightAnkle": {
+              "x": 45.9,
+              "y": 39.8,
+              "v": 0.013
+            },
+            "leftHeel": {
+              "x": 56.9,
+              "y": 47.5,
+              "v": 0.034
+            },
+            "rightHeel": {
+              "x": 47.1,
+              "y": 41.5,
+              "v": 0.019
+            },
+            "leftFootIndex": {
+              "x": 56,
+              "y": 48,
+              "v": 0.025
+            },
+            "rightFootIndex": {
+              "x": 45.7,
+              "y": 39.7,
+              "v": 0.014
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 63.3,
+                "y": 14.2
+              },
+              "roll": -171.9,
+              "yaw": 0.707,
+              "pitch": 1.273
+            },
+            "torso": {
+              "center": {
+                "x": 56,
+                "y": 22.4
+              },
+              "angle": 85.3
+            },
+            "leftHand": null,
+            "rightHand": null,
+            "leftFoot": null,
+            "rightFoot": null
+          }
+        },
+        {
+          "index": 4,
+          "detected": true,
+          "avgVisibility": 0.992,
+          "keypoints": {
+            "nose": {
+              "x": 64.3,
+              "y": 16.4,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 63.3,
+              "y": 13.8,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 61.8,
+              "y": 14.2,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 60.1,
+              "y": 13.6,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 56.5,
+              "y": 14.9,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 65.5,
+              "y": 26.5,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 44.5,
+              "y": 27.1,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 84.8,
+              "y": 27.4,
+              "v": 0.996
+            },
+            "rightElbow": {
+              "x": 29.8,
+              "y": 37.3,
+              "v": 0.998
+            },
+            "leftWrist": {
+              "x": 103.6,
+              "y": 28.4,
+              "v": 0.996
+            },
+            "rightWrist": {
+              "x": 46.9,
+              "y": 34.1,
+              "v": 0.984
+            },
+            "leftIndex": {
+              "x": 109.5,
+              "y": 29.1,
+              "v": 0.993
+            },
+            "rightIndex": {
+              "x": 51.2,
+              "y": 29.9,
+              "v": 0.968
+            },
+            "leftHip": {
+              "x": 59.1,
+              "y": 61.9,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 46.1,
+              "y": 60.6,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 70.1,
+              "y": 86.9,
+              "v": 0.995
+            },
+            "rightKnee": {
+              "x": 35.1,
+              "y": 86.3,
+              "v": 0.997
+            },
+            "leftAnkle": {
+              "x": 73.9,
+              "y": 110.1,
+              "v": 0.996
+            },
+            "rightAnkle": {
+              "x": 27.2,
+              "y": 110.6,
+              "v": 0.996
+            },
+            "leftHeel": {
+              "x": 70.9,
+              "y": 119.7,
+              "v": 0.972
+            },
+            "rightHeel": {
+              "x": 27.7,
+              "y": 114.7,
+              "v": 0.935
+            },
+            "leftFootIndex": {
+              "x": 79.3,
+              "y": 120.5,
+              "v": 0.993
+            },
+            "rightFootIndex": {
+              "x": 22.8,
+              "y": 118.2,
+              "v": 0.989
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 62.6,
+                "y": 14
+              },
+              "roll": -165.1,
+              "yaw": 1.127,
+              "pitch": 1.546
+            },
+            "torso": {
+              "center": {
+                "x": 55,
+                "y": 26.8
+              },
+              "angle": 86
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 103.6,
+                "y": 28.4
+              },
+              "angle": -6.8
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 46.9,
+                "y": 34.1
+              },
+              "angle": 44.3
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 70.9,
+                "y": 119.7
+              },
+              "angle": -5.4
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 27.7,
+                "y": 114.7
+              },
+              "angle": -144.5
+            }
+          }
+        }
+      ]
+    },
+    "light_kick": {
+      "frameCount": 4,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.971,
+          "keypoints": {
+            "nose": {
+              "x": 71.1,
+              "y": 14,
+              "v": 0.999
+            },
+            "leftEye": {
+              "x": 71.4,
+              "y": 11.3,
+              "v": 0.998
+            },
+            "rightEye": {
+              "x": 68.3,
+              "y": 10.9,
+              "v": 0.999
+            },
+            "leftEar": {
+              "x": 69.9,
+              "y": 12,
+              "v": 0.999
+            },
+            "rightEar": {
+              "x": 64,
+              "y": 11.2,
+              "v": 0.997
+            },
+            "leftShoulder": {
+              "x": 76.3,
+              "y": 27.1,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 52,
+              "y": 23,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 81.2,
+              "y": 46.2,
+              "v": 0.926
+            },
+            "rightElbow": {
+              "x": 36.4,
+              "y": 41,
+              "v": 0.985
+            },
+            "leftWrist": {
+              "x": 89.4,
+              "y": 60.5,
+              "v": 0.931
+            },
+            "rightWrist": {
+              "x": 53.4,
+              "y": 33.9,
+              "v": 0.966
+            },
+            "leftIndex": {
+              "x": 92.2,
+              "y": 64.4,
+              "v": 0.916
+            },
+            "rightIndex": {
+              "x": 59.9,
+              "y": 31,
+              "v": 0.941
+            },
+            "leftHip": {
+              "x": 68.7,
+              "y": 65.4,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 53.1,
+              "y": 64.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 81.3,
+              "y": 89.8,
+              "v": 0.953
+            },
+            "rightKnee": {
+              "x": 44,
+              "y": 90.5,
+              "v": 0.994
+            },
+            "leftAnkle": {
+              "x": 87.6,
+              "y": 117.5,
+              "v": 0.983
+            },
+            "rightAnkle": {
+              "x": 32.4,
+              "y": 118.8,
+              "v": 0.993
+            },
+            "leftHeel": {
+              "x": 84.7,
+              "y": 123.2,
+              "v": 0.92
+            },
+            "rightHeel": {
+              "x": 32.1,
+              "y": 123.2,
+              "v": 0.87
+            },
+            "leftFootIndex": {
+              "x": 99.5,
+              "y": 123.6,
+              "v": 0.977
+            },
+            "rightFootIndex": {
+              "x": 30,
+              "y": 131.9,
+              "v": 0.984
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 69.9,
+                "y": 11.1
+              },
+              "roll": 172.6,
+              "yaw": 0.4,
+              "pitch": 0.928
+            },
+            "torso": {
+              "center": {
+                "x": 64.2,
+                "y": 25.1
+              },
+              "angle": 85.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 89.4,
+                "y": 60.5
+              },
+              "angle": -54.3
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 53.4,
+                "y": 33.9
+              },
+              "angle": 24
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 84.7,
+                "y": 123.2
+              },
+              "angle": -1.5
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 32.1,
+                "y": 123.2
+              },
+              "angle": -103.6
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.99,
+          "keypoints": {
+            "nose": {
+              "x": 73.4,
+              "y": 17.1,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 72.5,
+              "y": 14.4,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 70.8,
+              "y": 15,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 69.7,
+              "y": 14,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 65.9,
+              "y": 15.6,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 74.8,
+              "y": 27.1,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 54.5,
+              "y": 26,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 85.7,
+              "y": 42.3,
+              "v": 0.938
+            },
+            "rightElbow": {
+              "x": 40.4,
+              "y": 39.6,
+              "v": 0.996
+            },
+            "leftWrist": {
+              "x": 94.2,
+              "y": 33.3,
+              "v": 0.989
+            },
+            "rightWrist": {
+              "x": 57.7,
+              "y": 34,
+              "v": 0.989
+            },
+            "leftIndex": {
+              "x": 95.3,
+              "y": 29.1,
+              "v": 0.985
+            },
+            "rightIndex": {
+              "x": 62.9,
+              "y": 30.7,
+              "v": 0.979
+            },
+            "leftHip": {
+              "x": 69.4,
+              "y": 59.1,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 55.8,
+              "y": 60.1,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 93.6,
+              "y": 66.1,
+              "v": 0.995
+            },
+            "rightKnee": {
+              "x": 50.3,
+              "y": 82.3,
+              "v": 0.996
+            },
+            "leftAnkle": {
+              "x": 85.5,
+              "y": 92.1,
+              "v": 0.989
+            },
+            "rightAnkle": {
+              "x": 37.3,
+              "y": 106.7,
+              "v": 0.997
+            },
+            "leftHeel": {
+              "x": 80.4,
+              "y": 95.6,
+              "v": 0.985
+            },
+            "rightHeel": {
+              "x": 36.4,
+              "y": 111.2,
+              "v": 0.963
+            },
+            "leftFootIndex": {
+              "x": 94.1,
+              "y": 103.6,
+              "v": 0.986
+            },
+            "rightFootIndex": {
+              "x": 32.7,
+              "y": 114.2,
+              "v": 0.99
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 71.7,
+                "y": 14.7
+              },
+              "roll": -160.6,
+              "yaw": 0.971,
+              "pitch": 1.331
+            },
+            "torso": {
+              "center": {
+                "x": 64.7,
+                "y": 26.6
+              },
+              "angle": 86.5
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 94.2,
+                "y": 33.3
+              },
+              "angle": 75.3
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 57.7,
+                "y": 34
+              },
+              "angle": 32.4
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 80.4,
+                "y": 95.6
+              },
+              "angle": -30.3
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 36.4,
+                "y": 111.2
+              },
+              "angle": -141
+            }
+          }
+        },
+        {
+          "index": 3,
+          "detected": true,
+          "avgVisibility": 0.91,
+          "keypoints": {
+            "nose": {
+              "x": 47.8,
+              "y": 14.5,
+              "v": 0.998
+            },
+            "leftEye": {
+              "x": 46.8,
+              "y": 12.1,
+              "v": 0.997
+            },
+            "rightEye": {
+              "x": 45.1,
+              "y": 12.9,
+              "v": 0.999
+            },
+            "leftEar": {
+              "x": 43.9,
+              "y": 12.6,
+              "v": 0.999
+            },
+            "rightEar": {
+              "x": 39.4,
+              "y": 14.4,
+              "v": 0.998
+            },
+            "leftShoulder": {
+              "x": 49.6,
+              "y": 24,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 30.5,
+              "y": 25.9,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 63.5,
+              "y": 35.2,
+              "v": 0.907
+            },
+            "rightElbow": {
+              "x": 17.9,
+              "y": 41.4,
+              "v": 0.881
+            },
+            "leftWrist": {
+              "x": 68.6,
+              "y": 26.1,
+              "v": 0.987
+            },
+            "rightWrist": {
+              "x": 31.8,
+              "y": 34.8,
+              "v": 0.928
+            },
+            "leftIndex": {
+              "x": 66.8,
+              "y": 21.7,
+              "v": 0.981
+            },
+            "rightIndex": {
+              "x": 36.7,
+              "y": 30,
+              "v": 0.901
+            },
+            "leftHip": {
+              "x": 47.9,
+              "y": 56,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 38.6,
+              "y": 56.8,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 51.7,
+              "y": 78.9,
+              "v": 0.848
+            },
+            "rightKnee": {
+              "x": 52.5,
+              "y": 67.9,
+              "v": 0.787
+            },
+            "leftAnkle": {
+              "x": 41.5,
+              "y": 98.9,
+              "v": 0.892
+            },
+            "rightAnkle": {
+              "x": 61.4,
+              "y": 82.5,
+              "v": 0.797
+            },
+            "leftHeel": {
+              "x": 38.8,
+              "y": 101.6,
+              "v": 0.816
+            },
+            "rightHeel": {
+              "x": 61.8,
+              "y": 85.3,
+              "v": 0.642
+            },
+            "leftFootIndex": {
+              "x": 42.7,
+              "y": 105.8,
+              "v": 0.855
+            },
+            "rightFootIndex": {
+              "x": 69.1,
+              "y": 85.9,
+              "v": 0.723
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 46,
+                "y": 12.5
+              },
+              "roll": -154.8,
+              "yaw": 0.985,
+              "pitch": 1.064
+            },
+            "torso": {
+              "center": {
+                "x": 40.1,
+                "y": 25
+              },
+              "angle": 95.8
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 68.6,
+                "y": 26.1
+              },
+              "angle": 112.2
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 31.8,
+                "y": 34.8
+              },
+              "angle": 44.4
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 38.8,
+                "y": 101.6
+              },
+              "angle": -47.1
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 61.8,
+                "y": 85.3
+              },
+              "angle": -4.7
+            }
+          }
+        }
+      ]
+    },
+    "heavy_kick": {
+      "frameCount": 5,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.422,
+          "keypoints": {
+            "nose": {
+              "x": 60.7,
+              "y": 29.5,
+              "v": 0.997
+            },
+            "leftEye": {
+              "x": 62,
+              "y": 30.1,
+              "v": 0.996
+            },
+            "rightEye": {
+              "x": 61.7,
+              "y": 29.9,
+              "v": 0.996
+            },
+            "leftEar": {
+              "x": 63.4,
+              "y": 31.9,
+              "v": 0.998
+            },
+            "rightEar": {
+              "x": 62.2,
+              "y": 31.6,
+              "v": 0.992
+            },
+            "leftShoulder": {
+              "x": 65.3,
+              "y": 39.8,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 59.6,
+              "y": 37.4,
+              "v": 0.999
+            },
+            "leftElbow": {
+              "x": 62.8,
+              "y": 46.6,
+              "v": 0.159
+            },
+            "rightElbow": {
+              "x": 53.4,
+              "y": 40,
+              "v": 0.026
+            },
+            "leftWrist": {
+              "x": 60.1,
+              "y": 45.9,
+              "v": 0.062
+            },
+            "rightWrist": {
+              "x": 56.2,
+              "y": 39.3,
+              "v": 0.045
+            },
+            "leftIndex": {
+              "x": 60,
+              "y": 44.9,
+              "v": 0.093
+            },
+            "rightIndex": {
+              "x": 58.1,
+              "y": 38.7,
+              "v": 0.079
+            },
+            "leftHip": {
+              "x": 54.7,
+              "y": 56.6,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 51.3,
+              "y": 54.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 44.4,
+              "y": 67.5,
+              "v": 0.039
+            },
+            "rightKnee": {
+              "x": 41.3,
+              "y": 62.9,
+              "v": 0.009
+            },
+            "leftAnkle": {
+              "x": 45.1,
+              "y": 79.5,
+              "v": 0.05
+            },
+            "rightAnkle": {
+              "x": 45.6,
+              "y": 71.4,
+              "v": 0.005
+            },
+            "leftHeel": {
+              "x": 46.1,
+              "y": 81.3,
+              "v": 0.059
+            },
+            "rightHeel": {
+              "x": 47.3,
+              "y": 72.5,
+              "v": 0.024
+            },
+            "leftFootIndex": {
+              "x": 41.5,
+              "y": 82.4,
+              "v": 0.067
+            },
+            "rightFootIndex": {
+              "x": 43.1,
+              "y": 74.4,
+              "v": 0.011
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 61.9,
+                "y": 30
+              },
+              "roll": 146.3,
+              "yaw": -3.19,
+              "pitch": -1.387
+            },
+            "torso": {
+              "center": {
+                "x": 62.5,
+                "y": 38.6
+              },
+              "angle": 60.8
+            },
+            "leftHand": null,
+            "rightHand": null,
+            "leftFoot": null,
+            "rightFoot": null
+          }
+        },
+        {
+          "index": 1,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 2,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 3,
+          "detected": true,
+          "avgVisibility": 0.532,
+          "keypoints": {
+            "nose": {
+              "x": 66.4,
+              "y": 18.3,
+              "v": 0.995
+            },
+            "leftEye": {
+              "x": 66.4,
+              "y": 18.9,
+              "v": 0.989
+            },
+            "rightEye": {
+              "x": 67.1,
+              "y": 19,
+              "v": 0.996
+            },
+            "leftEar": {
+              "x": 67.4,
+              "y": 19,
+              "v": 0.994
+            },
+            "rightEar": {
+              "x": 68.5,
+              "y": 19,
+              "v": 0.994
+            },
+            "leftShoulder": {
+              "x": 64.9,
+              "y": 14.3,
+              "v": 0.999
+            },
+            "rightShoulder": {
+              "x": 72.7,
+              "y": 15,
+              "v": 0.998
+            },
+            "leftElbow": {
+              "x": 64.7,
+              "y": 9.3,
+              "v": 0.397
+            },
+            "rightElbow": {
+              "x": 75.6,
+              "y": 8.4,
+              "v": 0.789
+            },
+            "leftWrist": {
+              "x": 67.1,
+              "y": 7.2,
+              "v": 0.21
+            },
+            "rightWrist": {
+              "x": 70.2,
+              "y": 7.6,
+              "v": 0.705
+            },
+            "leftIndex": {
+              "x": 67.9,
+              "y": 6.9,
+              "v": 0.263
+            },
+            "rightIndex": {
+              "x": 68.2,
+              "y": 7.9,
+              "v": 0.638
+            },
+            "leftHip": {
+              "x": 68,
+              "y": 1.6,
+              "v": 0.963
+            },
+            "rightHip": {
+              "x": 73,
+              "y": 1.5,
+              "v": 0.97
+            },
+            "leftKnee": {
+              "x": 66.4,
+              "y": -3.3,
+              "v": 0.06
+            },
+            "rightKnee": {
+              "x": 71.3,
+              "y": -5,
+              "v": 0.169
+            },
+            "leftAnkle": {
+              "x": 67,
+              "y": -14,
+              "v": 0.018
+            },
+            "rightAnkle": {
+              "x": 71.4,
+              "y": -14.1,
+              "v": 0.019
+            },
+            "leftHeel": {
+              "x": 67.4,
+              "y": -15.7,
+              "v": 0.025
+            },
+            "rightHeel": {
+              "x": 71.8,
+              "y": -15.4,
+              "v": 0.02
+            },
+            "leftFootIndex": {
+              "x": 67.2,
+              "y": -16.9,
+              "v": 0.017
+            },
+            "rightFootIndex": {
+              "x": 69.5,
+              "y": -17,
+              "v": 0.014
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 66.8,
+                "y": 19
+              },
+              "roll": -8.1,
+              "yaw": -0.495,
+              "pitch": -0.919
+            },
+            "torso": {
+              "center": {
+                "x": 68.8,
+                "y": 14.7
+              },
+              "angle": -97.4
+            },
+            "leftHand": null,
+            "rightHand": {
+              "anchor": {
+                "x": 70.2,
+                "y": 7.6
+              },
+              "angle": -171.5
+            },
+            "leftFoot": null,
+            "rightFoot": null
+          }
+        },
+        {
+          "index": 4,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        }
+      ]
+    },
+    "special": {
+      "frameCount": 5,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.991,
+          "keypoints": {
+            "nose": {
+              "x": 64.4,
+              "y": 13.6,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 63.4,
+              "y": 11,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 61.8,
+              "y": 11.1,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 61.4,
+              "y": 11.8,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 57.5,
+              "y": 11.6,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 67.9,
+              "y": 27.5,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 45.5,
+              "y": 22.6,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 70.8,
+              "y": 45.7,
+              "v": 0.956
+            },
+            "rightElbow": {
+              "x": 28.3,
+              "y": 34.3,
+              "v": 0.998
+            },
+            "leftWrist": {
+              "x": 82.9,
+              "y": 58.3,
+              "v": 0.982
+            },
+            "rightWrist": {
+              "x": 41.9,
+              "y": 42.4,
+              "v": 0.995
+            },
+            "leftIndex": {
+              "x": 86.5,
+              "y": 61.5,
+              "v": 0.977
+            },
+            "rightIndex": {
+              "x": 47.5,
+              "y": 42,
+              "v": 0.992
+            },
+            "leftHip": {
+              "x": 57.6,
+              "y": 64.8,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 44.9,
+              "y": 64.1,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 73.9,
+              "y": 87.7,
+              "v": 0.974
+            },
+            "rightKnee": {
+              "x": 37.9,
+              "y": 90.8,
+              "v": 0.999
+            },
+            "leftAnkle": {
+              "x": 79.4,
+              "y": 116.8,
+              "v": 0.991
+            },
+            "rightAnkle": {
+              "x": 26.7,
+              "y": 120.6,
+              "v": 0.999
+            },
+            "leftHeel": {
+              "x": 76.9,
+              "y": 122.7,
+              "v": 0.968
+            },
+            "rightHeel": {
+              "x": 24.8,
+              "y": 124.2,
+              "v": 0.969
+            },
+            "leftFootIndex": {
+              "x": 91.2,
+              "y": 123.4,
+              "v": 0.991
+            },
+            "rightFootIndex": {
+              "x": 27.4,
+              "y": 130,
+              "v": 0.997
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 62.6,
+                "y": 11.1
+              },
+              "roll": -176.4,
+              "yaw": 1.123,
+              "pitch": 1.591
+            },
+            "torso": {
+              "center": {
+                "x": 56.7,
+                "y": 25.1
+              },
+              "angle": 82.1
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 82.9,
+                "y": 58.3
+              },
+              "angle": -41.6
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 41.9,
+                "y": 42.4
+              },
+              "angle": 4.1
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 76.9,
+                "y": 122.7
+              },
+              "angle": -2.8
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 24.8,
+                "y": 124.2
+              },
+              "angle": -65.9
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.974,
+          "keypoints": {
+            "nose": {
+              "x": 58.4,
+              "y": 15.7,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 58.4,
+              "y": 12.8,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 56.5,
+              "y": 12.4,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 55.1,
+              "y": 12.9,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 50.4,
+              "y": 11.9,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 56.3,
+              "y": 25.8,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 37.1,
+              "y": 24.5,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 65.8,
+              "y": 34.3,
+              "v": 0.686
+            },
+            "rightElbow": {
+              "x": 23.4,
+              "y": 39.5,
+              "v": 0.996
+            },
+            "leftWrist": {
+              "x": 80.1,
+              "y": 31.5,
+              "v": 0.906
+            },
+            "rightWrist": {
+              "x": 40.1,
+              "y": 36.2,
+              "v": 0.979
+            },
+            "leftIndex": {
+              "x": 83.9,
+              "y": 29.1,
+              "v": 0.922
+            },
+            "rightIndex": {
+              "x": 45.8,
+              "y": 32.5,
+              "v": 0.969
+            },
+            "leftHip": {
+              "x": 53.9,
+              "y": 64.9,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 41.4,
+              "y": 64.5,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 70.7,
+              "y": 88.3,
+              "v": 0.995
+            },
+            "rightKnee": {
+              "x": 29.6,
+              "y": 89.7,
+              "v": 0.998
+            },
+            "leftAnkle": {
+              "x": 67.3,
+              "y": 117.9,
+              "v": 0.995
+            },
+            "rightAnkle": {
+              "x": 16.3,
+              "y": 117.6,
+              "v": 0.999
+            },
+            "leftHeel": {
+              "x": 62.9,
+              "y": 122.2,
+              "v": 0.989
+            },
+            "rightHeel": {
+              "x": 15.3,
+              "y": 119.3,
+              "v": 0.972
+            },
+            "leftFootIndex": {
+              "x": 75.9,
+              "y": 128.9,
+              "v": 0.994
+            },
+            "rightFootIndex": {
+              "x": 15.1,
+              "y": 127.9,
+              "v": 0.997
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 57.5,
+                "y": 12.6
+              },
+              "roll": 168.1,
+              "yaw": 0.489,
+              "pitch": 1.597
+            },
+            "torso": {
+              "center": {
+                "x": 46.7,
+                "y": 25.2
+              },
+              "angle": 91.4
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 80.1,
+                "y": 31.5
+              },
+              "angle": 32.3
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 40.1,
+                "y": 36.2
+              },
+              "angle": 33
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 62.9,
+                "y": 122.2
+              },
+              "angle": -27.3
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 15.3,
+                "y": 119.3
+              },
+              "angle": -91.3
+            }
+          }
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.964,
+          "keypoints": {
+            "nose": {
+              "x": 56.4,
+              "y": 15.4,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 55.6,
+              "y": 12.8,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 54.3,
+              "y": 12.6,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 52.4,
+              "y": 12.6,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 49.3,
+              "y": 12.8,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 56.5,
+              "y": 27.4,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 39.7,
+              "y": 26.2,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 63.3,
+              "y": 37.9,
+              "v": 0.7
+            },
+            "rightElbow": {
+              "x": 22.8,
+              "y": 38.1,
+              "v": 0.996
+            },
+            "leftWrist": {
+              "x": 69.1,
+              "y": 35.5,
+              "v": 0.788
+            },
+            "rightWrist": {
+              "x": 36.5,
+              "y": 35,
+              "v": 0.971
+            },
+            "leftIndex": {
+              "x": 70.6,
+              "y": 33.1,
+              "v": 0.81
+            },
+            "rightIndex": {
+              "x": 40,
+              "y": 31.5,
+              "v": 0.943
+            },
+            "leftHip": {
+              "x": 51.1,
+              "y": 63.6,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 37.5,
+              "y": 62.8,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 65.4,
+              "y": 88.6,
+              "v": 0.997
+            },
+            "rightKnee": {
+              "x": 26.7,
+              "y": 87.3,
+              "v": 0.999
+            },
+            "leftAnkle": {
+              "x": 70,
+              "y": 115.7,
+              "v": 0.999
+            },
+            "rightAnkle": {
+              "x": 17.7,
+              "y": 111.7,
+              "v": 0.999
+            },
+            "leftHeel": {
+              "x": 67,
+              "y": 118.9,
+              "v": 0.993
+            },
+            "rightHeel": {
+              "x": 17.4,
+              "y": 115.9,
+              "v": 0.978
+            },
+            "leftFootIndex": {
+              "x": 79.3,
+              "y": 121.9,
+              "v": 0.998
+            },
+            "rightFootIndex": {
+              "x": 14.1,
+              "y": 120.2,
+              "v": 0.996
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 55,
+                "y": 12.7
+              },
+              "roll": 171.3,
+              "yaw": 1.102,
+              "pitch": 2.053
+            },
+            "torso": {
+              "center": {
+                "x": 48.1,
+                "y": 26.8
+              },
+              "angle": 84
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 69.1,
+                "y": 35.5
+              },
+              "angle": 58
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 36.5,
+                "y": 35
+              },
+              "angle": 45
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 67,
+                "y": 118.9
+              },
+              "angle": -13.7
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 17.4,
+                "y": 115.9
+              },
+              "angle": -127.5
+            }
+          }
+        },
+        {
+          "index": 3,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 4,
+          "detected": true,
+          "avgVisibility": 0.971,
+          "keypoints": {
+            "nose": {
+              "x": 52.3,
+              "y": 16.3,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 52.3,
+              "y": 13.6,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 50.3,
+              "y": 13.3,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 49.4,
+              "y": 13.6,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 44.2,
+              "y": 13.4,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 54.1,
+              "y": 26.8,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 30.9,
+              "y": 24.5,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 63.7,
+              "y": 44.2,
+              "v": 0.899
+            },
+            "rightElbow": {
+              "x": 17.2,
+              "y": 40.2,
+              "v": 0.999
+            },
+            "leftWrist": {
+              "x": 71.8,
+              "y": 60.5,
+              "v": 0.761
+            },
+            "rightWrist": {
+              "x": 35.6,
+              "y": 36.2,
+              "v": 0.996
+            },
+            "leftIndex": {
+              "x": 72.4,
+              "y": 65.7,
+              "v": 0.718
+            },
+            "rightIndex": {
+              "x": 41.3,
+              "y": 32,
+              "v": 0.991
+            },
+            "leftHip": {
+              "x": 47.6,
+              "y": 63.6,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 33.7,
+              "y": 63.8,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 61.3,
+              "y": 88.6,
+              "v": 0.999
+            },
+            "rightKnee": {
+              "x": 23.6,
+              "y": 90.1,
+              "v": 0.999
+            },
+            "leftAnkle": {
+              "x": 67.2,
+              "y": 116.2,
+              "v": 0.999
+            },
+            "rightAnkle": {
+              "x": 13,
+              "y": 118.7,
+              "v": 0.999
+            },
+            "leftHeel": {
+              "x": 64.4,
+              "y": 121.8,
+              "v": 0.993
+            },
+            "rightHeel": {
+              "x": 14,
+              "y": 120.7,
+              "v": 0.975
+            },
+            "leftFootIndex": {
+              "x": 78.6,
+              "y": 124,
+              "v": 0.998
+            },
+            "rightFootIndex": {
+              "x": 8.1,
+              "y": 127,
+              "v": 0.998
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 51.3,
+                "y": 13.5
+              },
+              "roll": 171.5,
+              "yaw": 0.494,
+              "pitch": 1.409
+            },
+            "torso": {
+              "center": {
+                "x": 42.5,
+                "y": 25.7
+              },
+              "angle": 87.2
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 71.8,
+                "y": 60.5
+              },
+              "angle": -83.4
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 35.6,
+                "y": 36.2
+              },
+              "angle": 36.4
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 64.4,
+                "y": 121.8
+              },
+              "angle": -8.8
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 14,
+                "y": 120.7
+              },
+              "angle": -133.1
+            }
+          }
+        }
+      ]
+    },
+    "block": {
+      "frameCount": 2,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.983,
+          "keypoints": {
+            "nose": {
+              "x": 74.2,
+              "y": 13.3,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 72.7,
+              "y": 10.6,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 70.9,
+              "y": 10.6,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 68.7,
+              "y": 11.5,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 64.8,
+              "y": 11.5,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 74.3,
+              "y": 27.7,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 51.6,
+              "y": 24.8,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 88,
+              "y": 42,
+              "v": 0.975
+            },
+            "rightElbow": {
+              "x": 37.1,
+              "y": 40.7,
+              "v": 0.992
+            },
+            "leftWrist": {
+              "x": 92.8,
+              "y": 26.7,
+              "v": 0.991
+            },
+            "rightWrist": {
+              "x": 57,
+              "y": 32.1,
+              "v": 0.965
+            },
+            "leftIndex": {
+              "x": 91.1,
+              "y": 21.4,
+              "v": 0.979
+            },
+            "rightIndex": {
+              "x": 63.1,
+              "y": 29.5,
+              "v": 0.906
+            },
+            "leftHip": {
+              "x": 68.4,
+              "y": 66.1,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 53.9,
+              "y": 65.8,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 80.8,
+              "y": 90.1,
+              "v": 0.94
+            },
+            "rightKnee": {
+              "x": 43.3,
+              "y": 91.3,
+              "v": 0.999
+            },
+            "leftAnkle": {
+              "x": 86.4,
+              "y": 117.2,
+              "v": 0.978
+            },
+            "rightAnkle": {
+              "x": 32.6,
+              "y": 121.4,
+              "v": 0.998
+            },
+            "leftHeel": {
+              "x": 83.3,
+              "y": 123,
+              "v": 0.951
+            },
+            "rightHeel": {
+              "x": 31.4,
+              "y": 125.9,
+              "v": 0.967
+            },
+            "leftFootIndex": {
+              "x": 98.2,
+              "y": 124,
+              "v": 0.976
+            },
+            "rightFootIndex": {
+              "x": 32.5,
+              "y": 131.9,
+              "v": 0.996
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 71.8,
+                "y": 10.6
+              },
+              "roll": -180,
+              "yaw": 1.333,
+              "pitch": 1.5
+            },
+            "torso": {
+              "center": {
+                "x": 63,
+                "y": 26.3
+              },
+              "angle": 87.4
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 92.8,
+                "y": 26.7
+              },
+              "angle": 107.8
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 57,
+                "y": 32.1
+              },
+              "angle": 23.1
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 83.3,
+                "y": 123
+              },
+              "angle": -3.8
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 31.4,
+                "y": 125.9
+              },
+              "angle": -79.6
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.881,
+          "keypoints": {
+            "nose": {
+              "x": 72.4,
+              "y": 15.1,
+              "v": 0.999
+            },
+            "leftEye": {
+              "x": 72.4,
+              "y": 12.6,
+              "v": 0.998
+            },
+            "rightEye": {
+              "x": 69.3,
+              "y": 12.2,
+              "v": 0.999
+            },
+            "leftEar": {
+              "x": 70.9,
+              "y": 13.2,
+              "v": 0.999
+            },
+            "rightEar": {
+              "x": 64.5,
+              "y": 12.5,
+              "v": 0.999
+            },
+            "leftShoulder": {
+              "x": 76.1,
+              "y": 25.2,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 52.2,
+              "y": 22.4,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 83.9,
+              "y": 42.2,
+              "v": 0.711
+            },
+            "rightElbow": {
+              "x": 51.2,
+              "y": 36.5,
+              "v": 0.98
+            },
+            "leftWrist": {
+              "x": 69.3,
+              "y": 37.6,
+              "v": 0.357
+            },
+            "rightWrist": {
+              "x": 72.5,
+              "y": 29,
+              "v": 0.907
+            },
+            "leftIndex": {
+              "x": 64.3,
+              "y": 34.8,
+              "v": 0.249
+            },
+            "rightIndex": {
+              "x": 76.7,
+              "y": 25.7,
+              "v": 0.787
+            },
+            "leftHip": {
+              "x": 69.7,
+              "y": 65,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 54.3,
+              "y": 64.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 82.3,
+              "y": 88.3,
+              "v": 0.922
+            },
+            "rightKnee": {
+              "x": 44.9,
+              "y": 89.3,
+              "v": 0.992
+            },
+            "leftAnkle": {
+              "x": 87,
+              "y": 116.7,
+              "v": 0.891
+            },
+            "rightAnkle": {
+              "x": 33.2,
+              "y": 119.8,
+              "v": 0.981
+            },
+            "leftHeel": {
+              "x": 83.8,
+              "y": 123.4,
+              "v": 0.838
+            },
+            "rightHeel": {
+              "x": 31.6,
+              "y": 124,
+              "v": 0.806
+            },
+            "leftFootIndex": {
+              "x": 98.3,
+              "y": 124.1,
+              "v": 0.883
+            },
+            "rightFootIndex": {
+              "x": 30.9,
+              "y": 130.6,
+              "v": 0.961
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 70.9,
+                "y": 12.4
+              },
+              "roll": 172.6,
+              "yaw": 0.496,
+              "pitch": 0.864
+            },
+            "torso": {
+              "center": {
+                "x": 64.2,
+                "y": 23.8
+              },
+              "angle": 87
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 69.3,
+                "y": 37.6
+              },
+              "angle": 162.5
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 72.5,
+                "y": 29
+              },
+              "angle": 38.2
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 83.8,
+                "y": 123.4
+              },
+              "angle": -2.8
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 31.6,
+                "y": 124
+              },
+              "angle": -96.1
+            }
+          }
+        }
+      ]
+    },
+    "hurt": {
+      "frameCount": 3,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.925,
+          "keypoints": {
+            "nose": {
+              "x": 73.4,
+              "y": 18.5,
+              "v": 0.999
+            },
+            "leftEye": {
+              "x": 74.3,
+              "y": 15.8,
+              "v": 0.998
+            },
+            "rightEye": {
+              "x": 72.3,
+              "y": 14.8,
+              "v": 0.999
+            },
+            "leftEar": {
+              "x": 70.9,
+              "y": 14.3,
+              "v": 0.999
+            },
+            "rightEar": {
+              "x": 67.2,
+              "y": 12.4,
+              "v": 0.999
+            },
+            "leftShoulder": {
+              "x": 73.9,
+              "y": 28.5,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 49.9,
+              "y": 21.8,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 75,
+              "y": 48.5,
+              "v": 0.494
+            },
+            "rightElbow": {
+              "x": 36.4,
+              "y": 37.6,
+              "v": 0.993
+            },
+            "leftWrist": {
+              "x": 80.7,
+              "y": 62.3,
+              "v": 0.612
+            },
+            "rightWrist": {
+              "x": 51.9,
+              "y": 48.6,
+              "v": 0.968
+            },
+            "leftIndex": {
+              "x": 82.2,
+              "y": 68.9,
+              "v": 0.643
+            },
+            "rightIndex": {
+              "x": 58.1,
+              "y": 49.6,
+              "v": 0.953
+            },
+            "leftHip": {
+              "x": 64.4,
+              "y": 63.7,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 51.8,
+              "y": 62.8,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 81.6,
+              "y": 87.9,
+              "v": 0.875
+            },
+            "rightKnee": {
+              "x": 42.4,
+              "y": 90.6,
+              "v": 0.996
+            },
+            "leftAnkle": {
+              "x": 78.6,
+              "y": 115.8,
+              "v": 0.96
+            },
+            "rightAnkle": {
+              "x": 29.5,
+              "y": 118.7,
+              "v": 0.994
+            },
+            "leftHeel": {
+              "x": 74.5,
+              "y": 121.3,
+              "v": 0.941
+            },
+            "rightHeel": {
+              "x": 27.8,
+              "y": 123,
+              "v": 0.887
+            },
+            "leftFootIndex": {
+              "x": 91.4,
+              "y": 122.5,
+              "v": 0.967
+            },
+            "rightFootIndex": {
+              "x": 30,
+              "y": 127.5,
+              "v": 0.988
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 73.3,
+                "y": 15.3
+              },
+              "roll": 153.4,
+              "yaw": 0.045,
+              "pitch": 1.431
+            },
+            "torso": {
+              "center": {
+                "x": 61.9,
+                "y": 25.2
+              },
+              "angle": 84.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 80.7,
+                "y": 62.3
+              },
+              "angle": -77.2
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 51.9,
+                "y": 48.6
+              },
+              "angle": -9.2
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 74.5,
+                "y": 121.3
+              },
+              "angle": -4.1
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 27.8,
+                "y": 123
+              },
+              "angle": -63.9
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.916,
+          "keypoints": {
+            "nose": {
+              "x": 73.7,
+              "y": 17.4,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 75.9,
+              "y": 15.4,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 71.4,
+              "y": 13.9,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 75.8,
+              "y": 16.6,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 67.9,
+              "y": 14.8,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 79.7,
+              "y": 30.6,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 57.2,
+              "y": 23.8,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 79.8,
+              "y": 47.6,
+              "v": 0.797
+            },
+            "rightElbow": {
+              "x": 40.5,
+              "y": 34,
+              "v": 1
+            },
+            "leftWrist": {
+              "x": 82.5,
+              "y": 62.4,
+              "v": 0.435
+            },
+            "rightWrist": {
+              "x": 28.7,
+              "y": 50.1,
+              "v": 0.999
+            },
+            "leftIndex": {
+              "x": 82.6,
+              "y": 66.1,
+              "v": 0.405
+            },
+            "rightIndex": {
+              "x": 28.5,
+              "y": 55.9,
+              "v": 0.998
+            },
+            "leftHip": {
+              "x": 70.3,
+              "y": 55,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 57.5,
+              "y": 54.1,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 82.7,
+              "y": 79.8,
+              "v": 0.959
+            },
+            "rightKnee": {
+              "x": 55.2,
+              "y": 80.6,
+              "v": 0.98
+            },
+            "leftAnkle": {
+              "x": 84.8,
+              "y": 103.4,
+              "v": 0.968
+            },
+            "rightAnkle": {
+              "x": 47.1,
+              "y": 100.6,
+              "v": 0.974
+            },
+            "leftHeel": {
+              "x": 83,
+              "y": 107.5,
+              "v": 0.88
+            },
+            "rightHeel": {
+              "x": 46.3,
+              "y": 103.2,
+              "v": 0.752
+            },
+            "leftFootIndex": {
+              "x": 89.7,
+              "y": 109.1,
+              "v": 0.967
+            },
+            "rightFootIndex": {
+              "x": 44.8,
+              "y": 109.4,
+              "v": 0.955
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 73.7,
+                "y": 14.7
+              },
+              "roll": 161.6,
+              "yaw": 0.011,
+              "pitch": 0.58
+            },
+            "torso": {
+              "center": {
+                "x": 68.5,
+                "y": 27.2
+              },
+              "angle": 80.6
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 82.5,
+                "y": 62.4
+              },
+              "angle": -88.5
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 28.7,
+                "y": 50.1
+              },
+              "angle": -92
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 83,
+                "y": 107.5
+              },
+              "angle": -13.4
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 46.3,
+                "y": 103.2
+              },
+              "angle": -103.6
+            }
+          }
+        }
+      ]
+    },
+    "knockdown": {
+      "frameCount": 4,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.595,
+          "keypoints": {
+            "nose": {
+              "x": 93.3,
+              "y": 37.8,
+              "v": 0.999
+            },
+            "leftEye": {
+              "x": 94.4,
+              "y": 39.4,
+              "v": 0.999
+            },
+            "rightEye": {
+              "x": 93.7,
+              "y": 38.1,
+              "v": 0.999
+            },
+            "leftEar": {
+              "x": 94.8,
+              "y": 41.5,
+              "v": 0.999
+            },
+            "rightEar": {
+              "x": 93,
+              "y": 39.1,
+              "v": 0.998
+            },
+            "leftShoulder": {
+              "x": 88.4,
+              "y": 48.8,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 85.1,
+              "y": 43.8,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 80.1,
+              "y": 50.7,
+              "v": 0.311
+            },
+            "rightElbow": {
+              "x": 79.4,
+              "y": 46.7,
+              "v": 0.121
+            },
+            "leftWrist": {
+              "x": 88.5,
+              "y": 47.2,
+              "v": 0.572
+            },
+            "rightWrist": {
+              "x": 90.2,
+              "y": 41.4,
+              "v": 0.511
+            },
+            "leftIndex": {
+              "x": 92.5,
+              "y": 46.4,
+              "v": 0.602
+            },
+            "rightIndex": {
+              "x": 93.3,
+              "y": 39.4,
+              "v": 0.557
+            },
+            "leftHip": {
+              "x": 68.8,
+              "y": 59.4,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 67.4,
+              "y": 55,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 61.2,
+              "y": 61.8,
+              "v": 0.341
+            },
+            "rightKnee": {
+              "x": 58.7,
+              "y": 49.8,
+              "v": 0.064
+            },
+            "leftAnkle": {
+              "x": 49.8,
+              "y": 71.3,
+              "v": 0.292
+            },
+            "rightAnkle": {
+              "x": 45.5,
+              "y": 50,
+              "v": 0.274
+            },
+            "leftHeel": {
+              "x": 48.7,
+              "y": 72.9,
+              "v": 0.162
+            },
+            "rightHeel": {
+              "x": 43.4,
+              "y": 51.8,
+              "v": 0.245
+            },
+            "leftFootIndex": {
+              "x": 43.7,
+              "y": 71.4,
+              "v": 0.328
+            },
+            "rightFootIndex": {
+              "x": 41,
+              "y": 46.3,
+              "v": 0.32
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 94.1,
+                "y": 38.8
+              },
+              "roll": 118.3,
+              "yaw": -0.508,
+              "pitch": -0.643
+            },
+            "torso": {
+              "center": {
+                "x": 86.8,
+                "y": 46.3
+              },
+              "angle": 30.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 88.5,
+                "y": 47.2
+              },
+              "angle": 11.3
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 90.2,
+                "y": 41.4
+              },
+              "angle": 32.8
+            },
+            "leftFoot": null,
+            "rightFoot": null
+          }
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.97,
+          "keypoints": {
+            "nose": {
+              "x": 66.1,
+              "y": 17.7,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 65.2,
+              "y": 14.3,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 63.1,
+              "y": 14.3,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 60.5,
+              "y": 14.8,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 56.5,
+              "y": 15,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 67.8,
+              "y": 31.4,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 43.4,
+              "y": 30,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 85.1,
+              "y": 46.7,
+              "v": 0.693
+            },
+            "rightElbow": {
+              "x": 30,
+              "y": 52.4,
+              "v": 1
+            },
+            "leftWrist": {
+              "x": 100.9,
+              "y": 36.9,
+              "v": 0.893
+            },
+            "rightWrist": {
+              "x": 30.9,
+              "y": 76.9,
+              "v": 0.999
+            },
+            "leftIndex": {
+              "x": 105.9,
+              "y": 32.8,
+              "v": 0.903
+            },
+            "rightIndex": {
+              "x": 32.8,
+              "y": 83.5,
+              "v": 0.996
+            },
+            "leftHip": {
+              "x": 66.1,
+              "y": 69.7,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 52.5,
+              "y": 73.6,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 100.4,
+              "y": 82.6,
+              "v": 0.989
+            },
+            "rightKnee": {
+              "x": 65.3,
+              "y": 106.2,
+              "v": 0.998
+            },
+            "leftAnkle": {
+              "x": 96.7,
+              "y": 114.8,
+              "v": 0.997
+            },
+            "rightAnkle": {
+              "x": 39.8,
+              "y": 99.4,
+              "v": 0.97
+            },
+            "leftHeel": {
+              "x": 91.7,
+              "y": 121.4,
+              "v": 0.995
+            },
+            "rightHeel": {
+              "x": 37,
+              "y": 95.5,
+              "v": 0.925
+            },
+            "leftFootIndex": {
+              "x": 111.5,
+              "y": 124.1,
+              "v": 0.996
+            },
+            "rightFootIndex": {
+              "x": 33.2,
+              "y": 114.8,
+              "v": 0.961
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 64.2,
+                "y": 14.3
+              },
+              "roll": -180,
+              "yaw": 0.929,
+              "pitch": 1.619
+            },
+            "torso": {
+              "center": {
+                "x": 55.6,
+                "y": 30.7
+              },
+              "angle": 95.2
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 100.9,
+                "y": 36.9
+              },
+              "angle": 39.4
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 30.9,
+                "y": 76.9
+              },
+              "angle": -73.9
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 91.7,
+                "y": 121.4
+              },
+              "angle": -7.8
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 37,
+                "y": 95.5
+              },
+              "angle": -101.1
+            }
+          }
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.999,
+          "keypoints": {
+            "nose": {
+              "x": 100.6,
+              "y": 33.1,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 102.5,
+              "y": 31.2,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 99.1,
+              "y": 28.4,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 102.4,
+              "y": 32.6,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 94.7,
+              "y": 27.7,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 98.5,
+              "y": 44.9,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 79.3,
+              "y": 31.5,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 103.1,
+              "y": 61.2,
+              "v": 1
+            },
+            "rightElbow": {
+              "x": 60,
+              "y": 32.5,
+              "v": 1
+            },
+            "leftWrist": {
+              "x": 117.1,
+              "y": 75.9,
+              "v": 1
+            },
+            "rightWrist": {
+              "x": 41.5,
+              "y": 37.5,
+              "v": 1
+            },
+            "leftIndex": {
+              "x": 122.5,
+              "y": 78.2,
+              "v": 0.999
+            },
+            "rightIndex": {
+              "x": 35.8,
+              "y": 38.9,
+              "v": 0.999
+            },
+            "leftHip": {
+              "x": 70.7,
+              "y": 67.7,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 60.1,
+              "y": 57.7,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 74.2,
+              "y": 91.4,
+              "v": 1
+            },
+            "rightKnee": {
+              "x": 32.6,
+              "y": 59.9,
+              "v": 1
+            },
+            "leftAnkle": {
+              "x": 51.6,
+              "y": 101.5,
+              "v": 0.999
+            },
+            "rightAnkle": {
+              "x": 9.4,
+              "y": 68.8,
+              "v": 1
+            },
+            "leftHeel": {
+              "x": 45.9,
+              "y": 101.1,
+              "v": 0.997
+            },
+            "rightHeel": {
+              "x": 7.8,
+              "y": 71.3,
+              "v": 0.996
+            },
+            "leftFootIndex": {
+              "x": 50.2,
+              "y": 114.4,
+              "v": 0.998
+            },
+            "rightFootIndex": {
+              "x": -2.2,
+              "y": 71.4,
+              "v": 0.999
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 100.8,
+                "y": 29.8
+              },
+              "roll": 140.5,
+              "yaw": -0.045,
+              "pitch": 0.749
+            },
+            "torso": {
+              "center": {
+                "x": 88.9,
+                "y": 38.2
+              },
+              "angle": 46.2
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 117.1,
+                "y": 75.9
+              },
+              "angle": -23.1
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 41.5,
+                "y": 37.5
+              },
+              "angle": -166.2
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 45.9,
+                "y": 101.1
+              },
+              "angle": -72.1
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 7.8,
+                "y": 71.3
+              },
+              "angle": -179.4
+            }
+          }
+        },
+        {
+          "index": 3,
+          "detected": true,
+          "avgVisibility": 0.997,
+          "keypoints": {
+            "nose": {
+              "x": 100.8,
+              "y": 22.5,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 100.3,
+              "y": 19.7,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 99.4,
+              "y": 19.3,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 96.9,
+              "y": 18.7,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 93.8,
+              "y": 17.7,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 99.9,
+              "y": 36.3,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 76.4,
+              "y": 21.2,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 104.4,
+              "y": 58.2,
+              "v": 0.999
+            },
+            "rightElbow": {
+              "x": 59,
+              "y": 31.5,
+              "v": 0.999
+            },
+            "leftWrist": {
+              "x": 109.2,
+              "y": 75.3,
+              "v": 0.998
+            },
+            "rightWrist": {
+              "x": 45.8,
+              "y": 44.3,
+              "v": 0.998
+            },
+            "leftIndex": {
+              "x": 113.4,
+              "y": 80,
+              "v": 0.995
+            },
+            "rightIndex": {
+              "x": 41.2,
+              "y": 49.1,
+              "v": 0.993
+            },
+            "leftHip": {
+              "x": 76.5,
+              "y": 63.5,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 62.2,
+              "y": 56.6,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 90.7,
+              "y": 86.6,
+              "v": 0.999
+            },
+            "rightKnee": {
+              "x": 45.3,
+              "y": 77.5,
+              "v": 1
+            },
+            "leftAnkle": {
+              "x": 98.1,
+              "y": 115.7,
+              "v": 0.999
+            },
+            "rightAnkle": {
+              "x": 25.7,
+              "y": 98.2,
+              "v": 0.999
+            },
+            "leftHeel": {
+              "x": 95.8,
+              "y": 120.8,
+              "v": 0.992
+            },
+            "rightHeel": {
+              "x": 23.4,
+              "y": 101.2,
+              "v": 0.973
+            },
+            "leftFootIndex": {
+              "x": 104.8,
+              "y": 122,
+              "v": 0.999
+            },
+            "rightFootIndex": {
+              "x": 19.9,
+              "y": 106.3,
+              "v": 0.998
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 99.9,
+                "y": 19.5
+              },
+              "roll": 156,
+              "yaw": 0.965,
+              "pitch": 3.046
+            },
+            "torso": {
+              "center": {
+                "x": 88.2,
+                "y": 28.8
+              },
+              "angle": 59
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 109.2,
+                "y": 75.3
+              },
+              "angle": -48.2
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 45.8,
+                "y": 44.3
+              },
+              "angle": -133.8
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 95.8,
+                "y": 120.8
+              },
+              "angle": -7.6
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 23.4,
+                "y": 101.2
+              },
+              "angle": -124.5
+            }
+          }
+        }
+      ]
+    },
+    "victory": {
+      "frameCount": 4,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.962,
+          "keypoints": {
+            "nose": {
+              "x": 68.8,
+              "y": 9.1,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 70.5,
+              "y": 7.9,
+              "v": 0.999
+            },
+            "rightEye": {
+              "x": 66.1,
+              "y": 7,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 70.2,
+              "y": 10.4,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 61.9,
+              "y": 8.1,
+              "v": 0.999
+            },
+            "leftShoulder": {
+              "x": 75.7,
+              "y": 27.2,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 48.6,
+              "y": 22.6,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 77.4,
+              "y": 48.5,
+              "v": 0.958
+            },
+            "rightElbow": {
+              "x": 35.3,
+              "y": 43.4,
+              "v": 0.971
+            },
+            "leftWrist": {
+              "x": 87,
+              "y": 62.4,
+              "v": 0.971
+            },
+            "rightWrist": {
+              "x": 31.7,
+              "y": 30.5,
+              "v": 0.996
+            },
+            "leftIndex": {
+              "x": 90.9,
+              "y": 66.7,
+              "v": 0.965
+            },
+            "rightIndex": {
+              "x": 31.6,
+              "y": 24.2,
+              "v": 0.996
+            },
+            "leftHip": {
+              "x": 69.1,
+              "y": 64,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 52.9,
+              "y": 64.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 81.2,
+              "y": 89.5,
+              "v": 0.947
+            },
+            "rightKnee": {
+              "x": 44.1,
+              "y": 92.6,
+              "v": 0.987
+            },
+            "leftAnkle": {
+              "x": 87.6,
+              "y": 118.9,
+              "v": 0.94
+            },
+            "rightAnkle": {
+              "x": 33.2,
+              "y": 122.9,
+              "v": 0.98
+            },
+            "leftHeel": {
+              "x": 84.4,
+              "y": 124.2,
+              "v": 0.804
+            },
+            "rightHeel": {
+              "x": 31.6,
+              "y": 125.9,
+              "v": 0.75
+            },
+            "leftFootIndex": {
+              "x": 98.7,
+              "y": 125.1,
+              "v": 0.92
+            },
+            "rightFootIndex": {
+              "x": 33.5,
+              "y": 139,
+              "v": 0.951
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 68.3,
+                "y": 7.5
+              },
+              "roll": 168.4,
+              "yaw": 0.111,
+              "pitch": 0.367
+            },
+            "torso": {
+              "center": {
+                "x": 62.2,
+                "y": 24.9
+              },
+              "angle": 88.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 87,
+                "y": 62.4
+              },
+              "angle": -47.8
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 31.7,
+                "y": 30.5
+              },
+              "angle": 90.9
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 84.4,
+                "y": 124.2
+              },
+              "angle": -3.6
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 31.6,
+                "y": 125.9
+              },
+              "angle": -81.7
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.92,
+          "keypoints": {
+            "nose": {
+              "x": 71.6,
+              "y": 15.1,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 71.1,
+              "y": 12.5,
+              "v": 0.999
+            },
+            "rightEye": {
+              "x": 68.7,
+              "y": 13.2,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 68.2,
+              "y": 13.5,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 63.8,
+              "y": 13.8,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 74.4,
+              "y": 25.8,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 53.3,
+              "y": 27.3,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 90.4,
+              "y": 22.6,
+              "v": 0.981
+            },
+            "rightElbow": {
+              "x": 38.8,
+              "y": 39.1,
+              "v": 0.964
+            },
+            "leftWrist": {
+              "x": 96.8,
+              "y": 8.9,
+              "v": 0.983
+            },
+            "rightWrist": {
+              "x": 57.2,
+              "y": 36.1,
+              "v": 0.824
+            },
+            "leftIndex": {
+              "x": 96,
+              "y": 3.8,
+              "v": 0.977
+            },
+            "rightIndex": {
+              "x": 61.3,
+              "y": 33,
+              "v": 0.75
+            },
+            "leftHip": {
+              "x": 68.2,
+              "y": 58.8,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 55.1,
+              "y": 58.7,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 79.7,
+              "y": 85.2,
+              "v": 0.886
+            },
+            "rightKnee": {
+              "x": 46.3,
+              "y": 83,
+              "v": 0.919
+            },
+            "leftAnkle": {
+              "x": 82,
+              "y": 106.7,
+              "v": 0.922
+            },
+            "rightAnkle": {
+              "x": 40.4,
+              "y": 101.2,
+              "v": 0.914
+            },
+            "leftHeel": {
+              "x": 79.2,
+              "y": 113.4,
+              "v": 0.795
+            },
+            "rightHeel": {
+              "x": 39.4,
+              "y": 108.7,
+              "v": 0.602
+            },
+            "leftFootIndex": {
+              "x": 87.9,
+              "y": 116.2,
+              "v": 0.858
+            },
+            "rightFootIndex": {
+              "x": 37.3,
+              "y": 113.2,
+              "v": 0.784
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 69.9,
+                "y": 12.9
+              },
+              "roll": -163.7,
+              "yaw": 0.68,
+              "pitch": 0.9
+            },
+            "torso": {
+              "center": {
+                "x": 63.9,
+                "y": 26.6
+              },
+              "angle": 86.1
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 96.8,
+                "y": 8.9
+              },
+              "angle": 98.9
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 57.2,
+                "y": 36.1
+              },
+              "angle": 37.1
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 79.2,
+                "y": 113.4
+              },
+              "angle": -17.8
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 39.4,
+                "y": 108.7
+              },
+              "angle": -115
+            }
+          }
+        },
+        {
+          "index": 2,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 3,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        }
+      ]
+    },
+    "defeat": {
+      "frameCount": 3,
+      "frames": [
+        {
+          "index": 0,
+          "detected": false,
+          "avgVisibility": 0,
+          "keypoints": null,
+          "derived": null
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.933,
+          "keypoints": {
+            "nose": {
+              "x": 85.7,
+              "y": 31.2,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 87.4,
+              "y": 29.3,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 85.9,
+              "y": 28.4,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 86.3,
+              "y": 26.9,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 82.5,
+              "y": 25.1,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 80.4,
+              "y": 36.2,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 67.8,
+              "y": 26.8,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 74.3,
+              "y": 53.9,
+              "v": 0.691
+            },
+            "rightElbow": {
+              "x": 56.4,
+              "y": 45.3,
+              "v": 0.998
+            },
+            "leftWrist": {
+              "x": 73.5,
+              "y": 71,
+              "v": 0.403
+            },
+            "rightWrist": {
+              "x": 56.5,
+              "y": 68,
+              "v": 0.985
+            },
+            "leftIndex": {
+              "x": 73.9,
+              "y": 74,
+              "v": 0.437
+            },
+            "rightIndex": {
+              "x": 57.2,
+              "y": 73.7,
+              "v": 0.972
+            },
+            "leftHip": {
+              "x": 60.8,
+              "y": 57.8,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 49.6,
+              "y": 56.1,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 73,
+              "y": 80.5,
+              "v": 0.996
+            },
+            "rightKnee": {
+              "x": 50.1,
+              "y": 83.6,
+              "v": 0.999
+            },
+            "leftAnkle": {
+              "x": 74.9,
+              "y": 104.9,
+              "v": 0.997
+            },
+            "rightAnkle": {
+              "x": 37.7,
+              "y": 106.9,
+              "v": 1
+            },
+            "leftHeel": {
+              "x": 72,
+              "y": 108.9,
+              "v": 0.992
+            },
+            "rightHeel": {
+              "x": 36.8,
+              "y": 108.9,
+              "v": 0.994
+            },
+            "leftFootIndex": {
+              "x": 83.1,
+              "y": 113.2,
+              "v": 0.997
+            },
+            "rightFootIndex": {
+              "x": 40.8,
+              "y": 115.4,
+              "v": 0.999
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 86.7,
+                "y": 28.9
+              },
+              "roll": 149,
+              "yaw": -0.543,
+              "pitch": 1.343
+            },
+            "torso": {
+              "center": {
+                "x": 74.1,
+                "y": 31.5
+              },
+              "angle": 53.4
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 73.5,
+                "y": 71
+              },
+              "angle": -82.4
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 56.5,
+                "y": 68
+              },
+              "angle": -83
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 72,
+                "y": 108.9
+              },
+              "angle": -21.2
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 36.8,
+                "y": 108.9
+              },
+              "angle": -58.4
+            }
+          }
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.976,
+          "keypoints": {
+            "nose": {
+              "x": 83.2,
+              "y": 15.8,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 84.2,
+              "y": 13.6,
+              "v": 0.999
+            },
+            "rightEye": {
+              "x": 81.7,
+              "y": 12.5,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 82.3,
+              "y": 13.6,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 76.6,
+              "y": 10.9,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 84.2,
+              "y": 28.9,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 60,
+              "y": 19.8,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 80.4,
+              "y": 50.7,
+              "v": 0.906
+            },
+            "rightElbow": {
+              "x": 55.9,
+              "y": 44.3,
+              "v": 0.999
+            },
+            "leftWrist": {
+              "x": 84.1,
+              "y": 72,
+              "v": 0.938
+            },
+            "rightWrist": {
+              "x": 63,
+              "y": 66.4,
+              "v": 0.999
+            },
+            "leftIndex": {
+              "x": 85,
+              "y": 74.9,
+              "v": 0.933
+            },
+            "rightIndex": {
+              "x": 66.6,
+              "y": 73.7,
+              "v": 0.997
+            },
+            "leftHip": {
+              "x": 70.7,
+              "y": 63.2,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 54.8,
+              "y": 62.1,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 83.3,
+              "y": 88.8,
+              "v": 0.965
+            },
+            "rightKnee": {
+              "x": 42.4,
+              "y": 89.7,
+              "v": 0.998
+            },
+            "leftAnkle": {
+              "x": 87.9,
+              "y": 118.4,
+              "v": 0.971
+            },
+            "rightAnkle": {
+              "x": 32.1,
+              "y": 119.9,
+              "v": 0.993
+            },
+            "leftHeel": {
+              "x": 85.4,
+              "y": 123.7,
+              "v": 0.912
+            },
+            "rightHeel": {
+              "x": 31,
+              "y": 124.5,
+              "v": 0.889
+            },
+            "leftFootIndex": {
+              "x": 99.4,
+              "y": 124.9,
+              "v": 0.97
+            },
+            "rightFootIndex": {
+              "x": 30.8,
+              "y": 136.3,
+              "v": 0.987
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 83,
+                "y": 13.1
+              },
+              "roll": 156.3,
+              "yaw": 0.092,
+              "pitch": 1.007
+            },
+            "torso": {
+              "center": {
+                "x": 72.1,
+                "y": 24.4
+              },
+              "angle": 76.3
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 84.1,
+                "y": 72
+              },
+              "angle": -72.8
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 63,
+                "y": 66.4
+              },
+              "angle": -63.7
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 85.4,
+                "y": 123.7
+              },
+              "angle": -4.9
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 31,
+                "y": 124.5
+              },
+              "angle": -91
+            }
+          }
+        }
+      ]
+    },
+    "jump": {
+      "frameCount": 3,
+      "frames": [
+        {
+          "index": 0,
+          "detected": true,
+          "avgVisibility": 0.962,
+          "keypoints": {
+            "nose": {
+              "x": 71.8,
+              "y": 15.9,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 71.4,
+              "y": 13.1,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 69.7,
+              "y": 13.2,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 68,
+              "y": 12.9,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 63.9,
+              "y": 13.6,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 70.3,
+              "y": 26.3,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 51.9,
+              "y": 24.7,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 83.4,
+              "y": 38.3,
+              "v": 0.95
+            },
+            "rightElbow": {
+              "x": 38.1,
+              "y": 37.5,
+              "v": 0.995
+            },
+            "leftWrist": {
+              "x": 89.4,
+              "y": 27,
+              "v": 0.992
+            },
+            "rightWrist": {
+              "x": 54.2,
+              "y": 33.2,
+              "v": 0.991
+            },
+            "leftIndex": {
+              "x": 89,
+              "y": 22.1,
+              "v": 0.986
+            },
+            "rightIndex": {
+              "x": 59.3,
+              "y": 29,
+              "v": 0.978
+            },
+            "leftHip": {
+              "x": 65.4,
+              "y": 59.2,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 54.6,
+              "y": 58.3,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 77.1,
+              "y": 79.5,
+              "v": 0.939
+            },
+            "rightKnee": {
+              "x": 49.1,
+              "y": 81.9,
+              "v": 0.941
+            },
+            "leftAnkle": {
+              "x": 68.1,
+              "y": 100.8,
+              "v": 0.919
+            },
+            "rightAnkle": {
+              "x": 40.1,
+              "y": 103.4,
+              "v": 0.966
+            },
+            "leftHeel": {
+              "x": 63.9,
+              "y": 103.4,
+              "v": 0.891
+            },
+            "rightHeel": {
+              "x": 40.2,
+              "y": 105.2,
+              "v": 0.785
+            },
+            "leftFootIndex": {
+              "x": 72.2,
+              "y": 111.3,
+              "v": 0.894
+            },
+            "rightFootIndex": {
+              "x": 40.5,
+              "y": 113,
+              "v": 0.901
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 70.6,
+                "y": 13.2
+              },
+              "roll": -176.6,
+              "yaw": 0.734,
+              "pitch": 1.615
+            },
+            "torso": {
+              "center": {
+                "x": 61.1,
+                "y": 25.5
+              },
+              "angle": 88.1
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 89.4,
+                "y": 27
+              },
+              "angle": 94.7
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 54.2,
+                "y": 33.2
+              },
+              "angle": 39.5
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 63.9,
+                "y": 103.4
+              },
+              "angle": -43.6
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 40.2,
+                "y": 105.2
+              },
+              "angle": -87.8
+            }
+          }
+        },
+        {
+          "index": 1,
+          "detected": true,
+          "avgVisibility": 0.954,
+          "keypoints": {
+            "nose": {
+              "x": 70.1,
+              "y": 14.8,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 69.5,
+              "y": 12,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 67.8,
+              "y": 12.6,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 67.2,
+              "y": 12,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 62.5,
+              "y": 13.1,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 72.1,
+              "y": 24.8,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 51,
+              "y": 24.3,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 82.8,
+              "y": 38.9,
+              "v": 0.86
+            },
+            "rightElbow": {
+              "x": 39,
+              "y": 38,
+              "v": 0.946
+            },
+            "leftWrist": {
+              "x": 93.3,
+              "y": 34.1,
+              "v": 0.983
+            },
+            "rightWrist": {
+              "x": 50.3,
+              "y": 29.7,
+              "v": 0.918
+            },
+            "leftIndex": {
+              "x": 95.9,
+              "y": 30.3,
+              "v": 0.981
+            },
+            "rightIndex": {
+              "x": 53.9,
+              "y": 24.6,
+              "v": 0.88
+            },
+            "leftHip": {
+              "x": 66.9,
+              "y": 58.4,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 53.8,
+              "y": 58.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 87.2,
+              "y": 76.9,
+              "v": 0.984
+            },
+            "rightKnee": {
+              "x": 44.6,
+              "y": 82.5,
+              "v": 0.98
+            },
+            "leftAnkle": {
+              "x": 69.5,
+              "y": 94.8,
+              "v": 0.907
+            },
+            "rightAnkle": {
+              "x": 36.9,
+              "y": 104.7,
+              "v": 0.98
+            },
+            "leftHeel": {
+              "x": 63.8,
+              "y": 95.1,
+              "v": 0.858
+            },
+            "rightHeel": {
+              "x": 36.9,
+              "y": 108.2,
+              "v": 0.872
+            },
+            "leftFootIndex": {
+              "x": 69.3,
+              "y": 107.8,
+              "v": 0.859
+            },
+            "rightFootIndex": {
+              "x": 33.6,
+              "y": 111,
+              "v": 0.939
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 68.7,
+                "y": 12.3
+              },
+              "roll": -160.6,
+              "yaw": 0.804,
+              "pitch": 1.387
+            },
+            "torso": {
+              "center": {
+                "x": 61.6,
+                "y": 24.6
+              },
+              "angle": 88
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 93.3,
+                "y": 34.1
+              },
+              "angle": 55.6
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 50.3,
+                "y": 29.7
+              },
+              "angle": 54.8
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 63.8,
+                "y": 95.1
+              },
+              "angle": -66.6
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 36.9,
+                "y": 108.2
+              },
+              "angle": -139.7
+            }
+          }
+        },
+        {
+          "index": 2,
+          "detected": true,
+          "avgVisibility": 0.976,
+          "keypoints": {
+            "nose": {
+              "x": 71.1,
+              "y": 14.8,
+              "v": 1
+            },
+            "leftEye": {
+              "x": 70.6,
+              "y": 11.9,
+              "v": 1
+            },
+            "rightEye": {
+              "x": 68.7,
+              "y": 12,
+              "v": 1
+            },
+            "leftEar": {
+              "x": 67.5,
+              "y": 12,
+              "v": 1
+            },
+            "rightEar": {
+              "x": 63.2,
+              "y": 12.4,
+              "v": 1
+            },
+            "leftShoulder": {
+              "x": 71.3,
+              "y": 24.8,
+              "v": 1
+            },
+            "rightShoulder": {
+              "x": 51.3,
+              "y": 23.6,
+              "v": 1
+            },
+            "leftElbow": {
+              "x": 83,
+              "y": 38.9,
+              "v": 0.944
+            },
+            "rightElbow": {
+              "x": 35,
+              "y": 33.7,
+              "v": 0.99
+            },
+            "leftWrist": {
+              "x": 85.5,
+              "y": 29.6,
+              "v": 0.99
+            },
+            "rightWrist": {
+              "x": 52,
+              "y": 29.6,
+              "v": 0.959
+            },
+            "leftIndex": {
+              "x": 84.7,
+              "y": 25.9,
+              "v": 0.986
+            },
+            "rightIndex": {
+              "x": 57.5,
+              "y": 27.9,
+              "v": 0.914
+            },
+            "leftHip": {
+              "x": 65.9,
+              "y": 59.2,
+              "v": 1
+            },
+            "rightHip": {
+              "x": 54.1,
+              "y": 60.4,
+              "v": 1
+            },
+            "leftKnee": {
+              "x": 91.7,
+              "y": 67,
+              "v": 0.985
+            },
+            "rightKnee": {
+              "x": 49,
+              "y": 85.7,
+              "v": 0.997
+            },
+            "leftAnkle": {
+              "x": 69,
+              "y": 82,
+              "v": 0.918
+            },
+            "rightAnkle": {
+              "x": 38.6,
+              "y": 111.5,
+              "v": 0.997
+            },
+            "leftHeel": {
+              "x": 64,
+              "y": 80.8,
+              "v": 0.929
+            },
+            "rightHeel": {
+              "x": 36.2,
+              "y": 113.5,
+              "v": 0.959
+            },
+            "leftFootIndex": {
+              "x": 67.7,
+              "y": 95.5,
+              "v": 0.899
+            },
+            "rightFootIndex": {
+              "x": 39.7,
+              "y": 124.8,
+              "v": 0.986
+            }
+          },
+          "derived": {
+            "head": {
+              "center": {
+                "x": 69.7,
+                "y": 12
+              },
+              "roll": -177,
+              "yaw": 0.762,
+              "pitch": 1.498
+            },
+            "torso": {
+              "center": {
+                "x": 61.3,
+                "y": 24.2
+              },
+              "angle": 87.9
+            },
+            "leftHand": {
+              "anchor": {
+                "x": 85.5,
+                "y": 29.6
+              },
+              "angle": 102.2
+            },
+            "rightHand": {
+              "anchor": {
+                "x": 52,
+                "y": 29.6
+              },
+              "angle": 17.2
+            },
+            "leftFoot": {
+              "anchor": {
+                "x": 64,
+                "y": 80.8
+              },
+              "angle": -75.9
+            },
+            "rightFoot": {
+              "anchor": {
+                "x": 36.2,
+                "y": 113.5
+              },
+              "angle": -72.8
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,7 +1,17 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
   "files": {
-    "includes": ["src/**", "tests/**", "party/**", "scripts/**", "*.json", "*.js"]
+    "includes": [
+      "src/**",
+      "tests/**",
+      "party/**",
+      "scripts/**",
+      "*.json",
+      "*.js",
+      "!scripts/asset-pipeline/pose/.venv",
+      "!scripts/asset-pipeline/pose/models",
+      "!scripts/asset-pipeline/pose/__pycache__"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
