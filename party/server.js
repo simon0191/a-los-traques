@@ -318,13 +318,7 @@ export default class FightRoom {
     // Targetted guard: only allow lobby/system messages from non-slotted connections.
     // This prevents corruption of this.players[-1] in game logic.
     if (slot === -1) {
-      const LOBBY_WHITELIST = [
-        'init_tournament',
-        'lobby_action',
-        'request_lobby_update',
-        'ping',
-        'rejoin',
-      ];
+      const LOBBY_WHITELIST = ['lobby_action', 'request_lobby_update', 'ping', 'rejoin'];
       if (!LOBBY_WHITELIST.includes(data.type)) {
         return;
       }
@@ -396,6 +390,8 @@ export default class FightRoom {
         this._handleLeave(slot);
         break;
       case 'init_tournament':
+        // Only P1 (slot 0) can initialize a tournament
+        if (slot !== 0) break;
         if (this._transition('init_tournament')) {
           this.lobbyState = data.lobbyState;
           // Initialize guest counter if not present
