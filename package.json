@@ -29,6 +29,7 @@
     "partysocket": "^1.1.16",
     "pg": "^8.20.0",
     "phaser": "^3.90.0",
+    "qrcode": "^1.5.4",
     "vite": "^8.0.0"
   },
   "devDependencies": {
