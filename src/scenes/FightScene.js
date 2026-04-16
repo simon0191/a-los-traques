@@ -87,10 +87,16 @@ export class FightScene extends Phaser.Scene {
     }
     this.stageId = data && (data.stageId || data.stage) ? data.stageId || data.stage : null;
     this.fightId = data?.fightId || null;
-    this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
     this.gameMode = data?.gameMode || 'local';
     this.networkManager = data?.networkManager || null;
     this.matchContext = data?.matchContext || null;
+
+    // Determine difficulty: Priority to tournament botLevel, then explicit data.difficulty
+    if (this.matchContext?.botLevel) {
+      this.aiDifficulty = this.matchContext.botLevel;
+    } else {
+      this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
+    }
   }
 
   // =========================================================================

@@ -62,53 +62,97 @@ export class AIController {
   // ---------------------------------------------------------------------------
 
   getDifficultyConfig(difficulty) {
-    switch (difficulty) {
+    const configMap = {
+      1: 'easy',
+      2: 'easy_plus',
+      3: 'medium',
+      4: 'hard',
+      5: 'hard_plus',
+      easy: 'easy',
+      medium: 'medium',
+      hard: 'hard',
+    };
+
+    const mode = configMap[difficulty] || 'medium';
+
+    switch (mode) {
       case 'easy':
         return {
-          thinkInterval: 30, // ~500 ms at 60 fps
-          missRate: 0.4, // 40 % chance to skip an attack opportunity
+          thinkInterval: 40,
+          missRate: 0.5,
           canBlock: false,
           canSpecial: false,
-          jumpChance: 0.1, // random jumps
+          jumpChance: 0.1,
+          backOffChance: 0.1,
+          blockChance: 0,
+          idealRange: 60,
+          approachRange: 80,
+          tooCloseRange: 20,
+          punishRecovery: false,
+          readOpponentState: false,
+        };
+      case 'easy_plus':
+        return {
+          thinkInterval: 30,
+          missRate: 0.35,
+          canBlock: true,
+          canSpecial: false,
+          jumpChance: 0.1,
           backOffChance: 0.15,
-          blockChance: 0, // never blocks
+          blockChance: 0.2,
           idealRange: 55,
-          approachRange: 70,
+          approachRange: 75,
           tooCloseRange: 25,
           punishRecovery: false,
           readOpponentState: false,
         };
-
-      case 'hard':
+      case 'medium':
         return {
-          thinkInterval: 5, // ~83 ms at 60 fps
-          missRate: 0.05,
+          thinkInterval: 15,
+          missRate: 0.2,
           canBlock: true,
           canSpecial: true,
-          jumpChance: 0.06, // tactical jumps only
+          jumpChance: 0.08,
+          backOffChance: 0.25,
+          blockChance: 0.45,
+          idealRange: 50,
+          approachRange: 65,
+          tooCloseRange: 35,
+          punishRecovery: false,
+          readOpponentState: true,
+        };
+      case 'hard':
+        return {
+          thinkInterval: 8,
+          missRate: 0.1,
+          canBlock: true,
+          canSpecial: true,
+          jumpChance: 0.05,
           backOffChance: 0.35,
-          blockChance: 0.7, // actively blocks when opponent attacks
+          blockChance: 0.7,
           idealRange: 52,
           approachRange: 65,
           tooCloseRange: 30,
           punishRecovery: true,
           readOpponentState: true,
         };
-      default:
+      case 'hard_plus':
         return {
-          thinkInterval: 15, // ~250 ms at 60 fps
-          missRate: 0.2,
+          thinkInterval: 4,
+          missRate: 0.02,
           canBlock: true,
           canSpecial: true,
-          jumpChance: 0.08,
-          backOffChance: 0.25,
-          blockChance: 0.35,
-          idealRange: 55,
-          approachRange: 68,
-          tooCloseRange: 28,
-          punishRecovery: false,
-          readOpponentState: false,
+          jumpChance: 0.05,
+          backOffChance: 0.4,
+          blockChance: 0.85,
+          idealRange: 52,
+          approachRange: 60,
+          tooCloseRange: 35,
+          punishRecovery: true,
+          readOpponentState: true,
         };
+      default:
+        return this.getDifficultyConfig('medium');
     }
   }
 

@@ -149,9 +149,18 @@ export class TournamentManager {
     const numRounds = Math.log2(size);
     const round1 = [];
     for (let i = 0; i < size / 2; i++) {
+      const p1 = tournamentFighters[i * 2];
+      const p2 = tournamentFighters[i * 2 + 1];
+
+      // Determine if they are AI and assign default level if so
+      const p1IsAI = !humans.includes(p1);
+      const p2IsAI = !humans.includes(p2);
+
       round1.push({
-        p1: tournamentFighters[i * 2],
-        p2: tournamentFighters[i * 2 + 1],
+        p1,
+        p2,
+        p1Level: p1IsAI ? 3 : null, // Default to level 3 for auto-AI
+        p2Level: p2IsAI ? 3 : null,
         winner: null,
       });
     }

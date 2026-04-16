@@ -75,7 +75,15 @@ export class SelectScene extends Phaser.Scene {
     this.p2StatValues = null;
 
     // N-player tournament selection state
-    this._localPlayers = this.matchContext?.localPlayers || 1;
+    if (this.matchContext?.lobbyPlayers) {
+      // Count all humans/guests as local players who need to select a character
+      this._localPlayers = this.matchContext.lobbyPlayers.filter(
+        (p) => p.type === 'human' || p.type === 'guest',
+      ).length;
+    } else {
+      this._localPlayers = this.matchContext?.localPlayers || 1;
+    }
+
     this._humanSelections = [];
     this._currentSelectingPlayer = 1;
     this._takenOverlays = []; // visual overlays for taken fighters
@@ -777,6 +785,10 @@ export class SelectScene extends Phaser.Scene {
       const selectedName = this.fighters[this.p1Index].name;
       this._updateSelectionListConfirm(this._currentSelectingPlayer, selectedName);
 
+      console.log(
+        `[SelectScene] Player ${this._currentSelectingPlayer}/${this._localPlayers} confirmed`,
+      );
+
       if (this._currentSelectingPlayer < this._localPlayers) {
         // More humans need to select — enter next player's selection phase
         this._currentSelectingPlayer++;
@@ -789,12 +801,16 @@ export class SelectScene extends Phaser.Scene {
       this.time.delayedCall(800, () => {
         const fighterIds = this.fighters.map((f) => f.id);
         const { size, seed } = this.matchContext.tournamentState;
+
+        // Generate the tournament with human selections
         const tournamentManager = TournamentManager.generate(
           fighterIds,
           size,
           this._humanSelections,
           seed,
         );
+
+        // Store lobby player data (like bot levels) in the match context
         this.matchContext.tournamentState = tournamentManager.serialize();
         this.cameras.main.fadeOut(400, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {

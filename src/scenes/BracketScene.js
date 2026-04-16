@@ -193,6 +193,15 @@ export class BracketScene extends Phaser.Scene {
       this.matchContext.isHumanVsHuman = this.manager.isHumanVsHuman(matchData);
       this.matchContext.tournamentState = this.manager.serialize();
 
+      // Determine botLevel if one of the players is an AI
+      let botLevel = null;
+      if (!this.manager._isHumanFighter(matchData.p1)) {
+        botLevel = matchData.p1Level || 3;
+      } else if (!this.manager._isHumanFighter(matchData.p2)) {
+        botLevel = matchData.p2Level || 3;
+      }
+      this.matchContext.botLevel = botLevel;
+
       this.scene.start('PreFightScene', {
         p1Id: matchData.p1,
         p2Id: matchData.p2,
