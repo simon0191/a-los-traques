@@ -868,11 +868,16 @@ export class SelectScene extends Phaser.Scene {
         controller.focusItem(this.gridCells[this.p2Index].rect);
       }
       if (this.game.autoplay?.enabled) {
-        let p2Idx;
-        do {
-          p2Idx = Phaser.Math.Between(0, this.fighters.length - 2);
-        } while (p2Idx === this.p1Index);
-        this.p2Index = p2Idx;
+        // Filter available fighters (exclude 'random' and P1 selection)
+        const available = this.fighters.filter(
+          (f) => f.id !== 'random' && f.id !== this.fighters[this.p1Index].id,
+        );
+        if (available.length > 0) {
+          const randomFighter = Phaser.Utils.Array.GetRandom(available);
+          this.p2Index = this.fighters.findIndex((f) => f.id === randomFighter.id);
+        } else {
+          this.p2Index = Phaser.Math.Between(0, this.fighters.length - 2);
+        }
         this.updateP2Display();
         this.confirmP2();
       }
@@ -890,11 +895,17 @@ export class SelectScene extends Phaser.Scene {
     this.p2Confirmed = true;
     this.p2Cursor.setStrokeStyle(3, 0xff8800);
     if (this.fighters[this.p2Index].id === 'random') {
-      let idx;
-      do {
-        idx = Phaser.Math.Between(0, this.fighters.length - 2);
-      } while (this._humanSelections.includes(this.fighters[idx].id));
-      this.p2Index = idx;
+      // Filter available fighters (exclude 'random' and already selected)
+      const available = this.fighters.filter(
+        (f) => f.id !== 'random' && !this._humanSelections.includes(f.id),
+      );
+
+      if (available.length > 0) {
+        const randomFighter = Phaser.Utils.Array.GetRandom(available);
+        this.p2Index = this.fighters.findIndex((f) => f.id === randomFighter.id);
+      } else {
+        this.p2Index = Phaser.Math.Between(0, this.fighters.length - 2);
+      }
       this.updateP2Display();
     }
 
