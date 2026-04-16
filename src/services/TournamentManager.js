@@ -245,6 +245,10 @@ export class TournamentManager {
     const nextMatch = this.rounds[nextRoundIdx][nextMatchIdx];
     const isP1Slot = currentMatchIdx % 2 === 0;
 
+    // Preserve winner level if it's a bot
+    const currentMatch = this.rounds[currentRoundIdx][currentMatchIdx];
+    const winnerLevel = winnerId === currentMatch.p1 ? currentMatch.p1Level : currentMatch.p2Level;
+
     // Human players always take P1 slot in their next match
     if (this._isHumanFighter(winnerId) && this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
       // Check if the other slot already has a human (human-vs-human upcoming)
@@ -254,24 +258,37 @@ export class TournamentManager {
 
       if (otherSlotHasHuman) {
         // Both are human — use natural slotting to avoid overwriting
-        if (isP1Slot) nextMatch.p1 = winnerId;
-        else nextMatch.p2 = winnerId;
+        if (isP1Slot) {
+          nextMatch.p1 = winnerId;
+          nextMatch.p1Level = winnerLevel;
+        } else {
+          nextMatch.p2 = winnerId;
+          nextMatch.p2Level = winnerLevel;
+        }
       } else {
         // Human gets P1 slot
         nextMatch.p1 = winnerId;
+        nextMatch.p1Level = winnerLevel;
       }
     } else if (this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
       // AI winner advancing into a path where a human might appear
       const isFromHumanSide = this._isHumanPath(currentRoundIdx, currentMatchIdx);
       if (isFromHumanSide) {
         nextMatch.p1 = winnerId;
+        nextMatch.p1Level = winnerLevel;
       } else {
         nextMatch.p2 = winnerId;
+        nextMatch.p2Level = winnerLevel;
       }
     } else {
       // Pure AI branch: natural slotting
-      if (isP1Slot) nextMatch.p1 = winnerId;
-      else nextMatch.p2 = winnerId;
+      if (isP1Slot) {
+        nextMatch.p1 = winnerId;
+        nextMatch.p1Level = winnerLevel;
+      } else {
+        nextMatch.p2 = winnerId;
+        nextMatch.p2Level = winnerLevel;
+      }
     }
   }
 
