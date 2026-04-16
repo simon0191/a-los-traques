@@ -1,111 +1,90 @@
 # RFC 0017: Redesigned Tournament Setup Lobby
 
-**Status**: Proposed
+**Status**: Implemented
 **Date**: 2026-04-15
 
 ## Problem
-The current `TournamentSetupScene` is a simple player count selector. It lacks the ability to identify specific players, handle multiple authenticated accounts in a local setting, or provide a "lobby" feel. Players want to see their names, stats, and avatars even in a local tournament, and they want an easy way for friends to join without passing the keyboard/controller around to type names.
+The previous `TournamentSetupScene` was a simple player count selector that lacked the ability to identify specific players, handle multiple authenticated accounts in a local setting, or provide a "lobby" feel. Players wanted to see their names and avatars even in a local tournament, and required an easy way for friends to join without manual name entry on a shared device.
 
-## Proposed Solution
-A "Lobby-style" `TournamentSetupScene` that acts as a central hub for tournament preparation.
+## Implemented Solution
+A comprehensive "Lobby-style" `TournamentSetupScene` that acts as a central prepare-and-sync hub for local tournaments.
 
 ### Key Features:
-1.  **Host Persistence**: Player 1 (the person who started the tournament) is automatically assigned to Slot 1.
-2.  **Dynamic Slots**: Support for 8 or 16 player brackets.
-3.  **Multiple Join Methods**:
-    *   **QR Code Login**: A QR code on screen allows friends to scan and log in via their mobile phones to join the tournament with their own accounts.
-    *   **Guest Players**: Quick addition of "Guest" slots for players without accounts.
-    *   **AI Bots**: Fill empty slots with configurable AI difficulty levels.
-4.  **Real-time Sync**: Uses PartyKit to synchronize the lobby state between the main game and any mobile devices used for joining.
+1.  **Hybrid-Cloud Lobby**: Uses PartyKit to synchronize state between the main game (Host) and any mobile devices (Clients) scanning the on-screen QR code.
+2.  **Flexible Slot Management**:
+    *   Supports 8 or 16 player brackets.
+    *   **Pagination**: The UI displays 8 slots at a time with navigation arrows to maintain clarity in 16-player modes.
+3.  **Dynamic Join Methods**:
+    *   **QR Code Join**: Points to a specialized `join.html` mobile page.
+    *   **Account Support**: Mobile users can log in via Supabase to join with their global accounts (gaining XP/stats) or join as guests.
+    *   **Guest/Bot Addition**: Host can instantly fill slots with guests or AI bots.
+4.  **Advanced AI Difficulty**:
+    *   Implemented a 5-level difficulty system (1: Very Easy to 5: Insane).
+    *   The `AIController` maps these levels to specific intervals, miss rates, and tactical behaviors (blocking/punishing).
+5.  **Dev Simulation**: A new console command `/dev:tournament:join [id]` for rapid testing without external devices.
 
 ---
 
-## Technical Design
+## Technical Architecture
 
-### 1. Lobby State Management (PartyKit)
-The tournament lobby will be managed by a PartyKit room. Even though the tournament is "local", the *setup* is hybrid-cloud to allow mobile joining.
+### 1. State Synchronization (PartyKit)
+The server (`party/server.js`) was extended to handle a non-fighting `TOURNAMENT_LOBBY` state. 
 
 ```mermaid
 graph TD
-    A[TournamentSetupScene Start] --> B[Create/Join PartyKit Room]
-    B --> C[Generate Room ID & QR Code]
-    C --> D{Wait for Players}
-    D -- Mobile Scan --> E[Mobile Join Page]
-    E -- Auth/Login --> F[Update PartyKit State]
-    F -- Sync --> D
-    D -- Add Bot/Guest --> G[Update Local State]
-    G -- Sync --> D
-    D -- Start Tournament --> H[Transition to SelectScene]
+    A[Host: TournamentSetupScene] -->|init_tournament| B[PartyKit Server]
+    B -->|lobby_update| C[Lobby State: Slots + Size]
+    C -->|Broadcast| A
+    D[Mobile: join.html] -->|request_lobby_update| B
+    B -->|lobby_update| D
+    D -->|lobby_update: Join Slot| B
 ```
 
-### 2. QR Code Join Sequence
-This flow allows a second player to use their own phone to "log in" to the host's local tournament.
+**Key Improvements made during implementation:**
+*   **Case Insensitivity**: Room IDs are forced to lowercase to ensure seamless joining regardless of input.
+*   **State Requesting**: Clients can proactively request the latest lobby state upon connection to prevent sync hangs.
+*   **Initialization Fallbacks**: The server allows `init_tournament` from multiple states to handle race conditions during host startup.
+
+### 2. Character Selection Flow
+The `SelectScene` was modified to handle sequential character picking for all human participants identified in the lobby.
 
 ```mermaid
 sequenceDiagram
-    participant H as Host (PC/Console)
-    participant P as PartyKit Server
-    participant M as Mobile (Player 2)
-    participant S as Supabase/API
-
-    H->>P: Create Room "tourney_123"
-    H->>H: Display QR (URL: game.com/join?room=tourney_123)
-    Note over M,H: Player 2 scans QR
-    M->>S: Login / Authenticate
-    S-->>M: JWT / Profile
-    M->>P: Join Room "tourney_123" with Profile
-    P-->>H: Broadcast "Player 2 Joined"
-    H->>H: Update UI Slot 2 with P2 Avatar/Name
+    participant H as Host (Phaser)
+    participant L as MatchContext (Lobby Data)
+    
+    H->>L: Read Human/Guest count
+    Loop for each Human/Guest
+        H->>H: Prompt Player N Selection
+        Note right of H: Mark fighter as "Taken" (dimmed + label)
+    End
+    H->>H: Generate Bracket (TournamentManager)
+    H->>H: Start BracketScene
 ```
 
-### 3. UI Component Hierarchy
-The scene will be composed of several interactive elements:
+### 3. AI Difficulty Mapping
+The bot levels (1-5) selected in the lobby are preserved through the bracket and applied at the start of each match.
 
-```mermaid
-graph BT
-    subgraph "TournamentSetupScene"
-        Title[Header: CONFIGURAR TORNEO]
-        subgraph "Player Grid"
-            Slot1[Slot 1: Host]
-            Slot2[Slot 2: Empty/Join]
-            Slot3[Slot 3: Bot]
-            SlotN[...]
-        end
-        subgraph "Controls"
-            QR[QR Code Display]
-            SizeBtn[Toggle 8/16 Players]
-            StartBtn[EMPEZAR TORNEO]
-            BackBtn[VOLVER]
-        end
-    end
-```
-
-### 4. Slot States and Actions
-Each slot in the grid can be in one of the following states:
-
-| State | Visuals | Available Actions |
+| Level | Mapping | Key Behaviors |
 | :--- | :--- | :--- |
-| **Empty** | Dashed border, "+" icon | Add Guest, Add Bot, (Wait for QR) |
-| **Player** | Name, Avatar, "OK" status | Remove, Move Slot |
-| **Guest** | "Invitado #N", Default icon | Remove, Convert to Bot, Rename |
-| **Bot** | "Bot [Nivel]", AI icon | Remove, Change Level (1-5) |
+| 1-2 | Easy / Easy+ | No special moves, slow reactions, minimal/no blocking. |
+| 3 | Medium | Balanced reactive play, standard blocking. |
+| 4 | Hard | Faster reactions, active recovery punishing. |
+| 5 | Insane | Frame-perfect blocking, high aggression, low miss rate. |
 
 ---
 
-## Data Model (PartyKit State)
+## Data Model
 
 ```json
 {
-  "roomId": "tourney_123",
-  "size": 8,
+  "roomId": "h8zo5ys",
+  "size": 16,
   "slots": [
-    { "type": "human", "id": "uuid-p1", "name": "HostPlayer", "avatar": "url", "status": "ready" },
-    { "type": "human", "id": "uuid-p2", "name": "Friend123", "avatar": "url", "status": "joining" },
+    { "type": "human", "id": "uuid-1", "name": "Host", "status": "ready" },
+    { "type": "human", "id": "uuid-2", "name": "MobilePlayer", "status": "ready" },
+    { "type": "bot", "level": 5, "name": "Bot Nivel 5", "status": "ready" },
     { "type": "guest", "name": "Invitado 1", "status": "ready" },
-    { "type": "bot", "level": 3, "name": "RoboTraque", "status": "ready" },
-    null,
-    null,
-    null,
     null
   ]
 }
@@ -113,29 +92,9 @@ Each slot in the grid can be in one of the following states:
 
 ---
 
-## Implementation Plan
-
-### Phase 1: Infrastructure & Mobile Page
-*   Create a simple mobile-friendly `/join` route in the existing web app.
-*   Implement `api/tournament/create` and `api/tournament/join` endpoints if needed, or handle purely via PartyKit.
-*   Update `party/server.js` to handle tournament lobby messages (JOIN_SLOT, ADD_BOT, etc.).
-
-### Phase 2: TournamentSetupScene Redesign
-*   Implement the grid-based UI in Phaser.
-*   Add QR Code generation using a library like `qrcode`.
-*   Connect the scene to the PartyKit room.
-
-### Phase 3: Integration with SelectScene
-*   Modify `SelectScene` to receive the full list of players/bots from the lobby.
-*   Update the sequential selection flow to handle both human and bot assignments.
-
----
-
-## Risks & Mitigations
-
-| Risk | Mitigation |
-| :--- | :--- |
-| **Connectivity** | Provide a "Local Only" mode that disables QR/Mobile join if internet is down. |
-| **Latency** | Lobby state changes are not time-critical; standard PartyKit latency is acceptable. |
-| **Security** | Ensure only the Host can "Start" the tournament or remove other players. |
-| **Screen Real Estate** | 16-player grid might be cramped; use a scrolling list or paged grid for smaller resolutions. |
+## Testing Verification
+*   **Local Simulation**: Verified via `dev:tournament:join` command.
+*   **Multi-Account**: Verified using `npm run dev:mp` with test accounts `p1@test.local` and `p2@test.local`.
+*   **Cross-Device**: Verified with mobile browser scanning the QR and syncing names back to the PC.
+*   **Unit Tests**: 907 tests passing, including new TournamentManager logic.
+*   **Linting**: Biome check passed with zero errors.
