@@ -37,7 +37,7 @@ graph TD
     C -->|Broadcast| A
     D[Mobile: join.html] -->|request_lobby_update| B
     B -->|lobby_update| D
-    D -->|lobby_update: Join Slot| B
+    D -->|lobby_action: JOIN_SLOT| B
 ```
 
 **Key Improvements made during implementation:**
