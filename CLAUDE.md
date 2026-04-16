@@ -101,6 +101,7 @@ node scripts/asset-pipeline/cli.js reference <config.json>  # Golden reference (
 node scripts/asset-pipeline/cli.js fighter <config.json>     # Animation frames
 node scripts/asset-pipeline/cli.js portrait <config.json>    # Character portrait
 node scripts/asset-pipeline/cli.js stage <config.json>       # Stage background
+node scripts/asset-pipeline/cli.js poses <config.json>       # Pose keypoints per frame
 ```
 
 ### Fighter generation workflow
@@ -138,6 +139,16 @@ Use the `/generate-animated-stage` skill for the full workflow. Key points:
 
 ### Animation frame counts
 idle(4), walk(4), light_punch(4), heavy_punch(5), light_kick(4), heavy_kick(5), special(5), block(2), hurt(3), knockdown(4), victory(4), defeat(3), jump(3)
+
+### Pose estimation
+Use the `/generate-poses` skill to extract per-frame keypoints for attaching runtime effects (hats, weapons, VFX) to body parts. Key points:
+- **Model**: MediaPipe PoseLandmarker heavy (BlazePose GHUM) via Python + `uv`. Managed in `scripts/asset-pipeline/pose/` with its own `pyproject.toml`.
+- **Must run AFTER `/generate-fighter` Phase 4** (facing fixes). Running before swaps `left*`/`right*` keypoints across an animation.
+- **Frame splitting gotcha**: strips have a `128x128+0+0` page geometry from `+append`; split must use `+repage -crop 128x128 +repage` or only the first frame is produced.
+- **Output**: `public/assets/fighters/{id}/poses.json` — one consolidated file per fighter with all 13 animations. 23 named keypoints per frame (pixel-space, top-left origin) + derived `head/torso/leftHand/rightHand/leftFoot/rightFoot` angles (degrees, CCW from +x).
+- **Low-vis frames**: `block`, `hurt`, `knockdown` sometimes have contorted poses MediaPipe can't read — stored as `detected: false`, runtime code should skip attachment or interpolate.
+- **`--debug`**: writes skeleton-overlay strips to `assets/_raw/poses/{id}/{anim}_debug.png` for QA.
+- **Model file** (~30 MB) auto-downloads to `scripts/asset-pipeline/pose/models/` on first run. Gitignored.
 
 ## Fighter Entity
 
