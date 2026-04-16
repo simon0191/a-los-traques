@@ -4,6 +4,9 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import { TournamentLobbyService } from '../services/TournamentLobbyService.js';
 import { createButton } from '../services/UIService.js';
 import { DevConsole } from '../systems/DevConsole.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('TournamentSetupScene');
 
 const SLOT_WIDTH = 100;
 const SLOT_HEIGHT = 40;
@@ -119,7 +122,7 @@ export class TournamentSetupScene extends Phaser.Scene {
         }
       });
     } catch (err) {
-      console.error('QR Generate Error', err);
+      log.warn('QR Generate Error', err);
     }
   }
 
@@ -215,7 +218,13 @@ export class TournamentSetupScene extends Phaser.Scene {
 
       // Update click handlers for the current page indices
       ui.guestBtn.off('pointerdown').on('pointerdown', () => this.lobby.addGuest(globalIdx));
-      ui.botBtn.off('pointerdown').on('pointerdown', () => this.lobby.addBot(globalIdx));
+      ui.botBtn.off('pointerdown').on('pointerdown', () => {
+        if (state.slots[globalIdx]?.type === 'bot') {
+          this.lobby.cycleBot(globalIdx);
+        } else {
+          this.lobby.addBot(globalIdx);
+        }
+      });
       ui.removeBtn.off('pointerdown').on('pointerdown', () => this.lobby.removeSlot(globalIdx));
 
       if (slot) {

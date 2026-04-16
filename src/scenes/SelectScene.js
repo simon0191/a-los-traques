@@ -3,6 +3,9 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('SelectScene');
 
 const COLS = 5;
 const ROWS = 4;
@@ -809,9 +812,7 @@ export class SelectScene extends Phaser.Scene {
       const selectedName = this.fighters[this.p1Index].name;
       this._updateSelectionListConfirm(this._currentSelectingPlayer, selectedName);
 
-      console.log(
-        `[SelectScene] Player ${this._currentSelectingPlayer}/${this._localPlayers} confirmed`,
-      );
+      log.debug(`Player ${this._currentSelectingPlayer}/${this._localPlayers} confirmed`);
 
       if (this._currentSelectingPlayer < this._localPlayers) {
         // More humans need to select — enter next player's selection phase
