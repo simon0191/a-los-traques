@@ -100,6 +100,14 @@ export class SignalingClient extends BaseSignalingClient {
     this._pendingCallbackMessages.clear();
   }
 
+  /**
+   * Public alias for testing and internal dispatch.
+   * @param {object} msg
+   */
+  _handleMessage(msg) {
+    this._handleMessageInternal(msg);
+  }
+
   // --- Internal ---
 
   _handleMessageInternal(msg) {
@@ -130,4 +138,3 @@ export class SignalingClient extends BaseSignalingClient {
     }
   }
 }
-

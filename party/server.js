@@ -405,7 +405,7 @@ export default class FightRoom {
     }
   }
 
-  _handleLobbyAction(data, connection) {
+  _handleLobbyAction(data, _connection) {
     if (!this.lobbyState) return;
 
     const { action, payload } = data;
@@ -417,7 +417,7 @@ export default class FightRoom {
         // Check if already joined
         if (this.lobbyState.slots.some((s) => s?.id === id)) break;
 
-        const emptyIdx = this.lobbyState.slots.findIndex((s) => s === null);
+        const emptyIdx = this.lobbyState.slots.indexOf(null);
         if (emptyIdx !== -1) {
           this.lobbyState.slots[emptyIdx] = {
             id,

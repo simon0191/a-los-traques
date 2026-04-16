@@ -64,7 +64,7 @@ export class BaseSignalingClient {
     this._boundOnOpen = () => {
       this.connected = true;
       log.info('Socket open', { roomId: this.roomId, sessionId: this.sessionId });
-      
+
       // B4: Flush pending messages on reconnect
       if (this._pendingMessages.length > 0) {
         const count = this._pendingMessages.length;
@@ -100,7 +100,7 @@ export class BaseSignalingClient {
    * @param {object} msg
    */
   send(msg) {
-    if (this.socket && this.connected && this.socket.readyState === WebSocket.OPEN) {
+    if (this.socket && this.connected) {
       this.socket.send(JSON.stringify(msg));
     } else {
       this._pendingMessages.push(msg);
@@ -110,16 +110,22 @@ export class BaseSignalingClient {
   /**
    * Register socket lifecycle callbacks.
    */
-  onSocketOpen(cb) { this._onSocketOpen = cb; }
-  onSocketClose(cb) { this._onSocketClose = cb; }
-  onSocketError(cb) { this._onSocketError = cb; }
+  onSocketOpen(cb) {
+    this._onSocketOpen = cb;
+  }
+  onSocketClose(cb) {
+    this._onSocketClose = cb;
+  }
+  onSocketError(cb) {
+    this._onSocketError = cb;
+  }
 
   /**
    * Internal dispatcher - meant to be overridden by subclasses
-   * @param {object} data 
+   * @param {object} data
    * @protected
    */
-  _handleMessageInternal(data) {
+  _handleMessageInternal(_data) {
     // Override in subclasses
   }
 
