@@ -37,7 +37,7 @@ export class BaseSignalingClient {
     this._onSocketError = null;
 
     // Create PartySocket
-    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
+    const isLocal = host.startsWith('localhost:') || host.startsWith('127.0.0.1:');
     const protocol = isLocal ? 'http' : 'https';
 
     const socketOptions = {
