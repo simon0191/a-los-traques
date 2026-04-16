@@ -249,6 +249,15 @@ export default class FightRoom {
 
     this._cleanupStaleSlots();
 
+    // Tournament Lobby: allow unlimited participants without assigning Slot 0/1 immediately
+    if (this.roomState === RoomState.TOURNAMENT_LOBBY) {
+      this._log({ type: 'connect_lobby', roomId: this.party.id, connId: connection.id });
+      if (this.lobbyState) {
+        connection.send(JSON.stringify({ type: 'lobby_update', lobbyState: this.lobbyState }));
+      }
+      return;
+    }
+
     const slot = this.players[0] === null ? 0 : this.players[1] === null ? 1 : -1;
 
     if (slot === -1) {
@@ -373,25 +382,110 @@ export default class FightRoom {
         break;
       case 'init_tournament':
         // Bypass strict transition check for tournament initialization
-        console.log(`[Server] Initializing tournament for room ${this.party.id}`);
         this.roomState = RoomState.TOURNAMENT_LOBBY;
         this.lobbyState = data.lobbyState;
         this._log({ type: 'init_tournament_forced', roomId: this.party.id });
         this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
         break;
       case 'lobby_update':
-        // Host (slot 0) or Mobile players can update lobby
-        this.lobbyState = data.lobbyState;
-        this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
+        // Legacy/Host-only fallback for specific size changes
+        if (data.lobbyState) {
+          this.lobbyState = data.lobbyState;
+          this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
+        }
+        break;
+      case 'lobby_action':
+        this._handleLobbyAction(data, connection);
         break;
       case 'request_lobby_update':
-        console.log(
-          `[Server] Lobby state requested by ${connection.id}. HasState: ${!!this.lobbyState}`,
-        );
         if (this.lobbyState) {
           connection.send(JSON.stringify({ type: 'lobby_update', lobbyState: this.lobbyState }));
         }
         break;
+    }
+  }
+
+  _handleLobbyAction(data, connection) {
+    if (!this.lobbyState) return;
+
+    const { action, payload } = data;
+    let changed = false;
+
+    switch (action) {
+      case 'join': {
+        const { id, name, type } = payload;
+        // Check if already joined
+        if (this.lobbyState.slots.some((s) => s?.id === id)) break;
+
+        const emptyIdx = this.lobbyState.slots.findIndex((s) => s === null);
+        if (emptyIdx !== -1) {
+          this.lobbyState.slots[emptyIdx] = {
+            id,
+            name,
+            type: type || 'human',
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
+      case 'add_bot': {
+        const { index, level } = payload;
+        if (index >= 0 && index < this.lobbyState.size) {
+          const targetLevel =
+            this.lobbyState.slots[index]?.type === 'bot'
+              ? (this.lobbyState.slots[index].level % 5) + 1
+              : level || 3;
+
+          this.lobbyState.slots[index] = {
+            type: 'bot',
+            name: `Bot Nivel ${targetLevel}`,
+            level: targetLevel,
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
+      case 'add_guest': {
+        const { index } = payload;
+        if (index >= 0 && index < this.lobbyState.size) {
+          const guestNum = this.lobbyState.slots.filter((s) => s?.type === 'guest').length + 1;
+          this.lobbyState.slots[index] = {
+            type: 'guest',
+            name: `Invitado ${guestNum}`,
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
+      case 'remove_slot': {
+        const { index } = payload;
+        if (index > 0 && index < this.lobbyState.size) {
+          this.lobbyState.slots[index] = null;
+          changed = true;
+        }
+        break;
+      }
+      case 'update_size': {
+        const { newSize } = payload;
+        const oldSize = this.lobbyState.size;
+        this.lobbyState.size = newSize;
+        if (newSize > oldSize) {
+          this.lobbyState.slots = this.lobbyState.slots.concat(
+            new Array(newSize - oldSize).fill(null),
+          );
+        } else {
+          this.lobbyState.slots = this.lobbyState.slots.slice(0, newSize);
+        }
+        changed = true;
+        break;
+      }
+    }
+
+    if (changed) {
+      this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
     }
   }
 
