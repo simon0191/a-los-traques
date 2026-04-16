@@ -167,23 +167,17 @@
             // Join Logic
             async function joinLobby(playerData) {
                 if (!lobbyState) return;
-                const emptyIdx = lobbyState.slots.findIndex(s => s === null);
-                if (emptyIdx === -1) {
-                    showError("¡Torneo lleno!");
-                    return;
-                }
+                
+                socket.send(JSON.stringify({ 
+                    type: 'lobby_action', 
+                    action: 'join', 
+                    payload: playerData 
+                }));
 
-                lobbyState.slots[emptyIdx] = {
-                    type: 'human',
-                    ...playerData,
-                    status: 'ready'
-                };
-
-                socket.send(JSON.stringify({ type: 'lobby_update', lobbyState }));
-
+                // Visual success (state update will confirm via socket)
                 document.querySelector('.container').innerHTML = `
                     <h1 style="color: #44cc88">¡DENTRO!</h1>
-                    <p>Te has unido como <b>${playerData.name.toUpperCase()}</b></p>
+                    <p>Petición enviada como <b>${playerData.name.toUpperCase()}</b></p>
                     <p>Ya puedes dejar el celular y prepararte para pelear en la pantalla principal.</p>
                 `;
             }

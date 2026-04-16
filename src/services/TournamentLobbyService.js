@@ -1,17 +1,14 @@
-import PartySocket from 'partysocket';
 import { PARTYKIT_HOST } from '../config.js';
 import { Logger } from '../systems/Logger.js';
+import { BaseSignalingClient } from '../systems/net/BaseSignalingClient.js';
 import { getProfile } from './api.js';
 
 const log = Logger.create('Lobby');
 
-export class TournamentLobbyService {
+export class TournamentLobbyService extends BaseSignalingClient {
   constructor(roomId) {
-    this.roomId = (roomId || Math.random().toString(36).substring(2, 9)).toLowerCase();
-    this.socket = new PartySocket({
-      host: PARTYKIT_HOST,
-      room: this.roomId,
-    });
+    const id = (roomId || Math.random().toString(36).substring(2, 9)).toLowerCase();
+    super(id, PARTYKIT_HOST);
 
     this.state = {
       size: 8,
@@ -19,7 +16,6 @@ export class TournamentLobbyService {
     };
 
     this._onUpdateCallbacks = [];
-    this.socket.onmessage = (event) => this._handleMessage(event);
   }
 
   async initHost() {
@@ -42,29 +38,16 @@ export class TournamentLobbyService {
       status: 'ready',
     };
 
-    // Retry sending until we get an update back or timeout
-    const sendInit = () => {
-      if (this.socket.readyState === WebSocket.OPEN) {
-        this.socket.send(
-          JSON.stringify({
-            type: 'init_tournament',
-            lobbyState: this.state,
-          }),
-        );
-      }
-    };
-
-    if (this.socket.readyState === WebSocket.OPEN) {
-      sendInit();
-    } else {
-      this.socket.addEventListener('open', sendInit, { once: true });
-    }
+    // Use init_tournament to switch server state and store lobbyState
+    this.send({
+      type: 'init_tournament',
+      lobbyState: this.state,
+    });
 
     this._notify();
   }
 
-  _handleMessage(event) {
-    const data = JSON.parse(event.data);
+  _handleMessageInternal(data) {
     if (data.type === 'lobby_update' || data.type === 'init_tournament') {
       if (data.lobbyState) {
         this.state = data.lobbyState;
@@ -84,59 +67,40 @@ export class TournamentLobbyService {
   }
 
   updateSize(newSize) {
-    const oldSize = this.state.size;
-    this.state.size = newSize;
-    if (newSize > oldSize) {
-      this.state.slots = this.state.slots.concat(new Array(newSize - oldSize).fill(null));
-    } else {
-      this.state.slots = this.state.slots.slice(0, newSize);
-    }
-    this._broadcast();
+    this.send({
+      type: 'lobby_action',
+      action: 'update_size',
+      payload: { newSize },
+    });
   }
 
   addGuest(slotIndex) {
-    if (slotIndex < 0 || slotIndex >= this.state.size) return;
-    const guestNum = this.state.slots.filter((s) => s?.type === 'guest').length + 1;
-    this.state.slots[slotIndex] = {
-      type: 'guest',
-      name: `Invitado ${guestNum}`,
-      status: 'ready',
-    };
-    this._broadcast();
+    this.send({
+      type: 'lobby_action',
+      action: 'add_guest',
+      payload: { index: slotIndex },
+    });
   }
 
   addBot(slotIndex, level = 3) {
-    if (slotIndex < 0 || slotIndex >= this.state.size) return;
-
-    let targetLevel = level;
-    // Cycle level if already a bot
-    if (this.state.slots[slotIndex]?.type === 'bot') {
-      targetLevel = (this.state.slots[slotIndex].level % 5) + 1;
-    }
-
-    this.state.slots[slotIndex] = {
-      type: 'bot',
-      name: `Bot Nivel ${targetLevel}`,
-      level: targetLevel,
-      status: 'ready',
-    };
-    this._broadcast();
+    this.send({
+      type: 'lobby_action',
+      action: 'add_bot',
+      payload: { index: slotIndex, level },
+    });
   }
 
   removeSlot(slotIndex) {
     if (slotIndex === 0) return; // Cannot remove host
-    this.state.slots[slotIndex] = null;
-    this._broadcast();
+    this.send({
+      type: 'lobby_action',
+      action: 'remove_slot',
+      payload: { index: slotIndex },
+    });
   }
 
   _broadcast() {
-    this.socket.send(
-      JSON.stringify({
-        type: 'lobby_update',
-        lobbyState: this.state,
-      }),
-    );
-    this._notify();
+    // No longer used for granular updates, now using lobby_action
   }
 
   getJoinUrl() {
@@ -145,7 +109,7 @@ export class TournamentLobbyService {
   }
 
   destroy() {
-    this.socket.close();
+    super.destroy();
     this._onUpdateCallbacks = [];
   }
 }
