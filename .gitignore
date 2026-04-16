@@ -21,3 +21,8 @@ test-results/
 # Terraform
 infra/.terraform/
 infra/*.tfvars
+
+# Pose estimation pipeline (Python/MediaPipe)
+scripts/asset-pipeline/pose/.venv/
+scripts/asset-pipeline/pose/__pycache__/
+scripts/asset-pipeline/pose/models/

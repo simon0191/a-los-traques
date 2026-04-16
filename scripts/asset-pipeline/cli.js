@@ -4,14 +4,15 @@
  * cli.js -- Asset pipeline entry point for A Los Traques
  *
  * Usage:
- *   node scripts/asset-pipeline/cli.js <type> <config.json> [--skip-generate] [--delay N] [--retries N] [--ref PATH]
+ *   node scripts/asset-pipeline/cli.js <type> <config.json> [--skip-generate] [--delay N] [--retries N] [--ref PATH] [--debug]
  *
- * Types: fighter, portrait, stage, ui, reference
+ * Types: fighter, portrait, stage, ui, reference, poses
  */
 
 import fs from 'node:fs';
 import { runFighterPipeline } from './pipelines/fighter.js';
 import { runPortraitPipeline } from './pipelines/portrait.js';
+import { runPosesPipeline } from './pipelines/poses.js';
 import { runReferencePipeline } from './pipelines/reference.js';
 import { runStagePipeline } from './pipelines/stage.js';
 import { runUIPipeline } from './pipelines/ui.js';
@@ -22,6 +23,7 @@ const PIPELINES = {
   stage: runStagePipeline,
   ui: runUIPipeline,
   reference: runReferencePipeline,
+  poses: runPosesPipeline,
 };
 
 function parseArgs() {
@@ -33,6 +35,7 @@ function parseArgs() {
     delay: 3000,
     retries: 3,
     refs: [],
+    debug: false,
   };
 
   const positional = [];
@@ -50,6 +53,9 @@ function parseArgs() {
       case '--ref':
         opts.refs.push(args[++i]);
         break;
+      case '--debug':
+        opts.debug = true;
+        break;
       default:
         positional.push(args[i]);
     }
@@ -65,7 +71,7 @@ async function main() {
 
   if (!opts.type || !opts.configPath) {
     console.error(
-      'Usage: node cli.js <type> <config.json> [--skip-generate] [--delay N] [--retries N]',
+      'Usage: node cli.js <type> <config.json> [--skip-generate] [--delay N] [--retries N] [--debug]',
     );
     console.error(`Types: ${Object.keys(PIPELINES).join(', ')}`);
     process.exit(1);
@@ -94,6 +100,7 @@ async function main() {
   config.skipGenerate = opts.skipGenerate;
   config.delay = opts.delay;
   config.retries = opts.retries;
+  config.debug = opts.debug;
 
   // Merge reference images from CLI --ref flags with manifest referenceImages
   const manifestRefs = config.referenceImages || [];
