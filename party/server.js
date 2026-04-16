@@ -14,6 +14,7 @@ const RoomState = {
   CREATING_FIGHT: 'creating_fight',
   FIGHTING: 'fighting',
   RECONNECTING: 'reconnecting',
+  TOURNAMENT_LOBBY: 'tournament_lobby',
 };
 
 /**
@@ -22,10 +23,16 @@ const RoomState = {
 const ROOM_TRANSITIONS = {
   [RoomState.EMPTY]: {
     player_connected: RoomState.WAITING,
+    init_tournament: RoomState.TOURNAMENT_LOBBY,
+  },
+  [RoomState.TOURNAMENT_LOBBY]: {
+    start_tournament: RoomState.SELECTING, // Or wherever it goes
+    leave: RoomState.EMPTY,
   },
   [RoomState.WAITING]: {
     second_connected: RoomState.SELECTING,
     player_disconnected: RoomState.EMPTY,
+    init_tournament: RoomState.TOURNAMENT_LOBBY,
   },
   [RoomState.SELECTING]: {
     first_ready: RoomState.READY_CHECK,
@@ -84,6 +91,9 @@ export default class FightRoom {
     /** @type {Array<object>} Ring buffer of last 50 server events */
     this._eventLog = [];
     this._eventLogMax = 50;
+
+    /** @type {object|null} State for tournament lobby */
+    this.lobbyState = null;
   }
 
   /**
@@ -267,6 +277,11 @@ export default class FightRoom {
     } else if (this.roomState === RoomState.EMPTY) {
       this._transition('player_connected');
     }
+
+    // If we have a tournament lobby state, send it to the new connection immediately
+    if (this.lobbyState) {
+      connection.send(JSON.stringify({ type: 'lobby_update', lobbyState: this.lobbyState }));
+    }
   }
 
   onMessage(message, connection) {
@@ -290,8 +305,6 @@ export default class FightRoom {
       this._handleSpectatorMessage(data, connection);
       return;
     }
-
-    if (slot === -1) return;
 
     switch (data.type) {
       case 'ready':
@@ -357,6 +370,27 @@ export default class FightRoom {
         break;
       case 'leave':
         this._handleLeave(slot);
+        break;
+      case 'init_tournament':
+        // Bypass strict transition check for tournament initialization
+        console.log(`[Server] Initializing tournament for room ${this.party.id}`);
+        this.roomState = RoomState.TOURNAMENT_LOBBY;
+        this.lobbyState = data.lobbyState;
+        this._log({ type: 'init_tournament_forced', roomId: this.party.id });
+        this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
+        break;
+      case 'lobby_update':
+        // Host (slot 0) or Mobile players can update lobby
+        this.lobbyState = data.lobbyState;
+        this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
+        break;
+      case 'request_lobby_update':
+        console.log(
+          `[Server] Lobby state requested by ${connection.id}. HasState: ${!!this.lobbyState}`,
+        );
+        if (this.lobbyState) {
+          connection.send(JSON.stringify({ type: 'lobby_update', lobbyState: this.lobbyState }));
+        }
         break;
     }
   }
