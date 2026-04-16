@@ -216,15 +216,6 @@ export class OverlayEditorScene extends Phaser.Scene {
   _setupKeyboard() {
     const kb = this.input.keyboard;
     this._globalKeyHandler = (e) => {
-      // Always prevent the browser's default for arrows/space/tab so the
-      // DOM panels don't scroll or shift focus when the editor owns the
-      // keyboard. Phaser's own handlers still fire because we only call
-      // preventDefault (not stopPropagation).
-      const navKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Tab'];
-      if (navKeys.includes(e.key)) {
-        e.preventDefault();
-        return;
-      }
       if (!e.ctrlKey && !e.metaKey) return;
       const key = e.key.toLowerCase();
       const captured = ['s', 'e', 'z', 'y', '-', '=', '+'];
@@ -242,7 +233,7 @@ export class OverlayEditorScene extends Phaser.Scene {
       window.removeEventListener('keydown', this._globalKeyHandler, { capture: true });
     });
 
-    kb.addCapture('SPACE,TAB');
+    kb.addCapture('SPACE,TAB,UP,DOWN,LEFT,RIGHT');
 
     kb.on('keydown-LEFT', () => this._cycleFrame(-1));
     kb.on('keydown-RIGHT', () => this._cycleFrame(1));
