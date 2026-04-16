@@ -88,3 +88,41 @@ describe('AI difficulty config', () => {
     expect(getConfig('hard')).toEqual(getConfig(4));
   });
 });
+
+describe('AI decision determinism', () => {
+  it('produces identical decisions given the same seed', () => {
+    const mockFighter = (x) => ({
+      x,
+      hp: 100,
+      special: 0,
+      state: 'idle',
+      isOnGround: true,
+      data: { stats: { speed: 5 } },
+    });
+
+    const createController = (seed, difficulty) => {
+      const scene = { rollbackManager: { currentFrame: 0 } };
+      const fighter = mockFighter(100);
+      const opponent = mockFighter(200);
+      const ctrl = new AIController(scene, fighter, opponent, difficulty);
+      // Force the specific seed
+      ctrl._rng = () => {
+        seed += 0x6d2b79f5;
+        let t = seed;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      return ctrl;
+    };
+
+    const c1 = createController(42, 3);
+    const c2 = createController(42, 3);
+
+    for (let i = 0; i < 50; i++) {
+      c1.think();
+      c2.think();
+      expect(c1.decision).toEqual(c2.decision);
+    }
+  });
+});
