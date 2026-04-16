@@ -26,7 +26,7 @@ const ROOM_TRANSITIONS = {
     init_tournament: RoomState.TOURNAMENT_LOBBY,
   },
   [RoomState.TOURNAMENT_LOBBY]: {
-    start_tournament: RoomState.SELECTING, // Or wherever it goes
+    start_tournament: RoomState.SELECTING,
     leave: RoomState.EMPTY,
   },
   [RoomState.WAITING]: {

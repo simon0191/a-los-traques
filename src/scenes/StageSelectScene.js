@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import stagesData from '../data/stages.json';
 import { createButton } from '../services/UIService.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('StageSelectScene');
 
 const COLS = 4;
 const GRID_GAP = 10;
@@ -174,7 +177,7 @@ export class StageSelectScene extends Phaser.Scene {
               this.networkManager.signaling.send({ type: 'fight_created' });
             })
             .catch((err) => {
-              console.warn('Fight creation failed, continuing anyway:', err.message);
+              log.warn('Fight creation failed, continuing anyway', { error: err.message });
               this.networkManager.signaling.send({ type: 'fight_created' });
             });
         });
