@@ -5,9 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Unirse al Torneo - A Los Traques</title>
     <style>
+        :root {
+            --primary: #3366ff;
+            --secondary: #1a1a3a;
+            --bg: #0a0a1e;
+            --accent: #ffcc00;
+            --success: #44cc88;
+            --error: #ff4444;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0a0a1e;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg);
             color: white;
             display: flex;
             flex-direction: column;
@@ -20,91 +28,116 @@
         }
         .container {
             width: 100%;
-            max-width: 400px;
-            background: #1a1a3a;
-            padding: 30px;
-            border-radius: 15px;
+            max-width: 350px;
+            background: var(--secondary);
+            padding: 25px;
+            border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             text-align: center;
+            border: 1px solid #333366;
         }
-        h1 { color: #ffcc00; margin-bottom: 10px; font-size: 24px; }
-        p { color: #aaaaaa; font-size: 14px; margin-bottom: 25px; }
-        .form-group { margin-bottom: 20px; text-align: left; }
-        label { display: block; margin-bottom: 8px; font-size: 14px; color: #ccc; }
+        h1 { color: #fff; margin: 0 0 5px 0; font-size: 22px; letter-spacing: 1px; }
+        .room-tag { font-size: 10px; color: var(--accent); margin-bottom: 20px; text-transform: uppercase; font-weight: bold; }
+        
+        .tabs { display: flex; background: rgba(0,0,0,0.3); border-radius: 8px; margin-bottom: 20px; padding: 4px; }
+        .tab { flex: 1; padding: 10px; cursor: pointer; border-radius: 6px; font-size: 12px; font-weight: bold; color: #888; transition: 0.2s; }
+        .tab.active { background: var(--primary); color: white; }
+
+        .form-group { margin-bottom: 15px; text-align: left; }
         input {
             width: 100%;
             padding: 12px;
-            border-radius: 8px;
-            border: 2px solid #333366;
-            background: #0a0a1e;
+            border-radius: 6px;
+            border: 1px solid #333366;
+            background: #0a0a1a;
             color: white;
-            font-size: 16px;
+            font-size: 14px;
             box-sizing: border-box;
             outline: none;
         }
-        input:focus { border-color: #ffcc00; }
-        .btn-primary {
-            width: 100%;
-            padding: 15px;
-            border-radius: 8px;
-            border: none;
-            background: #3366ff;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 10px;
-        }
-        .btn-secondary {
+        input:focus { border-color: var(--primary); }
+        
+        .btn {
             width: 100%;
             padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #3366ff;
-            background: transparent;
-            color: #3366ff;
+            border-radius: 6px;
+            border: none;
             font-size: 14px;
+            font-weight: bold;
             cursor: pointer;
+            transition: 0.2s;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
-        .error { color: #ff4444; margin-bottom: 15px; font-size: 14px; display: none; }
-        .hidden { display: none; }
-        .tab-btn { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; }
-        .tab-btn.active { border-bottom-color: #ffcc00; color: #ffcc00; }
-        .tabs { display: flex; justify-content: center; margin-bottom: 20px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #4477ff; }
+        .btn-google { background: white; color: black; }
+        .btn-signup { background: var(--success); color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .status-msg { font-size: 11px; color: #aaa; margin-top: 10px; min-height: 15px; }
+        .error { color: var(--error); }
+        .success { color: var(--success); }
+        .hidden { display: none !important; }
+        
+        hr { border: 0; border-top: 1px solid #333366; margin: 15px 0; }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container" id="main-container">
         <h1>TORNEO LOCAL</h1>
-        <p id="room-info">Cargando...</p>
+        <div id="room-info" class="room-tag">Conectando...</div>
 
-        <div class="tabs">
-            <div id="tab-guest" class="tab-btn active">INVITADO</div>
-            <div id="tab-login" class="tab-btn">MI CUENTA</div>
-        </div>
-        
-        <div id="error-msg" class="error"></div>
-
-        <!-- Guest View -->
-        <div id="view-guest">
-            <div class="form-group">
-                <input type="text" id="guest-name" placeholder="Tu Apodo" maxlength="12">
+        <div id="auth-ui">
+            <div class="tabs">
+                <div class="tab active" data-target="view-login">ENTRAR</div>
+                <div class="tab" data-target="view-signup">REGISTRO</div>
+                <div class="tab" data-target="view-guest">INVITADO</div>
             </div>
-            <button id="join-guest-btn" class="btn-primary" disabled>UNIRSE COMO INVITADO</button>
-        </div>
 
-        <!-- Login View -->
-        <div id="view-login" class="hidden">
-            <div class="form-group">
-                <input type="email" id="login-email" placeholder="Email">
-            </div>
-            <div class="form-group">
-                <input type="password" id="login-pass" placeholder="Contraseña">
-            </div>
-            <button id="login-btn" class="btn-primary">INICIAR SESIÓN Y UNIRSE</button>
-            <p style="font-size: 11px">Usa tus credenciales de A Los Traques para ganar XP.</p>
-        </div>
+            <div id="status-display" class="status-msg"></div>
 
-        <div class="status" id="conn-status" style="margin-top:20px; font-size:10px; color:#555;">Conectando a PartyKit...</div>
+            <!-- Login -->
+            <div id="view-login" class="auth-view">
+                <div class="form-group">
+                    <input type="email" id="login-email" placeholder="Email">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="login-pass" placeholder="Contraseña">
+                </div>
+                <button id="login-btn" class="btn btn-primary">ENTRAR Y UNIRSE</button>
+                <hr>
+                <button id="google-btn" class="btn btn-google">
+                    <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.49h4.84c-.21.91-.81 1.68-1.63 2.25v1.87h2.63c1.54-1.41 2.43-3.5 2.43-5.77z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.63-1.87c-.73.49-1.66.78-2.63.78-2.33 0-4.3-1.58-5-3.71H2.01v1.93C3.49 15.92 6.05 18 9 18z" fill="#34A853"/><path d="M4 10.99c-.18-.54-.29-1.11-.29-1.7s.11-1.16.29-1.7V5.66H2.01C1.29 6.66 1 7.8 1 9s.29 2.34 1.01 3.34L4 10.99z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.59C13.46.89 11.43 0 9 0 6.05 0 3.49 2.08 2.01 5.66L4 7.59c.7-2.13 2.67-3.71 5-3.71z" fill="#EA4335"/></svg>
+                    CONTINUAR CON GOOGLE
+                </button>
+            </div>
+
+            <!-- Signup -->
+            <div id="view-signup" class="auth-view hidden">
+                <div class="form-group">
+                    <input type="text" id="sig-nick" placeholder="Apodo">
+                </div>
+                <div class="form-group">
+                    <input type="email" id="sig-email" placeholder="Email">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="sig-pass" placeholder="Contraseña">
+                </div>
+                <button id="signup-btn" class="btn btn-signup">CREAR CUENTA</button>
+            </div>
+
+            <!-- Guest -->
+            <div id="view-guest" class="auth-view hidden">
+                <div class="form-group">
+                    <input type="text" id="guest-name" placeholder="Tu Apodo (Ej: Simon)">
+                </div>
+                <button id="guest-btn" class="btn btn-primary">UNIRSE COMO INVITADO</button>
+            </div>
+        </div>
     </div>
 
     <script type="module">
@@ -114,119 +147,145 @@
         const urlParams = new URLSearchParams(window.location.search);
         let roomId = urlParams.get('room');
         if (roomId) roomId = roomId.toLowerCase();
-        
-        // UI Elements
-        const guestView = document.getElementById('view-guest');
-        const loginView = document.getElementById('view-login');
-        const tabGuest = document.getElementById('tab-guest');
-        const tabLogin = document.getElementById('tab-login');
-        const joinGuestBtn = document.getElementById('join-guest-btn');
-        const loginBtn = document.getElementById('login-btn');
-        const statusText = document.getElementById('conn-status');
-        const roomInfo = document.getElementById('room-info');
-        const errorMsg = document.getElementById('error-msg');
 
-        // Tab Switching
-        tabGuest.onclick = () => {
-            tabGuest.classList.add('active');
-            tabLogin.classList.remove('active');
-            guestView.classList.remove('hidden');
-            loginView.classList.add('hidden');
-        };
-        tabLogin.onclick = () => {
-            tabLogin.classList.add('active');
-            tabGuest.classList.remove('active');
-            loginView.classList.remove('hidden');
-            guestView.classList.add('hidden');
-        };
+        // Environment Detection
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const supabaseUrl = isLocal ? 'http://localhost:54321' : 'https://your-project.supabase.co';
+        const supabaseKey = isLocal ? 'dev-anon-key' : 'your-anon-key';
+        const supabase = createClient(supabaseUrl, supabaseKey);
 
+        const partyHost = isLocal ? 'localhost:1999' : 'a-los-traques.feliperuiz.partykit.dev';
+        const socket = roomId ? new PartySocket({ host: partyHost, room: roomId }) : null;
+
+        let lobbyState = null;
+        const statusEl = document.getElementById('status-display');
+
+        // Initial Logic
         if (!roomId) {
-            roomInfo.innerText = "Error: No hay sala.";
+            document.getElementById('room-info').innerText = "ERROR: NO SE ENCONTRÓ SALA";
+            document.getElementById('auth-ui').classList.add('hidden');
         } else {
-            roomInfo.innerText = `SALA: ${roomId.toUpperCase()}`;
+            document.getElementById('room-info').innerText = `SALA: ${roomId}`;
             
-            const host = window.location.hostname === 'localhost' ? 'localhost:1999' : 'a-los-traques.feliperuiz.partykit.dev';
-            const socket = new PartySocket({ host, room: roomId });
-
-            let lobbyState = null;
-
-            socket.onopen = () => {
-                socket.send(JSON.stringify({ type: 'request_lobby_update' }));
-                statusText.innerText = "Conectado. Obteniendo estado...";
-            };
-
+            socket.onopen = () => socket.send(JSON.stringify({ type: 'request_lobby_update' }));
             socket.onmessage = (e) => {
                 const data = JSON.parse(e.data);
                 if (data.type === 'lobby_update' || data.type === 'init_tournament') {
                     lobbyState = data.lobbyState;
-                    joinGuestBtn.disabled = false;
-                    statusText.innerText = "Conectado. Sala lista.";
                 }
             };
 
-            // Join Logic
-            async function joinLobby(playerData) {
-                if (!lobbyState) return;
-                
-                socket.send(JSON.stringify({ 
-                    type: 'lobby_action', 
-                    action: 'JOIN_SLOT', 
-                    payload: playerData 
-                }));
-
-                // Visual success (state update will confirm via socket)
-                document.querySelector('.container').innerHTML = `
-                    <h1 style="color: #44cc88">¡DENTRO!</h1>
-                    <p>Petición enviada como <b>${playerData.name.toUpperCase()}</b></p>
-                    <p>Ya puedes dejar el celular y prepararte para pelear en la pantalla principal.</p>
-                `;
-            }
-
-            joinGuestBtn.onclick = () => {
-                const name = document.getElementById('guest-name').value.trim();
-                if (!name) return showError("Escribe un nombre.");
-                joinLobby({ id: 'guest-' + Math.random().toString(36).substring(2, 7), name });
-            };
-
-            loginBtn.onclick = async () => {
-                const email = document.getElementById('login-email').value;
-                const pass = document.getElementById('login-pass').value;
-                
-                loginBtn.disabled = true;
-                loginBtn.innerText = "AUTENTICANDO...";
-
-                try {
-                    // Detect environment
-                    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                    
-                    // These would be your real production values
-                    let supabaseUrl = 'https://your-project.supabase.co';
-                    let supabaseKey = 'your-anon-key';
-
-                    if (isLocal) {
-                        supabaseUrl = 'http://localhost:54321';
-                        supabaseKey = 'dev-anon-key';
-                    }
-
-                    const supabase = createClient(supabaseUrl, supabaseKey);
-
-                    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-                    if (error) throw error;
-
-                    const nickname = data.user.user_metadata?.nickname || data.user.email.split('@')[0];
-                    joinLobby({ id: data.user.id, name: nickname });
-                } catch (err) {
-                    showError("Error de login: " + err.message);
-                    loginBtn.disabled = false;
-                    loginBtn.innerText = "INICIAR SESIÓN Y UNIRSE";
+            // Auto-check session
+            supabase.auth.getSession().then(({data}) => {
+                if (data.session) {
+                    const user = data.session.user;
+                    const name = user.user_metadata?.nickname || user.email.split('@')[0];
+                    showAutoJoinUI(name, user.id);
                 }
-            };
+            });
         }
 
-        function showError(msg) {
-            errorMsg.innerText = msg;
-            errorMsg.style.display = 'block';
-            setTimeout(() => errorMsg.style.display = 'none', 4000);
+        // Tab Switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.onclick = () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.auth-view').forEach(v => v.classList.add('hidden'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.target).classList.remove('hidden');
+                statusEl.innerText = "";
+            };
+        });
+
+        // ACTIONS
+        async function join(id, name) {
+            if (!lobbyState) return showStatus("Error: Esperando al servidor...", true);
+            socket.send(JSON.stringify({ 
+                type: 'lobby_action', 
+                action: 'JOIN_SLOT', 
+                payload: { id, name, type: id.startsWith('guest-') ? 'guest' : 'human' } 
+            }));
+            
+            document.getElementById('main-container').innerHTML = `
+                <h1 style="color: var(--success)">¡LISTO!</h1>
+                <div class="room-tag">CONECTADO COMO ${name.toUpperCase()}</div>
+                <p style="font-size: 13px; color: #aaa;">Mira la pantalla principal para ver tu posición en el torneo.</p>
+                <button class="btn btn-primary" onclick="location.reload()">SALIR / CAMBIAR</button>
+            `;
+        }
+
+        document.getElementById('login-btn').onclick = async () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            if (!email || !pass) return showStatus("Completa los campos", true);
+            
+            setLoading(true);
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+            if (error) {
+                showStatus(error.message, true);
+                setLoading(false);
+            } else {
+                const nick = data.user.user_metadata?.nickname || email.split('@')[0];
+                join(data.user.id, nick);
+            }
+        };
+
+        document.getElementById('signup-btn').onclick = async () => {
+            const nick = document.getElementById('sig-nick').value;
+            const email = document.getElementById('sig-email').value;
+            const pass = document.getElementById('sig-pass').value;
+            if (!nick || !email || !pass) return showStatus("Completa los campos", true);
+
+            setLoading(true);
+            const { data, error } = await supabase.auth.signUp({ 
+                email, password: pass, options: { data: { nickname: nick } } 
+            });
+            if (error) {
+                showStatus(error.message, true);
+                setLoading(false);
+            } else {
+                showStatus("¡Cuenta creada! Revisa tu email para verificar.", false);
+                setLoading(false);
+            }
+        };
+
+        document.getElementById('google-btn').onclick = () => {
+            supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.href }
+            });
+        };
+
+        document.getElementById('guest-btn').onclick = () => {
+            const name = document.getElementById('guest-name').value.trim();
+            if (!name) return showStatus("Escribe un nombre", true);
+            join('guest-' + Math.random().toString(36).slice(2, 7), name);
+        };
+
+        // Helpers
+        function showStatus(msg, isError) {
+            statusEl.innerText = msg;
+            statusEl.className = 'status-msg ' + (isError ? 'error' : 'success');
+        }
+
+        function setLoading(loading) {
+            document.querySelectorAll('button').forEach(b => b.disabled = loading);
+            if (loading) showStatus("Procesando...", false);
+        }
+
+        function showAutoJoinUI(name, id) {
+            document.getElementById('auth-ui').innerHTML = `
+                <div style="margin: 20px 0;">
+                    <div style="font-size: 14px; color: #aaa; margin-bottom: 10px;">Sesión activa como</div>
+                    <div style="font-size: 20px; font-weight: bold; color: var(--accent); margin-bottom: 20px;">${name.toUpperCase()}</div>
+                    <button id="autojoin-btn" class="btn btn-primary">UNIRSE AL TORNEO</button>
+                    <button id="logout-btn" class="btn" style="background:none; color: #666; font-size: 11px;">CERRAR SESIÓN</button>
+                </div>
+            `;
+            document.getElementById('autojoin-btn').onclick = () => join(id, name);
+            document.getElementById('logout-btn').onclick = async () => {
+                await supabase.auth.signOut();
+                location.reload();
+            };
         }
     </script>
 </body>
