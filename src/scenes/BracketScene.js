@@ -105,6 +105,78 @@ export class BracketScene extends Phaser.Scene {
         this.scene.start('MultiplayerMenuScene');
       });
     }
+
+    this._drawParticipantsLegend();
+  }
+
+  _drawParticipantsLegend() {
+    const round1 = this.manager.rounds[0];
+    if (!round1) return;
+
+    const panelX = GAME_WIDTH - 85;
+    const panelY = 45;
+
+    this.add
+      .text(panelX, panelY - 15, 'PARTICIPANTES', {
+        fontFamily: 'Arial Black, Arial',
+        fontSize: '9px',
+        color: '#ffcc00',
+      })
+      .setOrigin(0, 0);
+
+    // Collect all participants from Round 1
+    const participants = [];
+    round1.forEach((m) => {
+      participants.push({ id: m.p1, level: m.p1Level });
+      participants.push({ id: m.p2, level: m.p2Level });
+    });
+
+    participants.forEach((p, i) => {
+      const fighter = fightersData.find((f) => f.id === p.id);
+      const fighterName = fighter ? fighter.name : '???';
+
+      // Find original name from lobby if it was a human/guest
+      const lobbyPlayer = this.matchContext?.lobbyPlayers?.find((lp) => lp.fighterId === p.id);
+
+      let displayName = '';
+      let color = '#ffffff';
+
+      if (lobbyPlayer && lobbyPlayer.type !== 'bot') {
+        displayName = lobbyPlayer.name.toUpperCase();
+        if (displayName.startsWith('INVITADO ')) {
+          displayName = `INV${displayName.split(' ')[1]}`;
+        }
+        const humanFighterIds = this.manager.humanFighterIds;
+        const colorIdx = humanFighterIds.indexOf(p.id);
+        if (colorIdx !== -1) {
+          color = HUMAN_COLORS[colorIdx % HUMAN_COLORS.length];
+        }
+      } else {
+        // It's a bot (either manual or auto-filled)
+        displayName = `BOT NIV${p.level || 3}`;
+      }
+
+      if (displayName.length > 8 && !displayName.startsWith('BOT')) {
+        displayName = `${displayName.substring(0, 7)}.`;
+      }
+
+      this.add
+        .text(panelX, panelY + i * 11, `${displayName}:`, {
+          fontFamily: 'Arial',
+          fontSize: '7px',
+          color: color,
+          fontStyle: 'bold',
+        })
+        .setOrigin(0, 0);
+
+      this.add
+        .text(panelX + 45, panelY + i * 11, fighterName.toUpperCase(), {
+          fontFamily: 'Arial',
+          fontSize: '7px',
+          color: '#aaaaaa',
+        })
+        .setOrigin(0, 0);
+    });
   }
 
   getNavMenu() {
