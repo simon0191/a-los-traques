@@ -12,6 +12,18 @@
     "image": "assets/accessories/sombrero_volteado.png"
   },
   {
+    "id": "sombrero_chique_ron",
+    "category": "sombreros",
+    "label": "Sombrero Chiqué Ron",
+    "image": "assets/accessories/sombrero_chique_ron.png"
+  },
+  {
+    "id": "sombrero_chique_antioqueno",
+    "category": "sombreros",
+    "label": "Sombrero Chiqué Antioqueño",
+    "image": "assets/accessories/sombrero_chique_antioqueno.png"
+  },
+  {
     "id": "gafas_rapidas",
     "category": "gafas",
     "label": "Gafas Rápidas",
