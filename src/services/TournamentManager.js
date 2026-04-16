@@ -84,8 +84,9 @@ export class TournamentManager {
    * @param {number} size - Tournament size (8 or 16)
    * @param {string|string[]} humanFighterIds - Human player fighter ID(s)
    * @param {number} seed - PRNG seed
+   * @param {object[]} [lobbyParticipants] - Optional specific bots/humans from lobby
    */
-  static generate(fighterIds, size, humanFighterIds, seed) {
+  static generate(fighterIds, size, humanFighterIds, seed, lobbyParticipants = []) {
     // Normalize to array for backward compat
     const humans = typeof humanFighterIds === 'string' ? [humanFighterIds] : [...humanFighterIds];
 
@@ -98,6 +99,9 @@ export class TournamentManager {
       return arr;
     };
 
+    // Separate specific bots from lobby
+    const lobbyBots = lobbyParticipants.filter((p) => p.type === 'bot');
+
     // Build AI pool (exclude humans and 'random')
     const available = fighterIds.filter((id) => id !== 'random' && !humans.includes(id));
     shuffle(available);
@@ -106,20 +110,22 @@ export class TournamentManager {
     const aiFighters = available.slice(0, size - humans.length);
     const tournamentFighters = new Array(size);
 
-    // Place humans at evenly-spaced positions, then promote odd-slot humans to P1 (even) slots
+    // 1. Place Humans at evenly-spaced positions
     for (let h = 0; h < humans.length; h++) {
       const slot = Math.floor((h * size) / humans.length);
-      tournamentFighters[slot] = humans[h];
+      tournamentFighters[slot] = { id: humans[h], type: 'human' };
     }
+
+    // 2. Prepare specific bots from lobby
+    const botsToPlace = [...lobbyBots];
+
     // Second pass: move odd-slot humans to nearby empty even slots
     for (let i = 0; i < size; i++) {
-      if (i % 2 !== 0 && tournamentFighters[i] && humans.includes(tournamentFighters[i])) {
-        // Preferred: slot-1 (same match, P1 side)
+      if (i % 2 !== 0 && tournamentFighters[i]?.type === 'human') {
         if (!tournamentFighters[i - 1]) {
           tournamentFighters[i - 1] = tournamentFighters[i];
           tournamentFighters[i] = undefined;
         } else {
-          // Find nearest empty even slot
           let best = -1;
           for (let e = 0; e < size; e += 2) {
             if (!tournamentFighters[e]) {
@@ -136,11 +142,17 @@ export class TournamentManager {
       }
     }
 
-    // Fill remaining slots with shuffled AI
+    // 3. Fill remaining slots: first with specific lobby bots, then generic AI
     let aiIdx = 0;
     for (let i = 0; i < size; i++) {
       if (!tournamentFighters[i]) {
-        tournamentFighters[i] = aiFighters[aiIdx++];
+        const fId = aiFighters[aiIdx++];
+        if (botsToPlace.length > 0) {
+          const b = botsToPlace.shift();
+          tournamentFighters[i] = { id: fId, type: 'bot', level: b.level };
+        } else {
+          tournamentFighters[i] = { id: fId, type: 'bot', level: 3 };
+        }
       }
     }
 
@@ -149,18 +161,14 @@ export class TournamentManager {
     const numRounds = Math.log2(size);
     const round1 = [];
     for (let i = 0; i < size / 2; i++) {
-      const p1 = tournamentFighters[i * 2];
-      const p2 = tournamentFighters[i * 2 + 1];
-
-      // Determine if they are AI and assign default level if so
-      const p1IsAI = !humans.includes(p1);
-      const p2IsAI = !humans.includes(p2);
+      const p1Data = tournamentFighters[i * 2];
+      const p2Data = tournamentFighters[i * 2 + 1];
 
       round1.push({
-        p1,
-        p2,
-        p1Level: p1IsAI ? 3 : null, // Default to level 3 for auto-AI
-        p2Level: p2IsAI ? 3 : null,
+        p1: p1Data.id,
+        p2: p2Data.id,
+        p1Level: p1Data.type === 'bot' ? p1Data.level : null,
+        p2Level: p2Data.type === 'bot' ? p2Data.level : null,
         winner: null,
       });
     }
@@ -175,11 +183,20 @@ export class TournamentManager {
       rounds.push(round);
     }
 
+    // Correctly find playerInitialIndex by matching the first human ID
+    let playerInitialIndex = 0;
+    for (let i = 0; i < tournamentFighters.length; i++) {
+      if (tournamentFighters[i] && tournamentFighters[i].id === humans[0]) {
+        playerInitialIndex = i;
+        break;
+      }
+    }
+
     return new TournamentManager({
       size,
       seed,
       humanFighterIds: humans,
-      playerInitialIndex: tournamentFighters.indexOf(humans[0]),
+      playerInitialIndex,
       rounds,
       prngCalls: 0,
     });
