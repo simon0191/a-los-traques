@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Unirse al Torneo - A Los Traques</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0a0a1e;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: #1a1a3a;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        h1 { color: #ffcc00; margin-bottom: 10px; font-size: 24px; }
+        p { color: #aaaaaa; font-size: 14px; margin-bottom: 25px; }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #ccc; }
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #333366;
+            background: #0a0a1e;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        input:focus { border-color: #ffcc00; }
+        .btn-primary {
+            width: 100%;
+            padding: 15px;
+            border-radius: 8px;
+            border: none;
+            background: #3366ff;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .btn-secondary {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #3366ff;
+            background: transparent;
+            color: #3366ff;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .error { color: #ff4444; margin-bottom: 15px; font-size: 14px; display: none; }
+        .hidden { display: none; }
+        .tab-btn { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: #ffcc00; color: #ffcc00; }
+        .tabs { display: flex; justify-content: center; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TORNEO LOCAL</h1>
+        <p id="room-info">Cargando...</p>
+
+        <div class="tabs">
+            <div id="tab-guest" class="tab-btn active">INVITADO</div>
+            <div id="tab-login" class="tab-btn">MI CUENTA</div>
+        </div>
+        
+        <div id="error-msg" class="error"></div>
+
+        <!-- Guest View -->
+        <div id="view-guest">
+            <div class="form-group">
+                <input type="text" id="guest-name" placeholder="Tu Apodo" maxlength="12">
+            </div>
+            <button id="join-guest-btn" class="btn-primary" disabled>UNIRSE COMO INVITADO</button>
+        </div>
+
+        <!-- Login View -->
+        <div id="view-login" class="hidden">
+            <div class="form-group">
+                <input type="email" id="login-email" placeholder="Email">
+            </div>
+            <div class="form-group">
+                <input type="password" id="login-pass" placeholder="Contraseña">
+            </div>
+            <button id="login-btn" class="btn-primary">INICIAR SESIÓN Y UNIRSE</button>
+            <p style="font-size: 11px">Usa tus credenciales de A Los Traques para ganar XP.</p>
+        </div>
+
+        <div class="status" id="conn-status" style="margin-top:20px; font-size:10px; color:#555;">Conectando a PartyKit...</div>
+    </div>
+
+    <script type="module">
+        import PartySocket from 'https://cdn.jsdelivr.net/npm/partysocket@1.1.16/+esm';
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+        const urlParams = new URLSearchParams(window.location.search);
+        let roomId = urlParams.get('room');
+        if (roomId) roomId = roomId.toLowerCase();
+        
+        // UI Elements
+        const guestView = document.getElementById('view-guest');
+        const loginView = document.getElementById('view-login');
+        const tabGuest = document.getElementById('tab-guest');
+        const tabLogin = document.getElementById('tab-login');
+        const joinGuestBtn = document.getElementById('join-guest-btn');
+        const loginBtn = document.getElementById('login-btn');
+        const statusText = document.getElementById('conn-status');
+        const roomInfo = document.getElementById('room-info');
+        const errorMsg = document.getElementById('error-msg');
+
+        // Tab Switching
+        tabGuest.onclick = () => {
+            tabGuest.classList.add('active');
+            tabLogin.classList.remove('active');
+            guestView.classList.remove('hidden');
+            loginView.classList.add('hidden');
+        };
+        tabLogin.onclick = () => {
+            tabLogin.classList.add('active');
+            tabGuest.classList.remove('active');
+            loginView.classList.remove('hidden');
+            guestView.classList.add('hidden');
+        };
+
+        if (!roomId) {
+            roomInfo.innerText = "Error: No hay sala.";
+        } else {
+            roomInfo.innerText = `SALA: ${roomId.toUpperCase()}`;
+            
+            const host = window.location.hostname === 'localhost' ? 'localhost:1999' : 'a-los-traques.feliperuiz.partykit.dev';
+            const socket = new PartySocket({ host, room: roomId });
+
+            let lobbyState = null;
+
+            socket.onopen = () => {
+                socket.send(JSON.stringify({ type: 'request_lobby_update' }));
+                statusText.innerText = "Conectado. Obteniendo estado...";
+            };
+
+            socket.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if (data.type === 'lobby_update' || data.type === 'init_tournament') {
+                    lobbyState = data.lobbyState;
+                    joinGuestBtn.disabled = false;
+                    statusText.innerText = "Conectado. Sala lista.";
+                }
+            };
+
+            // Join Logic
+            async function joinLobby(playerData) {
+                if (!lobbyState) return;
+                const emptyIdx = lobbyState.slots.findIndex(s => s === null);
+                if (emptyIdx === -1) {
+                    showError("¡Torneo lleno!");
+                    return;
+                }
+
+                lobbyState.slots[emptyIdx] = {
+                    type: 'human',
+                    ...playerData,
+                    status: 'ready'
+                };
+
+                socket.send(JSON.stringify({ type: 'lobby_update', lobbyState }));
+
+                document.querySelector('.container').innerHTML = `
+                    <h1 style="color: #44cc88">¡DENTRO!</h1>
+                    <p>Te has unido como <b>${playerData.name.toUpperCase()}</b></p>
+                    <p>Ya puedes dejar el celular y prepararte para pelear en la pantalla principal.</p>
+                `;
+            }
+
+            joinGuestBtn.onclick = () => {
+                const name = document.getElementById('guest-name').value.trim();
+                if (!name) return showError("Escribe un nombre.");
+                joinLobby({ id: 'guest-' + Math.random().toString(36).substring(2, 7), name });
+            };
+
+            loginBtn.onclick = async () => {
+                const email = document.getElementById('login-email').value;
+                const pass = document.getElementById('login-pass').value;
+                
+                loginBtn.disabled = true;
+                loginBtn.innerText = "AUTENTICANDO...";
+
+                try {
+                    // Detect environment
+                    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    
+                    // These would be your real production values
+                    let supabaseUrl = 'https://your-project.supabase.co';
+                    let supabaseKey = 'your-anon-key';
+
+                    if (isLocal) {
+                        supabaseUrl = 'http://localhost:54321';
+                        supabaseKey = 'dev-anon-key';
+                    }
+
+                    const supabase = createClient(supabaseUrl, supabaseKey);
+
+                    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+                    if (error) throw error;
+
+                    const nickname = data.user.user_metadata?.nickname || data.user.email.split('@')[0];
+                    joinLobby({ id: data.user.id, name: nickname });
+                } catch (err) {
+                    showError("Error de login: " + err.message);
+                    loginBtn.disabled = false;
+                    loginBtn.innerText = "INICIAR SESIÓN Y UNIRSE";
+                }
+            };
+        }
+
+        function showError(msg) {
+            errorMsg.innerText = msg;
+            errorMsg.style.display = 'block';
+            setTimeout(() => errorMsg.style.display = 'none', 4000);
+        }
+    </script>
+</body>
+</html>
