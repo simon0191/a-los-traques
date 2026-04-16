@@ -215,6 +215,15 @@ export class OverlayEditorScene extends Phaser.Scene {
   _setupKeyboard() {
     const kb = this.input.keyboard;
     this._globalKeyHandler = (e) => {
+      // Always prevent the browser's default for arrows/space/tab so the
+      // DOM panels don't scroll or shift focus when the editor owns the
+      // keyboard. Phaser's own handlers still fire because we only call
+      // preventDefault (not stopPropagation).
+      const navKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'Tab'];
+      if (navKeys.includes(e.key)) {
+        e.preventDefault();
+        return;
+      }
       if (!e.ctrlKey && !e.metaKey) return;
       const key = e.key.toLowerCase();
       const captured = ['s', 'e', 'z', 'y', '-', '=', '+'];
@@ -603,13 +612,10 @@ export class OverlayEditorScene extends Phaser.Scene {
         this.ui.setStatus(`fallo guardar: ${res.status}`);
       }
     } catch (e) {
-      this._downloadBlob(
-        new Blob([JSON.stringify(this.manifest.toJSON(), null, 2)], { type: 'application/json' }),
-        'manifest.json',
-      );
-      this.ui.setStatus('manifest descargado (sin dev server)');
+      this.ui.setStatus('fallo guardar (¿está corriendo vite?)');
       log.warn('save failed', { err: e.message });
     }
+    this.ui.root?.focus();
   }
 
   async _exportStrip() {
@@ -633,6 +639,7 @@ export class OverlayEditorScene extends Phaser.Scene {
       },
     });
     await this._persistStrip(canvas);
+    this.ui.root?.focus();
   }
 
   async _batchExport() {
@@ -676,6 +683,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     this.animIdx = origN;
     this._syncSessionFromManifest();
     this.ui.setStatus(`batch: ${count} strips`);
+    this.ui.root?.focus();
   }
 
   _stripPath() {
@@ -698,9 +706,9 @@ export class OverlayEditorScene extends Phaser.Scene {
       if (res.ok) this.ui.setStatus('strip guardado ✓');
       else this.ui.setStatus(`export fallo: ${res.status}`);
     } catch (_e) {
-      this._downloadBlob(blob, `${this._fighter()}_${this._accessoryId()}_${this._anim()}.png`);
-      this.ui.setStatus('strip descargado');
+      this.ui.setStatus('export fallo (¿está corriendo vite?)');
     }
+    this.ui.root?.focus();
   }
 
   _blobToBase64(blob) {
