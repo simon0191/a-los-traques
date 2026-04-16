@@ -220,10 +220,6 @@ export default class FightRoom {
   onConnect(connection, ctx) {
     const url = new URL(ctx.request.url);
     const isSpectator = url.searchParams.get('spectate') === '1';
-    const sessionId = url.searchParams.get('sessionId') || null;
-    if (sessionId) {
-      this._sessionIds.set(connection.id, sessionId);
-    }
 
     if (isSpectator) {
       this.spectators.add(connection.id);
@@ -272,7 +268,7 @@ export default class FightRoom {
     }
 
     this.players[slot] = { id: connection.id, fighterId: null, ready: false };
-    this._log({ type: 'connect', slot, sessionId, roomState: this.roomState });
+    this._log({ type: 'connect', slot, roomState: this.roomState });
     connection.send(JSON.stringify({ type: 'assign', player: slot }));
 
     if (this.spectators.size > 0) {
@@ -421,20 +417,20 @@ export default class FightRoom {
     const { action, payload } = data;
     let changed = false;
 
-    // Use session ID if available (from auth), otherwise fall back to connection ID.
-    // This prevents clients from spoofing IDs in the payload.
-    const authenticatedId = this._sessionIds.get(connection.id) || connection.id;
+    // Use connection.id as the authoritative, non-spoofable handle for the participant.
+    // This prevents clients from spoofing their ID (e.g. claiming someone else's UUID) in the payload.
+    const participantId = connection.id;
 
     switch (action) {
       case 'JOIN_SLOT': {
         const { name, type } = payload;
-        // Atomic check using the server-known authenticatedId
-        if (this.lobbyState.slots.some((s) => s?.id === authenticatedId)) break;
+        // Atomic check using the server-assigned connection.id
+        if (this.lobbyState.slots.some((s) => s?.id === participantId)) break;
 
         const emptyIdx = this.lobbyState.slots.indexOf(null);
         if (emptyIdx !== -1) {
           this.lobbyState.slots[emptyIdx] = {
-            id: authenticatedId,
+            id: participantId,
             name: name || 'Invitado',
             type: type || 'human',
             status: 'ready',

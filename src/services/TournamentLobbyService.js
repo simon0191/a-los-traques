@@ -33,9 +33,6 @@ export class TournamentLobbyService extends BaseSignalingClient {
       const p = await getProfile();
       if (p?.nickname) {
         profile = p;
-        // Reconnect with real user ID as sessionId for server-side authority
-        this.socket.query = { ...this.socket.query, sessionId: profile.id };
-        this.socket.reconnect();
       }
     } catch (_e) {
       log.info('Using Guest Host');

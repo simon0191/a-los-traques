@@ -198,20 +198,9 @@
             
             document.getElementById('room-info').innerText = `SALA: ${roomId}`;
             
-            // Get sessionId from existing supabase instance if available
-            let query = {};
-            if (supabase) {
-                supabase.auth.getSession().then(({data}) => {
-                   if (data.session?.user?.id) {
-                       // We don't reconnect here for simplicity, but in a real app you might
-                   }
-                });
-            }
-
             const socket = new PartySocket({ 
                 host: partyHost, 
-                room: roomId,
-                // We'll send the ID in the JOIN_SLOT payload anyway for now
+                room: roomId
             });
 
             socket.onopen = () => socket.send(JSON.stringify({ type: 'request_lobby_update' }));
