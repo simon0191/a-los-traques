@@ -96,5 +96,5 @@ The bot levels (1-5) selected in the lobby are preserved through the bracket and
 *   **Local Simulation**: Verified via `dev:tournament:join` command.
 *   **Multi-Account**: Verified using `npm run dev:mp` with test accounts `p1@test.local` and `p2@test.local`.
 *   **Cross-Device**: Verified with mobile browser scanning the QR and syncing names back to the PC.
-*   **Unit Tests**: 907 tests passing, including new TournamentManager logic.
+*   **Unit Tests**: 923 tests passing, including comprehensive coverage for TournamentManager progression, TournamentLobbyService synchronization, BaseSignalingClient lifecycle, and AIController difficulty mapping.
 *   **Linting**: Biome check passed with zero errors.

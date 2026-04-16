@@ -328,6 +328,28 @@ export class TournamentManager {
   }
 
   /**
+   * Record the result of any match manually (used for AI simulation and testing).
+   * @param {number} roundIndex
+   * @param {number} matchIndex
+   * @param {string} winnerId
+   */
+  setMatchWinner(roundIndex, matchIndex, winnerId) {
+    const match = this.rounds[roundIndex]?.[matchIndex];
+    if (!match || match.winner) return false;
+
+    match.winner = winnerId;
+
+    // Track human elimination if applicable
+    const loserId = winnerId === match.p1 ? match.p2 : match.p1;
+    if (this._isHumanFighter(loserId)) {
+      this.eliminatedHumans.push(loserId);
+    }
+
+    this._setWinnerInNextRound(roundIndex, matchIndex, winnerId);
+    return true;
+  }
+
+  /**
    * Record the result of a played match.
    * Finds the first unfinished match involving a non-eliminated human.
    */
