@@ -16,16 +16,26 @@ export class TournamentLobbyService extends BaseSignalingClient {
     };
 
     this._onUpdateCallbacks = [];
+    this._initialized = false;
   }
 
   async initHost() {
+    if (this._initialized) return;
+    this._initialized = true;
+
     let profile = {
       nickname: 'Anfitrión Local',
       id: `host-${Math.random().toString(36).substring(2, 5)}`,
     };
+
     try {
       const p = await getProfile();
-      if (p?.nickname) profile = p;
+      if (p?.nickname) {
+        profile = p;
+        // Reconnect with real user ID as sessionId for server-side authority
+        this.socket.query = { ...this.socket.query, sessionId: profile.id };
+        this.socket.reconnect();
+      }
     } catch (_e) {
       log.info('Using Guest Host');
     }

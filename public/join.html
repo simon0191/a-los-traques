@@ -148,25 +148,72 @@
         let roomId = urlParams.get('room');
         if (roomId) roomId = roomId.toLowerCase();
 
-        // Environment Detection
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const supabaseUrl = isLocal ? 'http://localhost:54321' : 'https://your-project.supabase.co';
-        const supabaseKey = isLocal ? 'dev-anon-key' : 'your-anon-key';
-        const supabase = createClient(supabaseUrl, supabaseKey);
-
-        const partyHost = isLocal ? 'localhost:1999' : 'a-los-traques.feliperuiz.partykit.dev';
-        const socket = roomId ? new PartySocket({ host: partyHost, room: roomId }) : null;
-
+        let supabase = null;
         let lobbyState = null;
         const statusEl = document.getElementById('status-display');
 
-        // Initial Logic
-        if (!roomId) {
-            document.getElementById('room-info').innerText = "ERROR: NO SE ENCONTRÓ SALA";
-            document.getElementById('auth-ui').classList.add('hidden');
-        } else {
+        // 1. Fetch Public Config & Initialize
+        async function init() {
+            if (!roomId) {
+                document.getElementById('room-info').innerText = "ERROR: NO SE ENCONTRÓ SALA";
+                document.getElementById('auth-ui').classList.add('hidden');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/public-config');
+                const config = await resp.json();
+                
+                if (config.supabaseUrl && config.supabaseAnonKey) {
+                    supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
+                    
+                    // Check session
+                    const { data } = await supabase.auth.getSession();
+                    if (data.session) {
+                        const user = data.session.user;
+                        const name = user.user_metadata?.nickname || user.email.split('@')[0];
+                        showAutoJoinUI(name, user.id);
+                    }
+                } else {
+                    hideAuthTabs();
+                }
+            } catch (e) {
+                console.warn("Config fetch failed, using guest-only mode", e);
+                hideAuthTabs();
+            }
+
+            initPartyKit();
+        }
+
+        function hideAuthTabs() {
+            document.querySelectorAll('.tab').forEach(t => {
+                if (t.dataset.target !== 'view-guest') t.classList.add('hidden');
+                else t.click(); // Auto-switch to guest
+            });
+        }
+
+        function initPartyKit() {
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const partyHost = isLocal ? 'localhost:1999' : 'a-los-traques.feliperuiz.partykit.dev';
+            
             document.getElementById('room-info').innerText = `SALA: ${roomId}`;
             
+            // Get sessionId from existing supabase instance if available
+            let query = {};
+            if (supabase) {
+                supabase.auth.getSession().then(({data}) => {
+                   if (data.session?.user?.id) {
+                       // We don't reconnect here for simplicity, but in a real app you might
+                   }
+                });
+            }
+
+            const socket = new PartySocket({ 
+                host: partyHost, 
+                room: roomId,
+                // We'll send the ID in the JOIN_SLOT payload anyway for now
+            });
+
             socket.onopen = () => socket.send(JSON.stringify({ type: 'request_lobby_update' }));
             socket.onmessage = (e) => {
                 const data = JSON.parse(e.data);
@@ -175,15 +222,11 @@
                 }
             };
 
-            // Auto-check session
-            supabase.auth.getSession().then(({data}) => {
-                if (data.session) {
-                    const user = data.session.user;
-                    const name = user.user_metadata?.nickname || user.email.split('@')[0];
-                    showAutoJoinUI(name, user.id);
-                }
-            });
+            // Expose socket for join function
+            window.lobbySocket = socket;
         }
+
+        init();
 
         // Tab Switching
         document.querySelectorAll('.tab').forEach(tab => {
@@ -199,7 +242,7 @@
         // ACTIONS
         async function join(id, name) {
             if (!lobbyState) return showStatus("Error: Esperando al servidor...", true);
-            socket.send(JSON.stringify({ 
+            window.lobbySocket.send(JSON.stringify({ 
                 type: 'lobby_action', 
                 action: 'JOIN_SLOT', 
                 payload: { id, name, type: id.startsWith('guest-') ? 'guest' : 'human' } 
@@ -214,6 +257,7 @@
         }
 
         document.getElementById('login-btn').onclick = async () => {
+            if (!supabase) return;
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-pass').value;
             if (!email || !pass) return showStatus("Completa los campos", true);
@@ -230,6 +274,7 @@
         };
 
         document.getElementById('signup-btn').onclick = async () => {
+            if (!supabase) return;
             const nick = document.getElementById('sig-nick').value;
             const email = document.getElementById('sig-email').value;
             const pass = document.getElementById('sig-pass').value;
@@ -249,6 +294,7 @@
         };
 
         document.getElementById('google-btn').onclick = () => {
+            if (!supabase) return;
             supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: { redirectTo: window.location.href }

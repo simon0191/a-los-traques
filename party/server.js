@@ -315,6 +315,21 @@ export default class FightRoom {
       return;
     }
 
+    // Targetted guard: only allow lobby/system messages from non-slotted connections.
+    // This prevents corruption of this.players[-1] in game logic.
+    if (slot === -1) {
+      const LOBBY_WHITELIST = [
+        'init_tournament',
+        'lobby_action',
+        'request_lobby_update',
+        'ping',
+        'rejoin',
+      ];
+      if (!LOBBY_WHITELIST.includes(data.type)) {
+        return;
+      }
+    }
+
     switch (data.type) {
       case 'ready':
         this._handleReady(slot, data);
@@ -381,10 +396,9 @@ export default class FightRoom {
         this._handleLeave(slot);
         break;
       case 'init_tournament':
-        // Bypass strict transition check for tournament initialization
-        this.roomState = RoomState.TOURNAMENT_LOBBY;
+        this._transition('init_tournament');
         this.lobbyState = data.lobbyState;
-        this._log({ type: 'init_tournament_forced', roomId: this.party.id });
+        this._log({ type: 'init_tournament', roomId: this.party.id });
         this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
         break;
       case 'lobby_action':
@@ -398,23 +412,27 @@ export default class FightRoom {
     }
   }
 
-  _handleLobbyAction(data, _connection) {
+  _handleLobbyAction(data, connection) {
     if (!this.lobbyState) return;
 
     const { action, payload } = data;
     let changed = false;
 
+    // Use session ID if available (from auth), otherwise fall back to connection ID.
+    // This prevents clients from spoofing IDs in the payload.
+    const authenticatedId = this._sessionIds.get(connection.id) || connection.id;
+
     switch (action) {
       case 'JOIN_SLOT': {
-        const { id, name, type } = payload;
-        // Atomic check: is this ID already in a slot?
-        if (this.lobbyState.slots.some((s) => s?.id === id)) break;
+        const { name, type } = payload;
+        // Atomic check using the server-known authenticatedId
+        if (this.lobbyState.slots.some((s) => s?.id === authenticatedId)) break;
 
         const emptyIdx = this.lobbyState.slots.indexOf(null);
         if (emptyIdx !== -1) {
           this.lobbyState.slots[emptyIdx] = {
-            id,
-            name,
+            id: authenticatedId,
+            name: name || 'Invitado',
             type: type || 'human',
             status: 'ready',
           };
