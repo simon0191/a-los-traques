@@ -1002,9 +1002,9 @@ export class SelectScene extends Phaser.Scene {
     const cell = this.gridCells[fighterIdx];
     if (!cell) return;
 
-    const currentPlayer = this.matchContext.lobbyPlayers.filter(
+    const currentPlayer = this.matchContext?.lobbyPlayers?.filter(
       (p) => p.type === 'human' || p.type === 'guest',
-    )[playerNum - 1];
+    )?.[playerNum - 1];
     const shortName = currentPlayer?.name.substring(0, 3).toUpperCase() || `J${playerNum}`;
 
     // Dim the DOM portrait image directly (DOM renders on top of canvas)
@@ -1048,27 +1048,40 @@ export class SelectScene extends Phaser.Scene {
       })
       .setOrigin(0, 0);
 
-    const humanPlayers = this.matchContext.lobbyPlayers.filter(
-      (p) => p.type === 'human' || p.type === 'guest',
-    );
+    const humanPlayers =
+      this.matchContext?.lobbyPlayers?.filter((p) => p.type === 'human' || p.type === 'guest') ||
+      [];
 
     this._selectionListTexts = [];
-    for (let i = 0; i < humanPlayers.length; i++) {
-      const p = humanPlayers[i];
-      let displayName = p.name.toUpperCase();
-      if (displayName.startsWith('INVITADO ')) {
-        displayName = `INV${displayName.split(' ')[1]}`;
-      } else if (displayName.length > 8) {
-        displayName = `${displayName.substring(0, 7)}.`;
-      }
+    if (humanPlayers.length > 0) {
+      for (let i = 0; i < humanPlayers.length; i++) {
+        const p = humanPlayers[i];
+        let displayName = p.name.toUpperCase();
+        if (displayName.startsWith('INVITADO ')) {
+          displayName = `INV${displayName.split(' ')[1]}`;
+        } else if (displayName.length > 8) {
+          displayName = `${displayName.substring(0, 7)}.`;
+        }
 
-      const txt = this.add.text(panelX, 170 + i * 12, `${displayName}: ...`, {
-        fontFamily: 'Arial',
-        fontSize: '8px',
-        color: '#666666',
-      });
-      this._selectionListTexts.push(txt);
+        const txt = this.add.text(panelX, 170 + i * 12, `${displayName}: ...`, {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: '#666666',
+        });
+        this._selectionListTexts.push(txt);
+      }
+    } else {
+      // Fallback for non-tournament local multiplayer
+      for (let i = 0; i < this._localPlayers; i++) {
+        const txt = this.add.text(panelX, 170 + i * 12, `J${i + 1}: ...`, {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: '#666666',
+        });
+        this._selectionListTexts.push(txt);
+      }
     }
+
     // Highlight first player as selecting
     if (this._selectionListTexts[0]) {
       this._selectionListTexts[0].setColor('#ffcc00');
@@ -1079,14 +1092,19 @@ export class SelectScene extends Phaser.Scene {
     if (!this._selectionListTexts) return;
     const idx = playerNum - 1;
     if (this._selectionListTexts[idx]) {
-      const p = this.matchContext.lobbyPlayers.filter(
+      const humanPlayers = this.matchContext?.lobbyPlayers?.filter(
         (p) => p.type === 'human' || p.type === 'guest',
-      )[idx];
-      let displayName = p.name.toUpperCase();
-      if (displayName.startsWith('INVITADO ')) {
-        displayName = `INV${displayName.split(' ')[1]}`;
-      } else if (displayName.length > 8) {
-        displayName = `${displayName.substring(0, 7)}.`;
+      );
+
+      let displayName = `J${playerNum}`;
+      if (humanPlayers?.[idx]) {
+        const p = humanPlayers[idx];
+        displayName = p.name.toUpperCase();
+        if (displayName.startsWith('INVITADO ')) {
+          displayName = `INV${displayName.split(' ')[1]}`;
+        } else if (displayName.length > 8) {
+          displayName = `${displayName.substring(0, 7)}.`;
+        }
       }
 
       this._selectionListTexts[idx]
