@@ -91,6 +91,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     this._playFrameTimer = 0;
     this._dragStart = null;
     this._dragMode = null;
+    this._sessionDirty = false;
 
     // Dark background behind preview (DOM panels cover the rest).
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0f0f1a);
@@ -339,6 +340,7 @@ export class OverlayEditorScene extends Phaser.Scene {
           x: this._dragStart.startX + dx,
           y: this._dragStart.startY + dy,
         });
+        this._markDirty();
         this._render();
       } else if (this._dragMode === 'rotate') {
         const a0 = Math.atan2(
@@ -353,6 +355,7 @@ export class OverlayEditorScene extends Phaser.Scene {
           ...this.session.frames[this.frameIdx],
           rotation: this._dragStart.startRotation + (a1 - a0),
         });
+        this._markDirty();
         this._render();
       }
     });
@@ -438,6 +441,7 @@ export class OverlayEditorScene extends Phaser.Scene {
       lastEditedAt: entry?.lastEditedAt ?? null,
     });
     this.frameIdx = Math.min(this.frameIdx, frameCount - 1);
+    this._sessionDirty = false;
     this._render();
   }
 
@@ -456,28 +460,18 @@ export class OverlayEditorScene extends Phaser.Scene {
   }
 
   _flushSessionToManifest() {
-    if (!this.session) return;
-    // Only persist if the user actually touched this combo (has undo history
-    // or non-default frames). Cheap heuristic: if any frame differs from
-    // default, keep it; else skip to avoid polluting the manifest.
-    if (!this._sessionHasEdits()) return;
+    if (!this.session || !this._sessionDirty) return;
     this.manifest.set(this._fighter(), this._category(), this._anim(), {
       frameCount: this.session.frameCount,
       frames: this.session.frames,
       keyframes: this.session.keyframes,
       lastEditedAt: this.session.lastEditedAt,
     });
+    this._sessionDirty = false;
   }
 
-  _sessionHasEdits() {
-    if (!this.session) return false;
-    if (this.session.undoStack.length > 0) return true;
-    if (this.session.keyframes.length > 0) return true;
-    // Compare to default transform
-    for (const f of this.session.frames) {
-      if (f.x !== 64 || f.y !== 32 || f.rotation !== 0 || f.scale !== 0.5) return true;
-    }
-    return false;
+  _markDirty() {
+    this._sessionDirty = true;
   }
 
   // --- Editing ---
@@ -490,10 +484,12 @@ export class OverlayEditorScene extends Phaser.Scene {
     const { scale: scaleDelta, ...nonScale } = delta;
     if (Object.keys(nonScale).length > 0) {
       this.session.applyTransform(this.frameIdx, nonScale);
+      this._markDirty();
     }
     if (scaleDelta !== undefined && scaleDelta !== 0) {
       const newScale = this._clampScale(this.session.frames[this.frameIdx].scale + scaleDelta);
       this._broadcastScale(newScale);
+      this._markDirty();
     }
     this._render();
   }
@@ -525,12 +521,14 @@ export class OverlayEditorScene extends Phaser.Scene {
   }
   _copyFromPrev() {
     this.session?.copyFromPrev(this.frameIdx);
+    this._markDirty();
     this._render();
   }
   _copyToNext() {
     if (!this.session) return;
     if (this.frameIdx + 1 >= this.session.frameCount) return;
     this.session.setTransform(this.frameIdx + 1, this.session.frames[this.frameIdx]);
+    this._markDirty();
     this._render();
   }
   _interpolate() {
@@ -540,6 +538,7 @@ export class OverlayEditorScene extends Phaser.Scene {
       return;
     }
     this.session.interpolate();
+    this._markDirty();
     this._render();
     this.ui.setStatus(`interpolado ${this.session.keyframes.length} kf`);
   }
@@ -547,6 +546,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     if (!this.session) return;
     const was = this.session.keyframes.includes(this.frameIdx);
     this.session.toggleKeyframe(this.frameIdx);
+    this._markDirty();
     this._render();
     this.ui.setStatus(
       was ? `frame ${this.frameIdx + 1} des-keyframe` : `frame ${this.frameIdx + 1} keyframe`,
@@ -554,6 +554,7 @@ export class OverlayEditorScene extends Phaser.Scene {
   }
   _resetFrame() {
     this.session?.resetFrame(this.frameIdx);
+    this._markDirty();
     this._render();
   }
 
@@ -569,15 +570,16 @@ export class OverlayEditorScene extends Phaser.Scene {
         scale: src.scale,
       });
     }
+    this._markDirty();
     this._render();
     this.ui.setStatus(`copiado a los ${this.session.frameCount - 1} frames restantes`);
   }
   _undo() {
-    this.session?.undo();
+    if (this.session?.undo()) this._markDirty();
     this._render();
   }
   _redo() {
-    this.session?.redo();
+    if (this.session?.redo()) this._markDirty();
     this._render();
   }
   _cycleAnim(d) {
