@@ -396,17 +396,20 @@ export default class FightRoom {
         this._handleLeave(slot);
         break;
       case 'init_tournament':
-        this._transition('init_tournament');
-        this.lobbyState = data.lobbyState;
-        // Initialize guest counter if not present
-        if (this.lobbyState && this.lobbyState.nextGuestNum === undefined) {
-          this.lobbyState.nextGuestNum = 1;
+        if (this._transition('init_tournament')) {
+          this.lobbyState = data.lobbyState;
+          // Initialize guest counter if not present
+          if (this.lobbyState && this.lobbyState.nextGuestNum === undefined) {
+            this.lobbyState.nextGuestNum = 1;
+          }
+          this._log({ type: 'init_tournament', roomId: this.party.id });
+          this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
         }
-        this._log({ type: 'init_tournament', roomId: this.party.id });
-        this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
         break;
       case 'lobby_action':
-        this._handleLobbyAction(data, connection);
+        if (this.roomState === RoomState.TOURNAMENT_LOBBY) {
+          this._handleLobbyAction(data, connection);
+        }
         break;
       case 'request_lobby_update':
         if (this.lobbyState) {
