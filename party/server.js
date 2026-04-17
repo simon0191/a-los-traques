@@ -437,7 +437,7 @@ export default class FightRoom {
 
     switch (action) {
       case 'JOIN_SLOT': {
-        const { name, type } = payload;
+        const { name } = payload;
         // Atomic check using the server-assigned connection.id
         if (this.lobbyState.slots.some((s) => s?.id === participantId)) break;
 
@@ -446,7 +446,7 @@ export default class FightRoom {
           this.lobbyState.slots[emptyIdx] = {
             id: participantId,
             name: name || 'Invitado',
-            type: type || 'human',
+            type: 'guest', // Server-authoritative: everything from mobile starts as guest
             status: 'ready',
           };
           changed = true;

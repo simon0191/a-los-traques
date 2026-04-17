@@ -234,7 +234,7 @@
             window.lobbySocket.send(JSON.stringify({ 
                 type: 'lobby_action', 
                 action: 'JOIN_SLOT', 
-                payload: { id, name, type: id.startsWith('guest-') ? 'guest' : 'human' } 
+                payload: { name } 
             }));
             
             document.getElementById('main-container').innerHTML = `
