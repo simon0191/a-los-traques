@@ -1,7 +1,8 @@
+import { FIGHTER_HEIGHT, FIGHTER_WIDTH } from '../config.js';
 import accessoryCatalog from '../data/accessories.json';
-import { resolveOverlayFrame } from '../editor/OverlayFrameResolver.js';
 import { FighterSim } from '../simulation/FighterSim.js';
 import { FP_SCALE } from '../systems/FixedPoint.js';
+import { resolveOverlayTransform } from './overlay-transform.js';
 
 const ACCESSORY_CATEGORY_BY_ID = Object.fromEntries(
   accessoryCatalog.map((a) => [a.id, a.category]),
@@ -203,15 +204,19 @@ export class Fighter {
 
   /**
    * Attach a set of accessories to this fighter. `accessoriesByCategory` is
-   * a `{ category: accessoryId | null }` map — one calibrated overlay sprite
-   * is created per non-null entry. Calibration is shared across accessories
-   * of the same category, so two different sombreros land in the same place.
+   * a `{ category: accessoryId | null }` map — one overlay sprite is created
+   * per non-null entry. Calibration is shared across accessories of the same
+   * category, so two different sombreros land in the same place.
+   *
+   * The overlay sprite is textured with the accessory's source PNG
+   * (`accessory_{id}`, loaded by BootScene). Each render tick, the calibration
+   * entry for the current animation frame is looked up and applied as a
+   * transform — there is no pre-baked per-fighter spritesheet.
    *
    * Passing `null` (or no value) for a category removes that overlay.
    * Passing `null` as the whole argument clears everything.
    */
   setAccessories(accessoriesByCategory) {
-    // Destroy previous overlays.
     for (const sprite of this._overlaySprites.values()) sprite.destroy();
     this._overlaySprites.clear();
     if (!accessoriesByCategory) return;
@@ -219,18 +224,15 @@ export class Fighter {
     const manifest = this.scene.game.registry.get('overlayManifest');
     for (const [category, accessoryId] of Object.entries(accessoriesByCategory)) {
       if (!accessoryId) continue;
-      const byAnim = manifest?.calibrations?.[this.fighterId]?.[category];
-      if (!byAnim) continue;
-      const animations = Object.keys(byAnim);
-      if (animations.length === 0) continue;
+      if (!manifest?.calibrations?.[this.fighterId]?.[category]) continue;
 
-      const initialAnim = animations.includes('idle') ? 'idle' : animations[0];
-      const key = `overlay_${this.fighterId}_${accessoryId}_${initialAnim}`;
-      if (!this.scene.textures.exists(key)) continue;
+      const textureKey = `accessory_${accessoryId}`;
+      if (!this.scene.textures.exists(textureKey)) continue;
 
-      const sprite = this.scene.add.sprite(this.sprite.x, this.sprite.y, key);
-      sprite.setOrigin(0.5, 1);
+      const sprite = this.scene.add.sprite(this.sprite.x, this.sprite.y, textureKey);
+      sprite.setOrigin(0.5, 0.5);
       sprite._accessoryId = accessoryId;
+      sprite._category = category;
       this._overlaySprites.set(category, sprite);
     }
     this._syncOverlays();
@@ -250,47 +252,78 @@ export class Fighter {
     this.setAccessories({ [category]: accessoryId });
   }
 
-  _syncOverlays() {
-    for (const sprite of this._overlaySprites.values()) {
-      sprite.x = this.sprite.x;
-      sprite.y = this.sprite.y;
-      sprite.setFlipX(this.sprite.flipX);
-      sprite.setDepth(this.sprite.depth + 1);
-    }
-    this._syncOverlayAnimation();
-  }
-
   /**
-   * Force each overlay sprite's texture + frame to exactly match the fighter
-   * sprite. No independent animation plays on the overlays — they render the
-   * same frame index as the fighter, so per-frame calibration stays aligned
-   * even if the fighter anim's framerate changes.
+   * Per-tick sync: read the calibration entry for the fighter's current
+   * animation frame and apply it to each overlay sprite as a transform
+   * (position, rotation, scale, flipX). The calibration lives in
+   * `overlayManifest` (Phaser registry); the pure math lives in
+   * `resolveOverlayTransform` (unit-tested, no Phaser).
    *
-   * Resolution logic lives in `OverlayFrameResolver` (pure, unit-tested) —
-   * this method is only responsible for applying the resolver's output to
-   * the Phaser sprite.
+   * If the current anim isn't calibrated, fall back to `idle` so the overlay
+   * keeps rendering near the head rather than flickering off. Frames beyond
+   * the calibration's length clamp to the last entry.
    */
-  _syncOverlayAnimation() {
+  _syncOverlays() {
     if (this._overlaySprites.size === 0) return;
-    const animKey = this.sprite.anims?.currentAnim?.key;
-    if (!animKey) return;
-    const frameName = this.sprite.frame?.name;
-    const textureExists = (key) => this.scene.textures.exists(key);
-    for (const sprite of this._overlaySprites.values()) {
-      const resolved = resolveOverlayFrame({
-        fighterId: this.fighterId,
-        accessoryId: sprite._accessoryId,
-        animKey,
-        frameName,
-        textureExists,
-      });
-      if (!resolved) {
+
+    const manifest = this.scene.game.registry.get('overlayManifest');
+    const byCategory = manifest?.calibrations?.[this.fighterId];
+    if (!byCategory) {
+      for (const sprite of this._overlaySprites.values()) sprite.setVisible(false);
+      return;
+    }
+
+    const animName = this._currentAnimName();
+    const frameIndex = this._currentFrameIndex();
+    const depth = this.sprite.depth + 1;
+
+    for (const [category, sprite] of this._overlaySprites.entries()) {
+      const byAnim = byCategory[category];
+      const entry = byAnim?.[animName] ?? byAnim?.idle;
+      const frames = entry?.frames;
+      if (!frames || frames.length === 0) {
         sprite.setVisible(false);
         continue;
       }
+      const cal = frames[Math.min(frameIndex, frames.length - 1)] ?? frames[0];
+      const source = this.scene.textures.get(sprite.texture.key).getSourceImage();
+      const accessoryWidth = source?.width ?? 0;
+
+      const transform = resolveOverlayTransform({
+        cal,
+        fighterX: this.sprite.x,
+        fighterY: this.sprite.y,
+        fighterWidth: FIGHTER_WIDTH,
+        fighterHeight: FIGHTER_HEIGHT,
+        facingRight: this.sim.facingRight,
+        accessoryWidth,
+      });
+      if (!transform) {
+        sprite.setVisible(false);
+        continue;
+      }
+
       sprite.setVisible(true);
-      sprite.setTexture(resolved.overlayKey, resolved.frameName);
+      sprite.setPosition(transform.x, transform.y);
+      sprite.setRotation(transform.rotation);
+      sprite.setScale(transform.scale);
+      sprite.setFlipX(!this.sim.facingRight);
+      sprite.setDepth(depth);
     }
+  }
+
+  _currentAnimName() {
+    const animKey = this.sprite.anims?.currentAnim?.key;
+    if (!animKey) return 'idle';
+    const prefix = `${this.fighterId}_`;
+    return animKey.startsWith(prefix) ? animKey.slice(prefix.length) : animKey;
+  }
+
+  _currentFrameIndex() {
+    const raw = this.sprite.frame?.name;
+    if (raw === undefined || raw === null) return 0;
+    const n = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
   }
 
   reset(x) {

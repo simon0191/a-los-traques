@@ -136,15 +136,14 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`portrait_${id}`, `assets/portraits/${id}.png`);
     }
 
-    // Accessory source images (editor needs them to composite per-frame
-    // strips; game doesn't strictly need them but loading is cheap).
+    // Accessory source PNGs. One per accessory — the runtime composes the
+    // overlay per-frame from the calibration manifest (no pre-baked strips).
     for (const acc of accessories) {
       this.load.image(`accessory_${acc.id}`, acc.image);
     }
 
-    // Overlay manifest (RFC 0018 v2). Strips are loaded in a second phase
-    // from create() once we can scan the manifest — filecomplete-driven
-    // queueing during preload proved unreliable across Phaser versions.
+    // Overlay calibration manifest (RFC 0018 v2). Fighter._syncOverlays looks
+    // up per-frame transforms here each render tick.
     this.load.json('overlayManifestData', 'assets/overlays/manifest.json');
   }
 
@@ -161,43 +160,6 @@ export class BootScene extends Phaser.Scene {
       calibrations: {},
     };
     this.game.registry.set('overlayManifest', manifest);
-
-    // Queue overlay strips discovered in the manifest (phase 2). Calibrations
-    // are keyed by category; the actual PNGs are baked per specific accessory
-    // (different art per hat, same placement across the category), so we
-    // expand: for each calibrated (fighter, category), load strips for every
-    // accessory in the catalog matching that category.
-    const accessoriesByCategory = {};
-    for (const a of accessories) {
-      if (!accessoriesByCategory[a.category]) accessoriesByCategory[a.category] = [];
-      accessoriesByCategory[a.category].push(a);
-    }
-    // Overlay strip PNGs are optional — a fighter might have calibration in
-    // the manifest but the strips weren't exported yet. Suppress Phaser's
-    // noisy "Failed to process file" console errors for overlay_ assets.
-    this.load.on('loaderror', (file) => {
-      if (file.key?.startsWith('overlay_')) {
-        file.state = Phaser.Loader.FILE_ERRORED;
-      }
-    });
-
-    let overlayCount = 0;
-    for (const [fighterId, byCat] of Object.entries(manifest.calibrations ?? {})) {
-      for (const [category, byAnim] of Object.entries(byCat)) {
-        const accs = accessoriesByCategory[category] ?? [];
-        for (const acc of accs) {
-          for (const animName of Object.keys(byAnim)) {
-            const key = `overlay_${fighterId}_${acc.id}_${animName}`;
-            const url = `assets/overlays/${fighterId}/${acc.id}_${animName}.png`;
-            this.load.spritesheet(key, url, {
-              frameWidth: FIGHTER_WIDTH,
-              frameHeight: FIGHTER_HEIGHT,
-            });
-            overlayCount++;
-          }
-        }
-      }
-    }
 
     // Generate placeholder rectangle textures for fighters
     this.generateFighterPlaceholder('fighter_p1', FIGHTER_COLORS.p1);
@@ -262,11 +224,6 @@ export class BootScene extends Phaser.Scene {
     }
 
     const startNextScene = () => {
-      // Overlay strips are loaded; no Phaser animations created for them —
-      // Fighter._syncOverlayAnimation advances the overlay sprite one frame
-      // at a time by mirroring the fighter sprite's current frame index, so
-      // they never drift.
-
       // If URL has ?room=, go directly to lobby as joiner or spectator
       const roomId = params.get('room');
       // Replay mode: load bundle from window global or sessionStorage
@@ -303,12 +260,7 @@ export class BootScene extends Phaser.Scene {
       }
     };
 
-    if (overlayCount > 0) {
-      this.load.once('complete', startNextScene);
-      this.load.start();
-    } else {
-      startNextScene();
-    }
+    startNextScene();
   }
 
   generateFighterPlaceholder(key, color) {

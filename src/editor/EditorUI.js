@@ -205,7 +205,6 @@ export class EditorUI {
     this.ctxText = el('span', { className: 'tb-ctx', text: '' });
     this.toolbar.appendChild(this.ctxText);
     this.toolbar.appendChild(tb('💾 Guardar', 'save', 'primary'));
-    this.toolbar.appendChild(tb('Exportar PNG', 'export'));
     this.statusText = el('span', { className: 'tb-status', text: '' });
     this.toolbar.appendChild(this.statusText);
     this.root.appendChild(this.toolbar);

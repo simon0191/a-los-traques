@@ -11,7 +11,6 @@ import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../confi
 import accessoryCatalog from '../data/accessories.json';
 import { EditorUI } from '../editor/EditorUI.js';
 import { overlayBaseWidth } from '../editor/math.js';
-import { exportOverlayStrip } from '../editor/OverlayExporter.js';
 import { MANIFEST_PATH, OverlayManifest } from '../editor/OverlayManifest.js';
 import { OverlaySession } from '../editor/OverlaySession.js';
 import { Logger } from '../systems/Logger.js';
@@ -204,8 +203,6 @@ export class OverlayEditorScene extends Phaser.Scene {
         return this._fillAllFrames();
       case 'save':
         return this._saveManifest();
-      case 'export':
-        return this._exportStrip();
       default:
         log.warn('unknown action', { action });
     }
@@ -218,11 +215,10 @@ export class OverlayEditorScene extends Phaser.Scene {
     this._globalKeyHandler = (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
       const key = e.key.toLowerCase();
-      const captured = ['s', 'e', 'z', 'y', '-', '=', '+'];
+      const captured = ['s', 'z', 'y', '-', '=', '+'];
       if (!captured.includes(key)) return;
       e.preventDefault();
       if (key === 's') this._saveManifest();
-      else if (key === 'e') e.shiftKey ? this._batchExport() : this._exportStrip();
       else if (key === 'z') e.shiftKey ? this._redo() : this._undo();
       else if (key === 'y') this._redo();
       else if (key === '-') this._applyDelta({ scale: -0.02 });
@@ -584,7 +580,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     this._render();
   }
 
-  // --- Save / export ---
+  // --- Save ---
 
   async _saveManifest() {
     this._flushSessionToManifest();
@@ -609,122 +605,6 @@ export class OverlayEditorScene extends Phaser.Scene {
       log.warn('save failed', { err: e.message });
     }
     this.ui.root?.focus();
-  }
-
-  async _exportStrip() {
-    if (!this.session) return;
-    const accTextureKey = `accessory_${this.session.accessoryId}`;
-    if (!this.textures.exists(accTextureKey)) {
-      this.ui.setStatus('textura de accesorio no cargada');
-      return;
-    }
-    const sourceCanvas = this.textures.get(accTextureKey).getSourceImage();
-    const canvas = exportOverlayStrip({
-      session: this.session,
-      accessoryImage: sourceCanvas,
-      frameWidth: FIGHTER_WIDTH,
-      frameHeight: FIGHTER_HEIGHT,
-      createCanvas: (w, h) => {
-        const c = document.createElement('canvas');
-        c.width = w;
-        c.height = h;
-        return c;
-      },
-    });
-    await this._persistStrip(canvas);
-    this.ui.root?.focus();
-  }
-
-  async _batchExport() {
-    this.ui.setStatus('batch exportando…');
-    let count = 0;
-    const origF = this.fighterIdx;
-    const origA = this.accessoryIdx;
-    const origN = this.animIdx;
-    for (let f = 0; f < FIGHTERS_WITH_SPRITES.length; f++) {
-      for (let a = 0; a < ACCESSORIES.length; a++) {
-        for (let n = 0; n < ANIM_NAMES.length; n++) {
-          const fid = FIGHTERS_WITH_SPRITES[f];
-          const acc = ACCESSORIES[a];
-          const nm = ANIM_NAMES[n];
-          // Calibration is per (fighter, category), shared across all
-          // accessories of the same category.
-          const entry = this.manifest.get(fid, acc.category, nm);
-          if (!entry) continue;
-          this.fighterIdx = f;
-          this.accessoryIdx = a;
-          this.animIdx = n;
-          this.session = new OverlaySession({
-            fighterId: fid,
-            accessoryId: acc.id,
-            animation: nm,
-            frameCount: entry.frameCount,
-            frames: entry.frames,
-            keyframes: entry.keyframes,
-          });
-          try {
-            await this._exportStrip();
-            count++;
-          } catch (e) {
-            log.warn('batch step failed', { err: e.message });
-          }
-        }
-      }
-    }
-    this.fighterIdx = origF;
-    this.accessoryIdx = origA;
-    this.animIdx = origN;
-    this._syncSessionFromManifest();
-    this.ui.setStatus(`batch: ${count} strips`);
-    this.ui.root?.focus();
-  }
-
-  _stripPath() {
-    return `public/assets/overlays/${this._fighter()}/${this._accessoryId()}_${this._anim()}.png`;
-  }
-
-  async _persistStrip(canvas) {
-    const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
-    if (!blob) {
-      this.ui.setStatus('canvas.toBlob null');
-      return;
-    }
-    const base64 = await this._blobToBase64(blob);
-    try {
-      const res = await fetch(DEV_EXPORT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this._stripPath(), base64 }),
-      });
-      if (res.ok) this.ui.setStatus('strip guardado ✓');
-      else this.ui.setStatus(`export fallo: ${res.status}`);
-    } catch (_e) {
-      this.ui.setStatus('export fallo (¿está corriendo vite?)');
-    }
-    this.ui.root?.focus();
-  }
-
-  _blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onloadend = () => {
-        const s = r.result;
-        resolve(s.substring(s.indexOf(',') + 1));
-      };
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-  }
-
-  _downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   }
 
   // --- Rendering ---
@@ -757,8 +637,8 @@ export class OverlayEditorScene extends Phaser.Scene {
     if (this.textures.exists(accKey)) {
       this.overlaySprite.setTexture(accKey);
       const src = this.textures.get(accKey).getSourceImage();
-      // Base width formula is shared with OverlayExporter via src/editor/math.js
-      // so editor preview and exported strip render at identical sizes.
+      // Base width formula is shared with the runtime (src/entities/Fighter.js
+      // via src/editor/math.js) so the editor preview matches in-game render.
       const sizePx = overlayBaseWidth(FIGHTER_HEIGHT, frame.scale) * ZOOM;
       this.overlaySprite.setDisplaySize(sizePx, sizePx * (src.height / src.width));
       this.overlaySprite.setPosition(this._frameToScreenX(frame.x), this._frameToScreenY(frame.y));
