@@ -67,6 +67,25 @@ function distance(a, b) {
 }
 
 /**
+ * Tilt (radians) of the eye line in the fighter's sprite, matching Phaser's
+ * `setRotation` convention (y-down; positive rotates the sprite's +x axis
+ * downward in screen — i.e. clockwise visually).
+ *
+ * Pose keypoints are subject-relative: `leftEye` is the subject's own left
+ * eye, which lives on the viewer's right side of a facing-right sprite. So
+ * the screen-x axis runs from `rightEye` (viewer-left) to `leftEye`
+ * (viewer-right). When the subject tilts their head toward their own left
+ * shoulder (clockwise from the viewer's perspective), `leftEye` drops — its
+ * y grows. That yields a positive rotation, which is what we want.
+ *
+ * Returns null if either eye is occluded.
+ */
+function eyeLineRotation(kp) {
+  if (!visible(kp?.leftEye) || !visible(kp?.rightEye)) return null;
+  return Math.atan2(kp.leftEye.y - kp.rightEye.y, kp.leftEye.x - kp.rightEye.x);
+}
+
+/**
  * Lowest y across visible face landmarks — approximates "top of head" better
  * than head.center because it tracks the actual eyeline/hairline rather than
  * the average of all face points.
@@ -133,7 +152,9 @@ export function anchorFromKeypoints(frame, { category, uniformScale }) {
     const eyeMid = midpoint(kp.leftEye, kp.rightEye);
     const y = eyeMid?.y ?? kp.nose?.y ?? derivedHead?.y;
     if (typeof y !== 'number') return null;
-    return { x, y, rotation: 0, scale: uniformScale };
+    // Tilt with the head when both eyes are visible.
+    const rotation = eyeLineRotation(kp) ?? 0;
+    return { x, y, rotation, scale: uniformScale };
   }
 
   // sombreros: place the center of the hat so its bottom edge sits just
@@ -254,4 +275,5 @@ export const _internals = {
   headTopY,
   distance,
   midpoint,
+  eyeLineRotation,
 };

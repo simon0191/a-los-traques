@@ -184,6 +184,71 @@ describe('anchorFromKeypoints — gafas', () => {
     const anchor = anchorFromKeypoints(frame, { category: 'gafas', uniformScale });
     expect(anchor.x).toBe(64);
   });
+
+  it('rotation is zero when the eyes are level', () => {
+    // Default fixture has leftEye.y === rightEye.y; horizontal eye line → 0.
+    const anchor = anchorFromKeypoints(makeFrame(), { category: 'gafas', uniformScale });
+    expect(anchor.rotation).toBe(0);
+  });
+
+  it('rotation is positive when the subject tilts toward their left (CW from viewer)', () => {
+    // Subject's left eye drops (y grows) = head rotated CW from viewer.
+    // Phaser's setRotation is CW-positive with y-down, so rotation > 0.
+    const frame = makeFrame({
+      overrides: {
+        keypoints: {
+          leftEye: { x: 66, y: 20, v: 1 }, // subject-left (viewer-right) drops
+          rightEye: { x: 62, y: 18, v: 1 },
+        },
+      },
+    });
+    const anchor = anchorFromKeypoints(frame, { category: 'gafas', uniformScale });
+    expect(anchor.rotation).toBeCloseTo(Math.atan2(2, 4), 6);
+    expect(anchor.rotation).toBeGreaterThan(0);
+  });
+
+  it('rotation is negative when the subject tilts toward their right (CCW from viewer)', () => {
+    const frame = makeFrame({
+      overrides: {
+        keypoints: {
+          leftEye: { x: 66, y: 18, v: 1 },
+          rightEye: { x: 62, y: 20, v: 1 }, // subject-right drops
+        },
+      },
+    });
+    const anchor = anchorFromKeypoints(frame, { category: 'gafas', uniformScale });
+    expect(anchor.rotation).toBeCloseTo(Math.atan2(-2, 4), 6);
+    expect(anchor.rotation).toBeLessThan(0);
+  });
+
+  it('falls back to rotation 0 when one eye is occluded', () => {
+    const frame = makeFrame({
+      overrides: {
+        keypoints: {
+          leftEye: { x: 66, y: 18, v: 0.1 }, // below visibility threshold
+          rightEye: { x: 62, y: 20, v: 1 },
+          nose: { x: 64, y: 22, v: 1 },
+        },
+      },
+    });
+    const anchor = anchorFromKeypoints(frame, { category: 'gafas', uniformScale });
+    expect(anchor.rotation).toBe(0);
+  });
+
+  it('sombreros are not rotated by the eye line', () => {
+    // Guard against cross-contamination: sombreros should stay rotation-0
+    // even if the eyes are tilted.
+    const frame = makeFrame({
+      overrides: {
+        keypoints: {
+          leftEye: { x: 66, y: 18, v: 1 },
+          rightEye: { x: 62, y: 22, v: 1 },
+        },
+      },
+    });
+    const anchor = anchorFromKeypoints(frame, { category: 'sombreros', uniformScale: 0.3 });
+    expect(anchor.rotation).toBe(0);
+  });
 });
 
 describe('calibrateAnimation', () => {
