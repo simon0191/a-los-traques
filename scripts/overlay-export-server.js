@@ -11,8 +11,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-// Writes are only allowed under this prefix (relative to the repo root).
-// Consolidated manifest + per-combo PNG strips both live here.
+// Writes are only allowed under this prefix (relative to the repo root) —
+// the consolidated overlay manifest lives here.
 const WRITE_PREFIXES = ['public/assets/overlays/'];
 
 export function isSafeRelativePath(relPath) {
@@ -91,19 +91,16 @@ export async function handleOverlayExport(req, res, { repoRoot, isSafe = isSafeR
     }
 
     const body = await readJsonBody(req);
-    const { path: relPath, base64, json } = body ?? {};
+    const { path: relPath, json } = body ?? {};
     if (!isSafe(relPath)) {
       return respond(res, 400, { error: 'invalid path' });
     }
     const absPath = path.resolve(repoRoot, relPath);
 
-    if (typeof base64 === 'string') {
-      await writeAtomically(absPath, Buffer.from(base64, 'base64'));
-    } else if (json && typeof json === 'object') {
-      await writeAtomically(absPath, `${JSON.stringify(json, null, 2)}\n`);
-    } else {
-      return respond(res, 400, { error: 'must provide base64 (for PNGs) or json (for sessions)' });
+    if (!json || typeof json !== 'object') {
+      return respond(res, 400, { error: 'must provide json payload' });
     }
+    await writeAtomically(absPath, `${JSON.stringify(json, null, 2)}\n`);
 
     return respond(res, 200, { ok: true, path: relPath });
   } catch (err) {

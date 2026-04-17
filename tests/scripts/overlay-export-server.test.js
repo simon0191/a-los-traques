@@ -84,7 +84,7 @@ describe('handleOverlayExport', () => {
   it('rejects writes to unsafe paths', async () => {
     const res = makeRes();
     const req = makeReq({
-      body: { path: '../hack.png', base64: 'AAAA' },
+      body: { path: '../hack.json', json: { x: 1 } },
     });
     await handleOverlayExport(req, res, { repoRoot: tmpDir });
     expect(res.statusCode).toBe(400);
@@ -108,29 +108,12 @@ describe('handleOverlayExport', () => {
     expect(JSON.parse(written)).toMatchObject({ fighterId: 'cata', frameCount: 4 });
   });
 
-  it('writes a base64-encoded binary (PNG) payload', async () => {
-    const res = makeRes();
-    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-    const req = makeReq({
-      body: {
-        path: 'public/assets/overlays/cata/hat_walk.png',
-        base64: pngBytes.toString('base64'),
-      },
-    });
-    await handleOverlayExport(req, res, { repoRoot: tmpDir });
-    expect(res.statusCode).toBe(200);
-    const written = await fs.readFile(
-      path.join(tmpDir, 'public/assets/overlays/cata/hat_walk.png'),
-    );
-    expect(written.equals(pngBytes)).toBe(true);
-  });
-
   it('creates nested directories as needed', async () => {
     const res = makeRes();
     const req = makeReq({
       body: {
-        path: 'public/assets/overlays/new_fighter/new_accessory_idle.png',
-        base64: Buffer.from('data').toString('base64'),
+        path: 'public/assets/overlays/new_fighter/calibration.json',
+        json: { fighterId: 'new_fighter' },
       },
     });
     await handleOverlayExport(req, res, { repoRoot: tmpDir });
@@ -139,7 +122,7 @@ describe('handleOverlayExport', () => {
     expect(dirStat.isDirectory()).toBe(true);
   });
 
-  it('rejects a POST with neither base64 nor json', async () => {
+  it('rejects a POST without a json payload', async () => {
     const res = makeRes();
     const req = makeReq({
       body: { path: 'public/assets/overlays/manifest.json' },
