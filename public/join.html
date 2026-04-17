@@ -237,12 +237,28 @@
                 payload: { name } 
             }));
             
-            document.getElementById('main-container').innerHTML = `
-                <h1 style="color: var(--success)">¡LISTO!</h1>
-                <div class="room-tag">CONECTADO COMO ${name.toUpperCase()}</div>
-                <p style="font-size: 13px; color: #aaa;">Mira la pantalla principal para ver tu posición en el torneo.</p>
-                <button class="btn btn-primary" onclick="location.reload()">SALIR / CAMBIAR</button>
-            `;
+            const container = document.getElementById('main-container');
+            container.innerHTML = ''; // Clear
+
+            const h1 = document.createElement('h1');
+            h1.style.color = 'var(--success)';
+            h1.textContent = '¡LISTO!';
+
+            const roomTag = document.createElement('div');
+            roomTag.className = 'room-tag';
+            roomTag.textContent = `CONECTADO COMO ${name.toUpperCase()}`;
+
+            const p = document.createElement('p');
+            p.style.fontSize = '13px';
+            p.style.color = '#aaa';
+            p.textContent = 'Mira la pantalla principal para ver tu posición en el torneo.';
+
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-primary';
+            btn.textContent = 'SALIR / CAMBIAR';
+            btn.onclick = () => location.reload();
+
+            container.append(h1, roomTag, p, btn);
         }
 
         document.getElementById('login-btn').onclick = async () => {
@@ -308,19 +324,43 @@
         }
 
         function showAutoJoinUI(name, id) {
-            document.getElementById('auth-ui').innerHTML = `
-                <div style="margin: 20px 0;">
-                    <div style="font-size: 14px; color: #aaa; margin-bottom: 10px;">Sesión activa como</div>
-                    <div style="font-size: 20px; font-weight: bold; color: var(--accent); margin-bottom: 20px;">${name.toUpperCase()}</div>
-                    <button id="autojoin-btn" class="btn btn-primary">UNIRSE AL TORNEO</button>
-                    <button id="logout-btn" class="btn" style="background:none; color: #666; font-size: 11px;">CERRAR SESIÓN</button>
-                </div>
-            `;
-            document.getElementById('autojoin-btn').onclick = () => join(id, name);
-            document.getElementById('logout-btn').onclick = async () => {
+            const authUi = document.getElementById('auth-ui');
+            authUi.innerHTML = ''; // Clear
+
+            const wrapper = document.createElement('div');
+            wrapper.style.margin = '20px 0';
+
+            const label = document.createElement('div');
+            label.style.fontSize = '14px';
+            label.style.color = '#aaa';
+            label.style.marginBottom = '10px';
+            label.textContent = 'Sesión activa como';
+
+            const nameDiv = document.createElement('div');
+            nameDiv.style.fontSize = '20px';
+            nameDiv.style.fontWeight = 'bold';
+            nameDiv.style.color = 'var(--accent)';
+            nameDiv.style.marginBottom = '20px';
+            nameDiv.textContent = name.toUpperCase();
+
+            const joinBtn = document.createElement('button');
+            joinBtn.className = 'btn btn-primary';
+            joinBtn.textContent = 'UNIRSE AL TORNEO';
+            joinBtn.onclick = () => join(id, name);
+
+            const logoutBtn = document.createElement('button');
+            logoutBtn.className = 'btn';
+            logoutBtn.style.background = 'none';
+            logoutBtn.style.color = '#666';
+            logoutBtn.style.fontSize = '11px';
+            logoutBtn.textContent = 'CERRAR SESIÓN';
+            logoutBtn.onclick = async () => {
                 await supabase.auth.signOut();
                 location.reload();
             };
+
+            wrapper.append(label, nameDiv, joinBtn, logoutBtn);
+            authUi.appendChild(wrapper);
         }
     </script>
 </body>
