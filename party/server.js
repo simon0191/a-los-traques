@@ -474,9 +474,10 @@ export default class FightRoom {
       case 'UPDATE_BOT': {
         const { index, level } = payload;
         if (index >= 0 && index < this.lobbyState.size) {
+          const current = this.lobbyState.slots[index];
           const targetLevel = level || 3;
           this.lobbyState.slots[index] = {
-            id: `bot-${index}-${Date.now()}`, // unique id for bots
+            id: current?.id || `bot-${index}-${Date.now()}`,
             type: 'bot',
             name: `Bot Nivel ${targetLevel}`,
             level: targetLevel,

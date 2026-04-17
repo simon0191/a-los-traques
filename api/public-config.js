@@ -16,12 +16,6 @@ export default function handler(req, res) {
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
   };
 
-  // Fallback for local development if envs are missing but we are local
-  if (isLocal && (!config.supabaseUrl || !config.supabaseAnonKey)) {
-    config.supabaseUrl = 'http://localhost:54321';
-    config.supabaseAnonKey = 'dev-anon-key';
-  }
-
   // Graceful degradation: If we still don't have config, return nulls
   // Frontend will handle this by showing guest-only mode.
   res.status(200).json({

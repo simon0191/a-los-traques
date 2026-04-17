@@ -26,7 +26,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
 
     let profile = {
       nickname: 'Anfitrión Local',
-      id: `host-${Math.random().toString(36).substring(2, 5)}`,
+      id: `host-${crypto.randomUUID().substring(0, 8)}`,
     };
 
     try {
