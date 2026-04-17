@@ -84,6 +84,8 @@ export default class FightRoom {
     this._shoutCooldowns = new Map();
     /** @type {Map<string, number>} potion rate-limit: connId -> last potion timestamp */
     this._potionCooldowns = new Map();
+    /** @type {Map<string, number>} lobby_action rate-limit: connId -> last action timestamp */
+    this._lobbyActionCooldowns = new Map();
     /** @type {(ReturnType<typeof setTimeout>|null)[]} grace period timers per slot */
     this._graceTimers = [null, null];
     /** @type {Map<string, string>} connectionId -> sessionId for log correlation */
@@ -400,6 +402,18 @@ export default class FightRoom {
         break;
       case 'lobby_action':
         if (this.roomState === RoomState.TOURNAMENT_LOBBY) {
+          const now = Date.now();
+          const last = this._lobbyActionCooldowns.get(connection.id) || 0;
+          if (now - last < 100) {
+            this._log({
+              type: 'rate_limit',
+              msgType: 'lobby_action',
+              connId: connection.id,
+              cooldownRemaining: 100 - (now - last),
+            });
+            return;
+          }
+          this._lobbyActionCooldowns.set(connection.id, now);
           this._handleLobbyAction(data, connection);
         }
         break;
@@ -709,6 +723,7 @@ export default class FightRoom {
   }
 
   onClose(connection) {
+    this._lobbyActionCooldowns.delete(connection.id);
     if (this._isSpectator(connection.id)) {
       this.spectators.delete(connection.id);
       this._shoutCooldowns.delete(connection.id);
