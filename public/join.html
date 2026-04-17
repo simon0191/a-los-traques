@@ -256,7 +256,10 @@
             const btn = document.createElement('button');
             btn.className = 'btn btn-primary';
             btn.textContent = 'REGISTRAR A OTRA PERSONA';
-            btn.onclick = () => location.reload();
+            btn.onclick = async () => {
+                if (supabase) await supabase.auth.signOut();
+                location.reload();
+            };
 
             container.append(h1, roomTag, p, btn);
         }
