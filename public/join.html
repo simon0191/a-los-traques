@@ -142,7 +142,7 @@
 
     <script type="module">
         import PartySocket from 'https://cdn.jsdelivr.net/npm/partysocket@1.1.16/+esm';
-        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.101.1/+esm';
 
         const urlParams = new URLSearchParams(window.location.search);
         let roomId = urlParams.get('room');
@@ -229,7 +229,7 @@
         });
 
         // ACTIONS
-        async function join(id, name) {
+        async function join(name) {
             if (!lobbyState) return showStatus("Error: Esperando al servidor...", true);
             window.lobbySocket.send(JSON.stringify({ 
                 type: 'lobby_action', 
@@ -274,7 +274,7 @@
                 setLoading(false);
             } else {
                 const nick = data.user.user_metadata?.nickname || email.split('@')[0];
-                join(data.user.id, nick);
+                join(nick);
             }
         };
 
@@ -309,7 +309,7 @@
         document.getElementById('guest-btn').onclick = () => {
             const name = document.getElementById('guest-name').value.trim();
             if (!name) return showStatus("Escribe un nombre", true);
-            join('guest-' + Math.random().toString(36).slice(2, 7), name);
+            join(name);
         };
 
         // Helpers
@@ -346,7 +346,7 @@
             const joinBtn = document.createElement('button');
             joinBtn.className = 'btn btn-primary';
             joinBtn.textContent = 'UNIRSE AL TORNEO';
-            joinBtn.onclick = () => join(id, name);
+            joinBtn.onclick = () => join(name);
 
             const logoutBtn = document.createElement('button');
             logoutBtn.className = 'btn';
