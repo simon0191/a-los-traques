@@ -1,3 +1,7 @@
+import { Logger } from './Logger.js';
+
+const log = Logger.create('WebRTCTransport');
+
 /**
  * WebRTC DataChannel transport for P2P game inputs.
  * Uses unreliable/unordered mode (UDP-like) — the rollback system handles loss natively.
@@ -254,6 +258,6 @@ export class WebRTCTransport {
   }
 
   _log(...args) {
-    console.log(`[WebRTC ${this._isOfferer ? 'P1' : 'P2'}]`, ...args);
+    log.info(`[${this._isOfferer ? 'P1' : 'P2'}]`, ...args);
   }
 }

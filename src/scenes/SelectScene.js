@@ -3,6 +3,9 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('SelectScene');
 
 const COLS = 5;
 const ROWS = 4;
@@ -75,15 +78,28 @@ export class SelectScene extends Phaser.Scene {
     this.p2StatValues = null;
 
     // N-player tournament selection state
-    this._localPlayers = this.matchContext?.localPlayers || 1;
+    if (this.matchContext?.lobbyPlayers) {
+      // Count all humans/guests as local players who need to select a character
+      this._localPlayers = this.matchContext.lobbyPlayers.filter(
+        (p) => p.type === 'human' || p.type === 'guest',
+      ).length;
+    } else {
+      this._localPlayers = this.matchContext?.localPlayers || 1;
+    }
+
     this._humanSelections = [];
     this._currentSelectingPlayer = 1;
     this._takenOverlays = []; // visual overlays for taken fighters
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
+    const firstHuman = this.matchContext?.lobbyPlayers?.filter(
+      (p) => p.type === 'human' || p.type === 'guest',
+    )[0];
+    const initialName = firstHuman?.name.toUpperCase() || 'JUGADOR 1';
+
     this.headerText = this.add
-      .text(GAME_WIDTH / 2, 16, 'ELIGE TU LUCHADOR: JUGADOR 1', {
+      .text(GAME_WIDTH / 2, 16, `ELIGE TU LUCHADOR: ${initialName}`, {
         fontFamily: 'Arial Black, Arial',
         fontSize: '18px',
         color: '#ffcc00',
@@ -760,22 +776,43 @@ export class SelectScene extends Phaser.Scene {
     this.game.audioManager.play('ui_confirm');
     this.p1Confirmed = true;
     if (this.fighters[this.p1Index].id === 'random') {
-      let idx;
-      do {
-        idx = Phaser.Math.Between(0, this.fighters.length - 2);
-      } while (this._humanSelections.includes(this.fighters[idx].id));
-      this.p1Index = idx;
+      // Filter available fighters (exclude 'random' and already selected)
+      const available = this.fighters.filter(
+        (f) => f.id !== 'random' && !this._humanSelections.includes(f.id),
+      );
+
+      if (available.length > 0) {
+        const randomFighter = Phaser.Utils.Array.GetRandom(available);
+        this.p1Index = this.fighters.findIndex((f) => f.id === randomFighter.id);
+      } else {
+        // Fallback: if somehow everything is taken, just pick any non-random fighter
+        this.p1Index = Phaser.Math.Between(0, this.fighters.length - 2);
+      }
       this.updateP1Display();
     }
     this.p1Cursor.setStrokeStyle(3, 0x00ccff);
 
     // Apply visual overlay for the current player
-    this._humanSelections.push(this.fighters[this.p1Index].id);
+    const selectedFighterId = this.fighters[this.p1Index].id;
+    this._humanSelections.push(selectedFighterId);
     this._markFighterTaken(this.p1Index, this._currentSelectingPlayer);
+
+    // Sync back to lobbyPlayers so BracketScene knows who picked what
+    if (this.matchContext?.lobbyPlayers) {
+      const humanIdx = this._currentSelectingPlayer - 1;
+      const humanPlayers = this.matchContext.lobbyPlayers.filter(
+        (p) => p.type === 'human' || p.type === 'guest',
+      );
+      if (humanPlayers[humanIdx]) {
+        humanPlayers[humanIdx].fighterId = selectedFighterId;
+      }
+    }
 
     if (this.matchContext?.type === 'tournament') {
       const selectedName = this.fighters[this.p1Index].name;
       this._updateSelectionListConfirm(this._currentSelectingPlayer, selectedName);
+
+      log.debug(`Player ${this._currentSelectingPlayer}/${this._localPlayers} confirmed`);
 
       if (this._currentSelectingPlayer < this._localPlayers) {
         // More humans need to select — enter next player's selection phase
@@ -789,12 +826,17 @@ export class SelectScene extends Phaser.Scene {
       this.time.delayedCall(800, () => {
         const fighterIds = this.fighters.map((f) => f.id);
         const { size, seed } = this.matchContext.tournamentState;
+
+        // Generate the tournament with human selections AND lobby bots
         const tournamentManager = TournamentManager.generate(
           fighterIds,
           size,
           this._humanSelections,
           seed,
+          this.matchContext.lobbyPlayers,
         );
+
+        // Store lobby player data (like bot levels) in the match context
         this.matchContext.tournamentState = tournamentManager.serialize();
         this.cameras.main.fadeOut(400, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -827,11 +869,16 @@ export class SelectScene extends Phaser.Scene {
         controller.focusItem(this.gridCells[this.p2Index].rect);
       }
       if (this.game.autoplay?.enabled) {
-        let p2Idx;
-        do {
-          p2Idx = Phaser.Math.Between(0, this.fighters.length - 2);
-        } while (p2Idx === this.p1Index);
-        this.p2Index = p2Idx;
+        // Filter available fighters (exclude 'random' and P1 selection)
+        const available = this.fighters.filter(
+          (f) => f.id !== 'random' && f.id !== this.fighters[this.p1Index].id,
+        );
+        if (available.length > 0) {
+          const randomFighter = Phaser.Utils.Array.GetRandom(available);
+          this.p2Index = this.fighters.findIndex((f) => f.id === randomFighter.id);
+        } else {
+          this.p2Index = Phaser.Math.Between(0, this.fighters.length - 2);
+        }
         this.updateP2Display();
         this.confirmP2();
       }
@@ -849,11 +896,17 @@ export class SelectScene extends Phaser.Scene {
     this.p2Confirmed = true;
     this.p2Cursor.setStrokeStyle(3, 0xff8800);
     if (this.fighters[this.p2Index].id === 'random') {
-      let idx;
-      do {
-        idx = Phaser.Math.Between(0, this.fighters.length - 2);
-      } while (this._humanSelections.includes(this.fighters[idx].id));
-      this.p2Index = idx;
+      // Filter available fighters (exclude 'random' and already selected)
+      const available = this.fighters.filter(
+        (f) => f.id !== 'random' && !this._humanSelections.includes(f.id),
+      );
+
+      if (available.length > 0) {
+        const randomFighter = Phaser.Utils.Array.GetRandom(available);
+        this.p2Index = this.fighters.findIndex((f) => f.id === randomFighter.id);
+      } else {
+        this.p2Index = Phaser.Math.Between(0, this.fighters.length - 2);
+      }
       this.updateP2Display();
     }
 
@@ -939,10 +992,15 @@ export class SelectScene extends Phaser.Scene {
     this.updateP1Display();
     this._scrollToFit(this.p1Index);
 
-    this.headerText.setText(`ELIGE TU LUCHADOR: JUGADOR ${this._currentSelectingPlayer}`);
+    const currentPlayer = this.matchContext.lobbyPlayers.filter(
+      (p) => p.type === 'human' || p.type === 'guest',
+    )[this._currentSelectingPlayer - 1];
+    const name = currentPlayer?.name.toUpperCase() || `JUGADOR ${this._currentSelectingPlayer}`;
+
+    this.headerText.setText(`ELIGE TU LUCHADOR: ${name}`);
     this._updateSelectionListActive(this._currentSelectingPlayer);
     this.confirmedText.setText(
-      `Jugador ${this._currentSelectingPlayer - 1} listo. Jugador ${this._currentSelectingPlayer}, elige...`,
+      `Listo ${this.matchContext.lobbyPlayers.filter((p) => p.type === 'human' || p.type === 'guest')[this._currentSelectingPlayer - 2]?.name.toUpperCase()}. Turno de ${name}...`,
     );
 
     // Reset focus to the grid for the next player
@@ -956,6 +1014,11 @@ export class SelectScene extends Phaser.Scene {
     const cell = this.gridCells[fighterIdx];
     if (!cell) return;
 
+    const currentPlayer = this.matchContext?.lobbyPlayers?.filter(
+      (p) => p.type === 'human' || p.type === 'guest',
+    )?.[playerNum - 1];
+    const shortName = currentPlayer?.name.substring(0, 3).toUpperCase() || `J${playerNum}`;
+
     // Dim the DOM portrait image directly (DOM renders on top of canvas)
     cell.pDOM.node.style.opacity = '0.25';
     cell.pDOM.node.style.filter = 'grayscale(100%)';
@@ -968,14 +1031,14 @@ export class SelectScene extends Phaser.Scene {
         'div',
         {
           'font-family': 'Arial Black, sans-serif',
-          'font-size': '12px',
+          'font-size': '10px',
           'font-weight': 'bold',
           color: '#ffcc00',
           'text-align': 'center',
           'text-shadow': '1px 1px 2px #000000, -1px -1px 2px #000000',
           'pointer-events': 'none',
         },
-        `J${playerNum}`,
+        shortName,
       )
       .setOrigin(0.5, 0.5);
 
@@ -997,24 +1060,68 @@ export class SelectScene extends Phaser.Scene {
       })
       .setOrigin(0, 0);
 
+    const humanPlayers =
+      this.matchContext?.lobbyPlayers?.filter((p) => p.type === 'human' || p.type === 'guest') ||
+      [];
+
     this._selectionListTexts = [];
-    for (let i = 0; i < this._localPlayers; i++) {
-      const txt = this.add.text(panelX, 170 + i * 14, `J${i + 1}: ...`, {
-        fontFamily: 'Arial',
-        fontSize: '9px',
-        color: '#666666',
-      });
-      this._selectionListTexts.push(txt);
+    if (humanPlayers.length > 0) {
+      for (let i = 0; i < humanPlayers.length; i++) {
+        const p = humanPlayers[i];
+        let displayName = p.name.toUpperCase();
+        if (displayName.startsWith('INVITADO ')) {
+          displayName = `INV${displayName.split(' ')[1]}`;
+        } else if (displayName.length > 8) {
+          displayName = `${displayName.substring(0, 7)}.`;
+        }
+
+        const txt = this.add.text(panelX, 170 + i * 12, `${displayName}: ...`, {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: '#666666',
+        });
+        this._selectionListTexts.push(txt);
+      }
+    } else {
+      // Fallback for non-tournament local multiplayer
+      for (let i = 0; i < this._localPlayers; i++) {
+        const txt = this.add.text(panelX, 170 + i * 12, `J${i + 1}: ...`, {
+          fontFamily: 'Arial',
+          fontSize: '8px',
+          color: '#666666',
+        });
+        this._selectionListTexts.push(txt);
+      }
     }
+
     // Highlight first player as selecting
-    this._selectionListTexts[0].setText('J1: Eligiendo...').setColor('#ffcc00');
+    if (this._selectionListTexts[0]) {
+      this._selectionListTexts[0].setColor('#ffcc00');
+    }
   }
 
   _updateSelectionListConfirm(playerNum, fighterName) {
     if (!this._selectionListTexts) return;
     const idx = playerNum - 1;
     if (this._selectionListTexts[idx]) {
-      this._selectionListTexts[idx].setText(`J${playerNum}: ${fighterName}`).setColor('#44cc88');
+      const humanPlayers = this.matchContext?.lobbyPlayers?.filter(
+        (p) => p.type === 'human' || p.type === 'guest',
+      );
+
+      let displayName = `J${playerNum}`;
+      if (humanPlayers?.[idx]) {
+        const p = humanPlayers[idx];
+        displayName = p.name.toUpperCase();
+        if (displayName.startsWith('INVITADO ')) {
+          displayName = `INV${displayName.split(' ')[1]}`;
+        } else if (displayName.length > 8) {
+          displayName = `${displayName.substring(0, 7)}.`;
+        }
+      }
+
+      this._selectionListTexts[idx]
+        .setText(`${displayName}: ${fighterName.toUpperCase()}`)
+        .setColor('#44cc88');
     }
   }
 
@@ -1022,7 +1129,7 @@ export class SelectScene extends Phaser.Scene {
     if (!this._selectionListTexts) return;
     const idx = playerNum - 1;
     if (this._selectionListTexts[idx]) {
-      this._selectionListTexts[idx].setText(`J${playerNum}: Eligiendo...`).setColor('#ffcc00');
+      this._selectionListTexts[idx].setColor('#ffcc00');
     }
   }
 
@@ -1030,7 +1137,13 @@ export class SelectScene extends Phaser.Scene {
     if (!this._selectionListTexts) return;
     const idx = playerNum - 1;
     if (this._selectionListTexts[idx]) {
-      this._selectionListTexts[idx].setText(`J${playerNum}: ...`).setColor('#666666');
+      const p = this.matchContext.lobbyPlayers.filter(
+        (p) => p.type === 'human' || p.type === 'guest',
+      )[idx];
+      const displayName = p.name.length > 8 ? `${p.name.substring(0, 7)}.` : p.name;
+      this._selectionListTexts[idx]
+        .setText(`${displayName.toUpperCase()}: ...`)
+        .setColor('#666666');
     }
   }
 

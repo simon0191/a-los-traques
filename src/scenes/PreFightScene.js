@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('PreFightScene');
 
 export class PreFightScene extends Phaser.Scene {
   constructor() {
@@ -38,7 +41,7 @@ export class PreFightScene extends Phaser.Scene {
     const p2 = fightersData.find((f) => f.id === this.p2Id);
     let selectedStage = stagesData.find((s) => s.id === this.stageId);
     if (!selectedStage) {
-      console.warn(`[PREFIGHT] Stage ${this.stageId} not found, falling back to first stage`);
+      log.warn(`Stage ${this.stageId} not found, falling back to first stage`);
       selectedStage = stagesData[0];
     }
 

@@ -62,53 +62,117 @@ export class AIController {
   // ---------------------------------------------------------------------------
 
   getDifficultyConfig(difficulty) {
-    switch (difficulty) {
+    const configMap = {
+      1: 'easy',
+      2: 'easy_plus',
+      3: 'medium',
+      4: 'hard',
+      5: 'hard_plus',
+      easy: 'easy',
+      medium: 'medium',
+      hard: 'hard',
+    };
+
+    const mode = configMap[difficulty] || 'medium';
+
+    switch (mode) {
       case 'easy':
         return {
-          thinkInterval: 30, // ~500 ms at 60 fps
-          missRate: 0.4, // 40 % chance to skip an attack opportunity
+          thinkInterval: 40,
+          missRate: 0.5,
           canBlock: false,
           canSpecial: false,
-          jumpChance: 0.1, // random jumps
+          jumpChance: 0.1,
+          backOffChance: 0.1,
+          blockChance: 0,
+          idealRange: 60,
+          approachRange: 80,
+          tooCloseRange: 20,
+          punishRecovery: false,
+          readOpponentState: false,
+          reactionJump: false,
+          specialChance: 0,
+          attackWeights: [0.4, 0.7, 0.85], // lightP, lightK, heavyP (rest is heavyK)
+          wallJumpChance: 0,
+        };
+      case 'easy_plus':
+        return {
+          thinkInterval: 30,
+          missRate: 0.35,
+          canBlock: true,
+          canSpecial: false,
+          jumpChance: 0.1,
           backOffChance: 0.15,
-          blockChance: 0, // never blocks
+          blockChance: 0.2,
           idealRange: 55,
-          approachRange: 70,
+          approachRange: 75,
           tooCloseRange: 25,
           punishRecovery: false,
           readOpponentState: false,
+          reactionJump: false,
+          specialChance: 0,
+          attackWeights: [0.35, 0.65, 0.8],
+          wallJumpChance: 0.1,
         };
-
-      case 'hard':
+      case 'medium':
         return {
-          thinkInterval: 5, // ~83 ms at 60 fps
-          missRate: 0.05,
-          canBlock: true,
-          canSpecial: true,
-          jumpChance: 0.06, // tactical jumps only
-          backOffChance: 0.35,
-          blockChance: 0.7, // actively blocks when opponent attacks
-          idealRange: 52,
-          approachRange: 65,
-          tooCloseRange: 30,
-          punishRecovery: true,
-          readOpponentState: true,
-        };
-      default:
-        return {
-          thinkInterval: 15, // ~250 ms at 60 fps
+          thinkInterval: 15,
           missRate: 0.2,
           canBlock: true,
           canSpecial: true,
           jumpChance: 0.08,
           backOffChance: 0.25,
-          blockChance: 0.35,
-          idealRange: 55,
-          approachRange: 68,
-          tooCloseRange: 28,
+          blockChance: 0.45,
+          idealRange: 50,
+          approachRange: 65,
+          tooCloseRange: 35,
           punishRecovery: false,
-          readOpponentState: false,
+          readOpponentState: true,
+          reactionJump: false,
+          specialChance: 0.4,
+          attackWeights: [0.3, 0.5, 0.7],
+          wallJumpChance: 0.3,
         };
+      case 'hard':
+        return {
+          thinkInterval: 8,
+          missRate: 0.1,
+          canBlock: true,
+          canSpecial: true,
+          jumpChance: 0.05,
+          backOffChance: 0.35,
+          blockChance: 0.7,
+          idealRange: 52,
+          approachRange: 65,
+          tooCloseRange: 30,
+          punishRecovery: true,
+          readOpponentState: true,
+          reactionJump: true,
+          specialChance: 0.65,
+          attackWeights: [0.35, 0.55, 0.75],
+          wallJumpChance: 1.0,
+        };
+      case 'hard_plus':
+        return {
+          thinkInterval: 4,
+          missRate: 0.02,
+          canBlock: true,
+          canSpecial: true,
+          jumpChance: 0.05,
+          backOffChance: 0.4,
+          blockChance: 0.85,
+          idealRange: 52,
+          approachRange: 60,
+          tooCloseRange: 35,
+          punishRecovery: true,
+          readOpponentState: true,
+          reactionJump: true,
+          specialChance: 0.85,
+          attackWeights: [0.4, 0.6, 0.8],
+          wallJumpChance: 1.0,
+        };
+      default:
+        return this.getDifficultyConfig('medium');
     }
   }
 
@@ -233,8 +297,7 @@ export class AIController {
     // 7. Jumping (mix-up / evasion)
     // ------------------------------------------------------------------
     if (this._rng() < cfg.jumpChance) {
-      // Hard mode: jump to dodge or when opponent jumps
-      if (this.difficulty === 'hard') {
+      if (cfg.reactionJump) {
         if (oppJumping || (oppAttacking && absDist < cfg.approachRange)) {
           this.decision.jump = true;
         }
@@ -254,35 +317,18 @@ export class AIController {
 
     // Special attack when meter is full and in range
     if (cfg.canSpecial && me.special >= SPECIAL_COST && absDist < cfg.idealRange + 10) {
-      // Hard: always use when available and close. Medium: 40 % chance.
-      const specialChance = this.difficulty === 'hard' ? 0.65 : 0.4;
-      if (this._rng() < specialChance) {
+      if (this._rng() < cfg.specialChance) {
         return 'special';
       }
     }
 
     // Weighted random pick – favour lights for speed, heavies for damage
     const roll = this._rng();
+    const w = cfg.attackWeights;
 
-    if (this.difficulty === 'hard') {
-      // Hard prefers fast attacks, uses heavies to punish
-      if (roll < 0.35) return 'lightPunch';
-      if (roll < 0.55) return 'lightKick';
-      if (roll < 0.75) return 'heavyPunch';
-      return 'heavyKick';
-    }
-
-    if (this.difficulty === 'medium') {
-      if (roll < 0.3) return 'lightPunch';
-      if (roll < 0.5) return 'lightKick';
-      if (roll < 0.7) return 'heavyPunch';
-      return 'heavyKick';
-    }
-
-    // Easy – mostly lights
-    if (roll < 0.4) return 'lightPunch';
-    if (roll < 0.7) return 'lightKick';
-    if (roll < 0.85) return 'heavyPunch';
+    if (roll < w[0]) return 'lightPunch';
+    if (roll < w[1]) return 'lightKick';
+    if (roll < w[2]) return 'heavyPunch';
     return 'heavyKick';
   }
 
@@ -315,11 +361,9 @@ export class AIController {
       this.decision.jump = false;
     }
 
-    // Wall jump: hard always, medium 30% chance
+    // Wall jump
     if (fighter._isTouchingWall && !fighter._hasWallJumped) {
-      const wallJumpChance =
-        this.difficulty === 'hard' ? 1.0 : this.difficulty === 'medium' ? 0.3 : 0;
-      if (this._rng() < wallJumpChance) {
+      if (this._rng() < this.config.wallJumpChance) {
         fighter.jump(events);
       }
     }

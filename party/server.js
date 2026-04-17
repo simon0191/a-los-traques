@@ -14,6 +14,7 @@ const RoomState = {
   CREATING_FIGHT: 'creating_fight',
   FIGHTING: 'fighting',
   RECONNECTING: 'reconnecting',
+  TOURNAMENT_LOBBY: 'tournament_lobby',
 };
 
 /**
@@ -22,10 +23,16 @@ const RoomState = {
 const ROOM_TRANSITIONS = {
   [RoomState.EMPTY]: {
     player_connected: RoomState.WAITING,
+    init_tournament: RoomState.TOURNAMENT_LOBBY,
+  },
+  [RoomState.TOURNAMENT_LOBBY]: {
+    start_tournament: RoomState.SELECTING,
+    leave: RoomState.EMPTY,
   },
   [RoomState.WAITING]: {
     second_connected: RoomState.SELECTING,
     player_disconnected: RoomState.EMPTY,
+    init_tournament: RoomState.TOURNAMENT_LOBBY,
   },
   [RoomState.SELECTING]: {
     first_ready: RoomState.READY_CHECK,
@@ -77,6 +84,8 @@ export default class FightRoom {
     this._shoutCooldowns = new Map();
     /** @type {Map<string, number>} potion rate-limit: connId -> last potion timestamp */
     this._potionCooldowns = new Map();
+    /** @type {Map<string, number>} lobby_action rate-limit: connId -> last action timestamp */
+    this._lobbyActionCooldowns = new Map();
     /** @type {(ReturnType<typeof setTimeout>|null)[]} grace period timers per slot */
     this._graceTimers = [null, null];
     /** @type {Map<string, string>} connectionId -> sessionId for log correlation */
@@ -84,6 +93,9 @@ export default class FightRoom {
     /** @type {Array<object>} Ring buffer of last 50 server events */
     this._eventLog = [];
     this._eventLogMax = 50;
+
+    /** @type {object|null} State for tournament lobby */
+    this.lobbyState = null;
   }
 
   /**
@@ -210,10 +222,6 @@ export default class FightRoom {
   onConnect(connection, ctx) {
     const url = new URL(ctx.request.url);
     const isSpectator = url.searchParams.get('spectate') === '1';
-    const sessionId = url.searchParams.get('sessionId') || null;
-    if (sessionId) {
-      this._sessionIds.set(connection.id, sessionId);
-    }
 
     if (isSpectator) {
       this.spectators.add(connection.id);
@@ -239,6 +247,15 @@ export default class FightRoom {
 
     this._cleanupStaleSlots();
 
+    // Tournament Lobby: allow unlimited participants without assigning Slot 0/1 immediately
+    if (this.roomState === RoomState.TOURNAMENT_LOBBY) {
+      this._log({ type: 'connect_lobby', roomId: this.party.id, connId: connection.id });
+      if (this.lobbyState) {
+        connection.send(JSON.stringify({ type: 'lobby_update', lobbyState: this.lobbyState }));
+      }
+      return;
+    }
+
     const slot = this.players[0] === null ? 0 : this.players[1] === null ? 1 : -1;
 
     if (slot === -1) {
@@ -253,7 +270,7 @@ export default class FightRoom {
     }
 
     this.players[slot] = { id: connection.id, fighterId: null, ready: false };
-    this._log({ type: 'connect', slot, sessionId, roomState: this.roomState });
+    this._log({ type: 'connect', slot, roomState: this.roomState });
     connection.send(JSON.stringify({ type: 'assign', player: slot }));
 
     if (this.spectators.size > 0) {
@@ -266,6 +283,11 @@ export default class FightRoom {
       this._broadcast({ type: 'opponent_joined' });
     } else if (this.roomState === RoomState.EMPTY) {
       this._transition('player_connected');
+    }
+
+    // If we have a tournament lobby state, send it to the new connection immediately
+    if (this.lobbyState) {
+      connection.send(JSON.stringify({ type: 'lobby_update', lobbyState: this.lobbyState }));
     }
   }
 
@@ -291,7 +313,14 @@ export default class FightRoom {
       return;
     }
 
-    if (slot === -1) return;
+    // Targetted guard: only allow lobby/system messages from non-slotted connections.
+    // This prevents corruption of this.players[-1] in game logic.
+    if (slot === -1) {
+      const LOBBY_WHITELIST = ['lobby_action', 'request_lobby_update', 'ping', 'rejoin'];
+      if (!LOBBY_WHITELIST.includes(data.type)) {
+        return;
+      }
+    }
 
     switch (data.type) {
       case 'ready':
@@ -358,6 +387,181 @@ export default class FightRoom {
       case 'leave':
         this._handleLeave(slot);
         break;
+      case 'init_tournament':
+        // Only P1 (slot 0) can initialize a tournament
+        if (slot !== 0) break;
+        if (this._transition('init_tournament')) {
+          this.lobbyState = data.lobbyState;
+          // Initialize guest counter if not present
+          if (this.lobbyState && this.lobbyState.nextGuestNum === undefined) {
+            this.lobbyState.nextGuestNum = 1;
+          }
+          this._log({ type: 'init_tournament', roomId: this.party.id });
+          this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
+        }
+        break;
+      case 'start_tournament':
+        // Only P1 (slot 0) can start a tournament
+        if (slot !== 0) break;
+        if (this._transition('start_tournament')) {
+          this.lobbyState = null; // Clear lobby state as we are moving to selection
+          this._log({ type: 'start_tournament', roomId: this.party.id });
+        }
+        break;
+      case 'lobby_action':
+        if (this.roomState === RoomState.TOURNAMENT_LOBBY) {
+          const now = Date.now();
+          const last = this._lobbyActionCooldowns.get(connection.id) || 0;
+          if (now - last < 100) {
+            this._log({
+              type: 'rate_limit',
+              msgType: 'lobby_action',
+              connId: connection.id,
+              cooldownRemaining: 100 - (now - last),
+            });
+            return;
+          }
+          this._lobbyActionCooldowns.set(connection.id, now);
+          this._handleLobbyAction(data, connection);
+        }
+        break;
+      case 'request_lobby_update':
+        if (this.lobbyState) {
+          connection.send(JSON.stringify({ type: 'lobby_update', lobbyState: this.lobbyState }));
+        }
+        break;
+    }
+  }
+
+  _handleLobbyAction(data, connection) {
+    if (!this.lobbyState) return;
+
+    const { action, payload } = data;
+    let changed = false;
+
+    // Use connection.id as the authoritative, non-spoofable handle for the participant.
+    // This prevents clients from spoofing their ID (e.g. claiming someone else's UUID) in the payload.
+
+    // SECURITY: Only the Host (slot 0) can mutate the lobby structure.
+    // JOIN_SLOT is the only action allowed for non-hosts.
+    const isHost = this._slotOf(connection.id) === 0;
+    if (!isHost && action !== 'JOIN_SLOT') return;
+
+    switch (action) {
+      case 'JOIN_SLOT': {
+        const { name, id, type } = payload;
+
+        // If an ID is provided (e.g. from authenticated Supabase session),
+        // prevent double-joining with the same identity.
+        if (id && this.lobbyState.slots.some((s) => s?.id === id)) break;
+
+        const emptyIdx = this.lobbyState.slots.indexOf(null);
+        if (emptyIdx !== -1) {
+          this.lobbyState.slots[emptyIdx] = {
+            id: id || `guest-${crypto.randomUUID().substring(0, 8)}`,
+            name: name || 'Invitado',
+            type: type || 'guest',
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
+      case 'DEV_JOIN': {
+        const { id, name } = payload;
+        // Host check is already performed at the top of the method now
+
+        // TODO: Once XP persistence lands, we must verify identities.
+        // Currently, a malicious host could use DEV_JOIN to inject arbitrary 'human' identities.
+        const emptyIdx = this.lobbyState.slots.indexOf(null);
+        if (emptyIdx !== -1) {
+          this.lobbyState.slots[emptyIdx] = {
+            id: id || `dev-${Date.now()}`,
+            name: name || 'DEV',
+            type: 'human',
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
+      case 'UPDATE_BOT': {
+        const { index, level } = payload;
+        if (index >= 0 && index < this.lobbyState.size) {
+          const current = this.lobbyState.slots[index];
+          const targetLevel = level || 3;
+          this.lobbyState.slots[index] = {
+            id: current?.id || `bot-${index}-${Date.now()}`,
+            type: 'bot',
+            name: `Bot Nivel ${targetLevel}`,
+            level: targetLevel,
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
+      case 'CYCLE_BOT': {
+        const { index } = payload;
+        if (index >= 0 && index < this.lobbyState.size) {
+          const current = this.lobbyState.slots[index];
+          const nextLevel = current?.type === 'bot' ? (current.level % 5) + 1 : 3;
+
+          this.lobbyState.slots[index] = {
+            id: current?.id || `bot-${index}-${Date.now()}`,
+            type: 'bot',
+            name: `Bot Nivel ${nextLevel}`,
+            level: nextLevel,
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
+      case 'ADD_GUEST': {
+        const { index } = payload;
+        if (index >= 0 && index < this.lobbyState.size) {
+          const guestNum = this.lobbyState.nextGuestNum++;
+          this.lobbyState.slots[index] = {
+            id: `guest-${guestNum}-${Date.now()}`,
+            type: 'guest',
+            name: `Invitado ${guestNum}`,
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
+      case 'REMOVE_SLOT': {
+        const { index } = payload;
+        if (index > 0 && index < this.lobbyState.size) {
+          this.lobbyState.slots[index] = null;
+          changed = true;
+        }
+        break;
+      }
+      case 'UPDATE_SIZE': {
+        const { newSize } = payload;
+        // SECURITY: Only allow specific tournament sizes to prevent memory-exhaustion attacks.
+        const ALLOWED_SIZES = [8, 16];
+        if (!ALLOWED_SIZES.includes(newSize)) break;
+
+        const oldSize = this.lobbyState.size;
+        this.lobbyState.size = newSize;
+        if (newSize > oldSize) {
+          this.lobbyState.slots = this.lobbyState.slots.concat(
+            new Array(newSize - oldSize).fill(null),
+          );
+        } else {
+          this.lobbyState.slots = this.lobbyState.slots.slice(0, newSize);
+        }
+        changed = true;
+        break;
+      }
+    }
+
+    if (changed) {
+      this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
     }
   }
 
@@ -556,6 +760,7 @@ export default class FightRoom {
   }
 
   onClose(connection) {
+    this._lobbyActionCooldowns.delete(connection.id);
     if (this._isSpectator(connection.id)) {
       this.spectators.delete(connection.id);
       this._shoutCooldowns.delete(connection.id);
@@ -565,7 +770,9 @@ export default class FightRoom {
     }
 
     const slot = this._slotOf(connection.id);
-    if (slot === -1) return;
+    if (slot === -1) {
+      return;
+    }
 
     const sessionId = this._sessionIds.get(connection.id) || null;
     this._log({ type: 'disconnect', slot, sessionId, roomState: this.roomState });

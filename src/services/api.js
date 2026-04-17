@@ -1,5 +1,5 @@
 import { Logger } from '../systems/Logger.js';
-import { getSession } from './supabase.js';
+import { authEnabled, getSession } from './supabase.js';
 
 const log = Logger.create('API');
 
@@ -10,6 +10,17 @@ const API_BASE = '/api';
  * Handles JWT attachment and dev bypass.
  */
 async function apiFetch(endpoint, options = {}) {
+  // If no auth credentials, return mock data for specific endpoints to allow local testing
+  if (!authEnabled) {
+    if (endpoint === '/profile') {
+      return { id: 'dev-p1', nickname: 'Anfitrión Local' };
+    }
+    if (endpoint === '/leaderboard') {
+      return [];
+    }
+    // For other endpoints, we just let them fail or return empty
+  }
+
   const session = await getSession();
   const token = session?.access_token;
 

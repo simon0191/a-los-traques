@@ -1,5 +1,5 @@
-import PartySocket from 'partysocket';
 import { Logger } from '../Logger.js';
+import { BaseSignalingClient } from './BaseSignalingClient.js';
 
 const log = Logger.create('SignalingClient');
 
@@ -18,30 +18,23 @@ const BUFFERABLE_TYPES = new Set([
 ]);
 
 /**
- * WebSocket signaling client. Owns the PartySocket connection and provides
- * type-based message dispatch. Other modules register handlers via on(type, cb).
- *
- * Implements:
- * - B4: Pending message queue (queue when disconnected, flush on reconnect)
- * - B5: Callback buffering (buffer messages for types with no handler yet, flush on registration)
+ * WebSocket signaling client. Extends BaseSignalingClient for core PartySocket lifecycle.
+ * Provides type-based message dispatch and callback buffering (B5).
  */
-export class SignalingClient {
+export class SignalingClient extends BaseSignalingClient {
   /**
    * @param {string} roomId
-   * @param {string} host - PartyKit host (e.g. 'localhost:1999')
+   * @param {string} host - PartyKit host
    * @param {{ spectator?: boolean }} [options]
    */
   constructor(roomId, host, { spectator = false } = {}) {
-    this.roomId = roomId;
-    this.playerSlot = -1;
-    this.connected = false;
-    this.isSpectator = false;
+    const query = {};
+    if (spectator) query.spectate = '1';
 
-    /** Session ID for client-server log correlation */
-    this.sessionId =
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID().slice(0, 8)
-        : Math.random().toString(36).slice(2, 10);
+    super(roomId, host, { query });
+
+    this.playerSlot = -1;
+    this.isSpectator = false;
 
     /** @type {Map<string, Function>} message type → handler */
     this._handlers = new Map();
@@ -51,73 +44,6 @@ export class SignalingClient {
     for (const type of BUFFERABLE_TYPES) {
       this._pendingCallbackMessages.set(type, []);
     }
-
-    /** @type {object[]} B4: messages queued while disconnected */
-    this._pendingMessages = [];
-
-    // Socket lifecycle callbacks
-    this._onSocketOpen = null;
-    this._onSocketClose = null;
-    this._onSocketError = null;
-
-    // Create PartySocket
-    const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
-    const protocol = isLocal ? 'http' : 'https';
-
-    const socketOptions = {
-      host,
-      room: roomId,
-      protocol,
-      maxRetries: 3,
-      startClosed: false,
-    };
-
-    socketOptions.query = { sessionId: this.sessionId };
-    if (spectator) {
-      socketOptions.query.spectate = '1';
-    }
-
-    this.socket = new PartySocket(socketOptions);
-
-    // B2: Store bound handler references for cleanup
-    this._boundOnMessage = (event) => {
-      try {
-        this._handleMessage(JSON.parse(event.data));
-      } catch (_e) {
-        log.warn('JSON parse error on message');
-      }
-    };
-
-    this._boundOnOpen = () => {
-      this.connected = true;
-      log.info('Socket open', { roomId, sessionId: this.sessionId });
-      // B4: Flush pending messages on reconnect
-      if (this._pendingMessages.length > 0) {
-        const count = this._pendingMessages.length;
-        const pending = this._pendingMessages.splice(0);
-        log.debug('Pending queue flush (B4)', { count });
-        for (const msg of pending) {
-          this.send(msg);
-        }
-      }
-      if (this._onSocketOpen) this._onSocketOpen();
-    };
-
-    this._boundOnClose = () => {
-      this.connected = false;
-      log.info('Socket close', { roomId, sessionId: this.sessionId });
-      if (this._onSocketClose) this._onSocketClose();
-    };
-
-    this._boundOnError = () => {
-      log.warn('Socket error', { roomId });
-      if (this._onSocketError) this._onSocketError();
-    };
-
-    this.socket.addEventListener('message', this._boundOnMessage);
-    this.socket.addEventListener('open', this._boundOnOpen);
-    this.socket.addEventListener('close', this._boundOnClose);
-    this.socket.addEventListener('error', this._boundOnError);
   }
 
   /**
@@ -151,32 +77,6 @@ export class SignalingClient {
   }
 
   /**
-   * Send a message through the WebSocket.
-   * If disconnected, queues the message for delivery on reconnect (B4).
-   * @param {object} msg
-   */
-  send(msg) {
-    if (this.socket && this.connected) {
-      this.socket.send(JSON.stringify(msg));
-    } else {
-      this._pendingMessages.push(msg);
-    }
-  }
-
-  /**
-   * Register socket lifecycle callbacks.
-   */
-  onSocketOpen(cb) {
-    this._onSocketOpen = cb;
-  }
-  onSocketClose(cb) {
-    this._onSocketClose = cb;
-  }
-  onSocketError(cb) {
-    this._onSocketError = cb;
-  }
-
-  /**
    * Clear handlers and pending buffers for the given message types.
    * Used during scene transitions (resetForReselect).
    * @param {string[]} types
@@ -195,30 +95,22 @@ export class SignalingClient {
    * Tear down the socket and all handlers.
    */
   destroy() {
-    if (this.socket) {
-      this.socket.removeEventListener('message', this._boundOnMessage);
-      this.socket.removeEventListener('open', this._boundOnOpen);
-      this.socket.removeEventListener('close', this._boundOnClose);
-      this.socket.removeEventListener('error', this._boundOnError);
-      this.socket.close();
-      this.socket = null;
-    }
-
+    super.destroy();
     this._handlers.clear();
     this._pendingCallbackMessages.clear();
-    this._pendingMessages.length = 0;
-    this._onSocketOpen = null;
-    this._onSocketClose = null;
-    this._onSocketError = null;
-    this._boundOnMessage = null;
-    this._boundOnOpen = null;
-    this._boundOnClose = null;
-    this._boundOnError = null;
+  }
+
+  /**
+   * Public alias for testing and internal dispatch.
+   * @param {object} msg
+   */
+  _handleMessage(msg) {
+    this._handleMessageInternal(msg);
   }
 
   // --- Internal ---
 
-  _handleMessage(msg) {
+  _handleMessageInternal(msg) {
     // Handle assign specially — sets playerSlot
     if (msg.type === 'assign') {
       this.playerSlot = msg.player;

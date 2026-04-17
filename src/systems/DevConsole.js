@@ -1,7 +1,7 @@
 import { GAME_WIDTH, MAX_HP, MAX_SPECIAL } from '../config.js';
 
 const COMMANDS = {
-  help: 'help | noai | ai | god | mortal | kill | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps',
+  help: 'help | noai | ai | god | mortal | kill | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps | dev:tournament:join [id]',
 };
 
 export class DevConsole {
@@ -211,6 +211,34 @@ export class DevConsole {
       case 'fps':
         this.print(`FPS: ${Math.round(scene.game.loop.actualFps)}`);
         break;
+
+      case 'dev:tournament:join': {
+        if (scene.scene.key !== 'TournamentSetupScene') {
+          this.print('Command only available in TournamentSetupScene.');
+          break;
+        }
+        const playerId = arg || Math.random().toString(36).substring(2, 6);
+        const name = `DEV-${playerId.toUpperCase()}`;
+
+        const lobby = scene.lobby;
+        if (!lobby) {
+          this.print('Lobby service not found.');
+          break;
+        }
+
+        // Use DEV_JOIN to allow multiple simulations from one connection
+        lobby.send({
+          type: 'lobby_action',
+          action: 'DEV_JOIN',
+          payload: {
+            id: `dev-${playerId}`,
+            name: name,
+          },
+        });
+
+        this.print(`Join request sent for ${name}.`);
+        break;
+      }
 
       default:
         this.print(`Unknown: "${cmd}". Type "help".`);

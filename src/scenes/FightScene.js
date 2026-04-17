@@ -18,6 +18,7 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { DebugBundleExporter } from '../systems/DebugBundleExporter.js';
 import { DevConsole } from '../systems/DevConsole.js';
 import { FightRecorder } from '../systems/FightRecorder.js';
+
 import {
   FP_SCALE,
   MAX_SPECIAL_FP,
@@ -87,10 +88,16 @@ export class FightScene extends Phaser.Scene {
     }
     this.stageId = data && (data.stageId || data.stage) ? data.stageId || data.stage : null;
     this.fightId = data?.fightId || null;
-    this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
     this.gameMode = data?.gameMode || 'local';
     this.networkManager = data?.networkManager || null;
     this.matchContext = data?.matchContext || null;
+
+    // Determine difficulty: Priority to tournament botLevel, then explicit data.difficulty
+    if (this.matchContext?.botLevel) {
+      this.aiDifficulty = this.matchContext.botLevel;
+    } else {
+      this.aiDifficulty = data?.difficulty ? data.difficulty : 'medium';
+    }
   }
 
   // =========================================================================
@@ -182,7 +189,7 @@ export class FightScene extends Phaser.Scene {
       // Handle mid-fight gamepad status changes
       this.input.gamepad.on('disconnected', () => {
         if (this.inputManager2 && this.input.gamepad.total < 2) {
-          console.log('[FightScene] P2 Gamepad disconnected, falling back to AI');
+          log.info('P2 Gamepad disconnected, falling back to AI');
           this.inputManager2 = null;
           this.aiController = new AIController(
             this,
@@ -223,7 +230,7 @@ export class FightScene extends Phaser.Scene {
               this.aiDifficulty,
             );
           } else {
-            console.error('[FightScene] Cannot initialize AI: fighters missing', {
+            log.error('Cannot initialize AI: fighters missing', {
               p1: !!this.p1Fighter,
               p2: !!this.p2Fighter,
             });
@@ -272,8 +279,8 @@ export class FightScene extends Phaser.Scene {
       this.combat._timerAccumulator = 0;
       this.combat.roundActive = true;
       this.matchState.transition(MatchEvent.INTRO_COMPLETE);
-      console.log(
-        `[REPLAY] Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`,
+      log.info(
+        `Starting replay: ${this.p1Data.id} vs ${this.p2Data.id}, totalFrames P1=${this._replayP1.totalFrames} P2=${this._replayP2.totalFrames}`,
       );
     } else if (this.gameMode === 'online') {
       // Online mode: prepare round state for frame-0 sync, but don't start simulation yet.
@@ -1319,8 +1326,8 @@ export class FightScene extends Phaser.Scene {
         this._replayRoundCooldown--;
         this._replayFrame++;
         if (this._replayRoundCooldown === 0) {
-          console.log(
-            `[REPLAY] Round transition complete at frame ${this._replayFrame}, starting round ${this.combat.roundNumber}`,
+          log.info(
+            `Round transition complete at frame ${this._replayFrame}, starting round ${this.combat.roundNumber}`,
           );
           // Reset fighters and start next round
           this.p1Fighter.reset(GAME_WIDTH * 0.3);
@@ -1350,9 +1357,9 @@ export class FightScene extends Phaser.Scene {
             // Replay ran out of frames without a match-ending event.
             // This can happen because replay runs inputs linearly while the
             // original used rollback netcode which may produce different outcomes.
-            console.log(`[REPLAY] Frames exhausted at ${frame} without match end. Forcing finish.`);
-            console.log(
-              `[REPLAY] Final state: p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}, score=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
+            log.info(`Frames exhausted at ${frame} without match end. Forcing finish.`);
+            log.info(
+              `Final state: p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}, score=${this.combat.p1RoundsWon}-${this.combat.p2RoundsWon}`,
             );
             // Determine winner from HP or round score
             const bundle = window.__REPLAY_BUNDLE;
@@ -1379,7 +1386,7 @@ export class FightScene extends Phaser.Scene {
               });
             });
           } else {
-            console.log(`[REPLAY] Finished at frame ${frame}, matchOver=true`);
+            log.info(`Finished at frame ${frame}, matchOver=true`);
           }
         }
         return;
@@ -1388,8 +1395,8 @@ export class FightScene extends Phaser.Scene {
       const p2Input = this._replayP2.getEncoded(frame);
       const roundEvent = simFrame(this.p1Fighter, this.p2Fighter, this.combat, p1Input, p2Input);
       if (roundEvent) {
-        console.log(
-          `[REPLAY] Round event at frame ${frame}: ${roundEvent.type}, winner=P${roundEvent.winnerIndex + 1}`,
+        log.info(
+          `Round event at frame ${frame}: ${roundEvent.type}, winner=P${roundEvent.winnerIndex + 1}`,
         );
         // Handle round end with frame-based transition (not time-based)
         this.combat.stopRound();
@@ -1397,12 +1404,12 @@ export class FightScene extends Phaser.Scene {
         else this.combat.p2RoundsWon++;
 
         const winnerName = roundEvent.winnerIndex === 0 ? this.p1Data.name : this.p2Data.name;
-        console.log(
-          `[REPLAY] Score: P1=${this.combat.p1RoundsWon}, P2=${this.combat.p2RoundsWon} (need ${ROUNDS_TO_WIN})`,
+        log.info(
+          `Score: P1=${this.combat.p1RoundsWon}, P2=${this.combat.p2RoundsWon} (need ${ROUNDS_TO_WIN})`,
         );
 
         if (this.combat.p1RoundsWon >= ROUNDS_TO_WIN || this.combat.p2RoundsWon >= ROUNDS_TO_WIN) {
-          console.log(`[REPLAY] Match over!`);
+          log.info('Match over!');
           this.combat.matchOver = true;
           this.onMatchOver(roundEvent.winnerIndex);
         } else {
@@ -1413,12 +1420,12 @@ export class FightScene extends Phaser.Scene {
           this._replayRoundCooldown = 180; // 3 seconds at 60fps
           this.p1Fighter.stop();
           this.p2Fighter.stop();
-          console.log(`[REPLAY] Starting 180-frame cooldown for round ${this.combat.roundNumber}`);
+          log.info(`Starting 180-frame cooldown for round ${this.combat.roundNumber}`);
         }
       }
       if (frame % 300 === 0) {
-        console.log(
-          `[REPLAY] frame=${frame}/${totalFrames}, timer=${this.combat.timer}, roundActive=${this.combat.roundActive}, p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}`,
+        log.info(
+          `frame=${frame}/${totalFrames}, timer=${this.combat.timer}, roundActive=${this.combat.roundActive}, p1hp=${this.p1Fighter.hp}, p2hp=${this.p2Fighter.hp}`,
         );
       }
       this._replayFrame++;

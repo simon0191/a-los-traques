@@ -2,6 +2,10 @@
 export const GAME_WIDTH = 480;
 export const GAME_HEIGHT = 270;
 
+export const PARTYKIT_HOST =
+  import.meta.env.VITE_PARTYKIT_HOST ||
+  (import.meta.env.DEV ? 'localhost:1999' : 'a-los-traques.simon0191.partykit.dev');
+
 // Fighter constants
 export const FIGHTER_WIDTH = 128;
 export const FIGHTER_HEIGHT = 128;
