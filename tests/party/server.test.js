@@ -213,7 +213,7 @@ describe('FightRoom', () => {
       expect(room.lobbyState).toBeNull();
     });
 
-    it('clears lobby slot when a tournament participant disconnects', () => {
+    it('does NOT clear lobby slot when a tournament participant disconnects', () => {
       room.onConnect(conn1, makeCtx()); // Host
 
       // Initialize slots with host in slot 0
@@ -224,25 +224,70 @@ describe('FightRoom', () => {
         conn1,
       );
 
-      // Guest joins (should find next null at index 1)
+      // Guest joins
       room.onMessage(
         JSON.stringify({ type: 'lobby_action', action: 'JOIN_SLOT', payload: { name: 'Guest' } }),
         conn2,
       );
-      expect(room.lobbyState.slots[1]).toMatchObject({ id: 'c2', name: 'Guest' });
+      expect(room.lobbyState.slots[1]).toMatchObject({ name: 'Guest' });
 
       conn1.send.mockClear();
       room.onClose(conn2);
 
-      // Slot should be cleared
-      expect(room.lobbyState.slots[1]).toBeNull();
+      // Slot should REMAIN (persistent lobby)
+      expect(room.lobbyState.slots[1]).not.toBeNull();
+      expect(room.lobbyState.slots[1].name).toBe('Guest');
 
-      // Host should be notified
+      // Host should NOT be notified of a removal
       const hostMessages = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
-      expect(hostMessages.some((m) => m.type === 'lobby_update')).toBe(true);
+      expect(hostMessages.some((m) => m.type === 'lobby_update')).toBe(false);
     });
-  });
 
+    it('allows multiple joins from the same connection (kiosk mode)', () => {
+      vi.useFakeTimers();
+      room.onConnect(conn1, makeCtx()); // Host
+      room.onMessage(
+        JSON.stringify({ type: 'init_tournament', lobbyState: { size: 8, slots: new Array(8).fill(null) } }),
+        conn1,
+      );
+
+      // Same connection (conn2) joins twice
+      room.onMessage(
+        JSON.stringify({ type: 'lobby_action', action: 'JOIN_SLOT', payload: { name: 'Guest 1' } }),
+        conn2,
+      );
+      
+      // Advance time to bypass rate limit (100ms)
+      vi.advanceTimersByTime(101);
+
+      room.onMessage(
+        JSON.stringify({ type: 'lobby_action', action: 'JOIN_SLOT', payload: { name: 'Guest 2' } }),
+        conn2,
+      );
+
+      expect(room.lobbyState.slots[0]).toMatchObject({ name: 'Guest 1' });
+      expect(room.lobbyState.slots[1]).toMatchObject({ name: 'Guest 2' });
+      vi.useRealTimers();
+    });
+
+    it('prevents double-joining with the same identity (authenticated humans)', () => {
+      room.onConnect(conn1, makeCtx());
+      room.onMessage(
+        JSON.stringify({ type: 'init_tournament', lobbyState: { size: 8, slots: new Array(8).fill(null) } }),
+        conn1,
+      );
+
+      const payload = { name: 'Simon', id: 'simon-uuid', type: 'human' };
+
+      // First join
+      room.onMessage(JSON.stringify({ type: 'lobby_action', action: 'JOIN_SLOT', payload }), conn2);
+      expect(room.lobbyState.slots[0]).toMatchObject({ id: 'simon-uuid' });
+
+      // Second join with same ID should be ignored
+      room.onMessage(JSON.stringify({ type: 'lobby_action', action: 'JOIN_SLOT', payload }), conn2);
+      expect(room.lobbyState.slots[1]).toBeNull();
+    });
+    });
   // ---- Room full ----
 
   describe('room full', () => {

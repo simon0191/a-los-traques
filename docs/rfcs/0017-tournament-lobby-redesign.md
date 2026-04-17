@@ -10,13 +10,15 @@ The previous `TournamentSetupScene` was a simple player count selector that lack
 A comprehensive "Lobby-style" `TournamentSetupScene` that acts as a central prepare-and-sync hub for local tournaments.
 
 ### Key Features:
-1.  **Hybrid-Cloud Lobby**: Uses PartyKit to synchronize state between the main game (Host) and any mobile devices (Clients) scanning the on-screen QR code.
-2.  **Flexible Slot Management**:
+1.  **Hybrid-Cloud Persistent Lobby**: Uses PartyKit to synchronize state between the main game (Host) and any mobile devices (Clients) scanning the on-screen QR code.
+2.  **Persistent Registration**: Participants remain in the tournament lobby even if their mobile device disconnects or the tab is closed. Slots must be manually cleared by the Host if needed.
+3.  **Kiosk Mode Support**: A single device can be used to register multiple participants (guests or different authenticated accounts) sequentially.
+4.  **Flexible Slot Management**:
     *   Supports 8 or 16 player brackets.
     *   **Pagination**: The UI displays 8 slots at a time with navigation arrows to maintain clarity in 16-player modes.
-3.  **Dynamic Join Methods**:
+5.  **Dynamic Join Methods**:
     *   **QR Code Join**: Points to a specialized `join.html` mobile page.
-    *   **Account Support**: Mobile users can log in via Supabase to join with their global accounts (gaining XP/stats) or join as guests.
+    *   **Account Support**: Mobile users can log in via Supabase to join with their global accounts. (Note: server-side identity verification for XP/stats persistence is a planned follow-up).
     *   **Guest/Bot Addition**: Host can instantly fill slots with guests or AI bots.
 4.  **Advanced AI Difficulty**:
     *   Implemented a 5-level difficulty system (1: Very Easy to 5: Insane).

@@ -450,16 +450,18 @@ export default class FightRoom {
 
     switch (action) {
       case 'JOIN_SLOT': {
-        const { name } = payload;
-        // Atomic check using the server-assigned connection.id
-        if (this.lobbyState.slots.some((s) => s?.id === participantId)) break;
+        const { name, id, type } = payload;
+        
+        // If an ID is provided (e.g. from authenticated Supabase session), 
+        // prevent double-joining with the same identity.
+        if (id && this.lobbyState.slots.some((s) => s?.id === id)) break;
 
         const emptyIdx = this.lobbyState.slots.indexOf(null);
         if (emptyIdx !== -1) {
           this.lobbyState.slots[emptyIdx] = {
-            id: participantId,
+            id: id || `guest-${crypto.randomUUID().substring(0, 8)}`,
             name: name || 'Invitado',
-            type: 'guest', // Server-authoritative: everything from mobile starts as guest
+            type: type || 'guest',
             status: 'ready',
           };
           changed = true;
@@ -770,19 +772,6 @@ export default class FightRoom {
 
     const slot = this._slotOf(connection.id);
     if (slot === -1) {
-      // Clean up lobby slots if this was a tournament participant
-      if (this.lobbyState && this.roomState === RoomState.TOURNAMENT_LOBBY) {
-        let changed = false;
-        for (let i = 0; i < this.lobbyState.slots.length; i++) {
-          if (this.lobbyState.slots[i]?.id === connection.id) {
-            this.lobbyState.slots[i] = null;
-            changed = true;
-          }
-        }
-        if (changed) {
-          this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
-        }
-      }
       return;
     }
 

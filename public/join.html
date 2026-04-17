@@ -229,12 +229,12 @@
         });
 
         // ACTIONS
-        async function join(name) {
+        async function join(name, id = null, type = 'guest') {
             if (!lobbyState) return showStatus("Error: Esperando al servidor...", true);
             window.lobbySocket.send(JSON.stringify({ 
                 type: 'lobby_action', 
                 action: 'JOIN_SLOT', 
-                payload: { name } 
+                payload: { name, id, type } 
             }));
             
             const container = document.getElementById('main-container');
@@ -246,16 +246,16 @@
 
             const roomTag = document.createElement('div');
             roomTag.className = 'room-tag';
-            roomTag.textContent = `CONECTADO COMO ${name.toUpperCase()}`;
+            roomTag.textContent = `${name.toUpperCase()} REGISTRADO`;
 
             const p = document.createElement('p');
             p.style.fontSize = '13px';
             p.style.color = '#aaa';
-            p.textContent = 'Mira la pantalla principal para ver tu posición en el torneo.';
+            p.textContent = 'Ya estás en el torneo. Puedes cerrar esta pestaña o registrar a alguien más.';
 
             const btn = document.createElement('button');
             btn.className = 'btn btn-primary';
-            btn.textContent = 'SALIR / CAMBIAR';
+            btn.textContent = 'REGISTRAR A OTRA PERSONA';
             btn.onclick = () => location.reload();
 
             container.append(h1, roomTag, p, btn);
@@ -274,7 +274,7 @@
                 setLoading(false);
             } else {
                 const nick = data.user.user_metadata?.nickname || email.split('@')[0];
-                join(nick);
+                join(nick, data.user.id, 'human');
             }
         };
 
@@ -346,7 +346,7 @@
             const joinBtn = document.createElement('button');
             joinBtn.className = 'btn btn-primary';
             joinBtn.textContent = 'UNIRSE AL TORNEO';
-            joinBtn.onclick = () => join(name);
+            joinBtn.onclick = () => join(name, id, 'human');
 
             const logoutBtn = document.createElement('button');
             logoutBtn.className = 'btn';
