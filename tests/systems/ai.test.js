@@ -90,7 +90,7 @@ describe('AI difficulty config', () => {
 });
 
 describe('AI decision determinism', () => {
-  it('produces identical decisions given the same seed', () => {
+  it('produces identical decisions given the same seed via setSeed()', () => {
     const mockFighter = (x) => ({
       x,
       hp: 100,
@@ -105,14 +105,7 @@ describe('AI decision determinism', () => {
       const fighter = mockFighter(100);
       const opponent = mockFighter(200);
       const ctrl = new AIController(scene, fighter, opponent, difficulty);
-      // Force the specific seed
-      ctrl._rng = () => {
-        seed += 0x6d2b79f5;
-        let t = seed;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-      };
+      ctrl.setSeed(seed);
       return ctrl;
     };
 
