@@ -459,7 +459,9 @@ export class OverlayEditorScene extends Phaser.Scene {
       this.session.setTransform(i, { x: f.x, y: f.y, rotation: f.rotation, scale: newScale });
     }
     // Update every other calibrated anim for this (fighter, category) so the
-    // scale stays uniform after the next save.
+    // scale stays uniform after the next save. Route through `manifest.set()`
+    // instead of mutating frames in place so any future clamping/validation
+    // on `set()` applies here too.
     const fighter = this._fighter();
     const category = this._category();
     const currentAnim = this._anim();
@@ -467,8 +469,11 @@ export class OverlayEditorScene extends Phaser.Scene {
     if (!byAnim) return;
     for (const [anim, entry] of Object.entries(byAnim)) {
       if (anim === currentAnim) continue;
-      for (const f of entry.frames) f.scale = newScale;
-      entry.lastEditedAt = new Date().toISOString();
+      this.manifest.set(fighter, category, anim, {
+        frameCount: entry.frameCount,
+        frames: entry.frames.map((f) => ({ ...f, scale: newScale })),
+        keyframes: entry.keyframes,
+      });
     }
   }
   _copyFromPrev() {
