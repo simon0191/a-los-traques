@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import accessoryCatalog from '../data/accessories.json';
 import { createButton } from '../services/UIService.js';
+import { calibratedCategories } from './accessory-select-helpers.js';
 
 const PREFS_KEY = 'accessoriesByFighter';
 
@@ -337,12 +338,6 @@ export class AccessorySelectScene extends Phaser.Scene {
 }
 
 // --- helpers ---
-
-function calibratedCategories(manifest, fighterId) {
-  const cats = manifest?.calibrations?.[fighterId];
-  if (!cats) return [];
-  return Object.keys(cats).filter((cat) => accessoryCatalog.some((a) => a.category === cat));
-}
 
 function loadPrefs() {
   try {
