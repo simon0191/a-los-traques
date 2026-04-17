@@ -151,6 +151,23 @@ Use the `/generate-poses` skill to extract per-frame keypoints for attaching run
 - **`--debug`**: writes skeleton-overlay strips to `assets/_raw/poses/{id}/{anim}_debug.png` for QA.
 - **Model file** (~30 MB) auto-downloads to `scripts/asset-pipeline/pose/models/` on first run. Gitignored.
 
+### Accessory calibration seed (RFC 0018)
+
+Pose data seeds the overlay editor's manifest so accessories start on/near the head instead of at the default. Run AFTER `/generate-poses` so `public/assets/fighters/{id}/poses.json` exists:
+
+```bash
+node scripts/asset-pipeline/calibrate-overlays.js              # seed only missing (fighter, category, anim) combos
+node scripts/asset-pipeline/calibrate-overlays.js --force      # overwrite existing — destroys hand-tuned data
+node scripts/asset-pipeline/calibrate-overlays.js --fighter=simon --category=gafas --dry-run
+```
+
+- Writes into the consolidated `public/assets/overlays/manifest.json` — `calibrations[fighterId][category][animation] = {frameCount, frames, keyframes, lastEditedAt}`. Categories come from `src/data/accessories.json` (currently `sombreros`, `gafas`).
+- **Skips existing entries by default** so hand-tuned calibrations from the editor aren't clobbered. `--force` overwrites.
+- **Anchor strategy**: `sombreros` place the hat center so the bottom edge sits ~2 px below the top of head landmarks (eyes/ears/nose min y). `gafas` center on the eye-line midpoint. Both categories use `derived.head.center.x` for X.
+- **Scale model** (new in v2): `renderedWidth = FIGHTER_HEIGHT × scale` — independent of the accessory PNG's pixel dimensions. Uniform per (fighter, category) as the editor enforces. Derived from shoulder distance (shoulders are more reliable than ears in 3/4-view sprites): `scale = (shoulderWidth × widthRatio) / 128`, where `widthRatio = 1.3` for sombreros, `0.85` for gafas.
+- Undetected frames copy the nearest detected frame's transform (prev preferred); fully-undetected animations fall back to the idle[0] anchor. Detected frames are marked as keyframes so the editor's `I` (interpolate) preserves them.
+- Open the editor with `?editor=1` to fine-tune visually after seeding.
+
 ## Fighter Entity
 
 - **Two layers**: `FighterSim` (pure state + logic, no Phaser) and `Fighter` (Phaser sprite wrapper, delegates to FighterSim via proxied fields)
