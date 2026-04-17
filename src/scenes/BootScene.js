@@ -7,6 +7,7 @@ import {
   GAME_WIDTH,
 } from '../config.js';
 import accessories from '../data/accessories.json';
+import { ANIM_DEFS, FIGHTERS_WITH_SPRITES } from '../data/animations.js';
 import stages from '../data/stages.json';
 import { authEnabled } from '../services/supabase.js';
 
@@ -14,44 +15,6 @@ import { authEnabled } from '../services/supabase.js';
 const fightMusicFiles = Object.keys(import.meta.glob('/public/assets/audio/fights/*.mp3')).map(
   (p) => p.replace('/public', ''),
 );
-
-// Animation definitions: name -> frame count
-const ANIM_DEFS = {
-  idle: { frames: 4, repeat: -1 },
-  walk: { frames: 4, repeat: -1 },
-  light_punch: { frames: 4, repeat: 0 },
-  heavy_punch: { frames: 5, repeat: 0 },
-  light_kick: { frames: 4, repeat: 0 },
-  heavy_kick: { frames: 5, repeat: 0 },
-  special: { frames: 5, repeat: 0 },
-  block: { frames: 2, repeat: 0 },
-  hurt: { frames: 3, repeat: 0 },
-  knockdown: { frames: 4, repeat: 0 },
-  victory: { frames: 4, repeat: -1 },
-  defeat: { frames: 3, repeat: 0 },
-  jump: { frames: 3, repeat: 0 },
-};
-
-// Fighters that have real sprite assets (add IDs here as they're generated)
-const FIGHTERS_WITH_SPRITES = [
-  'simon',
-  'jeka',
-  'chicha',
-  'cata',
-  'carito',
-  'mao',
-  'peks',
-  'lini',
-  'alv',
-  'sun',
-  'gartner',
-  'richi',
-  'cami',
-  'migue',
-  'bozzi',
-  'angy',
-  'adil',
-];
 
 export class BootScene extends Phaser.Scene {
   constructor() {

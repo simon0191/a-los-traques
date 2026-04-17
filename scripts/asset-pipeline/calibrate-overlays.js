@@ -18,6 +18,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FIGHTERS_WITH_SPRITES } from '../../src/data/animations.js';
 import { calibrateCategoryForFighter } from './overlays/calibrate-hat.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -25,28 +26,6 @@ const REPO_ROOT = resolve(__dirname, '..', '..');
 const MANIFEST_PATH = join(REPO_ROOT, 'public/assets/overlays/manifest.json');
 const ACCESSORY_CATALOG_PATH = join(REPO_ROOT, 'src/data/accessories.json');
 const FIGHTERS_DIR = join(REPO_ROOT, 'public/assets/fighters');
-
-// Must stay in sync with FIGHTERS_WITH_SPRITES in src/scenes/BootScene.js and
-// src/scenes/OverlayEditorScene.js. Only these fighters have sprite strips
-// (and therefore poses.json).
-const FIGHTERS_WITH_SPRITES = [
-  'simon',
-  'jeka',
-  'chicha',
-  'cata',
-  'carito',
-  'mao',
-  'peks',
-  'lini',
-  'alv',
-  'sun',
-  'gartner',
-  'richi',
-  'cami',
-  'migue',
-  'bozzi',
-  'angy',
-];
 
 function parseArgs(argv) {
   const out = { force: false, dryRun: false, quiet: false, fighter: null, category: null };

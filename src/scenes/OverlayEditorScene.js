@@ -9,6 +9,7 @@
 import Phaser from 'phaser';
 import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import accessoryCatalog from '../data/accessories.json';
+import { ANIM_DEFS, ANIM_NAMES, FIGHTERS_WITH_SPRITES } from '../data/animations.js';
 import { EditorUI } from '../editor/EditorUI.js';
 import { overlayBaseWidth } from '../editor/math.js';
 import { MANIFEST_PATH, OverlayManifest } from '../editor/OverlayManifest.js';
@@ -16,42 +17,6 @@ import { OverlaySession } from '../editor/OverlaySession.js';
 import { Logger } from '../systems/Logger.js';
 
 const log = Logger.create('OverlayEditor');
-
-const ANIM_DEFS = {
-  idle: 4,
-  walk: 4,
-  light_punch: 4,
-  heavy_punch: 5,
-  light_kick: 4,
-  heavy_kick: 5,
-  special: 5,
-  block: 2,
-  hurt: 3,
-  knockdown: 4,
-  victory: 4,
-  defeat: 3,
-  jump: 3,
-};
-const ANIM_NAMES = Object.keys(ANIM_DEFS);
-
-const FIGHTERS_WITH_SPRITES = [
-  'simon',
-  'jeka',
-  'chicha',
-  'cata',
-  'carito',
-  'mao',
-  'peks',
-  'lini',
-  'alv',
-  'sun',
-  'gartner',
-  'richi',
-  'cami',
-  'migue',
-  'bozzi',
-  'angy',
-];
 
 // Accessory catalog is the single source of truth (src/data/accessories.json).
 // Each accessory has a `category` — calibrations are shared per category so
@@ -402,7 +367,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     const category = this._category();
     const accessoryId = this._accessoryId();
     const anim = this._anim();
-    const frameCount = ANIM_DEFS[anim];
+    const frameCount = ANIM_DEFS[anim].frames;
     const entry = this.manifest.get(fighter, category, anim);
     let frames = entry?.frames ?? null;
     // If this combo isn't calibrated yet, inherit the shared scale from any

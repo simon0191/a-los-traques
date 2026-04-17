@@ -1,46 +1,7 @@
 import Phaser from 'phaser';
 import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { ANIM_DEFS, ANIM_NAMES, FIGHTERS_WITH_SPRITES } from '../data/animations.js';
 import fightersData from '../data/fighters.json';
-
-// Keep in sync with BootScene
-const ANIM_DEFS = {
-  idle: { frames: 4, repeat: -1 },
-  walk: { frames: 4, repeat: -1 },
-  light_punch: { frames: 4, repeat: 0 },
-  heavy_punch: { frames: 5, repeat: 0 },
-  light_kick: { frames: 4, repeat: 0 },
-  heavy_kick: { frames: 5, repeat: 0 },
-  special: { frames: 5, repeat: 0 },
-  block: { frames: 2, repeat: 0 },
-  hurt: { frames: 3, repeat: 0 },
-  knockdown: { frames: 4, repeat: 0 },
-  victory: { frames: 4, repeat: -1 },
-  defeat: { frames: 3, repeat: 0 },
-  jump: { frames: 3, repeat: 0 },
-};
-
-// Keep in sync with BootScene
-const FIGHTERS_WITH_SPRITES = [
-  'simon',
-  'jeka',
-  'chicha',
-  'cata',
-  'carito',
-  'mao',
-  'peks',
-  'lini',
-  'alv',
-  'sun',
-  'gartner',
-  'richi',
-  'cami',
-  'migue',
-  'bozzi',
-  'angy',
-  'adil',
-];
-
-const ANIM_NAMES = Object.keys(ANIM_DEFS);
 
 const LEFT_PANEL_WIDTH = 120;
 const RIGHT_X = LEFT_PANEL_WIDTH + (GAME_WIDTH - LEFT_PANEL_WIDTH) / 2;

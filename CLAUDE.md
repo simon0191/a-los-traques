@@ -121,7 +121,7 @@ Use the `/generate-fighter` skill for the full workflow. Key points:
 1. Add photo to `assets/photos/{id}.jpg` (optional — only needed if manifest `referenceImages` references it)
 2. Create manifests: `reference_{id}.json` and `fighter_{id}.json`
 3. Run `/generate-fighter {id}`
-4. Add fighter ID to `FIGHTERS_WITH_SPRITES` in `src/scenes/BootScene.js` and `src/scenes/InspectorScene.js`
+4. Add fighter ID to `FIGHTERS_WITH_SPRITES` in `src/data/animations.js` (single source of truth — consumed by BootScene, OverlayEditorScene, InspectorScene, and the calibrate-overlays CLI)
 
 ### Regenerating an existing fighter
 1. Delete stale cache: `rm -rf assets/_raw/fighters/{id}`
