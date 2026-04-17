@@ -531,6 +531,10 @@ export default class FightRoom {
       }
       case 'UPDATE_SIZE': {
         const { newSize } = payload;
+        // SECURITY: Only allow specific tournament sizes to prevent memory-exhaustion attacks.
+        const ALLOWED_SIZES = [8, 16];
+        if (!ALLOWED_SIZES.includes(newSize)) break;
+
         const oldSize = this.lobbyState.size;
         this.lobbyState.size = newSize;
         if (newSize > oldSize) {
