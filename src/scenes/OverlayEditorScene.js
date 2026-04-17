@@ -13,7 +13,7 @@ import { ANIM_DEFS, ANIM_NAMES, FIGHTERS_WITH_SPRITES } from '../data/animations
 import { EditorUI } from '../editor/EditorUI.js';
 import { overlayBaseWidth } from '../editor/math.js';
 import { MANIFEST_PATH, OverlayManifest } from '../editor/OverlayManifest.js';
-import { OverlaySession } from '../editor/OverlaySession.js';
+import { DEFAULT_TRANSFORM, OverlaySession } from '../editor/OverlaySession.js';
 import { Logger } from '../systems/Logger.js';
 
 const log = Logger.create('OverlayEditor');
@@ -170,6 +170,7 @@ export class OverlayEditorScene extends Phaser.Scene {
         return this._saveManifest();
       default:
         log.warn('unknown action', { action });
+        this.ui?.setStatus(`acción desconocida: ${action}`);
     }
   }
 
@@ -376,9 +377,7 @@ export class OverlayEditorScene extends Phaser.Scene {
       const sharedScale = this._sharedScale(fighter, category);
       if (sharedScale !== null) {
         frames = Array.from({ length: frameCount }, () => ({
-          x: 64,
-          y: 32,
-          rotation: 0,
+          ...DEFAULT_TRANSFORM,
           scale: sharedScale,
         }));
       }

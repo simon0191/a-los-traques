@@ -12,9 +12,15 @@ const SCALE_MIN = 0.05;
 const SCALE_MAX = 4;
 const TWO_PI = Math.PI * 2;
 
-/** Default transform for a newly-initialized frame. */
+/**
+ * Default transform for a newly-initialized frame. Exported so other editor
+ * paths (e.g. OverlayEditorScene's "inherit-scale" fallback) don't re-inline
+ * the literal.
+ */
+export const DEFAULT_TRANSFORM = Object.freeze({ x: 64, y: 32, rotation: 0, scale: 0.5 });
+
 function defaultTransform() {
-  return { x: 64, y: 32, rotation: 0, scale: 0.5 };
+  return { ...DEFAULT_TRANSFORM };
 }
 
 /**
