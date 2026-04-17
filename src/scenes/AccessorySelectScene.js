@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
+import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import accessoryCatalog from '../data/accessories.json';
+import { resolveOverlayTransform } from '../entities/overlay-transform.js';
 import { createButton } from '../services/UIService.js';
 import { calibratedCategories } from './accessory-select-helpers.js';
 
@@ -297,18 +298,43 @@ export class AccessorySelectScene extends Phaser.Scene {
   }
 
   _rebuildPreviewOverlays(player, centerX, previewY) {
-    // Destroy existing overlay sprites.
     for (const s of player.refs.overlaySprites.values()) s.destroy();
     player.refs.overlaySprites.clear();
 
-    // One overlay sprite per non-null choice, using the idle strip (frame 0).
+    // Render each chosen accessory using the same pipeline as in-fight:
+    // source `accessory_{id}` PNG + `resolveOverlayTransform` applied to the
+    // idle[0] calibration. Keeps picker and fight placement in lockstep.
+    const manifest = this.game.registry.get('overlayManifest');
+    const byCategory = manifest?.calibrations?.[player.fighterId];
+    if (!byCategory) return;
+
     for (const [category, accessoryId] of Object.entries(player.choices)) {
       if (!accessoryId) continue;
-      const key = `overlay_${player.fighterId}_${accessoryId}_idle`;
-      if (!this.textures.exists(key)) continue;
-      const sprite = this.add.sprite(centerX, previewY, key, 0);
-      sprite.setOrigin(0.5, 1);
-      sprite.setScale(PREVIEW_SCALE);
+      const cal = byCategory[category]?.idle?.frames?.[0];
+      if (!cal) continue;
+      const textureKey = `accessory_${accessoryId}`;
+      if (!this.textures.exists(textureKey)) continue;
+
+      const accessoryWidth = this.textures.get(textureKey).getSourceImage()?.width ?? 0;
+      const transform = resolveOverlayTransform({
+        cal,
+        fighterX: 0,
+        fighterY: 0,
+        fighterWidth: FIGHTER_WIDTH,
+        fighterHeight: FIGHTER_HEIGHT,
+        facingRight: true,
+        accessoryWidth,
+      });
+      if (!transform) continue;
+
+      const sprite = this.add.sprite(
+        centerX + transform.x * PREVIEW_SCALE,
+        previewY + transform.y * PREVIEW_SCALE,
+        textureKey,
+      );
+      sprite.setOrigin(0.5, 0.5);
+      sprite.setRotation(transform.rotation);
+      sprite.setScale(transform.scale * PREVIEW_SCALE);
       sprite.setDepth(1);
       player.refs.overlaySprites.set(category, sprite);
     }
