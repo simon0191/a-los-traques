@@ -247,7 +247,10 @@ describe('FightRoom', () => {
       vi.useFakeTimers();
       room.onConnect(conn1, makeCtx()); // Host
       room.onMessage(
-        JSON.stringify({ type: 'init_tournament', lobbyState: { size: 8, slots: new Array(8).fill(null) } }),
+        JSON.stringify({
+          type: 'init_tournament',
+          lobbyState: { size: 8, slots: new Array(8).fill(null) },
+        }),
         conn1,
       );
 
@@ -256,7 +259,7 @@ describe('FightRoom', () => {
         JSON.stringify({ type: 'lobby_action', action: 'JOIN_SLOT', payload: { name: 'Guest 1' } }),
         conn2,
       );
-      
+
       // Advance time to bypass rate limit (100ms)
       vi.advanceTimersByTime(101);
 
@@ -273,7 +276,10 @@ describe('FightRoom', () => {
     it('prevents double-joining with the same identity (authenticated humans)', () => {
       room.onConnect(conn1, makeCtx());
       room.onMessage(
-        JSON.stringify({ type: 'init_tournament', lobbyState: { size: 8, slots: new Array(8).fill(null) } }),
+        JSON.stringify({
+          type: 'init_tournament',
+          lobbyState: { size: 8, slots: new Array(8).fill(null) },
+        }),
         conn1,
       );
 
@@ -287,7 +293,7 @@ describe('FightRoom', () => {
       room.onMessage(JSON.stringify({ type: 'lobby_action', action: 'JOIN_SLOT', payload }), conn2);
       expect(room.lobbyState.slots[1]).toBeNull();
     });
-    });
+  });
   // ---- Room full ----
 
   describe('room full', () => {

@@ -441,7 +441,6 @@ export default class FightRoom {
 
     // Use connection.id as the authoritative, non-spoofable handle for the participant.
     // This prevents clients from spoofing their ID (e.g. claiming someone else's UUID) in the payload.
-    const participantId = connection.id;
 
     // SECURITY: Only the Host (slot 0) can mutate the lobby structure.
     // JOIN_SLOT is the only action allowed for non-hosts.
@@ -451,8 +450,8 @@ export default class FightRoom {
     switch (action) {
       case 'JOIN_SLOT': {
         const { name, id, type } = payload;
-        
-        // If an ID is provided (e.g. from authenticated Supabase session), 
+
+        // If an ID is provided (e.g. from authenticated Supabase session),
         // prevent double-joining with the same identity.
         if (id && this.lobbyState.slots.some((s) => s?.id === id)) break;
 
