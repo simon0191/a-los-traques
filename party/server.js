@@ -400,6 +400,14 @@ export default class FightRoom {
           this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
         }
         break;
+      case 'start_tournament':
+        // Only P1 (slot 0) can start a tournament
+        if (slot !== 0) break;
+        if (this._transition('start_tournament')) {
+          this.lobbyState = null; // Clear lobby state as we are moving to selection
+          this._log({ type: 'start_tournament', roomId: this.party.id });
+        }
+        break;
       case 'lobby_action':
         if (this.roomState === RoomState.TOURNAMENT_LOBBY) {
           const now = Date.now();
@@ -462,6 +470,8 @@ export default class FightRoom {
         const { id, name } = payload;
         // Host check is already performed at the top of the method now
 
+        // TODO: Once XP persistence lands, we must verify identities.
+        // Currently, a malicious host could use DEV_JOIN to inject arbitrary 'human' identities.
         const emptyIdx = this.lobbyState.slots.indexOf(null);
         if (emptyIdx !== -1) {
           this.lobbyState.slots[emptyIdx] = {
@@ -759,7 +769,22 @@ export default class FightRoom {
     }
 
     const slot = this._slotOf(connection.id);
-    if (slot === -1) return;
+    if (slot === -1) {
+      // Clean up lobby slots if this was a tournament participant
+      if (this.lobbyState && this.roomState === RoomState.TOURNAMENT_LOBBY) {
+        let changed = false;
+        for (let i = 0; i < this.lobbyState.slots.length; i++) {
+          if (this.lobbyState.slots[i]?.id === connection.id) {
+            this.lobbyState.slots[i] = null;
+            changed = true;
+          }
+        }
+        if (changed) {
+          this._broadcast({ type: 'lobby_update', lobbyState: this.lobbyState });
+        }
+      }
+      return;
+    }
 
     const sessionId = this._sessionIds.get(connection.id) || null;
     this._log({ type: 'disconnect', slot, sessionId, roomState: this.roomState });

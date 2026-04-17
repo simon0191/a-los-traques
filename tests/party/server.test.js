@@ -200,6 +200,47 @@ describe('FightRoom', () => {
       expect(room.roomState).toBe('waiting');
       expect(room.players[0].ready).toBe(false);
     });
+
+    it('transitions tournament_lobby → selecting on start_tournament and clears lobbyState', () => {
+      room.onConnect(conn1, makeCtx());
+      const lobbyState = { size: 8, slots: [] };
+      room.onMessage(JSON.stringify({ type: 'init_tournament', lobbyState }), conn1);
+      expect(room.roomState).toBe('tournament_lobby');
+      expect(room.lobbyState).toEqual({ ...lobbyState, nextGuestNum: 1 });
+
+      room.onMessage(JSON.stringify({ type: 'start_tournament' }), conn1);
+      expect(room.roomState).toBe('selecting');
+      expect(room.lobbyState).toBeNull();
+    });
+
+    it('clears lobby slot when a tournament participant disconnects', () => {
+      room.onConnect(conn1, makeCtx()); // Host
+
+      // Initialize slots with host in slot 0
+      const slots = new Array(8).fill(null);
+      slots[0] = { id: 'host-id', name: 'Host', type: 'human', status: 'ready' };
+      room.onMessage(
+        JSON.stringify({ type: 'init_tournament', lobbyState: { size: 8, slots } }),
+        conn1,
+      );
+
+      // Guest joins (should find next null at index 1)
+      room.onMessage(
+        JSON.stringify({ type: 'lobby_action', action: 'JOIN_SLOT', payload: { name: 'Guest' } }),
+        conn2,
+      );
+      expect(room.lobbyState.slots[1]).toMatchObject({ id: 'c2', name: 'Guest' });
+
+      conn1.send.mockClear();
+      room.onClose(conn2);
+
+      // Slot should be cleared
+      expect(room.lobbyState.slots[1]).toBeNull();
+
+      // Host should be notified
+      const hostMessages = conn1.send.mock.calls.map((c) => JSON.parse(c[0]));
+      expect(hostMessages.some((m) => m.type === 'lobby_update')).toBe(true);
+    });
   });
 
   // ---- Room full ----

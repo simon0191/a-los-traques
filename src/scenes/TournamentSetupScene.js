@@ -252,6 +252,10 @@ export class TournamentSetupScene extends Phaser.Scene {
     const size = this.lobby.state.size;
     const seed = Math.floor(Math.random() * 1000000);
 
+    // Notify server and cleanup socket
+    this.lobby.startTournament();
+    this.lobby.destroy();
+
     this.scene.start('SelectScene', {
       gameMode: 'local',
       matchContext: {

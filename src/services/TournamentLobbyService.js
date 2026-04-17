@@ -120,6 +120,10 @@ export class TournamentLobbyService extends BaseSignalingClient {
     return `${base}/join.html?room=${this.roomId}`;
   }
 
+  startTournament() {
+    this.send({ type: 'start_tournament' });
+  }
+
   destroy() {
     super.destroy();
     this._onUpdateCallbacks = [];
