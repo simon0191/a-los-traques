@@ -226,14 +226,13 @@ export class DevConsole {
           break;
         }
 
-        // Use authoritative join action instead of local mutation
+        // Use DEV_JOIN to allow multiple simulations from one connection
         lobby.send({
           type: 'lobby_action',
-          action: 'JOIN_SLOT',
+          action: 'DEV_JOIN',
           payload: {
             id: `dev-${playerId}`,
             name: name,
-            type: 'human',
           },
         });
 

@@ -453,6 +453,24 @@ export default class FightRoom {
         }
         break;
       }
+      case 'DEV_JOIN': {
+        const { id, name } = payload;
+        // Only allow Host (slot 0) to use DEV_JOIN for simulation
+        const slot = this._slotOf(connection.id);
+        if (slot !== 0) break;
+
+        const emptyIdx = this.lobbyState.slots.indexOf(null);
+        if (emptyIdx !== -1) {
+          this.lobbyState.slots[emptyIdx] = {
+            id: id || `dev-${Date.now()}`,
+            name: name || 'DEV',
+            type: 'human',
+            status: 'ready',
+          };
+          changed = true;
+        }
+        break;
+      }
       case 'UPDATE_BOT': {
         const { index, level } = payload;
         if (index >= 0 && index < this.lobbyState.size) {
