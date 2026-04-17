@@ -22,23 +22,23 @@ export class OverlayManifest {
     const m = data ?? emptyManifest();
     this.version = m.version ?? MANIFEST_VERSION;
     this.updatedAt = m.updatedAt ?? null;
-    // Shape: calibrations[fighterId][accessoryId][animation] = { frameCount, frames, keyframes, lastEditedAt }
+    // Shape: calibrations[fighterId][category][animation] = { frameCount, frames, keyframes, lastEditedAt }
     this.calibrations = m.calibrations ?? {};
   }
 
-  has(fighterId, accessoryId, animation) {
-    return Boolean(this.calibrations?.[fighterId]?.[accessoryId]?.[animation]);
+  has(fighterId, category, animation) {
+    return Boolean(this.calibrations?.[fighterId]?.[category]?.[animation]);
   }
 
-  get(fighterId, accessoryId, animation) {
-    const e = this.calibrations?.[fighterId]?.[accessoryId]?.[animation];
+  get(fighterId, category, animation) {
+    const e = this.calibrations?.[fighterId]?.[category]?.[animation];
     return e ?? null;
   }
 
-  set(fighterId, accessoryId, animation, entry) {
+  set(fighterId, category, animation, entry) {
     if (!this.calibrations[fighterId]) this.calibrations[fighterId] = {};
-    if (!this.calibrations[fighterId][accessoryId]) this.calibrations[fighterId][accessoryId] = {};
-    this.calibrations[fighterId][accessoryId][animation] = {
+    if (!this.calibrations[fighterId][category]) this.calibrations[fighterId][category] = {};
+    this.calibrations[fighterId][category][animation] = {
       frameCount: entry.frameCount,
       frames: entry.frames.map(cloneFrame),
       keyframes: [...(entry.keyframes ?? [])].sort((a, b) => a - b),
@@ -47,12 +47,12 @@ export class OverlayManifest {
     this.updatedAt = new Date().toISOString();
   }
 
-  delete(fighterId, accessoryId, animation) {
-    const byAcc = this.calibrations[fighterId];
-    if (!byAcc?.[accessoryId]?.[animation]) return;
-    delete byAcc[accessoryId][animation];
-    if (Object.keys(byAcc[accessoryId]).length === 0) delete byAcc[accessoryId];
-    if (Object.keys(byAcc).length === 0) delete this.calibrations[fighterId];
+  delete(fighterId, category, animation) {
+    const byCat = this.calibrations[fighterId];
+    if (!byCat?.[category]?.[animation]) return;
+    delete byCat[category][animation];
+    if (Object.keys(byCat[category]).length === 0) delete byCat[category];
+    if (Object.keys(byCat).length === 0) delete this.calibrations[fighterId];
     this.updatedAt = new Date().toISOString();
   }
 
