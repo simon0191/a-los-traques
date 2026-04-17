@@ -435,6 +435,11 @@ export default class FightRoom {
     // This prevents clients from spoofing their ID (e.g. claiming someone else's UUID) in the payload.
     const participantId = connection.id;
 
+    // SECURITY: Only the Host (slot 0) can mutate the lobby structure.
+    // JOIN_SLOT is the only action allowed for non-hosts.
+    const isHost = this._slotOf(connection.id) === 0;
+    if (!isHost && action !== 'JOIN_SLOT') return;
+
     switch (action) {
       case 'JOIN_SLOT': {
         const { name } = payload;
@@ -455,9 +460,7 @@ export default class FightRoom {
       }
       case 'DEV_JOIN': {
         const { id, name } = payload;
-        // Only allow Host (slot 0) to use DEV_JOIN for simulation
-        const slot = this._slotOf(connection.id);
-        if (slot !== 0) break;
+        // Host check is already performed at the top of the method now
 
         const emptyIdx = this.lobbyState.slots.indexOf(null);
         if (emptyIdx !== -1) {
