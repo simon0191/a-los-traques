@@ -11,12 +11,14 @@ export function queryLeaderboard(db) {
       COALESCE(nickname, 'Anónimo') AS nickname,
       wins,
       losses,
-      ROUND(wins::numeric / (wins + losses) * 100) AS win_rate
+      COALESCE(tournament_wins, 0) as tournament_wins,
+      ROUND(wins::numeric / NULLIF(wins + losses, 0) * 100) AS win_rate
     FROM profiles
-    WHERE wins > 0
+    WHERE wins > 0 OR tournament_wins > 0
     ORDER BY
+      tournament_wins DESC,
       wins DESC,
-      (wins::numeric / (wins + losses)) DESC
+      (wins::numeric / NULLIF(wins + losses, 0)) DESC NULLS LAST
     LIMIT 10;
   `);
 }
