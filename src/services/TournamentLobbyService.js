@@ -1,7 +1,7 @@
 import { PARTYKIT_HOST } from '../config.js';
 import { Logger } from '../systems/Logger.js';
 import { BaseSignalingClient } from '../systems/net/BaseSignalingClient.js';
-import { getProfile } from './api.js';
+import { createTournament, getProfile } from './api.js';
 
 const log = Logger.create('Lobby');
 
@@ -14,6 +14,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
       size: 8,
       slots: [],
       nextGuestNum: 1,
+      tourneyId: null, // Initialized by host
     };
 
     this._onUpdateCallbacks = [];
@@ -24,7 +25,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
     if (this._initialized) return;
     this._initialized = true;
 
-    let profile = {
+    const profile = {
       nickname: 'Anfitrión Local',
       id: `host-${crypto.randomUUID().substring(0, 8)}`,
     };
@@ -32,10 +33,20 @@ export class TournamentLobbyService extends BaseSignalingClient {
     try {
       const p = await getProfile();
       if (p?.nickname) {
-        profile = p;
+        profile.nickname = p.nickname;
+        if (p.id) profile.id = p.id; // Ensure we use the real UUID
       }
     } catch (_e) {
       log.info('Using Guest Host');
+    }
+
+    // Phase 3: Create tournament session on the Vercel backend
+    try {
+      const { tourneyId } = await createTournament();
+      this.state.tourneyId = tourneyId;
+      log.info('Tournament session created', { tourneyId });
+    } catch (e) {
+      log.warn('Failed to create tournament session (persistence disabled)', { err: e.message });
     }
 
     this.state.slots = new Array(this.state.size).fill(null);
@@ -117,7 +128,11 @@ export class TournamentLobbyService extends BaseSignalingClient {
 
   getJoinUrl() {
     const base = window.location.origin;
-    return `${base}/join.html?room=${this.roomId}`;
+    let url = `${base}/join.html?room=${this.roomId}`;
+    if (this.state.tourneyId) {
+      url += `&tourney=${this.state.tourneyId}`;
+    }
+    return url;
   }
 
   startTournament() {

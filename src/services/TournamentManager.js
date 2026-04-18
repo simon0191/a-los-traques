@@ -20,6 +20,7 @@ function mulberry32(a) {
 export class TournamentManager {
   constructor(data) {
     this.id = data.id || `tournament-${Date.now()}`;
+    this.tourneyId = data.tourneyId || null;
     this.size = data.size || 8;
     this.seed = data.seed || Math.floor(Math.random() * 1000000);
 
@@ -111,9 +112,18 @@ export class TournamentManager {
     const tournamentFighters = new Array(size);
 
     // 1. Place Humans at evenly-spaced positions
+    const lobbyHumans = lobbyParticipants.filter((p) => p.type === 'human' || p.type === 'guest');
+
     for (let h = 0; h < humans.length; h++) {
       const slot = Math.floor((h * size) / humans.length);
-      tournamentFighters[slot] = { id: humans[h], type: 'human' };
+      const fId = humans[h];
+      // Match by order of selection, which corresponds to lobbyHumans order
+      const lobbyP = lobbyHumans[h];
+      tournamentFighters[slot] = {
+        id: fId,
+        userId: lobbyP ? lobbyP.id : null,
+        type: 'human',
+      };
     }
 
     // 2. Prepare specific bots from lobby
@@ -167,6 +177,8 @@ export class TournamentManager {
       round1.push({
         p1: p1Data.id,
         p2: p2Data.id,
+        p1UserId: p1Data.userId || null,
+        p2UserId: p2Data.userId || null,
         p1Level: p1Data.type === 'bot' ? p1Data.level : null,
         p2Level: p2Data.type === 'bot' ? p2Data.level : null,
         winner: null,
@@ -178,7 +190,7 @@ export class TournamentManager {
       const matchesInRound = size / 2 ** (r + 1);
       const round = [];
       for (let m = 0; m < matchesInRound; m++) {
-        round.push({ p1: null, p2: null, winner: null });
+        round.push({ p1: null, p2: null, p1UserId: null, p2UserId: null, winner: null });
       }
       rounds.push(round);
     }
@@ -245,9 +257,11 @@ export class TournamentManager {
     const nextMatch = this.rounds[nextRoundIdx][nextMatchIdx];
     const isP1Slot = currentMatchIdx % 2 === 0;
 
-    // Preserve winner level if it's a bot
+    // Preserve winner level and userId
     const currentMatch = this.rounds[currentRoundIdx][currentMatchIdx];
     const winnerLevel = winnerId === currentMatch.p1 ? currentMatch.p1Level : currentMatch.p2Level;
+    const winnerUserId =
+      winnerId === currentMatch.p1 ? currentMatch.p1UserId : currentMatch.p2UserId;
 
     // Human players always take P1 slot in their next match
     if (this._isHumanFighter(winnerId) && this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
@@ -260,14 +274,17 @@ export class TournamentManager {
         // Both are human — use natural slotting to avoid overwriting
         if (isP1Slot) {
           nextMatch.p1 = winnerId;
+          nextMatch.p1UserId = winnerUserId;
           nextMatch.p1Level = winnerLevel;
         } else {
           nextMatch.p2 = winnerId;
+          nextMatch.p2UserId = winnerUserId;
           nextMatch.p2Level = winnerLevel;
         }
       } else {
         // Human gets P1 slot
         nextMatch.p1 = winnerId;
+        nextMatch.p1UserId = winnerUserId;
         nextMatch.p1Level = winnerLevel;
       }
     } else if (this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
@@ -275,18 +292,22 @@ export class TournamentManager {
       const isFromHumanSide = this._isHumanPath(currentRoundIdx, currentMatchIdx);
       if (isFromHumanSide) {
         nextMatch.p1 = winnerId;
+        nextMatch.p1UserId = winnerUserId;
         nextMatch.p1Level = winnerLevel;
       } else {
         nextMatch.p2 = winnerId;
+        nextMatch.p2UserId = winnerUserId;
         nextMatch.p2Level = winnerLevel;
       }
     } else {
       // Pure AI branch: natural slotting
       if (isP1Slot) {
         nextMatch.p1 = winnerId;
+        nextMatch.p1UserId = winnerUserId;
         nextMatch.p1Level = winnerLevel;
       } else {
         nextMatch.p2 = winnerId;
+        nextMatch.p2UserId = winnerUserId;
         nextMatch.p2Level = winnerLevel;
       }
     }
@@ -415,6 +436,7 @@ export class TournamentManager {
   serialize() {
     return {
       id: this.id,
+      tourneyId: this.tourneyId,
       size: this.size,
       seed: this.seed,
       humanFighterIds: this.humanFighterIds,

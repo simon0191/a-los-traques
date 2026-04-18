@@ -825,7 +825,7 @@ export class SelectScene extends Phaser.Scene {
       this.confirmedText.setText('Generando torneo...');
       this.time.delayedCall(800, () => {
         const fighterIds = this.fighters.map((f) => f.id);
-        const { size, seed } = this.matchContext.tournamentState;
+        const { size, seed, tourneyId } = this.matchContext.tournamentState;
 
         // Generate the tournament with human selections AND lobby bots
         const tournamentManager = TournamentManager.generate(
@@ -836,8 +836,12 @@ export class SelectScene extends Phaser.Scene {
           this.matchContext.lobbyPlayers,
         );
 
+        // Include tourneyId in the serialized state
+        const serialized = tournamentManager.serialize();
+        serialized.tourneyId = tourneyId;
+
         // Store lobby player data (like bot levels) in the match context
-        this.matchContext.tournamentState = tournamentManager.serialize();
+        this.matchContext.tournamentState = serialized;
         this.cameras.main.fadeOut(400, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start('BracketScene', {

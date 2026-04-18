@@ -137,3 +137,40 @@ export async function uploadDebugBundle({ fightId, slot, round, bundle }) {
   const body = JSON.stringify({ fightId, slot, round, bundle });
   return apiFetch('/debug-bundles', { method: 'POST', body });
 }
+
+/**
+ * Create a new tournament session (Host only)
+ */
+export async function createTournament() {
+  return apiFetch('/tournament/create', { method: 'POST' });
+}
+
+/**
+ * Join an existing tournament session (Handshake)
+ */
+export async function joinTournament(tourneyId) {
+  return apiFetch('/tournament/join', {
+    method: 'POST',
+    body: JSON.stringify({ tourneyId }),
+  });
+}
+
+/**
+ * Report a tournament match result (Host only)
+ */
+export async function reportTournamentMatch({ tourneyId, winnerId, loserId }) {
+  return apiFetch('/stats/tournament-match', {
+    method: 'POST',
+    body: JSON.stringify({ tourneyId, winnerId, loserId }),
+  });
+}
+
+/**
+ * Complete a tournament and award prestige (Host only)
+ */
+export async function completeTournament({ tourneyId, championId }) {
+  return apiFetch('/tournament/complete', {
+    method: 'POST',
+    body: JSON.stringify({ tourneyId, championId }),
+  });
+}

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
-import { updateStats } from '../services/api.js';
+import { completeTournament, reportTournamentMatch, updateStats } from '../services/api.js';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { Logger } from '../systems/Logger.js';
@@ -29,8 +29,16 @@ export class VictoryScene extends Phaser.Scene {
     // If tournament mode, update the match winner via TournamentManager
     if (this.matchContext?.type === 'tournament' && this.matchContext.tournamentState) {
       const manager = new TournamentManager(this.matchContext.tournamentState);
+
+      // Phase 5: Capture match context before advancing
+      this._currentMatch = manager.getNextPlayableMatch();
+
       manager.advance(this.winnerId);
       this.matchContext.tournamentState = manager.serialize();
+
+      // Track if the tournament is now complete
+      this._tournamentComplete = manager.complete;
+      this._championId = manager.winnerId;
     }
 
     // Signal match completion for E2E test orchestration
@@ -306,6 +314,65 @@ export class VictoryScene extends Phaser.Scene {
   async _saveResult() {
     const user = this.game.registry.get('user');
     if (!user) return;
+
+    // Phase 5: Tournament Match Reporting
+    if (this.matchContext?.type === 'tournament' && this.matchContext.tournamentState) {
+      const tourneyId = this.matchContext.tournamentState.tourneyId;
+      if (tourneyId && this._currentMatch) {
+        // Use winnerIndex to determine which slot won (0 for p1, 1 for p2)
+        // This is robust against mirror matches where fighterIds are identical.
+        const winnerIsP1 = this.winnerIndex === 0;
+
+        const winnerUserId = winnerIsP1 ? this._currentMatch.p1UserId : this._currentMatch.p2UserId;
+        const loserUserId = winnerIsP1 ? this._currentMatch.p2UserId : this._currentMatch.p1UserId;
+
+        try {
+          if (winnerUserId || loserUserId) {
+            const resp = await reportTournamentMatch({
+              tourneyId,
+              winnerId: winnerUserId,
+              loserId: loserUserId,
+            });
+            log.info('Tournament match reported', resp);
+          }
+
+          // If the tournament is finished, crown the champion
+          if (this._tournamentComplete && this._championId) {
+            // Find the champion's userId
+            const championUserId =
+              this._championId === this._currentMatch.p1
+                ? this._currentMatch.p1UserId
+                : this._currentMatch.p2UserId;
+            if (championUserId) {
+              const resp = await completeTournament({ tourneyId, championId: championUserId });
+              log.info('Tournament complete, champion crowned', resp);
+            }
+          }
+
+          const feedback = this.add
+            .text(GAME_WIDTH / 2, 45, 'RESULTADO REGISTRADO', {
+              fontFamily: 'Arial',
+              fontSize: '9px',
+              color: '#44cc88',
+            })
+            .setOrigin(0.5)
+            .setAlpha(0);
+
+          this.tweens.add({
+            targets: feedback,
+            y: 35,
+            alpha: 1,
+            duration: 500,
+            yoyo: true,
+            hold: 2000,
+            onComplete: () => feedback.destroy(),
+          });
+        } catch (e) {
+          log.warn('Tournament match reporting failed', { err: e.message });
+        }
+      }
+      return;
+    }
 
     // Determine if local player won or lost
     let isP1 = true;

@@ -35,7 +35,7 @@ export class LeaderboardScene extends Phaser.Scene {
 
     // Column headers
     this.add
-      .text(GAME_WIDTH / 2, 65, '#   JUGADOR              V     D      %', {
+      .text(GAME_WIDTH / 2, 65, '#   JUGADOR          🏆    V     D      %', {
         fontFamily: 'monospace',
         fontSize: '11px',
         color: '#aaaaff',
@@ -94,11 +94,14 @@ export class LeaderboardScene extends Phaser.Scene {
       const bg = this.add.rectangle(GAME_WIDTH / 2, y, 380, rowHeight, bgColor);
 
       const rank = String(i + 1).padEnd(4, ' ');
-      const name = String(row.nickname).slice(0, 16).padEnd(18, ' ');
-      const wins = String(row.wins).padStart(4, ' ');
-      const losses = String(row.losses).padStart(6, ' ');
-      const winRate = `${row.win_rate}%`.padStart(8, ' ');
-      const line = `${rank}${name}${wins}${losses}${winRate}`;
+      const name = String(row.nickname || 'Anónimo')
+        .slice(0, 14)
+        .padEnd(16, ' ');
+      const tWins = String(row.tournament_wins || 0).padStart(3, ' ');
+      const wins = String(row.wins || 0).padStart(5, ' ');
+      const losses = String(row.losses || 0).padStart(6, ' ');
+      const winRate = `${row.win_rate || 0}%`.padStart(8, ' ');
+      const line = `${rank}${name}${tWins}${wins}${losses}${winRate}`;
 
       const isCurrentUser = userId && row.id === userId;
 
