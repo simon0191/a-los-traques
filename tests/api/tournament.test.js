@@ -164,7 +164,7 @@ describe('Tournament API Endpoints', () => {
       );
     });
 
-    it('atomicly crowns champion on isFinal', async () => {
+    it('atomically crowns champion on isFinal', async () => {
       mockDb.query
         .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 6, size: 8 }] }) // host check
         .mockResolvedValueOnce({

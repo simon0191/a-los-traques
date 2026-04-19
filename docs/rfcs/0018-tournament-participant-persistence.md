@@ -134,4 +134,4 @@ sequenceDiagram
 5. **Game Loop (`TournamentManager.js` & `VictoryScene.js`):**
    - Ensure the original `userId`s (from lobby participants) are preserved in the bracket data.
    - Update `VictoryScene._saveResult()` to call `/api/stats/tournament-match` when `matchContext.type === 'tournament'`, passing the `tourney_id`, `winner_id`, and `loser_id`.
-   - If the match is the Grand Final, include `isFinal: true` and `champion_id` in the same call to atomicly record the final match and crown the champion.
+   - If the match is the Grand Final, include `isFinal: true` and `champion_id` in the same call to atomically record the final match and crown the champion.

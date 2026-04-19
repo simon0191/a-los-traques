@@ -151,7 +151,7 @@ describe('VictoryScene Stats recording', () => {
       expect(api.updateStats).not.toHaveBeenCalled();
     });
 
-    it('atomicly crowns champion in the final tournament match', async () => {
+    it('atomically crowns champion in the final tournament match', async () => {
       const winnerUser = 'uuid-winner';
       const loserUser = 'uuid-loser';
 

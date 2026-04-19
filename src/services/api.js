@@ -160,7 +160,7 @@ export async function joinTournament(tourneyId) {
 
 /**
  * Report a tournament match result (Host only).
- * If isFinal is true, the championId must be provided to atomicly crown and lock the session.
+ * If isFinal is true, the championId must be provided to atomically crown and lock the session.
  */
 export async function reportTournamentMatch({
   tourneyId,

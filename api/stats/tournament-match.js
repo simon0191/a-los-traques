@@ -1,4 +1,5 @@
 import { withAuth } from '../_lib/handler.js';
+import { isUuid } from '../_lib/validate.js';
 
 /**
  * Records win/loss for a tournament match. 
@@ -47,8 +48,6 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
     }
 
     // 2. Verify participants performed the handshake (consent) for this session
-    const isUuid = (id) => id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    
     const checkIds = [winnerId, loserId, championId].filter(isUuid);
     let hasWinnerHandshake = false;
     let hasLoserHandshake = false;
