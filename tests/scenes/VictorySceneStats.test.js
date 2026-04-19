@@ -12,6 +12,7 @@ import * as api from '../../src/services/api.js';
 
 vi.mock('../../src/services/api.js', () => ({
   updateStats: vi.fn(),
+  reportTournamentMatch: vi.fn(),
 }));
 
 describe('VictoryScene Stats recording', () => {
@@ -113,6 +114,79 @@ describe('VictoryScene Stats recording', () => {
 
       // Local mode: isP1 is true, winnerIndex is 1 -> loss
       expect(api.updateStats).toHaveBeenCalledWith(false);
+    });
+
+    it('reports tournament match results via reportTournamentMatch', async () => {
+      const p1User = 'uuid-1';
+      const p2User = 'uuid-2';
+
+      scene.init({
+        winnerId: 'simon',
+        loserId: 'jeka',
+        p1Id: 'simon',
+        p2Id: 'jeka',
+        winnerIndex: 0,
+        gameMode: 'local',
+        matchContext: {
+          type: 'tournament',
+          tournamentState: { tourneyId: 'abcdef' },
+        },
+      });
+
+      // Inject the current match info that VictoryScene expects
+      scene._currentMatch = {
+        p1: 'simon',
+        p2: 'jeka',
+        p1UserId: p1User,
+        p2UserId: p2User,
+      };
+
+      await scene._saveResult();
+
+      expect(api.reportTournamentMatch).toHaveBeenCalledWith({
+        tourneyId: 'abcdef',
+        winnerId: p1User,
+        loserId: p2User,
+      });
+      expect(api.updateStats).not.toHaveBeenCalled();
+    });
+
+    it('atomicly crowns champion in the final tournament match', async () => {
+      const winnerUser = 'uuid-winner';
+      const loserUser = 'uuid-loser';
+
+      scene.init({
+        winnerId: 'simon',
+        loserId: 'jeka',
+        p1Id: 'simon',
+        p2Id: 'jeka',
+        winnerIndex: 0,
+        gameMode: 'local',
+        matchContext: {
+          type: 'tournament',
+          tournamentState: { tourneyId: 'abcdef' },
+        },
+      });
+
+      // Setup scene state as if tournament just finished
+      scene._currentMatch = {
+        p1: 'simon',
+        p2: 'jeka',
+        p1UserId: winnerUser,
+        p2UserId: loserUser,
+      };
+      scene._tournamentComplete = true;
+      scene._championId = 'simon';
+
+      await scene._saveResult();
+
+      expect(api.reportTournamentMatch).toHaveBeenCalledWith({
+        tourneyId: 'abcdef',
+        winnerId: winnerUser,
+        loserId: loserUser,
+        isFinal: true,
+        championId: winnerUser,
+      });
     });
   });
 });
