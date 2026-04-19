@@ -369,15 +369,15 @@ export default class FightRoom {
         }
         const keys = Object.keys(accessories);
         if (keys.length > 32) break;
+        let valid = true;
         for (const k of keys) {
           const v = accessories[k];
-          if (k.length > 64) {
-            return;
-          }
-          if (v !== null && (typeof v !== 'string' || v.length > 64)) {
-            return;
+          if (k.length > 64 || (v !== null && (typeof v !== 'string' || v.length > 64))) {
+            valid = false;
+            break;
           }
         }
+        if (!valid) break;
         this._sendToOther(slot, { type: 'accessories', accessories });
         break;
       }
