@@ -10,8 +10,23 @@ export default withAuth(async (req, res, { userId, db }) => {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Generate a unique 6-character alphanumeric ID
-  const tourneyId = crypto.randomBytes(3).toString('hex').toLowerCase();
+  // Retry up to 5 times to find a unique tourneyId
+  let tourneyId;
+  let attempts = 0;
+  const maxAttempts = 5;
+
+  while (attempts < maxAttempts) {
+    tourneyId = crypto.randomBytes(3).toString('hex').toLowerCase();
+    
+    // Check if ID already exists
+    const collisionCheck = await db.query('SELECT 1 FROM active_sessions WHERE id = $1', [tourneyId]);
+    if (collisionCheck.rows.length === 0) break;
+    
+    attempts++;
+    if (attempts === maxAttempts) {
+      return res.status(500).json({ error: 'Failed to generate unique tournament ID' });
+    }
+  }
 
   try {
     await db.query(

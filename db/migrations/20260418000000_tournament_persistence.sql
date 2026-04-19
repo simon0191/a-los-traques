@@ -5,7 +5,8 @@ CREATE TABLE active_sessions (
     id TEXT PRIMARY KEY,
     host_user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    status TEXT DEFAULT 'open' CHECK (status IN ('open', 'completed'))
+    status TEXT DEFAULT 'open' CHECK (status IN ('open', 'completed')),
+    matches_played INTEGER DEFAULT 0
 );
 
 CREATE TABLE session_participants (

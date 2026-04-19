@@ -328,25 +328,28 @@ export class VictoryScene extends Phaser.Scene {
 
         try {
           if (winnerUserId || loserUserId) {
-            const resp = await reportTournamentMatch({
+            // Combined Match Report + Crowning (Atomic)
+            const payload = {
               tourneyId,
               winnerId: winnerUserId,
               loserId: loserUserId,
-            });
-            log.info('Tournament match reported', resp);
-          }
+            };
 
-          // If the tournament is finished, crown the champion
-          if (this._tournamentComplete && this._championId) {
-            // Find the champion's userId
-            const championUserId =
-              this._championId === this._currentMatch.p1
-                ? this._currentMatch.p1UserId
-                : this._currentMatch.p2UserId;
-            if (championUserId) {
-              const resp = await completeTournament({ tourneyId, championId: championUserId });
-              log.info('Tournament complete, champion crowned', resp);
+            // If tournament is finished, include crowning data in the same call
+            if (this._tournamentComplete && this._championId) {
+              const championUserId =
+                this._championId === this._currentMatch.p1
+                  ? this._currentMatch.p1UserId
+                  : this._currentMatch.p2UserId;
+
+              if (championUserId) {
+                payload.isFinal = true;
+                payload.championId = championUserId;
+              }
             }
+
+            const resp = await reportTournamentMatch(payload);
+            log.info('Tournament result recorded', resp);
           }
 
           const feedback = this.add
