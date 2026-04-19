@@ -508,14 +508,17 @@ export class AccessorySelectScene extends Phaser.Scene {
 
     // Humans use their picks; bot slots get auto-picked accessories so
     // they're not at a visual (or future stat-bonus) disadvantage.
+    // Tournaments pre-seed bot picks in `BracketScene.goToMatch` via the
+    // seeded tournament PRNG so replays reproduce; honor those presets.
     const manifest = this.game.registry.get('overlayManifest');
     const humanSlots = this._humanSlotSet ?? this._humanSlots();
+    const preset = this.matchContext?.accessories ?? {};
     const p1Choices = humanSlots.has(0)
       ? (this.p1?.choices ?? {})
-      : autoPickAccessories(manifest, this.p1Id);
+      : (preset.p1 ?? autoPickAccessories(manifest, this.p1Id));
     const p2Choices = humanSlots.has(1)
       ? (this.p2?.choices ?? {})
-      : autoPickAccessories(manifest, this.p2Id);
+      : (preset.p2 ?? autoPickAccessories(manifest, this.p2Id));
     this._goNext(p1Choices, p2Choices);
   }
 

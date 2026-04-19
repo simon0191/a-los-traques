@@ -311,9 +311,19 @@ export class BracketScene extends Phaser.Scene {
         return;
       }
 
-      // At least one human plays this match — route through the picker,
-      // which forwards to PreFightScene via `matchContext.nextScene` with
-      // the stage already chosen.
+      // At least one human plays this match — route through the picker.
+      // Seed bot loadouts here (not in AccessorySelectScene) so the seeded
+      // tournament PRNG drives them and E2E replays are reproducible.
+      const manifest = this.game.registry.get('overlayManifest');
+      const accessories = {};
+      if (!this.matchContext.humanP1) {
+        accessories.p1 = autoPickAccessories(manifest, matchData.p1, rng);
+      }
+      if (!this.matchContext.humanP2) {
+        accessories.p2 = autoPickAccessories(manifest, matchData.p2, rng);
+      }
+      this.matchContext.accessories = accessories;
+      // Serialize AFTER the auto-pick rng calls.
       this.matchContext.tournamentState = this.manager.serialize();
       this.matchContext.stageId = stageId;
       this.matchContext.isRandomStage = true;
