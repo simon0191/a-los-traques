@@ -37,6 +37,7 @@ const FIGHTERS_WITH_SPRITES = [
   'migue',
   'bozzi',
   'angy',
+  'adil',
 ];
 
 const ANIM_NAMES = Object.keys(ANIM_DEFS);

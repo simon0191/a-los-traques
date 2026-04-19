@@ -8,8 +8,8 @@ const MOVE_TYPES = ['lightPunch', 'heavyPunch', 'lightKick', 'heavyKick', 'speci
 const MOVE_FIELDS = ['damage', 'startup', 'active', 'recovery', 'hitstun', 'blockstun'];
 
 describe('fighters.json data validation', () => {
-  it('has 16 fighters', () => {
-    expect(fighters.length).toBe(16);
+  it('has 17 fighters', () => {
+    expect(fighters.length).toBe(17);
   });
 
   it('every fighter has required fields', () => {

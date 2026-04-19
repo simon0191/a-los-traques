@@ -1,0 +1,21 @@
+{
+  "output": "public/assets/fighters/adil/",
+  "fighter": "adil",
+  "animations": [
+    "idle",
+    "walk",
+    "light_punch",
+    "heavy_punch",
+    "light_kick",
+    "heavy_kick",
+    "special",
+    "block",
+    "hurt",
+    "knockdown",
+    "victory",
+    "defeat",
+    "jump"
+  ],
+  "rawDir": "assets/_raw/poses",
+  "minVisibility": 0.3
+}

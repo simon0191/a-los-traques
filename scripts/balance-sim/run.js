@@ -12,6 +12,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import fightersData from '../../src/data/fighters.json' with { type: 'json' };
 import { runFullMatrix, runMatchup } from './match-runner.js';
 import { generateJsonReport, generateMarkdownReport } from './report.js';
 
@@ -76,7 +77,7 @@ function main() {
   console.log(
     `Running full balance simulation: ${args.fights} fights/matchup, ${args.difficulty} difficulty`,
   );
-  console.log(`Total fights: ${(16 * 16 * args.fights).toLocaleString()}`);
+  console.log(`Total fights: ${(fightersData.length ** 2 * args.fights).toLocaleString()}`);
   console.log('');
 
   const start = performance.now();

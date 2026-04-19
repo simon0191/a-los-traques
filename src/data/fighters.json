@@ -923,5 +923,61 @@
       "victory": "Flecha mistica directo al corazon!",
       "defeat": "Se me acabaron... las flechas magicas..."
     }
+  },
+  {
+    "id": "adil",
+    "name": "Adilnosuke",
+    "subtitle": "El Samurai del Compas",
+    "description": "Samurai dancer with long flowing dark hair and a short beard, wearing a vibrant patchwork kimono with panels of green, red, yellow, blue, and purple, tied at the waist with a brown obi sash. Orange flames swirl around both fists and around his hip. Traditional white tabi socks and gray zori sandals. Lean athletic build, mid-dance fighting stance blending kendo poses with rhythmic movement.",
+    "color": "0xFF6B35",
+    "stats": { "hp": 100, "speed": 4, "power": 3, "defense": 3, "special": 4 },
+    "moves": {
+      "lightPunch": {
+        "damage": 5,
+        "startup": 2,
+        "active": 2,
+        "recovery": 3,
+        "hitstun": 12,
+        "blockstun": 8
+      },
+      "heavyPunch": {
+        "damage": 12,
+        "startup": 5,
+        "active": 3,
+        "recovery": 7,
+        "hitstun": 20,
+        "blockstun": 14
+      },
+      "lightKick": {
+        "damage": 6,
+        "startup": 3,
+        "active": 2,
+        "recovery": 4,
+        "hitstun": 14,
+        "blockstun": 9
+      },
+      "heavyKick": {
+        "damage": 14,
+        "startup": 6,
+        "active": 3,
+        "recovery": 8,
+        "hitstun": 22,
+        "blockstun": 15
+      },
+      "special": {
+        "damage": 28,
+        "startup": 8,
+        "active": 5,
+        "recovery": 13,
+        "hitstun": 30,
+        "blockstun": 20,
+        "cost": 50
+      }
+    },
+    "dialogs": {
+      "intro": "Baila conmigo... o muere bailando.",
+      "victory": "El filo y el ritmo, juntos son invencibles.",
+      "defeat": "Perdi el compas... el samurai cae en silencio..."
+    }
   }
 ]
