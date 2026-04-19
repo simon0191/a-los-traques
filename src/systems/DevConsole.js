@@ -1,7 +1,7 @@
 import { GAME_WIDTH, MAX_HP, MAX_SPECIAL } from '../config.js';
 
 const COMMANDS = {
-  help: 'help | noai | ai | god | mortal | kill | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps | dev:tournament:join [id]',
+  help: 'help | noai | ai | god | mortal | kill | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps | ff | dev:tournament:join [id]',
 };
 
 export class DevConsole {
@@ -45,9 +45,9 @@ export class DevConsole {
       .setOrigin(0, 0);
     this.container.add(this.inputDisplay);
 
-    // Toggle with backtick key
+    // Toggle with backtick key or hyphen
     scene.input.keyboard.on('keydown', (e) => {
-      if (e.key === '`' || e.key === '~') {
+      if (e.key === '`' || e.key === '~' || e.key === '-') {
         e.preventDefault();
         this.toggle();
         return;
@@ -144,9 +144,12 @@ export class DevConsole {
         break;
 
       case 'kill':
+        if (scene.scene.key !== 'FightScene') {
+          this.print('Command only available in FightScene.');
+          break;
+        }
         scene.p2Fighter.hp = 0;
-        scene.combat.handleKO(scene.p1Fighter, scene.p2Fighter);
-        this.print('P2 KO.');
+        this.print('P2 HP set to 0. KO will trigger on next hit/tick.');
         break;
 
       case 'hp': {
@@ -210,6 +213,15 @@ export class DevConsole {
 
       case 'fps':
         this.print(`FPS: ${Math.round(scene.game.loop.actualFps)}`);
+        break;
+
+      case 'ff':
+        if (scene.scene.key === 'BracketScene') {
+          scene.executeFastForward();
+          this.print('Tournament fast-forwarded to final.');
+        } else {
+          this.print('Command only available in BracketScene.');
+        }
         break;
 
       case 'dev:tournament:join': {
