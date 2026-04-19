@@ -132,6 +132,14 @@ export class AccessorySelectScene extends Phaser.Scene {
     // peer accessories online (see `_back`).
     this.input.keyboard.on('keydown-ESC', () => this._back());
     this.input.keyboard.on('keydown-BACKSPACE', () => this._back());
+
+    // E2E autoplay: don't block at the picker — accept whatever's preselected
+    // (or auto-picked for bots) and move on once the fade-in finishes.
+    if (this.game.autoplay?.enabled) {
+      this.time.delayedCall(100, () => {
+        if (!this.transitioning && !this._shutdown) this._advance();
+      });
+    }
   }
 
   _back() {
