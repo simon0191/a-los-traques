@@ -225,7 +225,7 @@
 
         async function checkAndPerformHandshake() {
             const tid = lobbyState?.tourneyId || tourneyId;
-            if (!tid || !supabase) return;
+            if (!tid || !supabase) return false;
 
             // Reset if tournament ID changed
             if (currentHandshakeTid !== tid) {
@@ -233,11 +233,11 @@
                 handshakeSucceeded = false;
             }
 
-            if (handshakeSucceeded) return;
+            if (handshakeSucceeded) return true;
 
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
-            if (!token) return;
+            if (!token) return false;
 
             try {
                 const resp = await fetch('/api/tournament/join', {
@@ -252,12 +252,27 @@
                 if (resp.ok) {
                     handshakeSucceeded = true;
                     console.log(`Tournament handshake successful for ${tid}`);
+                    
+                    // If we were already joined, update the Host with our verified status
+                    const mySlot = lobbyState?.slots?.find(s => s?.id === (session.user.id));
+                    if (mySlot && !mySlot.handshake) {
+                        const name = session.user.user_metadata?.nickname || session.user.email.split('@')[0];
+                        window.lobbySocket.send(JSON.stringify({ 
+                            type: 'lobby_action', 
+                            action: 'JOIN_SLOT', 
+                            payload: { name, id: session.user.id, type: 'human', handshake: true } 
+                        }));
+                    }
+                    
+                    return true;
                 } else {
                     const errData = await resp.json();
                     console.warn(`Tournament handshake failed for ${tid}`, errData);
+                    return false;
                 }
             } catch (e) {
                 console.warn(`Handshake error for ${tid}`, e);
+                return false;
             }
         }
 
@@ -278,39 +293,24 @@
         async function join(name, id = null, type = 'guest') {
             if (!lobbyState) return showStatus("Error: Esperando al servidor...", true);
 
+            setLoading(true);
+            showStatus("Uniéndose...", false);
+
             // Phase 4: Persistence Handshake
-            // If user is authenticated and we have a tourneyId, register consent on backend
-            if (type === 'human' && id && tourneyId && supabase) {
+            let handshakeOk = false;
+            // Ensure handshake is complete before sending JOIN_SLOT if authenticated
+            if (type === 'human' && id && supabase) {
                 try {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    const token = session?.access_token;
-                    
-                    if (token) {
-                        const resp = await fetch('/api/tournament/join', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ tourneyId })
-                        });
-                        
-                        if (!resp.ok) {
-                            const errData = await resp.json();
-                            console.warn("Tournament handshake failed", errData);
-                        } else {
-                            console.log("Tournament handshake successful");
-                        }
-                    }
+                    handshakeOk = await checkAndPerformHandshake();
                 } catch (e) {
-                    console.warn("Handshake error", e);
+                    console.warn("Handshake failed, continuing as guest/unverified", e);
                 }
             }
 
             window.lobbySocket.send(JSON.stringify({ 
                 type: 'lobby_action', 
                 action: 'JOIN_SLOT', 
-                payload: { name, id, type } 
+                payload: { name, id, type, handshake: handshakeOk } 
             }));
             
             const container = document.getElementById('main-container');
