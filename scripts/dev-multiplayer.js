@@ -65,12 +65,12 @@ if (fs.existsSync(seedFile)) {
 // 5. Start remaining services
 console.log('\n[dev:mp] Starting services...\n');
 
-concurrently(
+const { result } = concurrently(
   [
     { command: 'node scripts/dev-auth.js', name: 'auth', prefixColor: 'magenta' },
-    { command: 'npx vite', name: 'vite', prefixColor: 'green' },
-    { command: 'npx vercel dev --yes', name: 'api', prefixColor: 'yellow' },
-    { command: 'npx partykit dev', name: 'party', prefixColor: 'cyan' },
+    { command: 'bunx vite', name: 'vite', prefixColor: 'green' },
+    { command: 'bunx vercel dev --yes', name: 'api', prefixColor: 'yellow' },
+    { command: 'bunx partykit dev', name: 'party', prefixColor: 'cyan' },
   ],
   {
     prefix: 'name',
@@ -78,3 +78,17 @@ concurrently(
     killOthers: ['failure'],
   },
 );
+
+result.catch((err) => {
+  if (Array.isArray(err)) {
+    console.error('\n[dev:mp] One or more services failed:');
+    for (const fail of err) {
+      if (fail.command) {
+        console.error(`  - ${fail.command.name} (exit code ${fail.exitCode})`);
+      }
+    }
+  } else {
+    console.error('\n[dev:mp] Unexpected error:', err);
+  }
+  process.exit(1);
+});
