@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
-import { completeTournament, reportTournamentMatch, updateStats } from '../services/api.js';
+import { reportTournamentMatch, updateStats } from '../services/api.js';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { Logger } from '../systems/Logger.js';
