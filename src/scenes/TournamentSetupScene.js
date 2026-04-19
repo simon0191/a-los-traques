@@ -230,7 +230,7 @@ export class TournamentSetupScene extends Phaser.Scene {
       if (slot) {
         const isVerified = slot.type === 'human' && slot.handshake;
         ui.nameText.setText(slot.name.toUpperCase()).setColor(isVerified ? '#44ff88' : '#ffffff');
-        
+
         if (isVerified) {
           ui.title.setText(`SLOT ${globalIdx + 1} 🏆`).setColor('#44ff88');
         } else {
