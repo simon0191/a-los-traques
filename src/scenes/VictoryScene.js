@@ -46,7 +46,7 @@ export class VictoryScene extends Phaser.Scene {
 
       // Track if the tournament is now complete
       this._tournamentComplete = manager.complete;
-      this._championId = manager.winnerId;
+      this._championUserId = manager.winnerUserId;
     }
 
     // Signal match completion for E2E test orchestration
@@ -344,16 +344,9 @@ export class VictoryScene extends Phaser.Scene {
             };
 
             // If tournament is finished, include crowning data in the same call
-            if (this._tournamentComplete && this._championId) {
-              const championUserId =
-                this._championId === this._currentMatch.p1
-                  ? this._currentMatch.p1UserId
-                  : this._currentMatch.p2UserId;
-
-              if (championUserId) {
-                payload.isFinal = true;
-                payload.championId = championUserId;
-              }
+            if (this._tournamentComplete && this._championUserId) {
+              payload.isFinal = true;
+              payload.championId = this._championUserId;
             }
 
             const resp = await reportTournamentMatch(payload);

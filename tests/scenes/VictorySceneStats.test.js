@@ -176,7 +176,45 @@ describe('VictoryScene Stats recording', () => {
         p2UserId: loserUser,
       };
       scene._tournamentComplete = true;
-      scene._championId = 'simon';
+      scene._championUserId = winnerUser;
+
+      await scene._saveResult();
+
+      expect(api.reportTournamentMatch).toHaveBeenCalledWith({
+        tourneyId: 'abcdef',
+        winnerId: winnerUser,
+        loserId: loserUser,
+        isFinal: true,
+        championId: winnerUser,
+      });
+    });
+
+    it('correctly attributes champion in a mirror-match tournament final', async () => {
+      const winnerUser = 'uuid-p2';
+      const loserUser = 'uuid-p1';
+
+      scene.init({
+        winnerId: 'simon', // Both picked simon
+        loserId: 'simon',
+        p1Id: 'simon',
+        p2Id: 'simon',
+        winnerIndex: 1, // P2 won
+        gameMode: 'local',
+        matchContext: {
+          type: 'tournament',
+          tournamentState: { tourneyId: 'abcdef' },
+        },
+      });
+
+      // Tournament state would have propagated p2UserId correctly after my refactor
+      scene._currentMatch = {
+        p1: 'simon',
+        p2: 'simon',
+        p1UserId: loserUser,
+        p2UserId: winnerUser,
+      };
+      scene._tournamentComplete = true;
+      scene._championUserId = winnerUser;
 
       await scene._saveResult();
 
