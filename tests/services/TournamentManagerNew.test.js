@@ -64,14 +64,16 @@ describe('TournamentManager - Bot Level Extensions', () => {
       expect(botFound).toBe(true);
 
       // Advance the bot manually
-      const botId = botSlot === 1 ? manager.rounds[0][matchIdx].p1 : manager.rounds[0][matchIdx].p2;
-      manager.setMatchWinner(0, matchIdx, botId);
+      const match = manager.rounds[0][matchIdx];
+      const botUserId = botSlot === 1 ? match.p1UserId : match.p2UserId;
+      manager.setMatchWinner(0, matchIdx, botUserId);
 
       // Check next round
       const nextMatchIdx = Math.floor(matchIdx / 2);
       const nextMatch = manager.rounds[1][nextMatchIdx];
 
-      const promotedLevel = nextMatch.p1 === botId ? nextMatch.p1Level : nextMatch.p2Level;
+      const promotedLevel =
+        nextMatch.p1UserId === botUserId ? nextMatch.p1Level : nextMatch.p2Level;
       expect(promotedLevel).toBe(5); // MUST be 5, not 3
     });
   });

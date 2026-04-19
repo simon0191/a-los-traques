@@ -80,7 +80,7 @@ describe('TournamentManager', () => {
       // Simulate other matches so player has an opponent in round 1
       manager.simulateRound(0);
 
-      const success = manager.advance('alv');
+      const success = manager.advance(manager.humanPlayerIds[0]);
       expect(success).toBe(true);
 
       const nextMatch = manager.getCurrentMatch();
@@ -111,7 +111,7 @@ describe('TournamentManager', () => {
       // Simulate until player wins the whole tournament
       while (!manager.complete) {
         manager.simulateAllRemaining();
-        manager.advance('alv');
+        manager.advance(manager.humanPlayerIds[0]);
       }
 
       expect(manager.complete).toBe(true);
@@ -142,7 +142,7 @@ describe('TournamentManager', () => {
       // 1. Continuous execution
       const m1 = TournamentManager.generate(fighters, size, player, seed);
       m1.simulateRound(0);
-      m1.advance(player);
+      m1.advance(m1.humanPlayerIds[0]);
       m1.simulateRound(1);
       const nextRand1 = m1.nextRand();
 
@@ -152,7 +152,7 @@ describe('TournamentManager', () => {
       const state = m2.serialize();
 
       const m3 = new TournamentManager(state);
-      m3.advance(player);
+      m3.advance(m3.humanPlayerIds[0]);
       m3.simulateRound(1);
       const nextRand2 = m3.nextRand();
 
@@ -224,11 +224,13 @@ describe('TournamentManager', () => {
 
       // Find alv's opponent and make alv lose
       const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
-      manager.advance(alvMatch.p2); // alv loses
+      const alvPlayerId = alvMatch.p1UserId;
+      const opponentPlayerId = alvMatch.p2UserId;
+      manager.advance(opponentPlayerId); // alv loses
 
-      expect(manager.eliminatedHumans).toContain('alv');
-      expect(manager.isHumanEliminated('alv')).toBe(true);
-      expect(manager.isHumanEliminated('simon')).toBe(false);
+      expect(manager.eliminatedPlayerIds).toContain(alvPlayerId);
+      expect(manager.isPlayerEliminated(alvPlayerId)).toBe(true);
+      expect(manager.isPlayerEliminated(manager.humanPlayerIds[1])).toBe(false);
     });
 
     it('getNextPlayableMatch() returns matches for non-eliminated humans only', () => {
@@ -239,17 +241,21 @@ describe('TournamentManager', () => {
       // Both humans have playable matches
       const first = manager.getNextPlayableMatch();
       expect(first).not.toBeNull();
-      const firstHuman = humans.includes(first.p1) ? first.p1 : first.p2;
+      const firstHumanId = manager.humanPlayerIds.includes(first.p1UserId)
+        ? first.p1UserId
+        : first.p2UserId;
 
       // Eliminate that human
-      const opponent = firstHuman === first.p1 ? first.p2 : first.p1;
-      manager.advance(opponent);
+      const opponentId = firstHumanId === first.p1UserId ? first.p2UserId : first.p1UserId;
+      manager.advance(opponentId);
 
       // Next match should be for the other human
       const second = manager.getNextPlayableMatch();
       expect(second).not.toBeNull();
-      const secondHuman = humans.includes(second.p1) ? second.p1 : second.p2;
-      expect(secondHuman).not.toBe(firstHuman);
+      const secondHumanId = manager.humanPlayerIds.includes(second.p1UserId)
+        ? second.p1UserId
+        : second.p2UserId;
+      expect(secondHumanId).not.toBe(firstHumanId);
     });
 
     it('isHumanVsHuman() detects when two humans meet', () => {
@@ -263,22 +269,17 @@ describe('TournamentManager', () => {
 
       // Simulate AI matches, advance both humans through all rounds
       manager.simulateRound(0);
-      manager.advance('alv');
-      manager.advance('simon');
+      manager.advance(manager.humanPlayerIds[0]);
+      manager.advance(manager.humanPlayerIds[1]);
       manager.simulateRound(1);
-      manager.advance('alv');
-      manager.advance('simon');
+      manager.advance(manager.humanPlayerIds[0]);
+      manager.advance(manager.humanPlayerIds[1]);
 
       // In the final, both should meet
       const finalMatch = manager.rounds[manager.rounds.length - 1][0];
       expect(finalMatch.p1).not.toBeNull();
       expect(finalMatch.p2).not.toBeNull();
-      // At least one must be human; if both made it to finals they should meet
-      if (finalMatch.p1 === 'alv' || finalMatch.p1 === 'simon') {
-        if (finalMatch.p2 === 'alv' || finalMatch.p2 === 'simon') {
-          expect(manager.isHumanVsHuman(finalMatch)).toBe(true);
-        }
-      }
+      expect(manager.isHumanVsHuman(finalMatch)).toBe(true);
     });
 
     it('allHumansEliminated() returns true when all humans lose', () => {
@@ -289,11 +290,11 @@ describe('TournamentManager', () => {
 
       // Eliminate both
       const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
-      manager.advance(alvMatch.p2);
+      manager.advance(alvMatch.p2UserId);
       expect(manager.allHumansEliminated()).toBe(false);
 
       const simonMatch = manager.rounds[0].find((m) => m.p1 === 'simon');
-      manager.advance(simonMatch.p2);
+      manager.advance(simonMatch.p2UserId);
       expect(manager.allHumansEliminated()).toBe(true);
     });
 
@@ -451,9 +452,9 @@ describe('TournamentManager', () => {
 
       // Eliminate both humans in round 1
       const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
-      manager.advance(alvMatch.p2);
+      manager.advance(alvMatch.p2UserId);
       const simonMatch = manager.rounds[0].find((m) => m.p1 === 'simon');
-      manager.advance(simonMatch.p2);
+      manager.advance(simonMatch.p2UserId);
 
       expect(manager.allHumansEliminated()).toBe(true);
 
@@ -479,9 +480,9 @@ describe('TournamentManager', () => {
 
       // Eliminate both
       const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
-      manager.advance(alvMatch.p2);
+      manager.advance(alvMatch.p2UserId);
       const simonMatch = manager.rounds[0].find((m) => m.p1 === 'simon');
-      manager.advance(simonMatch.p2);
+      manager.advance(simonMatch.p2UserId);
 
       expect(manager.getNextPlayableMatch()).toBeNull();
     });
@@ -489,8 +490,8 @@ describe('TournamentManager', () => {
     it('getNextPlayableMatch() returns null when tournament is complete', () => {
       const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
       manager.simulateRound(0);
-      manager.advance('alv');
-      manager.advance('alv');
+      manager.advance(manager.humanPlayerIds[0]);
+      manager.advance(manager.humanPlayerIds[0]);
 
       expect(manager.complete).toBe(true);
       expect(manager.getNextPlayableMatch()).toBeNull();
@@ -520,15 +521,15 @@ describe('TournamentManager', () => {
       manager.simulateRound(0);
 
       // Both humans win round 0
-      manager.advance('alv');
-      manager.advance('simon');
+      manager.advance(manager.humanPlayerIds[0]);
+      manager.advance(manager.humanPlayerIds[1]);
 
       // Simulate AI matches in round 1
       manager.simulateRound(1);
 
       // Both humans win round 1
-      manager.advance('alv');
-      manager.advance('simon');
+      manager.advance(manager.humanPlayerIds[0]);
+      manager.advance(manager.humanPlayerIds[1]);
 
       // They should meet in the final
       const finalMatch = manager.rounds[manager.rounds.length - 1][0];
@@ -547,11 +548,11 @@ describe('TournamentManager', () => {
       // Advance all humans through rounds until they start meeting
       for (let round = 0; round < 3; round++) {
         manager.simulateRound(round);
-        for (const human of humans) {
-          if (!manager.isHumanEliminated(human)) {
+        for (const humanId of manager.humanPlayerIds) {
+          if (!manager.isPlayerEliminated(humanId)) {
             const match = manager.getNextPlayableMatch();
-            if (match && (match.p1 === human || match.p2 === human)) {
-              manager.advance(human);
+            if (match && (match.p1UserId === humanId || match.p2UserId === humanId)) {
+              manager.advance(humanId);
             }
           }
         }
@@ -577,37 +578,40 @@ describe('TournamentManager', () => {
 
       // Eliminate alv
       const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
-      manager.advance(alvMatch.p2);
-      expect(manager.eliminatedHumans).toEqual(['alv']);
+      manager.advance(alvMatch.p2UserId);
+      expect(manager.eliminatedPlayerIds).toEqual([manager.humanPlayerIds[0]]);
 
       // Serialize and restore
       const state = manager.serialize();
       const restored = new TournamentManager(state);
 
-      expect(restored.eliminatedHumans).toEqual(['alv']);
-      expect(restored.isHumanEliminated('alv')).toBe(true);
-      expect(restored.isHumanEliminated('simon')).toBe(false);
-      expect(restored.isHumanEliminated('jeka')).toBe(false);
+      expect(restored.eliminatedPlayerIds).toEqual([restored.humanPlayerIds[0]]);
+      expect(restored.isPlayerEliminated(restored.humanPlayerIds[0])).toBe(true);
+      expect(restored.isPlayerEliminated(restored.humanPlayerIds[1])).toBe(false);
+      expect(restored.isPlayerEliminated(restored.humanPlayerIds[2])).toBe(false);
 
       // Eliminate simon through the restored instance
       const simonMatch = restored.rounds[0].find((m) => m.p1 === 'simon' || m.p2 === 'simon');
-      const simonOpponent = simonMatch.p1 === 'simon' ? simonMatch.p2 : simonMatch.p1;
+      const simonOpponent = simonMatch.p1 === 'simon' ? simonMatch.p2UserId : simonMatch.p1UserId;
       restored.advance(simonOpponent);
 
-      expect(restored.eliminatedHumans).toEqual(['alv', 'simon']);
+      expect(restored.eliminatedPlayerIds).toEqual([
+        restored.humanPlayerIds[0],
+        restored.humanPlayerIds[1],
+      ]);
 
       // Second round-trip
       const state2 = restored.serialize();
       const restored2 = new TournamentManager(state2);
-      expect(restored2.eliminatedHumans).toEqual(['alv', 'simon']);
+      expect(restored2.eliminatedHumans).toEqual(restored2.humanPlayerIds.slice(0, 2));
       expect(restored2.humanFighterIds).toEqual(humans);
     });
 
     it('serialization preserves complete and winnerId', () => {
       const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
       manager.simulateRound(0);
-      manager.advance('alv');
-      manager.advance('alv');
+      manager.advance(manager.humanPlayerIds[0]);
+      manager.advance(manager.humanPlayerIds[0]);
 
       expect(manager.complete).toBe(true);
 
@@ -623,12 +627,12 @@ describe('TournamentManager', () => {
 
       // advance() sets match.winner to whatever winnerId is passed
       // even if it's not p1 or p2 in the match
-      const result = manager.advance('nonexistent_fighter');
+      const result = manager.advance('nonexistent_user_id');
       expect(result).toBe(true);
 
       // The match got a winner assigned
       const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv' || m.p2 === 'alv');
-      expect(alvMatch.winner).toBe('nonexistent_fighter');
+      expect(alvMatch.winnerUserId).toBe('nonexistent_user_id');
     });
 
     it('simulateRound() on a round that does not exist returns false', () => {
@@ -646,8 +650,8 @@ describe('TournamentManager', () => {
     it('advance() returns false when tournament is already complete', () => {
       const manager = TournamentManager.generate(fighters, 4, 'alv', 123);
       manager.simulateRound(0);
-      manager.advance('alv');
-      manager.advance('alv');
+      manager.advance(manager.humanPlayerIds[0]);
+      manager.advance(manager.humanPlayerIds[0]);
       expect(manager.complete).toBe(true);
 
       // No more matches to advance
@@ -734,10 +738,10 @@ describe('TournamentManager', () => {
 
       // Round 0
       manager.simulateRound(0); // Simulates AI match
-      manager.advance('alv'); // Player wins
+      manager.advance(manager.humanPlayerIds[0]); // Player wins
 
       // Round 1 (Final)
-      manager.advance('alv');
+      manager.advance(manager.humanPlayerIds[0]);
 
       expect(manager.complete).toBe(true);
       expect(manager.winnerId).toBe('alv');
@@ -746,10 +750,10 @@ describe('TournamentManager', () => {
     it('fills out the entire bracket when player loses early', () => {
       const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
       const currentMatch = manager.getCurrentMatch();
-      const opponentId = currentMatch.p2;
+      const opponentUserId = currentMatch.p2UserId;
 
       // Player loses in Round 0
-      manager.advance(opponentId);
+      manager.advance(opponentUserId);
 
       // Now simulate everything else
       manager.simulateAllRemaining();
