@@ -49,6 +49,7 @@ const FIGHTERS_WITH_SPRITES = [
   'migue',
   'bozzi',
   'angy',
+  'adil',
 ];
 
 export class BootScene extends Phaser.Scene {

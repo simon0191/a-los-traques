@@ -36,7 +36,7 @@ bun run test:run     # Run tests once (CI)
 bun run lint         # Lint + format check (Biome)
 bun run lint:fix     # Auto-fix lint + format issues
 bun run format       # Format code only (Biome)
-bun run balance      # Run fighter balance simulation (full 16×16 matrix)
+bun run balance      # Run fighter balance simulation (full 17×17 matrix)
 bun run balance -- --fights=50           # Fewer fights per matchup (faster)
 bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 ```
@@ -53,7 +53,7 @@ src/
   simulation/      # Pure sim core (no Phaser): SimulationEngine, FighterSim, CombatSim
   systems/         # CombatSystem, InputManager, InputProfiles, TouchControls, AIController, AudioBridge, VFXBridge
     net/           # NetworkFacade, SignalingClient, TransportManager, InputSync, ConnectionMonitor, SpectatorRelay
-  data/            # fighters.json (16 fighters), stages.json (5 stages)
+  data/            # fighters.json (17 fighters), stages.json (5 stages)
   config.js        # Constants (dimensions, ground Y, fighter size 128x128)
 assets/
   references/      # Golden reference images for generation pipeline
@@ -212,7 +212,7 @@ Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered
 - **Scripts**: `scripts/balance-sim/` — adapter, match runner, report generator, CLI
 - **Key adapter**: `ai-input-adapter.js` reads `AIController.decision` and converts to encoded inputs for `tick()`
 - **Output**: `balance-report.json` (machine-readable) + `balance-report.md` (tier list, heatmap, outliers)
-- **Default**: 100 fights per matchup × 256 matchups = 25,600 fights, completes in ~20 seconds
+- **Default**: 100 fights per matchup × 289 matchups = 28,900 fights, completes in ~20 seconds
 
 ## Local Multiplayer (RFC 0015)
 
