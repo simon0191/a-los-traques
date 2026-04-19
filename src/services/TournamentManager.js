@@ -42,9 +42,15 @@ export class TournamentManager {
 
     // Backward compatibility for old saves using fighter IDs for logic
     if (data.eliminatedHumans && this.eliminatedPlayerIds.length === 0) {
+      console.warn(
+        'TournamentManager: Falling back to legacy eliminatedHumans. State may be inconsistent.',
+      );
       this.eliminatedPlayerIds = [...data.eliminatedHumans];
     }
     if (this.humanPlayerIds.length === 0 && this.humanFighterIds.length > 0) {
+      console.warn(
+        'TournamentManager: Falling back to legacy humanFighterIds for identity. State may be inconsistent.',
+      );
       this.humanPlayerIds = [...this.humanFighterIds];
     }
 
@@ -112,6 +118,14 @@ export class TournamentManager {
    */
   isHumanVsHuman(match) {
     return this._isHumanPlayer(match.p1UserId) && this._isHumanPlayer(match.p2UserId);
+  }
+
+  /**
+   * Internal helper to atomically assign a match winner by userId and sync fighterId.
+   */
+  _assignMatchWinner(match, winnerUserId) {
+    match.winnerUserId = winnerUserId;
+    match.winner = winnerUserId === match.p1UserId ? match.p1 : match.p2;
   }
 
   /**
@@ -391,8 +405,7 @@ export class TournamentManager {
           this._isHumanPlayer(match.p2UserId) && !this.isPlayerEliminated(match.p2UserId);
         if (!p1IsActiveHuman && !p2IsActiveHuman) {
           const winnerUserId = this.nextRand() > 0.5 ? match.p1UserId : match.p2UserId;
-          match.winnerUserId = winnerUserId;
-          match.winner = winnerUserId === match.p1UserId ? match.p1 : match.p2;
+          this._assignMatchWinner(match, winnerUserId);
           this._setWinnerInNextRound(roundIndex, m, winnerUserId);
           changed = true;
         }
@@ -441,8 +454,7 @@ export class TournamentManager {
           winnerUserId = this.nextRand() > 0.5 ? match.p1UserId : match.p2UserId;
         }
 
-        match.winnerUserId = winnerUserId;
-        match.winner = winnerUserId === match.p1UserId ? match.p1 : match.p2;
+        this._assignMatchWinner(match, winnerUserId);
         this._setWinnerInNextRound(r, m, winnerUserId);
       }
     }
@@ -458,8 +470,7 @@ export class TournamentManager {
     const match = this.rounds[roundIndex]?.[matchIndex];
     if (!match || match.winnerUserId) return false;
 
-    match.winnerUserId = winnerUserId;
-    match.winner = winnerUserId === match.p1UserId ? match.p1 : match.p2;
+    this._assignMatchWinner(match, winnerUserId);
 
     // Track human elimination if applicable
     const loserUserId = winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
@@ -487,8 +498,7 @@ export class TournamentManager {
         const p2IsActiveHuman =
           this._isHumanPlayer(match.p2UserId) && !this.isPlayerEliminated(match.p2UserId);
         if (p1IsActiveHuman || p2IsActiveHuman) {
-          match.winnerUserId = winnerUserId;
-          match.winner = winnerUserId === match.p1UserId ? match.p1 : match.p2;
+          this._assignMatchWinner(match, winnerUserId);
 
           // Track human elimination
           const loserUserId = winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
