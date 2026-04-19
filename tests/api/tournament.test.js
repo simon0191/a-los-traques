@@ -189,5 +189,42 @@ describe('Tournament API Endpoints', () => {
         defaultIds.tourneyId,
       ]);
     });
+
+    it('returns 400 when winnerId === loserId', async () => {
+      const req = {
+        method: 'POST',
+        body: { ...defaultIds, winnerId: validWinnerUuid, loserId: validWinnerUuid },
+      };
+      const res = createRes();
+
+      await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining('cannot be the same') }),
+      );
+    });
+
+    it('increments matches_played even if no profiles are updated (no handshakes)', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 0, size: 8 }] }) // host check
+        .mockResolvedValueOnce({ rows: [] }); // no handshakes
+
+      const req = { method: 'POST', body: defaultIds };
+      const res = createRes();
+
+      await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      // Verify session counter is still incremented
+      expect(mockDb.query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE active_sessions SET matches_played = matches_played + 1'),
+        [defaultIds.tourneyId],
+      );
+      // Verify profiles are NOT updated
+      expect(mockDb.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE profiles'),
+        expect.any(Array),
+      );
+    });
   });
 });

@@ -16,6 +16,10 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
     return res.status(400).json({ error: 'Missing required fields: tourneyId and at least one participant ID' });
   }
 
+  if (winnerId && loserId && winnerId === loserId) {
+    return res.status(400).json({ error: 'Winner and loser cannot be the same user' });
+  }
+
   try {
     const tid = tourneyId.toLowerCase();
 
