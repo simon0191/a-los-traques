@@ -10,6 +10,8 @@ CREATE TABLE active_sessions (
     size INTEGER DEFAULT 8
 );
 
+CREATE INDEX idx_active_sessions_created_at ON active_sessions (created_at);
+
 CREATE TABLE session_participants (
     session_id TEXT NOT NULL REFERENCES active_sessions(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,

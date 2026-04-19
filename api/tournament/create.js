@@ -32,6 +32,12 @@ export const createTournament = async (req, res, { userId, db }) => {
   }
 
   try {
+    // Phase 7: Cleanup orphan sessions from this host
+    await db.query(
+      "UPDATE active_sessions SET status = 'completed' WHERE host_user_id = $1 AND status = 'open'",
+      [userId]
+    );
+
     await db.query(
       `INSERT INTO active_sessions (id, host_user_id, status, size)
        VALUES ($1, $2, 'open', $3)`,
@@ -49,7 +55,8 @@ export const createTournament = async (req, res, { userId, db }) => {
     return res.status(201).json({ tourneyId });
   } catch (err) {
     console.error('Error creating tournament session:', err);
-    return res.status(500).json({ error: 'Database Error', message: err.message });
+    // Let the withAuth wrapper handle the 500 response securely (gating detail on NODE_ENV)
+    throw err;
   }
 };
 

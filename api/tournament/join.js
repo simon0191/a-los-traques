@@ -41,7 +41,7 @@ export const joinTournament = async (req, res, { userId, db }) => {
     return res.status(200).json({ status: 'joined', tourneyId: tourneyId.toLowerCase() });
   } catch (err) {
     console.error('Error joining tournament session:', err);
-    return res.status(500).json({ error: 'Database Error', message: err.message });
+    throw err;
   }
 };
 

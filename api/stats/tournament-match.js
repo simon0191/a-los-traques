@@ -115,7 +115,7 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
   } catch (err) {
     await db.query('ROLLBACK').catch(() => {});
     console.error('Error reporting tournament match result:', err);
-    return res.status(500).json({ error: 'Database Error', message: err.message });
+    throw err;
   }
 };
 
