@@ -26,6 +26,7 @@ Decoupled architecture: Supabase for Auth (JWT) + Vercel Functions for data pers
 bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + Vite + Vercel Dev + PartyKit)
                      # Log in as p1@test.local or p2@test.local (password: password)
                      # Windows: Auto-sets PG_FRESH_CLIENT=1 to avoid ECONNRESET.
+                     # RESET DB: rm -r -Force .pglite (PS) or rm -rf .pglite (Unix)
 bun run dev:all      # Run both Vite and Vercel Dev (recommended)
 bun run dev          # Vite dev server only
 bun run party:dev    # PartyKit dev server (port 1999)

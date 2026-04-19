@@ -215,6 +215,18 @@ export class ControllerScene extends Phaser.Scene {
   }
 
   _handleInput(_time, delta) {
+    const mainScene = this._getMainScene();
+
+    // Aggressively ignore all inputs if dev console is visible in the main scene
+    if (mainScene?.devConsole?.visible) {
+      // Clear previous states so we don't 'just down' as soon as it closes
+      this.prevButtons.cross = true;
+      this.prevButtons.circle = true;
+      this.prevButtons.options = true;
+      this.prevButtons.esc = true;
+      return;
+    }
+
     const pads = this.input.gamepad.gamepads;
     const cursors = this.cursors;
 

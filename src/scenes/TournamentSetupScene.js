@@ -20,9 +20,9 @@ export class TournamentSetupScene extends Phaser.Scene {
     super('TournamentSetupScene');
   }
 
-  create() {
+  async create() {
     this.lobby = new TournamentLobbyService();
-    this.lobby.initHost();
+    await this.lobby.initHost();
 
     this.devConsole = new DevConsole(this);
 
@@ -228,7 +228,15 @@ export class TournamentSetupScene extends Phaser.Scene {
       ui.removeBtn.off('pointerdown').on('pointerdown', () => this.lobby.removeSlot(globalIdx));
 
       if (slot) {
-        ui.nameText.setText(slot.name.toUpperCase()).setColor('#ffffff');
+        const isVerified = slot.type === 'human' && slot.handshake;
+        ui.nameText.setText(slot.name.toUpperCase()).setColor(isVerified ? '#44ff88' : '#ffffff');
+
+        if (isVerified) {
+          ui.title.setText(`SLOT ${globalIdx + 1} 🏆`).setColor('#44ff88');
+        } else {
+          ui.title.setText(`SLOT ${globalIdx + 1}`).setColor('#444466');
+        }
+
         ui.botBtn.setVisible(slot.type === 'bot').setText('[NIV]');
         ui.guestBtn.setVisible(false);
         ui.removeBtn.setVisible(globalIdx > 0);
@@ -264,6 +272,7 @@ export class TournamentSetupScene extends Phaser.Scene {
         tournamentState: {
           size,
           seed,
+          tourneyId: this.lobby.state.tourneyId,
         },
       },
     });

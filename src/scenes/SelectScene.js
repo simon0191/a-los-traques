@@ -825,7 +825,7 @@ export class SelectScene extends Phaser.Scene {
       this.confirmedText.setText('Generando torneo...');
       this.time.delayedCall(800, () => {
         const fighterIds = this.fighters.map((f) => f.id);
-        const { size, seed } = this.matchContext.tournamentState;
+        const { size, seed, tourneyId } = this.matchContext.tournamentState;
 
         // Generate the tournament with human selections AND lobby bots
         const tournamentManager = TournamentManager.generate(
@@ -834,6 +834,7 @@ export class SelectScene extends Phaser.Scene {
           this._humanSelections,
           seed,
           this.matchContext.lobbyPlayers,
+          tourneyId,
         );
 
         // Store lobby player data (like bot levels) in the match context

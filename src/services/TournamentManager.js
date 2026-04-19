@@ -20,10 +20,14 @@ function mulberry32(a) {
 export class TournamentManager {
   constructor(data) {
     this.id = data.id || `tournament-${Date.now()}`;
+    this.tourneyId = data.tourneyId || null;
     this.size = data.size || 8;
     this.seed = data.seed || Math.floor(Math.random() * 1000000);
 
-    // N-player support: humanFighterIds is the source of truth
+    // Human player identities (unique userIds)
+    this.humanPlayerIds = data.humanPlayerIds || [];
+
+    // N-player support: humanFighterIds is kept for UI legend purposes
     if (data.humanFighterIds) {
       this.humanFighterIds = [...data.humanFighterIds];
     } else if (data.playerFighterId) {
@@ -32,14 +36,30 @@ export class TournamentManager {
     } else {
       this.humanFighterIds = [];
     }
+
+    // Eliminated player identities (unique userIds)
+    this.eliminatedPlayerIds = data.eliminatedPlayerIds || [];
+
+    // Backward compatibility for old saves using fighter IDs for logic
+    if (data.eliminatedHumans && this.eliminatedPlayerIds.length === 0) {
+      console.warn(
+        'TournamentManager: Falling back to legacy eliminatedHumans. State may be inconsistent.',
+      );
+      this.eliminatedPlayerIds = [...data.eliminatedHumans];
+    }
+    if (this.humanPlayerIds.length === 0 && this.humanFighterIds.length > 0) {
+      console.warn(
+        'TournamentManager: Falling back to legacy humanFighterIds for identity. State may be inconsistent.',
+      );
+      this.humanPlayerIds = [...this.humanFighterIds];
+    }
+
     this.playerFighterId = this.humanFighterIds[0] || null;
-
-    this.eliminatedHumans = data.eliminatedHumans ? [...data.eliminatedHumans] : [];
-
     this.playerInitialIndex = data.playerInitialIndex !== undefined ? data.playerInitialIndex : -1;
     this.rounds = data.rounds || [];
     this.complete = data.complete || false;
     this.winnerId = data.winnerId || null;
+    this.winnerUserId = data.winnerUserId || null;
     this.prngCalls = data.prngCalls || 0;
 
     // Initialize PRNG and fast-forward to the saved state
@@ -59,23 +79,53 @@ export class TournamentManager {
 
   /**
    * Check if a fighter ID belongs to a human player.
+   * @deprecated Use _isHumanPlayer where possible.
    */
   _isHumanFighter(fighterId) {
     return this.humanFighterIds.includes(fighterId);
   }
 
   /**
-   * Check if a human fighter has been eliminated from the tournament.
+   * Check if a participant's userId belongs to a human player.
    */
-  isHumanEliminated(fighterId) {
-    return this.eliminatedHumans.includes(fighterId);
+  _isHumanPlayer(playerId) {
+    return this.humanPlayerIds.includes(playerId);
+  }
+
+  /**
+   * Check if a player has been eliminated from the tournament.
+   */
+  isPlayerEliminated(playerId) {
+    return this.eliminatedPlayerIds.includes(playerId);
+  }
+
+  /**
+   * Check if a human player has been eliminated (legacy alias).
+   */
+  isHumanEliminated(id) {
+    return this.isPlayerEliminated(id);
+  }
+
+  /**
+   * Alias for compatibility with old code/tests.
+   */
+  get eliminatedHumans() {
+    return this.eliminatedPlayerIds;
   }
 
   /**
    * Check if a match is human vs human.
    */
   isHumanVsHuman(match) {
-    return this._isHumanFighter(match.p1) && this._isHumanFighter(match.p2);
+    return this._isHumanPlayer(match.p1UserId) && this._isHumanPlayer(match.p2UserId);
+  }
+
+  /**
+   * Internal helper to atomically assign a match winner by userId and sync fighterId.
+   */
+  _assignMatchWinner(match, winnerUserId) {
+    match.winnerUserId = winnerUserId;
+    match.winner = winnerUserId === match.p1UserId ? match.p1 : match.p2;
   }
 
   /**
@@ -85,8 +135,16 @@ export class TournamentManager {
    * @param {string|string[]} humanFighterIds - Human player fighter ID(s)
    * @param {number} seed - PRNG seed
    * @param {object[]} [lobbyParticipants] - Optional specific bots/humans from lobby
+   * @param {string} [tourneyId] - Optional backend session ID
    */
-  static generate(fighterIds, size, humanFighterIds, seed, lobbyParticipants = []) {
+  static generate(
+    fighterIds,
+    size,
+    humanFighterIds,
+    seed,
+    lobbyParticipants = [],
+    tourneyId = null,
+  ) {
     // Normalize to array for backward compat
     const humans = typeof humanFighterIds === 'string' ? [humanFighterIds] : [...humanFighterIds];
 
@@ -109,11 +167,23 @@ export class TournamentManager {
     // Fill bracket: humans + enough AI to reach size
     const aiFighters = available.slice(0, size - humans.length);
     const tournamentFighters = new Array(size);
+    const humanPlayerIds = [];
 
     // 1. Place Humans at evenly-spaced positions
+    const lobbyHumans = lobbyParticipants.filter((p) => p.type === 'human' || p.type === 'guest');
+
     for (let h = 0; h < humans.length; h++) {
       const slot = Math.floor((h * size) / humans.length);
-      tournamentFighters[slot] = { id: humans[h], type: 'human' };
+      const fId = humans[h];
+      // Match by order of selection, which corresponds to lobbyHumans order
+      const lobbyP = lobbyHumans[h];
+      const pId = lobbyP?.id || `human-${h}`;
+      tournamentFighters[slot] = {
+        id: fId,
+        userId: pId,
+        type: 'human',
+      };
+      humanPlayerIds.push(pId);
     }
 
     // 2. Prepare specific bots from lobby
@@ -149,9 +219,14 @@ export class TournamentManager {
         const fId = aiFighters[aiIdx++];
         if (botsToPlace.length > 0) {
           const b = botsToPlace.shift();
-          tournamentFighters[i] = { id: fId, type: 'bot', level: b.level };
+          tournamentFighters[i] = {
+            id: fId,
+            type: 'bot',
+            level: b.level,
+            userId: b.id || `bot-${i}`,
+          };
         } else {
-          tournamentFighters[i] = { id: fId, type: 'bot', level: 3 };
+          tournamentFighters[i] = { id: fId, type: 'bot', level: 3, userId: `bot-${i}` };
         }
       }
     }
@@ -167,9 +242,12 @@ export class TournamentManager {
       round1.push({
         p1: p1Data.id,
         p2: p2Data.id,
+        p1UserId: p1Data.userId || null,
+        p2UserId: p2Data.userId || null,
         p1Level: p1Data.type === 'bot' ? p1Data.level : null,
         p2Level: p2Data.type === 'bot' ? p2Data.level : null,
         winner: null,
+        winnerUserId: null,
       });
     }
     rounds.push(round1);
@@ -178,24 +256,33 @@ export class TournamentManager {
       const matchesInRound = size / 2 ** (r + 1);
       const round = [];
       for (let m = 0; m < matchesInRound; m++) {
-        round.push({ p1: null, p2: null, winner: null });
+        round.push({
+          p1: null,
+          p2: null,
+          p1UserId: null,
+          p2UserId: null,
+          winner: null,
+          winnerUserId: null,
+        });
       }
       rounds.push(round);
     }
 
-    // Correctly find playerInitialIndex by matching the first human ID
+    // Correctly find playerInitialIndex by matching the first human player identity
     let playerInitialIndex = 0;
     for (let i = 0; i < tournamentFighters.length; i++) {
-      if (tournamentFighters[i] && tournamentFighters[i].id === humans[0]) {
+      if (tournamentFighters[i] && tournamentFighters[i].userId === humanPlayerIds[0]) {
         playerInitialIndex = i;
         break;
       }
     }
 
     return new TournamentManager({
+      tourneyId,
       size,
       seed,
       humanFighterIds: humans,
+      humanPlayerIds,
       playerInitialIndex,
       rounds,
       prngCalls: 0,
@@ -206,38 +293,40 @@ export class TournamentManager {
    * Checks if a specific match in a round is on any human's path.
    */
   _isHumanPath(roundIndex, matchIndex) {
-    for (const humanId of this.humanFighterIds) {
-      if (this.isHumanEliminated(humanId)) continue;
-      const humanInitialIdx = this._getHumanInitialIndex(humanId);
-      if (humanInitialIdx === -1) continue;
-      const humanMatchIndex = Math.floor(humanInitialIdx / 2 ** (roundIndex + 1));
-      if (matchIndex === humanMatchIndex) return true;
+    for (const playerId of this.humanPlayerIds) {
+      if (this.isPlayerEliminated(playerId)) continue;
+      const initialIdx = this._getPlayerInitialIndex(playerId);
+      if (initialIdx === -1) continue;
+      const pathMatchIndex = Math.floor(initialIdx / 2 ** (roundIndex + 1));
+      if (matchIndex === pathMatchIndex) return true;
     }
     return false;
   }
 
   /**
-   * Get the initial bracket index for a human fighter.
+   * Get the initial bracket index for a human player.
    */
-  _getHumanInitialIndex(humanId) {
-    if (humanId === this.humanFighterIds[0]) return this.playerInitialIndex;
-    // For other humans, scan the first round
+  _getPlayerInitialIndex(playerId) {
+    // Check the first round for this playerId
     for (let m = 0; m < this.rounds[0].length; m++) {
       const match = this.rounds[0][m];
-      if (match.p1 === humanId) return m * 2;
-      if (match.p2 === humanId) return m * 2 + 1;
+      if (match.p1UserId === playerId) return m * 2;
+      if (match.p2UserId === playerId) return m * 2 + 1;
     }
     return -1;
   }
 
   /**
-   * Helper to set the winner in the next round with correct slotting.
+   * Set the winner in the next round's match slot.
    */
-  _setWinnerInNextRound(currentRoundIdx, currentMatchIdx, winnerId) {
+  _setWinnerInNextRound(currentRoundIdx, currentMatchIdx, winnerUserId) {
     const nextRoundIdx = currentRoundIdx + 1;
     if (nextRoundIdx >= this.rounds.length) {
       this.complete = true;
-      this.winnerId = winnerId;
+      this.winnerUserId = winnerUserId;
+      // Also set fighter ID for UI compatibility
+      const currentMatch = this.rounds[currentRoundIdx][currentMatchIdx];
+      this.winnerId = currentMatch.p1UserId === winnerUserId ? currentMatch.p1 : currentMatch.p2;
       return;
     }
 
@@ -245,48 +334,57 @@ export class TournamentManager {
     const nextMatch = this.rounds[nextRoundIdx][nextMatchIdx];
     const isP1Slot = currentMatchIdx % 2 === 0;
 
-    // Preserve winner level if it's a bot
+    // Preserve winner details
     const currentMatch = this.rounds[currentRoundIdx][currentMatchIdx];
-    const winnerLevel = winnerId === currentMatch.p1 ? currentMatch.p1Level : currentMatch.p2Level;
+    const isP1Winner = currentMatch.p1UserId === winnerUserId;
+    const winnerFighterId = isP1Winner ? currentMatch.p1 : currentMatch.p2;
+    const winnerLevel = isP1Winner ? currentMatch.p1Level : currentMatch.p2Level;
 
     // Human players always take P1 slot in their next match
-    if (this._isHumanFighter(winnerId) && this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
+    if (this._isHumanPlayer(winnerUserId) && this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
       // Check if the other slot already has a human (human-vs-human upcoming)
       const otherSlotHasHuman =
-        (isP1Slot && this._isHumanFighter(nextMatch.p2)) ||
-        (!isP1Slot && this._isHumanFighter(nextMatch.p1));
+        (isP1Slot && this._isHumanPlayer(nextMatch.p2UserId)) ||
+        (!isP1Slot && this._isHumanPlayer(nextMatch.p1UserId));
 
       if (otherSlotHasHuman) {
         // Both are human — use natural slotting to avoid overwriting
         if (isP1Slot) {
-          nextMatch.p1 = winnerId;
+          nextMatch.p1 = winnerFighterId;
+          nextMatch.p1UserId = winnerUserId;
           nextMatch.p1Level = winnerLevel;
         } else {
-          nextMatch.p2 = winnerId;
+          nextMatch.p2 = winnerFighterId;
+          nextMatch.p2UserId = winnerUserId;
           nextMatch.p2Level = winnerLevel;
         }
       } else {
         // Human gets P1 slot
-        nextMatch.p1 = winnerId;
+        nextMatch.p1 = winnerFighterId;
+        nextMatch.p1UserId = winnerUserId;
         nextMatch.p1Level = winnerLevel;
       }
     } else if (this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
       // AI winner advancing into a path where a human might appear
       const isFromHumanSide = this._isHumanPath(currentRoundIdx, currentMatchIdx);
       if (isFromHumanSide) {
-        nextMatch.p1 = winnerId;
+        nextMatch.p1 = winnerFighterId;
+        nextMatch.p1UserId = winnerUserId;
         nextMatch.p1Level = winnerLevel;
       } else {
-        nextMatch.p2 = winnerId;
+        nextMatch.p2 = winnerFighterId;
+        nextMatch.p2UserId = winnerUserId;
         nextMatch.p2Level = winnerLevel;
       }
     } else {
       // Pure AI branch: natural slotting
       if (isP1Slot) {
-        nextMatch.p1 = winnerId;
+        nextMatch.p1 = winnerFighterId;
+        nextMatch.p1UserId = winnerUserId;
         nextMatch.p1Level = winnerLevel;
       } else {
-        nextMatch.p2 = winnerId;
+        nextMatch.p2 = winnerFighterId;
+        nextMatch.p2UserId = winnerUserId;
         nextMatch.p2Level = winnerLevel;
       }
     }
@@ -299,13 +397,16 @@ export class TournamentManager {
 
     for (let m = 0; m < round.length; m++) {
       const match = round[m];
-      if (match.p1 && match.p2 && !match.winner) {
-        // Only simulate if neither fighter is a non-eliminated human
-        const p1IsActiveHuman = this._isHumanFighter(match.p1) && !this.isHumanEliminated(match.p1);
-        const p2IsActiveHuman = this._isHumanFighter(match.p2) && !this.isHumanEliminated(match.p2);
+      if (match.p1 && match.p2 && !match.winnerUserId) {
+        // Only simulate if neither player is a non-eliminated human
+        const p1IsActiveHuman =
+          this._isHumanPlayer(match.p1UserId) && !this.isPlayerEliminated(match.p1UserId);
+        const p2IsActiveHuman =
+          this._isHumanPlayer(match.p2UserId) && !this.isPlayerEliminated(match.p2UserId);
         if (!p1IsActiveHuman && !p2IsActiveHuman) {
-          match.winner = this.nextRand() > 0.5 ? match.p1 : match.p2;
-          this._setWinnerInNextRound(roundIndex, m, match.winner);
+          const winnerUserId = this.nextRand() > 0.5 ? match.p1UserId : match.p2UserId;
+          this._assignMatchWinner(match, winnerUserId);
+          this._setWinnerInNextRound(roundIndex, m, winnerUserId);
           changed = true;
         }
       }
@@ -327,48 +428,84 @@ export class TournamentManager {
     return this.simulateAllRemaining();
   }
 
+  fastForwardToFinal() {
+    // Iterate through all rounds except the final round
+    for (let r = 0; r < this.rounds.length - 1; r++) {
+      const round = this.rounds[r];
+      for (let m = 0; m < round.length; m++) {
+        const match = round[m];
+        if (match.winnerUserId) continue;
+
+        // If participants are missing (should not happen in round order),
+        // we skip to avoid errors, but they should be filled by previous round iterations.
+        if (!match.p1UserId || !match.p2UserId) continue;
+
+        const p1IsHuman = this._isHumanPlayer(match.p1UserId);
+        const p2IsHuman = this._isHumanPlayer(match.p2UserId);
+
+        let winnerUserId;
+        // Priority: Human always beats Bot. If both human, P1 beats P2.
+        if (p1IsHuman) {
+          winnerUserId = match.p1UserId;
+        } else if (p2IsHuman) {
+          winnerUserId = match.p2UserId;
+        } else {
+          // Bot vs Bot: Random
+          winnerUserId = this.nextRand() > 0.5 ? match.p1UserId : match.p2UserId;
+        }
+
+        this._assignMatchWinner(match, winnerUserId);
+        this._setWinnerInNextRound(r, m, winnerUserId);
+      }
+    }
+  }
+
   /**
    * Record the result of any match manually (used for AI simulation and testing).
    * @param {number} roundIndex
    * @param {number} matchIndex
-   * @param {string} winnerId
+   * @param {string} winnerUserId
    */
-  setMatchWinner(roundIndex, matchIndex, winnerId) {
+  setMatchWinner(roundIndex, matchIndex, winnerUserId) {
     const match = this.rounds[roundIndex]?.[matchIndex];
-    if (!match || match.winner) return false;
+    if (!match || match.winnerUserId) return false;
 
-    match.winner = winnerId;
+    this._assignMatchWinner(match, winnerUserId);
 
     // Track human elimination if applicable
-    const loserId = winnerId === match.p1 ? match.p2 : match.p1;
-    if (this._isHumanFighter(loserId)) {
-      this.eliminatedHumans.push(loserId);
+    const loserUserId = winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
+    if (this._isHumanPlayer(loserUserId)) {
+      this.eliminatedPlayerIds.push(loserUserId);
     }
 
-    this._setWinnerInNextRound(roundIndex, matchIndex, winnerId);
+    this._setWinnerInNextRound(roundIndex, matchIndex, winnerUserId);
     return true;
   }
 
   /**
    * Record the result of a played match.
    * Finds the first unfinished match involving a non-eliminated human.
+   * @param {string} winnerUserId
    */
-  advance(winnerId) {
+  advance(winnerUserId) {
     for (let r = 0; r < this.rounds.length; r++) {
       const round = this.rounds[r];
       for (let m = 0; m < round.length; m++) {
         const match = round[m];
-        if (match.winner) continue;
-        const p1IsActiveHuman = this._isHumanFighter(match.p1) && !this.isHumanEliminated(match.p1);
-        const p2IsActiveHuman = this._isHumanFighter(match.p2) && !this.isHumanEliminated(match.p2);
+        if (match.winnerUserId) continue;
+        const p1IsActiveHuman =
+          this._isHumanPlayer(match.p1UserId) && !this.isPlayerEliminated(match.p1UserId);
+        const p2IsActiveHuman =
+          this._isHumanPlayer(match.p2UserId) && !this.isPlayerEliminated(match.p2UserId);
         if (p1IsActiveHuman || p2IsActiveHuman) {
-          match.winner = winnerId;
+          this._assignMatchWinner(match, winnerUserId);
+
           // Track human elimination
-          const loserId = winnerId === match.p1 ? match.p2 : match.p1;
-          if (this._isHumanFighter(loserId)) {
-            this.eliminatedHumans.push(loserId);
+          const loserUserId = winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
+          if (this._isHumanPlayer(loserUserId)) {
+            this.eliminatedPlayerIds.push(loserUserId);
           }
-          this._setWinnerInNextRound(r, m, winnerId);
+          this._setWinnerInNextRound(r, m, winnerUserId);
           return true;
         }
       }
@@ -386,10 +523,12 @@ export class TournamentManager {
       const round = this.rounds[r];
       for (let m = 0; m < round.length; m++) {
         const match = round[m];
-        if (match.winner) continue;
-        if (!match.p1 || !match.p2) continue;
-        const p1IsActiveHuman = this._isHumanFighter(match.p1) && !this.isHumanEliminated(match.p1);
-        const p2IsActiveHuman = this._isHumanFighter(match.p2) && !this.isHumanEliminated(match.p2);
+        if (match.winnerUserId) continue;
+        if (!match.p1UserId || !match.p2UserId) continue;
+        const p1IsActiveHuman =
+          this._isHumanPlayer(match.p1UserId) && !this.isPlayerEliminated(match.p1UserId);
+        const p2IsActiveHuman =
+          this._isHumanPlayer(match.p2UserId) && !this.isPlayerEliminated(match.p2UserId);
         if (p1IsActiveHuman || p2IsActiveHuman) {
           return { roundIndex: r, matchIndex: m, ...match };
         }
@@ -409,21 +548,24 @@ export class TournamentManager {
    * Check if all human players have been eliminated.
    */
   allHumansEliminated() {
-    return this.humanFighterIds.every((id) => this.eliminatedHumans.includes(id));
+    return this.humanPlayerIds.every((id) => this.eliminatedPlayerIds.includes(id));
   }
 
   serialize() {
     return {
       id: this.id,
+      tourneyId: this.tourneyId,
       size: this.size,
       seed: this.seed,
       humanFighterIds: this.humanFighterIds,
-      eliminatedHumans: this.eliminatedHumans,
+      humanPlayerIds: this.humanPlayerIds,
+      eliminatedPlayerIds: this.eliminatedPlayerIds,
       playerFighterId: this.playerFighterId,
       playerInitialIndex: this.playerInitialIndex,
       rounds: this.rounds,
       complete: this.complete,
       winnerId: this.winnerId,
+      winnerUserId: this.winnerUserId,
       prngCalls: this.prngCalls,
     };
   }

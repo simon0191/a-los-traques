@@ -4,6 +4,7 @@ import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
+import { DevConsole } from '../systems/DevConsole.js';
 
 const HUMAN_COLORS = [
   '#ff3333',
@@ -31,6 +32,7 @@ export class BracketScene extends Phaser.Scene {
   }
 
   create() {
+    this.devConsole = new DevConsole(this);
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0a0a1e);
 
     this.add
@@ -250,6 +252,12 @@ export class BracketScene extends Phaser.Scene {
     if (match.winner) {
       this.add.text(x + 25, y, '✔', { fontSize: '10px', color: '#00ff00' }).setOrigin(0.5);
     }
+  }
+
+  executeFastForward() {
+    this.manager.fastForwardToFinal();
+    this.matchContext.tournamentState = this.manager.serialize();
+    this.scene.restart();
   }
 
   goToMatch(matchData) {

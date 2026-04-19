@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
-import { updateStats } from '../services/api.js';
+import { reportTournamentMatch, updateStats } from '../services/api.js';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { Logger } from '../systems/Logger.js';
@@ -29,8 +29,24 @@ export class VictoryScene extends Phaser.Scene {
     // If tournament mode, update the match winner via TournamentManager
     if (this.matchContext?.type === 'tournament' && this.matchContext.tournamentState) {
       const manager = new TournamentManager(this.matchContext.tournamentState);
-      manager.advance(this.winnerId);
+
+      // Phase 5: Capture match context before advancing
+      this._currentMatch = manager.getNextPlayableMatch();
+
+      if (this._currentMatch) {
+        const winnerIsP1 = this.winnerIndex === 0;
+        const winnerUserId = winnerIsP1 ? this._currentMatch.p1UserId : this._currentMatch.p2UserId;
+        manager.advance(winnerUserId);
+      } else {
+        // Fallback for safety
+        manager.advance(this.winnerId);
+      }
+
       this.matchContext.tournamentState = manager.serialize();
+
+      // Track if the tournament is now complete
+      this._tournamentComplete = manager.complete;
+      this._championUserId = manager.winnerUserId;
     }
 
     // Signal match completion for E2E test orchestration
@@ -307,11 +323,69 @@ export class VictoryScene extends Phaser.Scene {
     const user = this.game.registry.get('user');
     if (!user) return;
 
+    // Phase 5: Tournament Match Reporting
+    if (this.matchContext?.type === 'tournament' && this.matchContext.tournamentState) {
+      const tourneyId = this.matchContext.tournamentState.tourneyId;
+      if (tourneyId && this._currentMatch) {
+        // Use winnerIndex to determine which slot won (0 for p1, 1 for p2)
+        // This is robust against mirror matches where fighterIds are identical.
+        const winnerIsP1 = this.winnerIndex === 0;
+
+        const winnerUserId = winnerIsP1 ? this._currentMatch.p1UserId : this._currentMatch.p2UserId;
+        const loserUserId = winnerIsP1 ? this._currentMatch.p2UserId : this._currentMatch.p1UserId;
+
+        try {
+          if (winnerUserId || loserUserId) {
+            // Combined Match Report + Crowning (Atomic)
+            const payload = {
+              tourneyId,
+              winnerId: winnerUserId,
+              loserId: loserUserId,
+            };
+
+            // If tournament is finished, include crowning data in the same call
+            if (this._tournamentComplete && this._championUserId) {
+              payload.isFinal = true;
+              payload.championId = this._championUserId;
+            }
+
+            const resp = await reportTournamentMatch(payload);
+            log.info('Tournament result recorded', resp);
+          }
+          this._showResultFeedback('RESULTADO REGISTRADO', '#44cc88');
+          return; // Success: Tournament result saved, skip fallback
+        } catch (e) {
+          log.warn('Tournament match reporting failed, falling back to personal stats', {
+            err: e.message,
+          });
+          // Fall through to updateStats(didWin) for the local Host
+        }
+      }
+      // If we are here, either tourneyId was null or reporting failed.
+      // We fall through to record the Host's personal stat if they participated.
+    }
+
     // Determine if local player won or lost
     let isP1 = true;
+    let participated = true;
+
     if (this.gameMode === 'online' && this.networkManager) {
       isP1 = this.networkManager.playerSlot === 0;
+    } else if (this.matchContext?.type === 'tournament' && this._currentMatch) {
+      // In tournament mode, the Host might be P1 or P2.
+      // We only record stats if the Host (user.id) was one of the fighters.
+      const hostIsP1 = this._currentMatch.p1UserId === user.id;
+      const hostIsP2 = this._currentMatch.p2UserId === user.id;
+      if (hostIsP1) {
+        isP1 = true;
+      } else if (hostIsP2) {
+        isP1 = false;
+      } else {
+        participated = false;
+      }
     }
+
+    if (!participated) return;
 
     let didWin = false;
     // In a mirror match, p1Id and p2Id are identical. Checking winnerId === localPlayerId fails.
@@ -327,27 +401,13 @@ export class VictoryScene extends Phaser.Scene {
 
     try {
       await updateStats(didWin);
-
-      const feedback = this.add
-        .text(GAME_WIDTH / 2, 45, didWin ? '+1 VICTORIA' : '+1 DERROTA', {
-          fontFamily: 'Arial',
-          fontSize: '9px',
-          color: didWin ? '#44cc88' : '#ff4444',
-        })
-        .setOrigin(0.5)
-        .setAlpha(0);
-
-      this.tweens.add({
-        targets: feedback,
-        y: 35,
-        alpha: 1,
-        duration: 500,
-        yoyo: true,
-        hold: 2000,
-        onComplete: () => feedback.destroy(),
-      });
+      this._showResultFeedback(
+        didWin ? '+1 VICTORIA' : '+1 DERROTA',
+        didWin ? '#44cc88' : '#ff4444',
+      );
     } catch (e) {
       log.warn('Stats update failed', { err: e.message });
+      this._showResultFeedback('ERROR DE CONEXIÓN', '#ff4444');
     }
   }
 
@@ -372,6 +432,27 @@ export class VictoryScene extends Phaser.Scene {
         networkManager: this.networkManager,
         matchContext: this.matchContext,
       });
+    });
+  }
+
+  _showResultFeedback(text, color) {
+    const feedback = this.add
+      .text(GAME_WIDTH / 2, 45, text, {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: color,
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: feedback,
+      y: 35,
+      alpha: 1,
+      duration: 500,
+      yoyo: true,
+      hold: 2000,
+      onComplete: () => feedback.destroy(),
     });
   }
 }

@@ -7,7 +7,7 @@ import { withAuth } from './_lib/handler.js';
 export default withAuth(async (req, res, { userId, db }) => {
   if (req.method === 'GET') {
     const result = await db.query(
-      'SELECT nickname, wins, losses FROM profiles WHERE id = $1',
+      'SELECT id, nickname, wins, losses, tournament_wins FROM profiles WHERE id = $1',
       [userId]
     );
     

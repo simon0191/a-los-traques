@@ -147,10 +147,15 @@
         const urlParams = new URLSearchParams(window.location.search);
         let roomId = urlParams.get('room');
         if (roomId) roomId = roomId.toLowerCase();
+        const tourneyId = urlParams.get('tourney');
 
         let supabase = null;
         let lobbyState = null;
         const statusEl = document.getElementById('status-display');
+        
+        // Handshake state
+        let currentHandshakeTid = null;
+        let handshakeSucceeded = false;
 
         // 1. Fetch Public Config & Initialize
         async function init() {
@@ -173,6 +178,8 @@
                         const user = data.session.user;
                         const name = user.user_metadata?.nickname || user.email.split('@')[0];
                         showAutoJoinUI(name, user.id);
+                        // Trigger handshake check after login
+                        checkAndPerformHandshake();
                     }
                 } else {
                     hideAuthTabs();
@@ -208,11 +215,64 @@
                 const data = JSON.parse(e.data);
                 if (data.type === 'lobby_update' || data.type === 'init_tournament') {
                     lobbyState = data.lobbyState;
+                    checkAndPerformHandshake();
                 }
             };
 
             // Expose socket for join function
             window.lobbySocket = socket;
+        }
+
+        async function checkAndPerformHandshake() {
+            const tid = lobbyState?.tourneyId || tourneyId;
+            if (!tid || !supabase) return false;
+
+            // Reset if tournament ID changed
+            if (currentHandshakeTid !== tid) {
+                currentHandshakeTid = tid;
+                handshakeSucceeded = false;
+            }
+
+            if (handshakeSucceeded) return true;
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+            if (!token) return false;
+
+            try {
+                const resp = await fetch('/api/tournament/join', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ tourneyId: tid })
+                });
+                
+                if (resp.ok) {
+                    handshakeSucceeded = true;
+                    console.log(`Tournament handshake successful for ${tid}`);
+                    
+                    // If we were already joined, update the Host with our verified status
+                    const mySlot = lobbyState?.slots?.find(s => s?.id === (session.user.id));
+                    if (mySlot && !mySlot.handshake) {
+                        window.lobbySocket.send(JSON.stringify({ 
+                            type: 'lobby_action', 
+                            action: 'VERIFY_HANDSHAKE', 
+                            payload: { id: session.user.id } 
+                        }));
+                    }
+                    
+                    return true;
+                } else {
+                    const errData = await resp.json();
+                    console.warn(`Tournament handshake failed for ${tid}`, errData);
+                    return false;
+                }
+            } catch (e) {
+                console.warn(`Handshake error for ${tid}`, e);
+                return false;
+            }
         }
 
         init();
@@ -231,10 +291,25 @@
         // ACTIONS
         async function join(name, id = null, type = 'guest') {
             if (!lobbyState) return showStatus("Error: Esperando al servidor...", true);
+
+            setLoading(true);
+            showStatus("Uniéndose...", false);
+
+            // Phase 4: Persistence Handshake
+            let handshakeOk = false;
+            // Ensure handshake is complete before sending JOIN_SLOT if authenticated
+            if (type === 'human' && id && supabase) {
+                try {
+                    handshakeOk = await checkAndPerformHandshake();
+                } catch (e) {
+                    console.warn("Handshake failed, continuing as guest/unverified", e);
+                }
+            }
+
             window.lobbySocket.send(JSON.stringify({ 
                 type: 'lobby_action', 
                 action: 'JOIN_SLOT', 
-                payload: { name, id, type } 
+                payload: { name, id, type, handshake: handshakeOk } 
             }));
             
             const container = document.getElementById('main-container');
