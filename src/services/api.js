@@ -159,7 +159,13 @@ export async function joinTournament(tourneyId) {
  * Report a tournament match result (Host only).
  * If isFinal is true, the championId must be provided to atomicly crown and lock the session.
  */
-export async function reportTournamentMatch({ tourneyId, winnerId, loserId, isFinal = false, championId = null }) {
+export async function reportTournamentMatch({
+  tourneyId,
+  winnerId,
+  loserId,
+  isFinal = false,
+  championId = null,
+}) {
   return apiFetch('/stats/tournament-match', {
     method: 'POST',
     body: JSON.stringify({ tourneyId, winnerId, loserId, isFinal, championId }),
