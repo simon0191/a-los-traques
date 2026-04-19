@@ -253,9 +253,9 @@ export class TournamentManager {
   }
 
   /**
-   * Helper to set the winner in the next round with correct slotting.
+   * Set the winner in the next round's match slot.
    */
-  _setWinnerInNextRound(currentRoundIdx, currentMatchIdx, winnerId) {
+  _setWinnerInNextRound(currentRoundIdx, currentMatchIdx, winnerId, winnerIndex = null) {
     const nextRoundIdx = currentRoundIdx + 1;
     if (nextRoundIdx >= this.rounds.length) {
       this.complete = true;
@@ -269,9 +269,19 @@ export class TournamentManager {
 
     // Preserve winner level and userId
     const currentMatch = this.rounds[currentRoundIdx][currentMatchIdx];
-    const winnerLevel = winnerId === currentMatch.p1 ? currentMatch.p1Level : currentMatch.p2Level;
-    const winnerUserId =
-      winnerId === currentMatch.p1 ? currentMatch.p1UserId : currentMatch.p2UserId;
+
+    // Mirror match fix: Use winnerIndex if provided to correctly attribute userId/level
+    let winnerLevel = null;
+    let winnerUserId = null;
+
+    if (winnerIndex !== null && winnerIndex !== undefined) {
+      winnerLevel = winnerIndex === 0 ? currentMatch.p1Level : currentMatch.p2Level;
+      winnerUserId = winnerIndex === 0 ? currentMatch.p1UserId : currentMatch.p2UserId;
+    } else {
+      // Fallback for AI simulations/older calls
+      winnerLevel = winnerId === currentMatch.p1 ? currentMatch.p1Level : currentMatch.p2Level;
+      winnerUserId = winnerId === currentMatch.p1 ? currentMatch.p1UserId : currentMatch.p2UserId;
+    }
 
     // Human players always take P1 slot in their next match
     if (this._isHumanFighter(winnerId) && this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
@@ -335,8 +345,10 @@ export class TournamentManager {
         const p1IsActiveHuman = this._isHumanFighter(match.p1) && !this.isHumanEliminated(match.p1);
         const p2IsActiveHuman = this._isHumanFighter(match.p2) && !this.isHumanEliminated(match.p2);
         if (!p1IsActiveHuman && !p2IsActiveHuman) {
-          match.winner = this.nextRand() > 0.5 ? match.p1 : match.p2;
-          this._setWinnerInNextRound(roundIndex, m, match.winner);
+          const winnerIndex = this.nextRand() > 0.5 ? 0 : 1;
+          const winnerId = winnerIndex === 0 ? match.p1 : match.p2;
+          match.winner = winnerId;
+          this._setWinnerInNextRound(roundIndex, m, winnerId, winnerIndex);
           changed = true;
         }
       }
@@ -373,19 +385,20 @@ export class TournamentManager {
         const p1IsHuman = this._isHumanFighter(match.p1);
         const p2IsHuman = this._isHumanFighter(match.p2);
 
-        let winnerId;
+        let winnerIndex;
         // Priority: Human always beats Bot. If both human, P1 beats P2.
         if (p1IsHuman) {
-          winnerId = match.p1;
+          winnerIndex = 0;
         } else if (p2IsHuman) {
-          winnerId = match.p2;
+          winnerIndex = 1;
         } else {
           // Bot vs Bot: Random
-          winnerId = this.nextRand() > 0.5 ? match.p1 : match.p2;
+          winnerIndex = this.nextRand() > 0.5 ? 0 : 1;
         }
 
+        const winnerId = winnerIndex === 0 ? match.p1 : match.p2;
         match.winner = winnerId;
-        this._setWinnerInNextRound(r, m, winnerId);
+        this._setWinnerInNextRound(r, m, winnerId, winnerIndex);
       }
     }
   }
@@ -395,28 +408,38 @@ export class TournamentManager {
    * @param {number} roundIndex
    * @param {number} matchIndex
    * @param {string} winnerId
+   * @param {number} [winnerIndex] - Optional slot index of the winner (0 or 1)
    */
-  setMatchWinner(roundIndex, matchIndex, winnerId) {
+  setMatchWinner(roundIndex, matchIndex, winnerId, winnerIndex = null) {
     const match = this.rounds[roundIndex]?.[matchIndex];
     if (!match || match.winner) return false;
 
     match.winner = winnerId;
 
     // Track human elimination if applicable
-    const loserId = winnerId === match.p1 ? match.p2 : match.p1;
+    // Mirror match fix: Use winnerIndex if provided to correctly identify loser
+    let loserId;
+    if (winnerIndex !== null && winnerIndex !== undefined) {
+      loserId = winnerIndex === 0 ? match.p2 : match.p1;
+    } else {
+      loserId = winnerId === match.p1 ? match.p2 : match.p1;
+    }
+
     if (this._isHumanFighter(loserId)) {
       this.eliminatedHumans.push(loserId);
     }
 
-    this._setWinnerInNextRound(roundIndex, matchIndex, winnerId);
+    this._setWinnerInNextRound(roundIndex, matchIndex, winnerId, winnerIndex);
     return true;
   }
 
   /**
    * Record the result of a played match.
    * Finds the first unfinished match involving a non-eliminated human.
+   * @param {string} winnerId
+   * @param {number} [winnerIndex] - Optional slot index of the winner (0 or 1)
    */
-  advance(winnerId) {
+  advance(winnerId, winnerIndex = null) {
     for (let r = 0; r < this.rounds.length; r++) {
       const round = this.rounds[r];
       for (let m = 0; m < round.length; m++) {
@@ -427,11 +450,18 @@ export class TournamentManager {
         if (p1IsActiveHuman || p2IsActiveHuman) {
           match.winner = winnerId;
           // Track human elimination
-          const loserId = winnerId === match.p1 ? match.p2 : match.p1;
+          // Mirror match fix: Use winnerIndex if provided to correctly identify loser
+          let loserId;
+          if (winnerIndex !== null && winnerIndex !== undefined) {
+            loserId = winnerIndex === 0 ? match.p2 : match.p1;
+          } else {
+            loserId = winnerId === match.p1 ? match.p2 : match.p1;
+          }
+
           if (this._isHumanFighter(loserId)) {
             this.eliminatedHumans.push(loserId);
           }
-          this._setWinnerInNextRound(r, m, winnerId);
+          this._setWinnerInNextRound(r, m, winnerId, winnerIndex);
           return true;
         }
       }

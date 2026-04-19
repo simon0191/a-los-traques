@@ -33,7 +33,7 @@ export class VictoryScene extends Phaser.Scene {
       // Phase 5: Capture match context before advancing
       this._currentMatch = manager.getNextPlayableMatch();
 
-      manager.advance(this.winnerId);
+      manager.advance(this.winnerId, this.winnerIndex);
       this.matchContext.tournamentState = manager.serialize();
 
       // Track if the tournament is now complete
