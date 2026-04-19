@@ -573,6 +573,7 @@ function sanitizeAccessories(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const out = {};
   for (const [k, v] of Object.entries(value)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
     if (typeof k === 'string' && (typeof v === 'string' || v === null)) {
       out[k] = v;
     }
