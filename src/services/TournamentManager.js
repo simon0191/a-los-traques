@@ -213,7 +213,6 @@ export class TournamentManager {
     }
 
     return new TournamentManager({
-      id: `tournament-${Date.now()}`,
       tourneyId,
       size,
       seed,
