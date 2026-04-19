@@ -834,14 +834,11 @@ export class SelectScene extends Phaser.Scene {
           this._humanSelections,
           seed,
           this.matchContext.lobbyPlayers,
+          tourneyId,
         );
 
-        // Include tourneyId in the serialized state
-        const serialized = tournamentManager.serialize();
-        serialized.tourneyId = tourneyId;
-
         // Store lobby player data (like bot levels) in the match context
-        this.matchContext.tournamentState = serialized;
+        this.matchContext.tournamentState = tournamentManager.serialize();
         this.cameras.main.fadeOut(400, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           this.scene.start('BracketScene', {

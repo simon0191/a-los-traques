@@ -86,8 +86,16 @@ export class TournamentManager {
    * @param {string|string[]} humanFighterIds - Human player fighter ID(s)
    * @param {number} seed - PRNG seed
    * @param {object[]} [lobbyParticipants] - Optional specific bots/humans from lobby
+   * @param {string} [tourneyId] - Optional backend session ID
    */
-  static generate(fighterIds, size, humanFighterIds, seed, lobbyParticipants = []) {
+  static generate(
+    fighterIds,
+    size,
+    humanFighterIds,
+    seed,
+    lobbyParticipants = [],
+    tourneyId = null,
+  ) {
     // Normalize to array for backward compat
     const humans = typeof humanFighterIds === 'string' ? [humanFighterIds] : [...humanFighterIds];
 
@@ -205,6 +213,8 @@ export class TournamentManager {
     }
 
     return new TournamentManager({
+      id: `tournament-${Date.now()}`,
+      tourneyId,
       size,
       seed,
       humanFighterIds: humans,
