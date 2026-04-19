@@ -59,13 +59,19 @@ export class AccessorySelectScene extends Phaser.Scene {
     this._localAccessoriesSent = false;
     this._finalized = false;
     this._shutdown = false;
+    this._peerGone = false;
     this._peerTimer = null;
-    if (this.gameMode === 'online' && this.networkManager?.onAccessories) {
-      this.networkManager.onAccessories((accessories) => {
+    if (this.gameMode === 'online' && this.networkManager) {
+      this.networkManager.onAccessories?.((accessories) => {
         if (this._shutdown) return;
         this._peerAccessories = sanitizeAccessories(accessories);
         if (this._localAccessoriesSent) this._finalizeOnline();
       });
+      // Peer drop before we finalize: proceed with empty peer payload if we
+      // already sent ours; otherwise bounce to SelectScene so the user isn't
+      // stuck picking for a match that will never start.
+      this.networkManager.onDisconnect?.(() => this._handlePeerGone('disconnect'));
+      this.networkManager.onLeave?.(() => this._handlePeerGone('leave'));
     }
 
     this.events.once('shutdown', () => {
@@ -73,6 +79,12 @@ export class AccessorySelectScene extends Phaser.Scene {
       if (this._peerTimer) {
         this._peerTimer.remove(false);
         this._peerTimer = null;
+      }
+      // Release handler closures so they don't leak into subsequent scenes.
+      if (this.gameMode === 'online' && this.networkManager?.signaling) {
+        this.networkManager.signaling.off('accessories');
+        this.networkManager.signaling.off('leave');
+        this.networkManager.signaling.off('disconnect');
       }
     });
 
@@ -127,6 +139,37 @@ export class AccessorySelectScene extends Phaser.Scene {
     // without desync (peer already has our payload and may have advanced).
     // Instead, treat BACK / ESC as "stop waiting, proceed with what we have".
     if (this.gameMode === 'online' && this._localAccessoriesSent && !this._finalized) {
+      this._finalizeOnline();
+      return;
+    }
+    if (this.transitioning) return;
+    this.transitioning = true;
+    // Tell the server we're leaving STAGE_SELECT so the peer (still in the
+    // picker) gets `leave` and bounces back with us instead of waiting out
+    // the 10 s fallback alone.
+    if (this.gameMode === 'online' && !this._peerGone) {
+      this.networkManager?.sendLeave?.();
+    }
+    this.cameras.main.fadeOut(200, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('SelectScene', {
+        gameMode: this.gameMode,
+        networkManager: this.networkManager,
+        matchContext: this.matchContext,
+      });
+    });
+  }
+
+  /**
+   * Peer disconnected or left mid-pick.
+   *  - Already sent our payload → finalize locally with empty peer payload.
+   *  - Still picking → abort and return to SelectScene.
+   */
+  _handlePeerGone(_reason) {
+    if (this._shutdown || this._finalized || this._peerGone) return;
+    this._peerGone = true;
+    if (this._localAccessoriesSent) {
+      this._peerAccessories = this._peerAccessories ?? {};
       this._finalizeOnline();
       return;
     }
