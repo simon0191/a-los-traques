@@ -13,3 +13,25 @@ export function calibratedCategories(manifest, fighterId) {
   if (!cats) return [];
   return Object.keys(cats).filter((cat) => accessoryCatalog.some((a) => a.category === cat));
 }
+
+/**
+ * Pick one random accessory per calibrated category for a fighter. Used to
+ * give bots (tournament AI, 1P vs AI) a loadout so they're not at a visual
+ * or (future) stat-bonus disadvantage.
+ *
+ * Returns `{ [category]: accessoryId }` — empty object if the fighter has
+ * no calibrations or the catalog has no options for any calibrated category.
+ *
+ * `rng` defaults to `Math.random` but accepts a seeded PRNG (mulberry32 etc.)
+ * for deterministic E2E replays and tournament reproducibility.
+ */
+export function autoPickAccessories(manifest, fighterId, rng = Math.random) {
+  const out = {};
+  for (const category of calibratedCategories(manifest, fighterId)) {
+    const options = accessoryCatalog.filter((a) => a.category === category);
+    if (options.length === 0) continue;
+    const idx = Math.floor(rng() * options.length) % options.length;
+    out[category] = options[idx].id;
+  }
+  return out;
+}
