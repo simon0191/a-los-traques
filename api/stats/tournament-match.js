@@ -85,6 +85,8 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
     }
 
     // Increment matches played counter
+    // Note: We increment even if zero handshakes were found (PvE/Guest matches)
+    // to ensure the progression lock eventually reaches the topology cap.
     await db.query(
       'UPDATE active_sessions SET matches_played = matches_played + 1 WHERE id = $1',
       [tid]

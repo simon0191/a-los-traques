@@ -34,7 +34,7 @@ export const createTournament = async (req, res, { userId, db }) => {
   try {
     // Phase 7: Cleanup orphan sessions from this host
     await db.query(
-      "UPDATE active_sessions SET status = 'completed' WHERE host_user_id = $1 AND status = 'open'",
+      "UPDATE active_sessions SET status = 'abandoned' WHERE host_user_id = $1 AND status = 'open'",
       [userId]
     );
 
