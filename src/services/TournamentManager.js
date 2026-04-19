@@ -358,6 +358,38 @@ export class TournamentManager {
     return this.simulateAllRemaining();
   }
 
+  fastForwardToFinal() {
+    // Iterate through all rounds except the final round
+    for (let r = 0; r < this.rounds.length - 1; r++) {
+      const round = this.rounds[r];
+      for (let m = 0; m < round.length; m++) {
+        const match = round[m];
+        if (match.winner) continue;
+
+        // If participants are missing (should not happen in round order),
+        // we skip to avoid errors, but they should be filled by previous round iterations.
+        if (!match.p1 || !match.p2) continue;
+
+        const p1IsHuman = this._isHumanFighter(match.p1);
+        const p2IsHuman = this._isHumanFighter(match.p2);
+
+        let winnerId;
+        // Priority: Human always beats Bot. If both human, P1 beats P2.
+        if (p1IsHuman) {
+          winnerId = match.p1;
+        } else if (p2IsHuman) {
+          winnerId = match.p2;
+        } else {
+          // Bot vs Bot: Random
+          winnerId = this.nextRand() > 0.5 ? match.p1 : match.p2;
+        }
+
+        match.winner = winnerId;
+        this._setWinnerInNextRound(r, m, winnerId);
+      }
+    }
+  }
+
   /**
    * Record the result of any match manually (used for AI simulation and testing).
    * @param {number} roundIndex
