@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import * as QRCode from 'qrcode';
+import QRCode from 'qrcode';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import { TournamentLobbyService } from '../services/TournamentLobbyService.js';
 import { createButton } from '../services/UIService.js';

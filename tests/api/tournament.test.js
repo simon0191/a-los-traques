@@ -108,7 +108,7 @@ describe('Tournament API Endpoints', () => {
     it('updates stats only for participants with handshake', async () => {
       mockDb.query
         .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 0, size: 8 }] }) // host check
-        .mockResolvedValueOnce({ rows: [{ user_id: validWinnerUuid }] }); // only winner has handshake
+        .mockResolvedValueOnce({ rows: [{ user_id: defaultIds.winnerId }] }); // only winner has handshake
 
       const req = {
         method: 'POST',
@@ -122,6 +122,17 @@ describe('Tournament API Endpoints', () => {
       const data = res.json.mock.calls[0][0];
       expect(data.updated.winner).toBe(true);
       expect(data.updated.loser).toBe(false);
+
+      // Verify parameters
+      expect(mockDb.query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE profiles SET wins = wins + 1'),
+        [defaultIds.winnerId],
+      );
+      // Loser should not be updated as they didn't handshake
+      expect(mockDb.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE profiles SET losses = losses + 1'),
+        expect.any(Array),
+      );
     });
 
     it('enforces match limit based on bracket size', async () => {
@@ -141,6 +152,16 @@ describe('Tournament API Endpoints', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: expect.stringContaining('Max match limit') }),
       );
+
+      // Verify NO updates were attempted
+      expect(mockDb.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('BEGIN'),
+        expect.any(Array),
+      );
+      expect(mockDb.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE profiles'),
+        expect.any(Array),
+      );
     });
 
     it('atomicly crowns champion on isFinal', async () => {
@@ -158,14 +179,15 @@ describe('Tournament API Endpoints', () => {
 
       await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
 
+      // Verify crowning
       expect(mockDb.query).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE profiles SET tournament_wins'),
-        expect.any(Array),
+        [validWinnerUuid],
       );
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining("status = 'completed'"),
-        expect.any(Array),
-      );
+      // Verify room locking
+      expect(mockDb.query).toHaveBeenCalledWith(expect.stringContaining("status = 'completed'"), [
+        defaultIds.tourneyId,
+      ]);
     });
   });
 });

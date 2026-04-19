@@ -7,7 +7,7 @@ describe('TournamentManager - Multi-Human Attribution', () => {
   it('correctly attributes userIds in a 3-human lobby with mixed guests and bots', () => {
     // Selection order from SelectScene (strings only)
     // Note: Guests also pick fighters, so they must be in this array
-    const humans = ['alv', 'simon', 'cami', 'jeka']; 
+    const humans = ['alv', 'simon', 'cami', 'jeka'];
 
     // Lobby participants (contains humans and bots)
     const lobbyParticipants = [
@@ -23,11 +23,11 @@ describe('TournamentManager - Multi-Human Attribution', () => {
 
     // Scan first round and verify userId attribution
     const findMatchData = (fighterId) => {
-        for (const match of manager.rounds[0]) {
-            if (match.p1 === fighterId) return { userId: match.p1UserId, level: match.p1Level };
-            if (match.p2 === fighterId) return { userId: match.p2UserId, level: match.p2Level };
-        }
-        return null;
+      for (const match of manager.rounds[0]) {
+        if (match.p1 === fighterId) return { userId: match.p1UserId, level: match.p1Level };
+        if (match.p2 === fighterId) return { userId: match.p2UserId, level: match.p2Level };
+      }
+      return null;
     };
 
     // Verify humans
@@ -37,12 +37,12 @@ describe('TournamentManager - Multi-Human Attribution', () => {
     expect(findMatchData('jeka').userId).toBe('uuid-jeka');
 
     // Verify bots from lobby (matching by level since fighterId is random)
-    const allMatchData = manager.rounds[0].flatMap(m => [
-        { id: m.p1, userId: m.p1UserId, level: m.p1Level },
-        { id: m.p2, userId: m.p2UserId, level: m.p2Level }
+    const allMatchData = manager.rounds[0].flatMap((m) => [
+      { id: m.p1, userId: m.p1UserId, level: m.p1Level },
+      { id: m.p2, userId: m.p2UserId, level: m.p2Level },
     ]);
-    
-    expect(allMatchData.some(d => d.level === 4)).toBe(true);
-    expect(allMatchData.some(d => d.level === 3)).toBe(true);
+
+    expect(allMatchData.some((d) => d.level === 4)).toBe(true);
+    expect(allMatchData.some((d) => d.level === 3)).toBe(true);
   });
 });
