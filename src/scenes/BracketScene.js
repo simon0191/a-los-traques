@@ -5,6 +5,7 @@ import stagesData from '../data/stages.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { DevConsole } from '../systems/DevConsole.js';
+import { autoPickAccessories } from './accessory-select-helpers.js';
 
 const HUMAN_COLORS = [
   '#ff3333',
@@ -281,12 +282,42 @@ export class BracketScene extends Phaser.Scene {
         botLevel = matchData.p2Level || 3;
       }
       this.matchContext.botLevel = botLevel;
+      this.matchContext.humanP1 = this.manager._isHumanFighter(matchData.p1);
+      this.matchContext.humanP2 = this.manager._isHumanFighter(matchData.p2);
 
-      this.scene.start('PreFightScene', {
+      const stageId = stagesData[stageIndex].id;
+      const hasHuman = this.matchContext.humanP1 || this.matchContext.humanP2;
+      // Seed bot auto-picks from the tournament PRNG so runs are reproducible.
+      const rng = () => this.manager.nextRand();
+
+      if (!hasHuman) {
+        // Bot-vs-bot auto-sim match — skip the picker and auto-equip both
+        // bots so they aren't at a (future) stat-bonus disadvantage.
+        const manifest = this.game.registry.get('overlayManifest');
+        this.matchContext.accessories = {
+          p1: autoPickAccessories(manifest, matchData.p1, rng),
+          p2: autoPickAccessories(manifest, matchData.p2, rng),
+        };
+        this.scene.start('PreFightScene', {
+          p1Id: matchData.p1,
+          p2Id: matchData.p2,
+          stageId,
+          isRandomStage: true,
+          gameMode: this.gameMode,
+          matchContext: this.matchContext,
+        });
+        return;
+      }
+
+      // At least one human plays this match — route through the picker,
+      // which forwards to PreFightScene via `matchContext.nextScene` with
+      // the stage already chosen.
+      this.matchContext.stageId = stageId;
+      this.matchContext.isRandomStage = true;
+      this.matchContext.nextScene = 'PreFightScene';
+      this.scene.start('AccessorySelectScene', {
         p1Id: matchData.p1,
         p2Id: matchData.p2,
-        stageId: stagesData[stageIndex].id,
-        isRandomStage: true,
         gameMode: this.gameMode,
         matchContext: this.matchContext,
       });

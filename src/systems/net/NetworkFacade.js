@@ -176,6 +176,9 @@ export class NetworkFacade {
   onOpponentReady(cb) {
     this.signaling.on('opponent_ready', (msg) => cb(msg.fighterId));
   }
+  onAccessories(cb) {
+    this.signaling.on('accessories', (msg) => cb(msg.accessories));
+  }
   onOpponentUnready(cb) {
     this.signaling.on('opponent_unready', cb);
   }
@@ -283,6 +286,11 @@ export class NetworkFacade {
   sendReady(fighterId) {
     this.signaling.send({ type: 'ready', fighterId });
   }
+  sendAccessories(accessories) {
+    // Cosmetic-only pick exchanged once between peers before stage select.
+    // Pure relay in PartyKit; no sim / rollback implications today.
+    this.signaling.send({ type: 'accessories', accessories });
+  }
   sendStageSelect(stageId, isRandomStage = false) {
     this.signaling.send({ type: 'select_stage', stageId, isRandomStage });
   }
@@ -372,7 +380,9 @@ export class NetworkFacade {
     this._onSocketClose = null;
     this._onSocketOpen = null;
 
-    // Reset signaling handlers for scene-specific types
+    // Reset signaling handlers for scene-specific types. `accessories` is
+    // included so a stale message from a prior match (buffered by B5) doesn't
+    // flush into the next match's AccessorySelectScene handler.
     this.signaling.resetHandlers([
       'opponent_ready',
       'opponent_unready',
@@ -386,6 +396,7 @@ export class NetworkFacade {
       'opponent_reconnecting',
       'return_to_select',
       'rejoin_available',
+      'accessories',
     ]);
     // Cancel any pending WebRTC init from reconnection flow
     this.transport.cancelPendingWebRTCInit();

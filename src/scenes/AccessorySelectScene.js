@@ -3,7 +3,7 @@ import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../confi
 import accessoryCatalog from '../data/accessories.json';
 import { resolveOverlayTransform } from '../entities/overlay-transform.js';
 import { createButton } from '../services/UIService.js';
-import { calibratedCategories } from './accessory-select-helpers.js';
+import { autoPickAccessories, calibratedCategories } from './accessory-select-helpers.js';
 
 const PREFS_KEY = 'accessoriesByFighter';
 
@@ -33,6 +33,12 @@ export class AccessorySelectScene extends Phaser.Scene {
     this.gameMode = data.gameMode || 'local';
     this.networkManager = data.networkManager || null;
     this.matchContext = data.matchContext || null;
+    // Tournament matches pre-pick the stage in BracketScene and skip
+    // StageSelectScene; they pass `nextScene: 'PreFightScene'` plus stage
+    // fields on `matchContext` so AccessorySelectScene can forward them through.
+    this.nextScene = this.matchContext?.nextScene ?? 'StageSelectScene';
+    this.stageId = this.matchContext?.stageId ?? null;
+    this.isRandomStage = this.matchContext?.isRandomStage ?? false;
     this.transitioning = false;
   }
 
@@ -43,20 +49,48 @@ export class AccessorySelectScene extends Phaser.Scene {
     this.cameras.main.fadeIn(300, 0, 0, 0);
 
     const manifest = this.game.registry.get('overlayManifest');
+    this._humanSlotSet = this._humanSlots();
+
+    // Online: subscribe for the peer's picks as early as possible. SignalingClient
+    // buffers the message if it arrives before we subscribe (B5). The subscription
+    // + the delayedCall timeout must not fire after scene shutdown; `_shutdown`
+    // flag guards both the callback and `_finalizeOnline`.
+    this._peerAccessories = undefined;
+    this._localAccessoriesSent = false;
+    this._finalized = false;
+    this._shutdown = false;
+    this._peerTimer = null;
+    if (this.gameMode === 'online' && this.networkManager?.onAccessories) {
+      this.networkManager.onAccessories((accessories) => {
+        if (this._shutdown) return;
+        this._peerAccessories = sanitizeAccessories(accessories);
+        if (this._localAccessoriesSent) this._finalizeOnline();
+      });
+    }
+
+    this.events.once('shutdown', () => {
+      this._shutdown = true;
+      if (this._peerTimer) {
+        this._peerTimer.remove(false);
+        this._peerTimer = null;
+      }
+    });
 
     this.p1Calibrated = new Set(calibratedCategories(manifest, this.p1Id));
-    this.p2Calibrated = this._needsP2()
-      ? new Set(calibratedCategories(manifest, this.p2Id))
-      : new Set();
+    this.p2Calibrated = new Set(calibratedCategories(manifest, this.p2Id));
 
-    if (this.p1Calibrated.size === 0 && this.p2Calibrated.size === 0) {
+    // Auto-skip when no human slot has anything to pick. Bot slots still
+    // get auto-picked accessories in `_advance`.
+    const p1NeedsPick = this._humanSlotSet.has(0) && this.p1Calibrated.size > 0;
+    const p2NeedsPick = this._humanSlotSet.has(1) && this.p2Calibrated.size > 0;
+    if (!p1NeedsPick && !p2NeedsPick) {
       this._advance();
       return;
     }
 
     this.prefs = loadPrefs();
-    this.p1 = this._initPlayer(this.p1Id, this.p1Calibrated);
-    this.p2 = this._needsP2() ? this._initPlayer(this.p2Id, this.p2Calibrated) : null;
+    this.p1 = this._humanSlotSet.has(0) ? this._initPlayer(this.p1Id, this.p1Calibrated) : null;
+    this.p2 = this._humanSlotSet.has(1) ? this._initPlayer(this.p2Id, this.p2Calibrated) : null;
 
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x161628);
     this.add
@@ -67,7 +101,7 @@ export class AccessorySelectScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
-    this._buildColumn(GAME_WIDTH * 0.25, this.p1);
+    if (this.p1) this._buildColumn(GAME_WIDTH * 0.25, this.p1);
     if (this.p2) this._buildColumn(GAME_WIDTH * 0.75, this.p2);
 
     createButton(this, GAME_WIDTH / 2 - 60, GAME_HEIGHT - 14, 'ATRÁS', () => this._back(), {
@@ -82,11 +116,20 @@ export class AccessorySelectScene extends Phaser.Scene {
     });
 
     this.input.keyboard.on('keydown-ENTER', () => this._advance());
+    // ESC/BACKSPACE: normal back, or "skip wait" if we're already waiting on
+    // peer accessories online (see `_back`).
     this.input.keyboard.on('keydown-ESC', () => this._back());
     this.input.keyboard.on('keydown-BACKSPACE', () => this._back());
   }
 
   _back() {
+    // Online edge case: once we've sent `accessories` we can't truly "go back"
+    // without desync (peer already has our payload and may have advanced).
+    // Instead, treat BACK / ESC as "stop waiting, proceed with what we have".
+    if (this.gameMode === 'online' && this._localAccessoriesSent && !this._finalized) {
+      this._finalizeOnline();
+      return;
+    }
     if (this.transitioning) return;
     this.transitioning = true;
     this.cameras.main.fadeOut(200, 0, 0, 0);
@@ -99,13 +142,37 @@ export class AccessorySelectScene extends Phaser.Scene {
     });
   }
 
-  _needsP2() {
-    if (this.matchContext?.type === 'versus') return true;
-    if (this.matchContext?.isHumanVsHuman) return true;
-    if (this.gameMode === 'local' && this.p2Id !== this.p1Id) {
-      return !this.matchContext?.vsAI;
+  /**
+   * Which slots have a local human doing the picking. Bots (1P vs AI,
+   * tournament bots) and remote peers fall outside this set; their columns
+   * aren't rendered here — bot picks are auto-generated in `_advance`,
+   * online peer picks arrive via `networkManager.onAccessories`.
+   *
+   * @returns {Set<0 | 1>}
+   */
+  _humanSlots() {
+    const slots = new Set();
+    if (this.matchContext?.type === 'versus' || this.matchContext?.isHumanVsHuman) {
+      slots.add(0);
+      slots.add(1);
+      return slots;
     }
-    return false;
+    if (this.gameMode === 'online') {
+      // Online sync is handled in `AccessorySelectScene` via a one-shot
+      // `accessories` relay; each peer only renders their own slot.
+      const localSlot = this.networkManager?.playerSlot ?? 0;
+      slots.add(localSlot);
+      return slots;
+    }
+    // Tournament human-vs-bot — BracketScene sets humanP1 / humanP2.
+    if (this.matchContext?.humanP1 !== undefined || this.matchContext?.humanP2 !== undefined) {
+      if (this.matchContext.humanP1) slots.add(0);
+      if (this.matchContext.humanP2) slots.add(1);
+      return slots;
+    }
+    // Plain local 1P vs AI — only P1 is human.
+    slots.add(0);
+    return slots;
   }
 
   _initPlayer(fighterId, calibrated) {
@@ -342,25 +409,121 @@ export class AccessorySelectScene extends Phaser.Scene {
 
   _advance() {
     if (this.transitioning) return;
+    if (this.gameMode === 'online') {
+      this._startOnlineExchange();
+      return;
+    }
+    this._doLocalAdvance();
+  }
+
+  /**
+   * Online flow: send local picks, wait (with timeout) for peer's picks,
+   * then transition with `accessories = { p1, p2 }` fully populated.
+   *
+   * Covers two races:
+   *  - local Confirm before peer's message → wait here, finalize on receive
+   *  - peer's message before local Confirm → `_peerAccessories` already set,
+   *    finalize immediately
+   */
+  _startOnlineExchange() {
+    if (this._localAccessoriesSent) return;
     this.transitioning = true;
 
+    const localSlot = this.networkManager?.playerSlot ?? 0;
+    const localPlayer = localSlot === 0 ? this.p1 : this.p2;
+    this._localAccessories = localPlayer?.choices ?? {};
+    this._localSlot = localSlot;
+    this._localAccessoriesSent = true;
+    this.networkManager?.sendAccessories?.(this._localAccessories);
+
+    if (this._peerAccessories !== undefined) {
+      this._finalizeOnline();
+      return;
+    }
+
+    // Wait for peer. 10 s fallback so a dropped peer doesn't deadlock us.
+    // `this.time.delayedCall` is auto-cancelled on scene shutdown.
+    this._peerTimer = this.time.delayedCall(10000, () => this._finalizeOnline());
+    this._showWaitingIndicator();
+  }
+
+  _finalizeOnline() {
+    if (this._finalized || this._shutdown) return;
+    this._finalized = true;
+    if (this._peerTimer) {
+      this._peerTimer.remove(false);
+      this._peerTimer = null;
+    }
+    const peer = this._peerAccessories ?? {};
+    const p1Choices = this._localSlot === 0 ? this._localAccessories : peer;
+    const p2Choices = this._localSlot === 1 ? this._localAccessories : peer;
+    this._goNext(p1Choices, p2Choices);
+  }
+
+  _doLocalAdvance() {
+    this.transitioning = true;
+
+    // Humans use their picks; bot slots get auto-picked accessories so
+    // they're not at a visual (or future stat-bonus) disadvantage.
+    const manifest = this.game.registry.get('overlayManifest');
+    const humanSlots = this._humanSlotSet ?? this._humanSlots();
+    const p1Choices = humanSlots.has(0)
+      ? (this.p1?.choices ?? {})
+      : autoPickAccessories(manifest, this.p1Id);
+    const p2Choices = humanSlots.has(1)
+      ? (this.p2?.choices ?? {})
+      : autoPickAccessories(manifest, this.p2Id);
+    this._goNext(p1Choices, p2Choices);
+  }
+
+  _goNext(p1Choices, p2Choices) {
     const ctx = { ...(this.matchContext ?? {}) };
-    ctx.accessories = {
-      p1: this.p1?.choices ?? {},
-      p2: this.p2?.choices ?? {},
-    };
+    ctx.accessories = { p1: p1Choices, p2: p2Choices };
 
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('StageSelectScene', {
+      this.scene.start(this.nextScene, {
         p1Id: this.p1Id,
         p2Id: this.p2Id,
+        stageId: this.stageId,
+        isRandomStage: this.isRandomStage,
         gameMode: this.gameMode,
         networkManager: this.networkManager,
         matchContext: ctx,
       });
     });
   }
+
+  _showWaitingIndicator() {
+    if (this._waitingText) return;
+    this._waitingText = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'Esperando oponente...\n(ESC para saltar)', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#ffcc44',
+        align: 'center',
+        backgroundColor: '#000000aa',
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setDepth(100);
+  }
+}
+
+/**
+ * Coerce a peer-supplied `accessories` payload into a plain `{category: id}` map.
+ * Peer messages pass through PartyKit as a pure relay, so the server doesn't
+ * validate shape — strings, arrays, nulls, etc. would all reach us otherwise.
+ */
+function sanitizeAccessories(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof k === 'string' && (typeof v === 'string' || v === null)) {
+      out[k] = v;
+    }
+  }
+  return out;
 }
 
 // --- helpers ---
