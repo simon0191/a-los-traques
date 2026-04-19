@@ -272,7 +272,6 @@ export class BracketScene extends Phaser.Scene {
       };
 
       this.matchContext.isHumanVsHuman = this.manager.isHumanVsHuman(matchData);
-      this.matchContext.tournamentState = this.manager.serialize();
 
       // Determine botLevel if one of the players is an AI
       let botLevel = null;
@@ -298,6 +297,9 @@ export class BracketScene extends Phaser.Scene {
           p1: autoPickAccessories(manifest, matchData.p1, rng),
           p2: autoPickAccessories(manifest, matchData.p2, rng),
         };
+        // Serialize AFTER consuming the auto-pick randoms so the next round's
+        // rehydrated TournamentManager doesn't replay them.
+        this.matchContext.tournamentState = this.manager.serialize();
         this.scene.start('PreFightScene', {
           p1Id: matchData.p1,
           p2Id: matchData.p2,
@@ -312,6 +314,7 @@ export class BracketScene extends Phaser.Scene {
       // At least one human plays this match — route through the picker,
       // which forwards to PreFightScene via `matchContext.nextScene` with
       // the stage already chosen.
+      this.matchContext.tournamentState = this.manager.serialize();
       this.matchContext.stageId = stageId;
       this.matchContext.isRandomStage = true;
       this.matchContext.nextScene = 'PreFightScene';
