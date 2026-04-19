@@ -351,27 +351,10 @@ export class VictoryScene extends Phaser.Scene {
             const resp = await reportTournamentMatch(payload);
             log.info('Tournament result recorded', resp);
           }
-
-          const feedback = this.add
-            .text(GAME_WIDTH / 2, 45, 'RESULTADO REGISTRADO', {
-              fontFamily: 'Arial',
-              fontSize: '9px',
-              color: '#44cc88',
-            })
-            .setOrigin(0.5)
-            .setAlpha(0);
-
-          this.tweens.add({
-            targets: feedback,
-            y: 35,
-            alpha: 1,
-            duration: 500,
-            yoyo: true,
-            hold: 2000,
-            onComplete: () => feedback.destroy(),
-          });
+          this._showResultFeedback('RESULTADO REGISTRADO', '#44cc88');
         } catch (e) {
           log.warn('Tournament match reporting failed', { err: e.message });
+          this._showResultFeedback('ERROR AL REGISTRAR', '#ff4444');
         }
       }
       return;
@@ -397,27 +380,13 @@ export class VictoryScene extends Phaser.Scene {
 
     try {
       await updateStats(didWin);
-
-      const feedback = this.add
-        .text(GAME_WIDTH / 2, 45, didWin ? '+1 VICTORIA' : '+1 DERROTA', {
-          fontFamily: 'Arial',
-          fontSize: '9px',
-          color: didWin ? '#44cc88' : '#ff4444',
-        })
-        .setOrigin(0.5)
-        .setAlpha(0);
-
-      this.tweens.add({
-        targets: feedback,
-        y: 35,
-        alpha: 1,
-        duration: 500,
-        yoyo: true,
-        hold: 2000,
-        onComplete: () => feedback.destroy(),
-      });
+      this._showResultFeedback(
+        didWin ? '+1 VICTORIA' : '+1 DERROTA',
+        didWin ? '#44cc88' : '#ff4444',
+      );
     } catch (e) {
       log.warn('Stats update failed', { err: e.message });
+      this._showResultFeedback('ERROR DE CONEXIÓN', '#ff4444');
     }
   }
 
@@ -442,6 +411,27 @@ export class VictoryScene extends Phaser.Scene {
         networkManager: this.networkManager,
         matchContext: this.matchContext,
       });
+    });
+  }
+
+  _showResultFeedback(text, color) {
+    const feedback = this.add
+      .text(GAME_WIDTH / 2, 45, text, {
+        fontFamily: 'Arial',
+        fontSize: '9px',
+        color: color,
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: feedback,
+      y: 35,
+      alpha: 1,
+      duration: 500,
+      yoyo: true,
+      hold: 2000,
+      onComplete: () => feedback.destroy(),
     });
   }
 }
