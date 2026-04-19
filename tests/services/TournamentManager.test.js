@@ -117,43 +117,59 @@ describe('TournamentManager', () => {
       expect(manager.complete).toBe(true);
       expect(manager.winnerId).toBe('alv');
     });
-  });
 
-  it('fastForwardToFinal() resolves all matches until the grand final', () => {
-    // 8 players: 7 matches total. FF should resolve 6 matches.
-    const humans = ['alv', 'simon'];
-    const manager = TournamentManager.generate(fighters, 8, humans, 123);
+    it('fastForwardToFinal() resolves all matches until the grand final', () => {
+      // 8 players: 7 matches total. FF should resolve 6 matches.
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
 
-    manager.fastForwardToFinal();
+      manager.fastForwardToFinal();
 
-    // Check that there is only one match left without a winner
-    let unplayed = 0;
-    for (const round of manager.rounds) {
-      for (const match of round) {
-        if (match.p1 && match.p2 && !match.winnerUserId) {
-          unplayed++;
+      // Check that there is only one match left without a winner
+      let unplayed = 0;
+      for (const round of manager.rounds) {
+        for (const match of round) {
+          if (match.p1 && match.p2 && !match.winnerUserId) {
+            unplayed++;
+          }
         }
       }
-    }
 
-    expect(unplayed).toBe(1); // Only the Grand Final
-    expect(manager.complete).toBe(false);
+      expect(unplayed).toBe(1); // Only the Grand Final
+      expect(manager.complete).toBe(false);
 
-    const finalMatch = manager.getNextPlayableMatch();
-    expect(finalMatch.roundIndex).toBe(2); // Last round of size 8
-    expect(manager.isHumanVsHuman(finalMatch)).toBe(true);
-  });
+      const finalMatch = manager.getNextPlayableMatch();
+      expect(finalMatch.roundIndex).toBe(2); // Last round of size 8
+      expect(manager.isHumanVsHuman(finalMatch)).toBe(true);
+    });
 
-  it('fastForwardToFinal() prioritizes humans over bots', () => {
-    const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
-    manager.fastForwardToFinal();
+    it('fastForwardToFinal() prioritizes humans over bots', () => {
+      const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
+      manager.fastForwardToFinal();
 
-    const finalMatch = manager.getNextPlayableMatch();
-    // Human 'alv' should be in the final
-    expect(
-      finalMatch.p1UserId === manager.humanPlayerIds[0] ||
-        finalMatch.p2UserId === manager.humanPlayerIds[0],
-    ).toBe(true);
+      const finalMatch = manager.getNextPlayableMatch();
+      // Human 'alv' should be in the final
+      expect(
+        finalMatch.p1UserId === manager.humanPlayerIds[0] ||
+          finalMatch.p2UserId === manager.humanPlayerIds[0],
+      ).toBe(true);
+    });
+
+    it('fastForwardToFinal() skips matches that already have a winner', () => {
+      const humans = ['alv', 'simon'];
+      const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+      // Manually set a winner for a round 0 match that doesn't involve humans
+      const matchIdx = manager.rounds[0].findIndex((m) => !manager.isHumanVsHuman(m));
+      const match = manager.rounds[0][matchIdx];
+      const manualWinner = match.p1UserId;
+      manager.setMatchWinner(0, matchIdx, manualWinner);
+
+      // FF should skip this match
+      manager.fastForwardToFinal();
+
+      expect(manager.rounds[0][matchIdx].winnerUserId).toBe(manualWinner);
+    });
   });
 
   describe('serialization and persistence', () => {
@@ -540,12 +556,12 @@ describe('TournamentManager', () => {
 
       // Eliminate both humans
       const alvMatch = manager.rounds[0].find((m) => m.p1 === 'alv');
-      manager.advance(alvMatch.p2);
+      manager.advance(alvMatch.p2UserId);
       const simonMatch = manager.rounds[0].find((m) => m.p1 === 'simon');
-      manager.advance(simonMatch.p2);
+      manager.advance(simonMatch.p2UserId);
 
       // No more human matches, so advance should return false
-      expect(manager.advance('alv')).toBe(false);
+      expect(manager.advance(manager.humanPlayerIds[0])).toBe(false);
     });
   });
 
