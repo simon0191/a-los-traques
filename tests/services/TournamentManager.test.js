@@ -119,6 +119,43 @@ describe('TournamentManager', () => {
     });
   });
 
+  it('fastForwardToFinal() resolves all matches until the grand final', () => {
+    // 8 players: 7 matches total. FF should resolve 6 matches.
+    const humans = ['alv', 'simon'];
+    const manager = TournamentManager.generate(fighters, 8, humans, 123);
+
+    manager.fastForwardToFinal();
+
+    // Check that there is only one match left without a winner
+    let unplayed = 0;
+    for (const round of manager.rounds) {
+      for (const match of round) {
+        if (match.p1 && match.p2 && !match.winnerUserId) {
+          unplayed++;
+        }
+      }
+    }
+
+    expect(unplayed).toBe(1); // Only the Grand Final
+    expect(manager.complete).toBe(false);
+
+    const finalMatch = manager.getNextPlayableMatch();
+    expect(finalMatch.roundIndex).toBe(2); // Last round of size 8
+    expect(manager.isHumanVsHuman(finalMatch)).toBe(true);
+  });
+
+  it('fastForwardToFinal() prioritizes humans over bots', () => {
+    const manager = TournamentManager.generate(fighters, 8, 'alv', 123);
+    manager.fastForwardToFinal();
+
+    const finalMatch = manager.getNextPlayableMatch();
+    // Human 'alv' should be in the final
+    expect(
+      finalMatch.p1UserId === manager.humanPlayerIds[0] ||
+        finalMatch.p2UserId === manager.humanPlayerIds[0],
+    ).toBe(true);
+  });
+
   describe('serialization and persistence', () => {
     it('restores PRNG state correctly from serialization', () => {
       const manager = TournamentManager.generate(fighters, 8, 'alv', 42);
