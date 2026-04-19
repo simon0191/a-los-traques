@@ -443,13 +443,14 @@ export default class FightRoom {
     // This prevents clients from spoofing their ID (e.g. claiming someone else's UUID) in the payload.
 
     // SECURITY: Only the Host (slot 0) can mutate the lobby structure.
-    // JOIN_SLOT is the only action allowed for non-hosts.
+    // JOIN_SLOT and VERIFY_HANDSHAKE are the only actions allowed for non-hosts.
     const isHost = this._slotOf(connection.id) === 0;
-    if (!isHost && action !== 'JOIN_SLOT') return;
+    const isPublicAction = action === 'JOIN_SLOT' || action === 'VERIFY_HANDSHAKE';
+    if (!isHost && !isPublicAction) return;
 
     switch (action) {
       case 'JOIN_SLOT': {
-        const { name, id, type } = payload;
+        const { name, id, type, handshake } = payload;
 
         // If an ID is provided (e.g. from authenticated Supabase session),
         // prevent double-joining with the same identity.
@@ -462,7 +463,20 @@ export default class FightRoom {
             name: name || 'Invitado',
             type: type || 'guest',
             status: 'ready',
+            handshake: !!handshake,
           };
+          changed = true;
+        }
+        break;
+      }
+      case 'VERIFY_HANDSHAKE': {
+        const { id } = payload;
+        if (!id) break;
+
+        // Find the slot for this ID and mark as verified
+        const slotIdx = this.lobbyState.slots.findIndex((s) => s?.id === id);
+        if (slotIdx !== -1) {
+          this.lobbyState.slots[slotIdx].handshake = true;
           changed = true;
         }
         break;
