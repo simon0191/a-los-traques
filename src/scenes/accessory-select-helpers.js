@@ -11,7 +11,12 @@ import accessoryCatalog from '../data/accessories.json';
 export function calibratedCategories(manifest, fighterId) {
   const cats = manifest?.calibrations?.[fighterId];
   if (!cats) return [];
-  return Object.keys(cats).filter((cat) => accessoryCatalog.some((a) => a.category === cat));
+  // Require an idle[0] frame — the picker anchors its preview there and
+  // downstream tabs would otherwise render blank for null/empty entries.
+  return Object.keys(cats).filter(
+    (cat) =>
+      accessoryCatalog.some((a) => a.category === cat) && cats[cat]?.idle?.frames?.[0] != null,
+  );
 }
 
 /**

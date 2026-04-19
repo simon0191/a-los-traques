@@ -5,9 +5,12 @@ import {
   calibratedCategories,
 } from '../../src/scenes/accessory-select-helpers.js';
 
-// Dummy calibration entry — the helper only looks at keys, so the value
-// shape doesn't matter for these tests.
-const anyEntry = { idle: { frameCount: 4, frames: [] } };
+// Dummy calibration entry. `calibratedCategories` requires a non-null
+// idle[0] so preview anchors have something to read; downstream tests that
+// only care about the keys reuse this fixture.
+const anyEntry = {
+  idle: { frameCount: 4, frames: [{ x: 0, y: 0, rotation: 0, scale: 0.2 }] },
+};
 
 // Pick one valid category from the shipped catalog so tests stay in sync
 // if the catalog ever gains/loses categories.
@@ -72,6 +75,21 @@ describe('calibratedCategories', () => {
       },
     };
     expect(calibratedCategories(manifest, 'peks')).toEqual([]);
+  });
+
+  it('drops categories with null/missing idle frames', () => {
+    // A half-populated manifest where an existing category key has no
+    // anchor frame must not surface as calibrated — the picker would
+    // render an empty preview and mis-route confirm.
+    const manifest = {
+      calibrations: {
+        simon: {
+          [VALID_CAT]: anyEntry,
+          ...(OTHER_VALID ? { [OTHER_VALID]: null } : {}),
+        },
+      },
+    };
+    expect(calibratedCategories(manifest, 'simon')).toEqual([VALID_CAT]);
   });
 });
 
