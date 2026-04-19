@@ -1,12 +1,11 @@
 import { withAuth } from '../_lib/handler.js';
 
 /**
- * POST /api/stats/tournament-match
  * Records win/loss for a tournament match. 
  * Secure: Only Host can report, and both players must have joined the session first.
  * Body: { tourneyId: string, winnerId: UUID, loserId: UUID, isFinal?: boolean, championId?: UUID }
  */
-export default withAuth(async (req, res, { userId: hostUserId, db }) => {
+export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -117,4 +116,6 @@ export default withAuth(async (req, res, { userId: hostUserId, db }) => {
     console.error('Error reporting tournament match result:', err);
     return res.status(500).json({ error: 'Database Error', message: err.message });
   }
-});
+};
+
+export default withAuth(reportMatch);

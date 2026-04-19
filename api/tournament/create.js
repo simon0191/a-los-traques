@@ -2,10 +2,9 @@ import { withAuth } from '../_lib/handler.js';
 import crypto from 'crypto';
 
 /**
- * POST /api/tournament/create
  * Creates a new tournament session and returns a unique 6-character ID.
  */
-export default withAuth(async (req, res, { userId, db }) => {
+export const createTournament = async (req, res, { userId, db }) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -48,4 +47,6 @@ export default withAuth(async (req, res, { userId, db }) => {
     console.error('Error creating tournament session:', err);
     return res.status(500).json({ error: 'Database Error', message: err.message });
   }
-});
+};
+
+export default withAuth(createTournament);

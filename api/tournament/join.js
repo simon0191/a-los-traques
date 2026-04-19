@@ -1,11 +1,10 @@
 import { withAuth } from '../_lib/handler.js';
 
 /**
- * POST /api/tournament/join
  * Player "handshake": explicit consent to join a tournament session.
  * Body: { tourneyId: string }
  */
-export default withAuth(async (req, res, { userId, db }) => {
+export const joinTournament = async (req, res, { userId, db }) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -44,4 +43,6 @@ export default withAuth(async (req, res, { userId, db }) => {
     console.error('Error joining tournament session:', err);
     return res.status(500).json({ error: 'Database Error', message: err.message });
   }
-});
+};
+
+export default withAuth(joinTournament);
