@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/fighters/adil/",
+  "description": "Samurai dancer with long flowing dark hair and a short beard, wearing a vibrant patchwork kimono with panels of green, red, yellow, blue, and purple, tied at the waist with a brown obi sash. Orange flames swirl around both fists and around his hip. Traditional white tabi socks and gray zōri sandals. Lean athletic build, mid-dance fighting stance blending kendo poses with rhythmic movement.",
+  "animations": ["idle", "walk", "light_punch", "heavy_punch", "light_kick", "heavy_kick", "special", "block", "hurt", "knockdown", "victory", "defeat", "jump"],
+  "referenceImages": ["assets/photos/adil.png"],
+  "referenceSheet": "assets/references/adil_ref_padded.png"
+}

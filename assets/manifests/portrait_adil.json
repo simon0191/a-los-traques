@@ -1,0 +1,7 @@
+{
+  "output": "public/assets/portraits/adil.png",
+  "prompt": "Samurai dancer with long flowing dark hair and a short beard, wearing a vibrant patchwork kimono with panels of green, red, yellow, blue, and purple, tied at the waist with a brown obi sash. Orange flames swirl around both fists. Lean athletic build, confident dance pose blending kendo and rhythm, one hand raised.",
+  "width": 128,
+  "height": 128,
+  "referenceImages": ["assets/photos/adil.png"]
+}
