@@ -81,8 +81,8 @@ sequenceDiagram
     end
 ```
 
-### 3.4. Flow 3: The "Crowning" Endpoint
-When the Grand Final concludes, the Host makes one final API call to award the overall tournament victory and close the room permanently.
+### 3.4. Flow 3: Atomic Crowning
+When the Grand Final concludes, the Host makes a final match report that includes an `isFinal` flag and the `champion_id`. The API processes the final match results and the overall tournament victory in a single atomic database transaction. This prevents a race condition where a tournament might be locked before the final match stats are recorded.
 
 ```mermaid
 sequenceDiagram
@@ -91,19 +91,20 @@ sequenceDiagram
     participant DB as Database
 
     H->>H: Grand Final concludes
-    H->>API: POST /api/tournament/complete
-    Note right of H: Payload: { tourney_id: "123456", champion_id: "uuid-1" }
+    H->>API: POST /api/stats/tournament-match
+    Note right of H: Payload: { tourney_id, winner_id, loser_id, isFinal: true, champion_id }
 
     API->>DB: Check: Is caller the Host of "123456"?
-    API->>DB: Check: Did champion_id join "123456"?
+    API->>DB: Check: Did all IDs join "123456"?
     API->>DB: Check: Is active_sessions status 'open'?
     
     alt All checks pass
         API->>DB: BEGIN TRANSACTION
+        API->>DB: UPDATE profiles (Match Wins/Losses)
         API->>DB: UPDATE profiles SET tournament_wins = tournament_wins + 1 WHERE id = champion_id
         API->>DB: UPDATE active_sessions SET status = 'completed' WHERE id = '123456'
         API->>DB: COMMIT
-        API-->>H: 200 OK
+        API-->>H: 200 OK (completed: true)
     else Unauthorized, Unregistered, or Already Completed
         API-->>H: 403 Forbidden
     end
@@ -113,7 +114,7 @@ sequenceDiagram
 1. **Zero Token Passing:** Mobile devices never share their passwords or JWTs with the Host or PartyKit. They only talk directly to the secure Vercel API.
 2. **No Cheating:** A player cannot grant themselves a win, because only the designated Host of the session is allowed to report the result to the API.
 3. **Explicit Consent:** A malicious Host cannot arbitrarily add losses to a random player's UUID, because the API strictly requires that player to have explicitly "joined" that specific tournament session via their own device first.
-4. **Double-Count Prevention:** The `/api/tournament/complete` endpoint locks the tournament state permanently, preventing a Host from spamming API calls to artificially inflate a friend's `tournament_wins`.
+4. **Double-Count Prevention:** The `isFinal` flag in the `/api/stats/tournament-match` endpoint locks the tournament state permanently, preventing a Host from spamming API calls to artificially inflate a friend's `tournament_wins`.
 5. **Clean Integration:** This seamlessly layers on top of the existing `TournamentLobbyService` and `TournamentManager` logic without modifying the core PartyKit room state machine.
 
 ## 5. Implementation Plan
@@ -124,8 +125,7 @@ sequenceDiagram
 2. **Vercel API Endpoints:**
    - Implement `POST /api/tournament/create`
    - Implement `POST /api/tournament/join`
-   - Implement `POST /api/stats/tournament-match`
-   - Implement `POST /api/tournament/complete`
+   - Implement `POST /api/stats/tournament-match` (including `isFinal` logic)
 3. **Host Client (`TournamentLobbyService.js`):**
    - On `initHost`, call `/api/tournament/create` and append `tourney_id` to the QR code and PartyKit room state.
 4. **Mobile Client (`public/join.html`):**
@@ -133,5 +133,5 @@ sequenceDiagram
    - Upon successful login and profile sync, call `/api/tournament/join`.
 5. **Game Loop (`TournamentManager.js` & `VictoryScene.js`):**
    - Ensure the original `userId`s (from lobby participants) are preserved in the bracket data.
-   - Update `VictoryScene._saveResult()` to call `/api/stats/tournament-match` instead of `/api/stats` when `matchContext.type === 'tournament'`, passing the `tourney_id`, `winner_id`, and `loser_id`.
-   - Update `VictoryScene._saveResult()` to ALSO call `/api/tournament/complete` when the `TournamentManager` state indicates the tournament is completely over, passing the overall `champion_id`.
+   - Update `VictoryScene._saveResult()` to call `/api/stats/tournament-match` when `matchContext.type === 'tournament'`, passing the `tourney_id`, `winner_id`, and `loser_id`.
+   - If the match is the Grand Final, include `isFinal: true` and `champion_id` in the same call to atomicly record the final match and crown the champion.
