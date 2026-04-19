@@ -3,11 +3,15 @@ import crypto from 'crypto';
 
 /**
  * Creates a new tournament session and returns a unique 6-character ID.
+ * Body: { size: number }
  */
 export const createTournament = async (req, res, { userId, db }) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
+
+  const { size } = req.body || {};
+  const bracketSize = parseInt(size, 10) || 8;
 
   // Retry up to 5 times to find a unique tourneyId
   let tourneyId;
@@ -29,9 +33,9 @@ export const createTournament = async (req, res, { userId, db }) => {
 
   try {
     await db.query(
-      `INSERT INTO active_sessions (id, host_user_id, status)
-       VALUES ($1, $2, 'open')`,
-      [tourneyId, userId]
+      `INSERT INTO active_sessions (id, host_user_id, status, size)
+       VALUES ($1, $2, 'open', $3)`,
+      [tourneyId, userId, bracketSize]
     );
 
     // Also automatically join the host to their own tournament

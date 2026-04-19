@@ -1,20 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-// Mock the DB module BEFORE importing handlers
-vi.mock('../../api/_lib/db.js', () => ({
-  createPool: vi.fn(() => ({
-    connect: vi.fn().mockResolvedValue({
-      query: vi.fn(),
-      release: vi.fn(),
-    }),
-  })),
-  createClient: vi.fn(() => ({
-    connect: vi.fn(),
-    query: vi.fn(),
-    end: vi.fn(),
-  })),
-}));
-
 import { reportMatch } from '../../api/stats/tournament-match.js';
 import { createTournament } from '../../api/tournament/create.js';
 import { joinTournament } from '../../api/tournament/join.js';
@@ -47,13 +31,13 @@ describe('Tournament API Endpoints', () => {
   const validLoserUuid = '44444444-4444-4444-4444-444444444444';
 
   describe('POST /api/tournament/create', () => {
-    it('generates a unique 6-char tourneyId', async () => {
+    it('generates a unique 6-char tourneyId and saves bracket size', async () => {
       mockDb.query
         .mockResolvedValueOnce({ rows: [] }) // collision check
         .mockResolvedValueOnce({ rows: [{ id: 'test-id' }] }) // insert session
         .mockResolvedValueOnce({ rows: [] }); // insert participant
 
-      const req = { method: 'POST' };
+      const req = { method: 'POST', body: { size: 16 } };
       const res = createRes();
 
       await createTournament(req, res, { userId: validHostUuid, db: mockDb });
@@ -63,7 +47,7 @@ describe('Tournament API Endpoints', () => {
       expect(data.tourneyId).toHaveLength(6);
       expect(mockDb.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO active_sessions'),
-        expect.any(Array),
+        expect.arrayContaining([expect.any(String), validHostUuid, 16]),
       );
     });
 
@@ -74,7 +58,7 @@ describe('Tournament API Endpoints', () => {
         .mockResolvedValueOnce({ rows: [] }) // insert session
         .mockResolvedValueOnce({ rows: [] }); // insert participant
 
-      const req = { method: 'POST' };
+      const req = { method: 'POST', body: { size: 8 } };
       const res = createRes();
 
       await createTournament(req, res, { userId: validHostUuid, db: mockDb });
@@ -123,7 +107,7 @@ describe('Tournament API Endpoints', () => {
 
     it('updates stats only for participants with handshake', async () => {
       mockDb.query
-        .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 0 }] }) // host check
+        .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 0, size: 8 }] }) // host check
         .mockResolvedValueOnce({ rows: [{ user_id: validWinnerUuid }] }); // only winner has handshake
 
       const req = {
@@ -140,8 +124,11 @@ describe('Tournament API Endpoints', () => {
       expect(data.updated.loser).toBe(false);
     });
 
-    it('enforces match limit', async () => {
-      mockDb.query.mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 32 }] });
+    it('enforces match limit based on bracket size', async () => {
+      // 8-player bracket allows max 7 matches
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ status: 'open', matches_played: 7, size: 8 }],
+      });
 
       const req = {
         method: 'POST',
@@ -158,7 +145,7 @@ describe('Tournament API Endpoints', () => {
 
     it('atomicly crowns champion on isFinal', async () => {
       mockDb.query
-        .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 14 }] }) // host check
+        .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 6, size: 8 }] }) // host check
         .mockResolvedValueOnce({
           rows: [{ user_id: validWinnerUuid }, { user_id: validLoserUuid }],
         }); // handshake

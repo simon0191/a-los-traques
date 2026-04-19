@@ -42,7 +42,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
 
     // Phase 3: Create tournament session on the Vercel backend
     try {
-      const { tourneyId } = await createTournament();
+      const { tourneyId } = await createTournament(this.state.size);
       this.state.tourneyId = tourneyId;
       log.info('Tournament session created', { tourneyId });
     } catch (e) {

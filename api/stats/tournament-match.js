@@ -21,7 +21,7 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
 
     // 1. Verify caller is the actual Host of the tournament session
     const hostCheckRes = await db.query(
-      'SELECT status, matches_played FROM active_sessions WHERE id = $1 AND host_user_id = $2',
+      'SELECT status, matches_played, size FROM active_sessions WHERE id = $1 AND host_user_id = $2',
       [tid, hostUserId]
     );
 
@@ -29,15 +29,16 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
       return res.status(403).json({ error: 'Unauthorized: You are not the Host of this tournament' });
     }
 
-    const { status, matches_played } = hostCheckRes.rows[0];
+    const { status, matches_played, size: bracketSize } = hostCheckRes.rows[0];
 
     if (status !== 'open') {
       return res.status(403).json({ error: 'Tournament session is already completed' });
     }
 
-    // Security Mitigation: Hard limit on match reports per session
-    // For a 16-player bracket, there are 15 matches. 32 is a safe cap for future expansion.
-    if (matches_played >= 32) {
+    // Security Mitigation: Hard limit on match reports per session based on topology
+    // A single-elimination bracket of N players has exactly N-1 matches.
+    const maxMatches = Math.min(bracketSize - 1, 32); 
+    if (matches_played >= maxMatches) {
       return res.status(403).json({ error: 'Max match limit reached for this tournament' });
     }
 
