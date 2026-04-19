@@ -80,11 +80,11 @@ export class AccessorySelectScene extends Phaser.Scene {
         this._peerTimer.remove(false);
         this._peerTimer = null;
       }
-      // Release handler closures so they don't leak into subsequent scenes.
+      // Release handler closures AND flush the B5 buffer so a stale
+      // `accessories` arriving between shutdown and the next subscribe
+      // doesn't bleed into the subsequent match.
       if (this.gameMode === 'online' && this.networkManager?.signaling) {
-        this.networkManager.signaling.off('accessories');
-        this.networkManager.signaling.off('leave');
-        this.networkManager.signaling.off('disconnect');
+        this.networkManager.signaling.resetHandlers(['accessories', 'leave', 'disconnect']);
       }
     });
 
