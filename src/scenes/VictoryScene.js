@@ -352,19 +352,39 @@ export class VictoryScene extends Phaser.Scene {
             log.info('Tournament result recorded', resp);
           }
           this._showResultFeedback('RESULTADO REGISTRADO', '#44cc88');
+          return; // Success: Tournament result saved, skip fallback
         } catch (e) {
-          log.warn('Tournament match reporting failed', { err: e.message });
-          this._showResultFeedback('ERROR AL REGISTRAR', '#ff4444');
+          log.warn('Tournament match reporting failed, falling back to personal stats', {
+            err: e.message,
+          });
+          // Fall through to updateStats(didWin) for the local Host
         }
       }
-      return;
+      // If we are here, either tourneyId was null or reporting failed.
+      // We fall through to record the Host's personal stat if they participated.
     }
 
     // Determine if local player won or lost
     let isP1 = true;
+    let participated = true;
+
     if (this.gameMode === 'online' && this.networkManager) {
       isP1 = this.networkManager.playerSlot === 0;
+    } else if (this.matchContext?.type === 'tournament' && this._currentMatch) {
+      // In tournament mode, the Host might be P1 or P2.
+      // We only record stats if the Host (user.id) was one of the fighters.
+      const hostIsP1 = this._currentMatch.p1UserId === user.id;
+      const hostIsP2 = this._currentMatch.p2UserId === user.id;
+      if (hostIsP1) {
+        isP1 = true;
+      } else if (hostIsP2) {
+        isP1 = false;
+      } else {
+        participated = false;
+      }
     }
+
+    if (!participated) return;
 
     let didWin = false;
     // In a mirror match, p1Id and p2Id are identical. Checking winnerId === localPlayerId fails.

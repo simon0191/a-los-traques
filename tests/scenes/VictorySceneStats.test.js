@@ -188,5 +188,93 @@ describe('VictoryScene Stats recording', () => {
         championId: winnerUser,
       });
     });
+
+    it('falls back to personal stats if tournament session creation failed (null tourneyId)', async () => {
+      const hostUser = 'test-user';
+      const botUser = null;
+
+      scene.init({
+        winnerId: 'simon',
+        loserId: 'bot',
+        p1Id: 'simon',
+        p2Id: 'bot',
+        winnerIndex: 0,
+        gameMode: 'local',
+        matchContext: {
+          type: 'tournament',
+          tournamentState: { tourneyId: null }, // Session failed
+        },
+      });
+
+      scene._currentMatch = {
+        p1: 'simon',
+        p2: 'bot',
+        p1UserId: hostUser,
+        p2UserId: botUser,
+      };
+
+      await scene._saveResult();
+
+      // Should fall through and record Host win
+      expect(api.reportTournamentMatch).not.toHaveBeenCalled();
+      expect(api.updateStats).toHaveBeenCalledWith(true);
+    });
+
+    it('correctly attributes win to Host even if they are P2 in a failed tournament session', async () => {
+      const hostUser = 'test-user';
+
+      scene.init({
+        winnerId: 'simon',
+        loserId: 'jeka',
+        p1Id: 'jeka',
+        p2Id: 'simon',
+        winnerIndex: 1, // P2 (simon) won
+        gameMode: 'local',
+        matchContext: {
+          type: 'tournament',
+          tournamentState: { tourneyId: null },
+        },
+      });
+
+      scene._currentMatch = {
+        p1: 'jeka',
+        p2: 'simon',
+        p1UserId: 'bot-uuid',
+        p2UserId: hostUser,
+      };
+
+      await scene._saveResult();
+
+      // Host was P2 and winnerIndex was 1 -> win
+      expect(api.updateStats).toHaveBeenCalledWith(true);
+    });
+
+    it('does not record stats if Host did not participate in a failed tournament match', async () => {
+      scene.init({
+        winnerId: 'jeka',
+        loserId: 'sun',
+        p1Id: 'jeka',
+        p2Id: 'sun',
+        winnerIndex: 0,
+        gameMode: 'local',
+        matchContext: {
+          type: 'tournament',
+          tournamentState: { tourneyId: null },
+        },
+      });
+
+      scene._currentMatch = {
+        p1: 'jeka',
+        p2: 'sun',
+        p1UserId: 'other-user-1',
+        p2UserId: 'other-user-2',
+      };
+
+      await scene._saveResult();
+
+      // Host (test-user) not in match -> no stats recorded
+      expect(api.reportTournamentMatch).not.toHaveBeenCalled();
+      expect(api.updateStats).not.toHaveBeenCalled();
+    });
   });
 });
