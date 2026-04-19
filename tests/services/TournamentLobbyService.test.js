@@ -47,6 +47,7 @@ describe('TournamentLobbyService', () => {
       id: 'real-uid',
       name: 'KillerTraque',
       status: 'ready',
+      handshake: true,
     });
 
     expect(service.socket.send).toHaveBeenCalled();

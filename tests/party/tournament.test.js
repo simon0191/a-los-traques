@@ -105,4 +105,48 @@ describe('Tournament Lobby Actions', () => {
       true,
     );
   });
+
+  it('rejects VERIFY_HANDSHAKE if connection ID does not match slot owner', () => {
+    const p1Id = 'p1-uuid';
+    const _p2Id = 'p2-uuid';
+    const conn2 = makeConnection('c2');
+    const conn3 = makeConnection('c3');
+
+    // 1. Connection 2 joins as P1
+    room.onMessage(
+      JSON.stringify({
+        type: 'lobby_action',
+        action: 'JOIN_SLOT',
+        payload: { name: 'P1', id: p1Id, type: 'human' },
+      }),
+      conn2,
+    );
+    expect(room.lobbyState.slots[1].id).toBe(p1Id);
+    expect(room.lobbyState.slots[1].connId).toBe('c2');
+
+    // 2. Connection 3 tries to verify P1 (spoof)
+    vi.advanceTimersByTime(101);
+    room.onMessage(
+      JSON.stringify({
+        type: 'lobby_action',
+        action: 'VERIFY_HANDSHAKE',
+        payload: { id: p1Id },
+      }),
+      conn3,
+    );
+
+    // Should remain unverified
+    expect(room.lobbyState.slots[1].handshake).toBe(false);
+
+    // 3. Connection 2 verifies itself (valid)
+    room.onMessage(
+      JSON.stringify({
+        type: 'lobby_action',
+        action: 'VERIFY_HANDSHAKE',
+        payload: { id: p1Id },
+      }),
+      conn2,
+    );
+    expect(room.lobbyState.slots[1].handshake).toBe(true);
+  });
 });

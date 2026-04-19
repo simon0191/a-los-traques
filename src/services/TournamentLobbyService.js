@@ -55,6 +55,7 @@ export class TournamentLobbyService extends BaseSignalingClient {
       id: profile.id,
       name: profile.nickname,
       status: 'ready',
+      handshake: true, // Host is always verified
     };
 
     // Use init_tournament to switch server state and store lobbyState

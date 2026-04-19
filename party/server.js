@@ -464,6 +464,7 @@ export default class FightRoom {
             type: type || 'guest',
             status: 'ready',
             handshake: !!handshake,
+            connId: connection.id, // Track ownership to prevent spoofing
           };
           changed = true;
         }
@@ -476,6 +477,9 @@ export default class FightRoom {
         // Find the slot for this ID and mark as verified
         const slotIdx = this.lobbyState.slots.findIndex((s) => s?.id === id);
         if (slotIdx !== -1) {
+          // Prevent cosmetic spoofing: only the connection that claimed the slot can verify it
+          if (this.lobbyState.slots[slotIdx].connId !== connection.id) break;
+
           this.lobbyState.slots[slotIdx].handshake = true;
           changed = true;
         }
