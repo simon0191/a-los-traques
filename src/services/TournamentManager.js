@@ -177,7 +177,7 @@ export class TournamentManager {
       const fId = humans[h];
       // Match by order of selection, which corresponds to lobbyHumans order
       const lobbyP = lobbyHumans[h];
-      const pId = lobbyP?.id || `human-${h}`;
+      const pId = lobbyP?.id || lobbyP?.userId || `human-${h}`;
       tournamentFighters[slot] = {
         id: fId,
         userId: pId,

@@ -10,7 +10,7 @@ export const createTournament = async (req, res, { userId, db }) => {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { size } = req.body || {};
+  const { size, allowUpdate } = req.body || {};
   const bracketSize = parseInt(size, 10) || 8;
 
   // Retry up to 5 times to find a unique tourneyId
@@ -18,21 +18,40 @@ export const createTournament = async (req, res, { userId, db }) => {
   let attempts = 0;
   const maxAttempts = 5;
 
-  while (attempts < maxAttempts) {
-    tourneyId = crypto.randomBytes(3).toString('hex').toLowerCase();
-    
-    // Check if ID already exists
-    const collisionCheck = await db.query('SELECT 1 FROM active_sessions WHERE id = $1', [tourneyId]);
-    if (collisionCheck.rows.length === 0) break;
-    
-    attempts++;
-    if (attempts === maxAttempts) {
-      return res.status(500).json({ error: 'Failed to generate unique tournament ID' });
-    }
-  }
-
   try {
-    // Phase 7: Cleanup orphan sessions from this host
+    // Phase 7: Update existing open session if requested
+    if (allowUpdate) {
+      const existingRes = await db.query(
+        'SELECT id FROM active_sessions WHERE host_user_id = $1 AND status = $2',
+        [userId, 'open']
+      );
+
+      if (existingRes.rows.length > 0) {
+        tourneyId = existingRes.rows[0].id;
+        await db.query(
+          'UPDATE active_sessions SET size = $1, matches_played = 0 WHERE id = $2',
+          [bracketSize, tourneyId]
+        );
+        return res.status(200).json({ tourneyId });
+      }
+    }
+
+    while (attempts < maxAttempts) {
+      tourneyId = crypto.randomBytes(3).toString('hex').toLowerCase();
+
+      // Check if ID already exists
+      const collisionCheck = await db.query('SELECT 1 FROM active_sessions WHERE id = $1', [
+        tourneyId,
+      ]);
+      if (collisionCheck.rows.length === 0) break;
+
+      attempts++;
+      if (attempts === maxAttempts) {
+        return res.status(500).json({ error: 'Failed to generate unique tournament ID' });
+      }
+    }
+
+    // Cleanup orphan sessions (precautionary)
     await db.query(
       "UPDATE active_sessions SET status = 'abandoned' WHERE host_user_id = $1 AND status = 'open'",
       [userId]

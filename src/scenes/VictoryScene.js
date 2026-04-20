@@ -373,7 +373,8 @@ export class VictoryScene extends Phaser.Scene {
       isP1 = this.networkManager.playerSlot === 0;
     } else if (this.matchContext?.type === 'tournament' && this._currentMatch) {
       // In tournament mode, the Host might be P1 or P2.
-      // We only record stats if the Host (user.id) was one of the fighters.
+      // We only record PERSONAL stats if the Host (user.id) was one of the fighters.
+      // But we ALWAYS record the tournament match result above (Phase 5).
       const hostIsP1 = this._currentMatch.p1UserId === user.id;
       const hostIsP2 = this._currentMatch.p2UserId === user.id;
       if (hostIsP1) {

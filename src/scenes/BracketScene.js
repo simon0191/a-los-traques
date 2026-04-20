@@ -6,6 +6,9 @@ import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { DevConsole } from '../systems/DevConsole.js';
 import { autoPickAccessories } from './accessory-select-helpers.js';
+import { Logger } from '../systems/Logger.js';
+
+const log = Logger.create('BracketScene');
 
 const HUMAN_COLORS = [
   '#ff3333',
@@ -46,12 +49,12 @@ export class BracketScene extends Phaser.Scene {
 
     if (this.fromMatch) {
       if (this.manager.allHumansEliminated()) {
-        // All humans out — reveal everything
-        this.manager.simulateAllRemaining();
+        // All humans out — reveal everything and sync with backend
+        this._simulateAndReport(true);
       } else {
         // Simulate AI-vs-AI matches in the completed round
         const completedRoundIdx = this.matchContext.matchInfo.roundIndex;
-        this.manager.simulateRound(completedRoundIdx);
+        this._simulateAndReport(false, completedRoundIdx);
       }
       this.matchContext.tournamentState = this.manager.serialize();
       this.manager = new TournamentManager(this.matchContext.tournamentState);
@@ -335,5 +338,82 @@ export class BracketScene extends Phaser.Scene {
         matchContext: this.matchContext,
       });
     });
+  }
+
+  /**
+   * Simulates AI-vs-AI matches and reports them to the backend to keep state in sync.
+   */
+  async _simulateAndReport(allRemaining, specificRound = null) {
+    const tourneyId = this.manager.tourneyId;
+    if (!tourneyId) {
+      if (allRemaining) this.manager.simulateAllRemaining();
+      else if (specificRound !== null) this.manager.simulateRound(specificRound);
+      return;
+    }
+
+    // We must simulate matches one by one to report them correctly
+    for (let r = 0; r < this.manager.rounds.length; r++) {
+      if (specificRound !== null && r !== specificRound) continue;
+
+      const round = this.manager.rounds[r];
+      for (let m = 0; m < round.length; m++) {
+        const match = round[m];
+        if (match.p1 && match.p2 && !match.winnerUserId) {
+          const p1IsActiveHuman =
+            this.manager._isHumanPlayer(match.p1UserId) &&
+            !this.manager.isPlayerEliminated(match.p1UserId);
+          const p2IsActiveHuman =
+            this.manager._isHumanPlayer(match.p2UserId) &&
+            !this.manager.isPlayerEliminated(match.p2UserId);
+
+          if (!p1IsActiveHuman && !p2IsActiveHuman) {
+            // AI vs AI: Simulate
+            const winnerUserId = this.manager.nextRand() > 0.5 ? match.p1UserId : match.p2UserId;
+            const loserUserId = winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
+
+            this.manager._assignMatchWinner(match, winnerUserId);
+            this.manager._setWinnerInNextRound(r, m, winnerUserId);
+
+            // Report to backend (Fire and forget, but tracked)
+            this._reportSimulatedMatch(tourneyId, winnerUserId, loserUserId);
+          }
+        }
+      }
+      if (!allRemaining && r === specificRound) break;
+    }
+  }
+
+  async _reportSimulatedMatch(tourneyId, winnerUserId, loserUserId) {
+    try {
+      const isFinal = this.manager.complete;
+      const championId = isFinal ? this.manager.winnerUserId : null;
+
+      // The backend validates that winnerId/loserId are UUIDs for stat updates.
+      // For bots, we can't update stats, but we MUST report the match to increment matches_played.
+      // We pass null for bot IDs to satisfy the API check if it expects a participant ID.
+      // Actually, looking at the backend, it only updates stats if the ID is a valid UUID.
+      const isUuid = (id) =>
+        id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+      const payload = {
+        tourneyId,
+        winnerId: isUuid(winnerUserId) ? winnerUserId : null,
+        loserId: isUuid(loserUserId) ? loserUserId : null,
+      };
+
+      if (isFinal && championId && isUuid(championId)) {
+        payload.isFinal = true;
+        payload.championId = championId;
+      } else if (isFinal) {
+        // Still mark as final even if champion is a bot
+        payload.isFinal = true;
+      }
+
+      const { reportTournamentMatch } = await import('../services/api.js');
+      await reportTournamentMatch(payload);
+      log.info(`Simulated match reported: ${winnerUserId} beat ${loserUserId}`);
+    } catch (e) {
+      log.warn('Failed to report simulated match', { err: e.message });
+    }
   }
 }

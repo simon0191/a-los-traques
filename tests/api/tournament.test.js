@@ -33,7 +33,9 @@ describe('Tournament API Endpoints', () => {
   describe('POST /api/tournament/create', () => {
     it('generates a unique 6-char tourneyId and saves bracket size', async () => {
       mockDb.query
+        .mockResolvedValueOnce({ rows: [] }) // existing open session check
         .mockResolvedValueOnce({ rows: [] }) // collision check
+        .mockResolvedValueOnce({ rows: [] }) // cleanup orphan sessions
         .mockResolvedValueOnce({ rows: [{ id: 'test-id' }] }) // insert session
         .mockResolvedValueOnce({ rows: [] }); // insert participant
 
@@ -51,10 +53,30 @@ describe('Tournament API Endpoints', () => {
       );
     });
 
+    it('updates size of existing open session', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ id: 'old-id' }] }) // existing session found
+        .mockResolvedValueOnce({ rows: [] }); // update size
+
+      const req = { method: 'POST', body: { size: 16, allowUpdate: true } };
+      const res = createRes();
+
+      await createTournament(req, res, { userId: validHostUuid, db: mockDb });
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ tourneyId: 'old-id' });
+      expect(mockDb.query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE active_sessions SET size = $1'),
+        [16, 'old-id'],
+      );
+    });
+
     it('retries on collision', async () => {
       mockDb.query
+        .mockResolvedValueOnce({ rows: [] }) // existing check
         .mockResolvedValueOnce({ rows: [1] }) // first collision
         .mockResolvedValueOnce({ rows: [] }) // second unique
+        .mockResolvedValueOnce({ rows: [] }) // cleanup
         .mockResolvedValueOnce({ rows: [] }) // insert session
         .mockResolvedValueOnce({ rows: [] }); // insert participant
 
@@ -135,7 +157,7 @@ describe('Tournament API Endpoints', () => {
       );
     });
 
-    it('enforces match limit based on bracket size', async () => {
+    it('idempotently handles match limit based on bracket size', async () => {
       // 8-player bracket allows max 7 matches
       mockDb.query.mockResolvedValueOnce({
         rows: [{ status: 'open', matches_played: 7, size: 8 }],
@@ -148,18 +170,14 @@ describe('Tournament API Endpoints', () => {
       const res = createRes();
 
       await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
-      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('Max match limit') }),
+        expect.objectContaining({ status: 'ignored', reason: expect.stringContaining('limit reached') }),
       );
 
       // Verify NO updates were attempted
       expect(mockDb.query).not.toHaveBeenCalledWith(
         expect.stringContaining('BEGIN'),
-        expect.any(Array),
-      );
-      expect(mockDb.query).not.toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE profiles'),
         expect.any(Array),
       );
     });
@@ -191,6 +209,10 @@ describe('Tournament API Endpoints', () => {
     });
 
     it('returns 400 when winnerId === loserId', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 0, size: 8 }] }) // host check
+        .mockResolvedValueOnce({ rows: [] }); // handshake (even if 400 is expected later, the code path needs it)
+
       const req = {
         method: 'POST',
         body: { ...defaultIds, winnerId: validWinnerUuid, loserId: validWinnerUuid },

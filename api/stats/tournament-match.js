@@ -13,8 +13,8 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
 
   const { tourneyId, winnerId, loserId, isFinal, championId } = req.body;
 
-  if (!tourneyId || (!winnerId && !loserId)) {
-    return res.status(400).json({ error: 'Missing required fields: tourneyId and at least one participant ID' });
+  if (!tourneyId) {
+    return res.status(400).json({ error: 'Missing required field: tourneyId' });
   }
 
   if (winnerId && loserId && winnerId === loserId) {
@@ -36,15 +36,15 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
 
     const { status, matches_played, size: bracketSize } = hostCheckRes.rows[0];
 
+    // If session is already completed, ignore subsequent reports (idempotent)
     if (status !== 'open') {
-      return res.status(403).json({ error: 'Tournament session is already completed' });
+      return res.status(200).json({ status: 'ignored', reason: 'Session already completed' });
     }
 
     // Security Mitigation: Hard limit on match reports per session based on topology
-    // A single-elimination bracket of N players has exactly N-1 matches.
     const maxMatches = Math.min(bracketSize - 1, 32); 
     if (matches_played >= maxMatches) {
-      return res.status(403).json({ error: 'Max match limit reached for this tournament' });
+      return res.status(200).json({ status: 'ignored', reason: 'Max match limit reached' });
     }
 
     // 2. Verify participants performed the handshake (consent) for this session
@@ -118,7 +118,13 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
       prestigeAwarded
     });
   } catch (err) {
-    await db.query('ROLLBACK').catch(() => {});
+    if (db.query) {
+      try {
+        await db.query('ROLLBACK');
+      } catch (_e) {
+        // Ignore rollback error if already rolled back or connection lost
+      }
+    }
     console.error('Error reporting tournament match result:', err);
     throw err;
   }
