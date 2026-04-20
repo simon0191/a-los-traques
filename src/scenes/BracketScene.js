@@ -396,12 +396,7 @@ export class BracketScene extends Phaser.Scene {
       const isFinal = this.manager.complete;
       const championId = isFinal ? this.manager.winnerUserId : null;
 
-      // The backend validates that winnerId/loserId are UUIDs for stat updates.
-      // For bots, we can't update stats, but we MUST report the match to increment matches_played.
-      // We pass null for bot IDs to satisfy the API check if it expects a participant ID.
-      // Actually, looking at the backend, it only updates stats if the ID is a valid UUID.
-      const isUuid = (id) =>
-        id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      const { reportTournamentMatch, isUuid } = await import('../services/api.js');
 
       const payload = {
         tourneyId,
@@ -419,7 +414,6 @@ export class BracketScene extends Phaser.Scene {
         payload.isFinal = true;
       }
 
-      const { reportTournamentMatch } = await import('../services/api.js');
       await reportTournamentMatch(payload);
       log.info(`Simulated match reported: ${winnerUserId} beat ${loserUserId}`);
     } catch (e) {
