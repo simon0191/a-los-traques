@@ -341,6 +341,8 @@ export class VictoryScene extends Phaser.Scene {
               tourneyId,
               winnerId: winnerUserId,
               loserId: loserUserId,
+              roundIndex: this._currentMatch.roundIndex,
+              matchIndex: this._currentMatch.matchIndex,
             };
 
             // If tournament is finished, include crowning data in the same call

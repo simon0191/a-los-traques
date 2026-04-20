@@ -11,10 +11,14 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { tourneyId, winnerId, loserId, isFinal, championId } = req.body;
+  const { tourneyId, winnerId, loserId, isFinal, championId, roundIndex, matchIndex } = req.body;
 
   if (!tourneyId) {
     return res.status(400).json({ error: 'Missing required field: tourneyId' });
+  }
+
+  if (roundIndex === undefined || matchIndex === undefined) {
+    return res.status(400).json({ error: 'Missing required fields: roundIndex and matchIndex' });
   }
 
   if (winnerId && loserId && winnerId === loserId) {
@@ -68,6 +72,29 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
 
     // Atomic transaction for all updates
     await db.query('BEGIN');
+
+    // Phase 1.5: Strong Idempotency Check (Ledger)
+    // We attempt to insert this match into our history table.
+    // If it already exists, the database will return 0 rows due to ON CONFLICT.
+    const insertMatchRes = await db.query(
+      `INSERT INTO tournament_matches (session_id, round_index, match_index, winner_id, loser_id)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (session_id, round_index, match_index) DO NOTHING
+       RETURNING 1`,
+      [
+        tid,
+        roundIndex,
+        matchIndex,
+        isUuid(winnerId) ? winnerId : null,
+        isUuid(loserId) ? loserId : null
+      ]
+    );
+
+    if (insertMatchRes.rows.length === 0) {
+      // Already reported, skip all updates but return success for idempotency
+      await db.query('ROLLBACK');
+      return res.status(200).json({ status: 'ignored', reason: 'Match already reported' });
+    }
 
     // Update match stats
     if (hasWinnerHandshake) {

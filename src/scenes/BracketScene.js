@@ -375,7 +375,7 @@ export class BracketScene extends Phaser.Scene {
             this.manager._setWinnerInNextRound(r, m, winnerUserId);
 
             // Report to backend (Fire and forget, but tracked)
-            this._reportSimulatedMatch(tourneyId, winnerUserId, loserUserId);
+            this._reportSimulatedMatch(tourneyId, winnerUserId, loserUserId, r, m);
           }
         }
       }
@@ -383,7 +383,7 @@ export class BracketScene extends Phaser.Scene {
     }
   }
 
-  async _reportSimulatedMatch(tourneyId, winnerUserId, loserUserId) {
+  async _reportSimulatedMatch(tourneyId, winnerUserId, loserUserId, roundIndex, matchIndex) {
     try {
       const isFinal = this.manager.complete;
       const championId = isFinal ? this.manager.winnerUserId : null;
@@ -399,6 +399,8 @@ export class BracketScene extends Phaser.Scene {
         tourneyId,
         winnerId: isUuid(winnerUserId) ? winnerUserId : null,
         loserId: isUuid(loserUserId) ? loserUserId : null,
+        roundIndex,
+        matchIndex,
       };
 
       if (isFinal && championId && isUuid(championId)) {

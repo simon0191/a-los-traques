@@ -168,10 +168,20 @@ export async function reportTournamentMatch({
   loserId,
   isFinal = false,
   championId = null,
+  roundIndex,
+  matchIndex,
 }) {
   return apiFetch('/stats/tournament-match', {
     method: 'POST',
-    body: JSON.stringify({ tourneyId, winnerId, loserId, isFinal, championId }),
+    body: JSON.stringify({
+      tourneyId,
+      winnerId,
+      loserId,
+      isFinal,
+      championId,
+      roundIndex,
+      matchIndex,
+    }),
     keepalive: true, // Ensure request finishes even if page/scene is closed
   });
 }
