@@ -22,14 +22,20 @@ export const createTournament = async (req, res, { userId, db }) => {
     // Phase 7: Update existing open session if requested
     if (allowUpdate) {
       const existingRes = await db.query(
-        'SELECT id FROM active_sessions WHERE host_user_id = $1 AND status = $2',
+        'SELECT id, matches_played FROM active_sessions WHERE host_user_id = $1 AND status = $2',
         [userId, 'open']
       );
 
       if (existingRes.rows.length > 0) {
         tourneyId = existingRes.rows[0].id;
+        const matchesPlayed = parseInt(existingRes.rows[0].matches_played, 10) || 0;
+
+        if (matchesPlayed > 0) {
+          return res.status(403).json({ error: 'Cannot update tournament size after matches have started' });
+        }
+
         await db.query(
-          'UPDATE active_sessions SET size = $1, matches_played = 0 WHERE id = $2',
+          'UPDATE active_sessions SET size = $1 WHERE id = $2',
           [bracketSize, tourneyId]
         );
         return res.status(200).json({ tourneyId });

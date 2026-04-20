@@ -55,7 +55,7 @@ describe('Tournament API Endpoints', () => {
 
     it('updates size of existing open session', async () => {
       mockDb.query
-        .mockResolvedValueOnce({ rows: [{ id: 'old-id' }] }) // existing session found
+        .mockResolvedValueOnce({ rows: [{ id: 'old-id', matches_played: 0 }] }) // existing session found
         .mockResolvedValueOnce({ rows: [] }); // update size
 
       const req = { method: 'POST', body: { size: 16, allowUpdate: true } };
@@ -68,6 +68,22 @@ describe('Tournament API Endpoints', () => {
       expect(mockDb.query).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE active_sessions SET size = $1'),
         [16, 'old-id'],
+      );
+    });
+
+    it('fails to update size if matches have already started', async () => {
+      mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'old-id', matches_played: 1 }] }); // matches started
+
+      const req = { method: 'POST', body: { size: 16, allowUpdate: true } };
+      const res = createRes();
+
+      await createTournament(req, res, { userId: validHostUuid, db: mockDb });
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.stringContaining('Cannot update tournament size'),
+        }),
       );
     });
 
