@@ -268,6 +268,7 @@ export class TournamentSetupScene extends Phaser.Scene {
       gameMode: 'local',
       matchContext: {
         type: 'tournament',
+        isHost: true,
         lobbyPlayers: players,
         tournamentState: {
           size,

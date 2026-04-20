@@ -29,6 +29,7 @@ export class BracketScene extends Phaser.Scene {
   init(data) {
     this.gameMode = data.gameMode || 'local';
     this.matchContext = data.matchContext;
+    this.isHost = this.matchContext?.isHost ?? false;
     this.manager = new TournamentManager(this.matchContext.tournamentState);
 
     // Track if we just came from a match result
@@ -344,6 +345,13 @@ export class BracketScene extends Phaser.Scene {
    * Simulates AI-vs-AI matches and reports them to the backend to keep state in sync.
    */
   async _simulateAndReport(allRemaining, specificRound = null) {
+    // Only the Host should report simulated results to the backend
+    if (!this.isHost) {
+      if (allRemaining) this.manager.simulateAllRemaining();
+      else if (specificRound !== null) this.manager.simulateRound(specificRound);
+      return;
+    }
+
     const tourneyId = this.manager.tourneyId;
     if (!tourneyId) {
       if (allRemaining) this.manager.simulateAllRemaining();
@@ -374,8 +382,8 @@ export class BracketScene extends Phaser.Scene {
             this.manager._assignMatchWinner(match, winnerUserId);
             this.manager._setWinnerInNextRound(r, m, winnerUserId);
 
-            // Report to backend (Fire and forget, but tracked)
-            this._reportSimulatedMatch(tourneyId, winnerUserId, loserUserId, r, m);
+            // Report to backend (Sequential await to avoid overwhelming connection pool)
+            await this._reportSimulatedMatch(tourneyId, winnerUserId, loserUserId, r, m);
           }
         }
       }
