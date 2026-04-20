@@ -142,7 +142,7 @@ export async function uploadDebugBundle({ fightId, slot, round, bundle }) {
  * Create a new tournament session (persistence)
  */
 export async function createTournament(size, allowUpdate = false) {
-  return apiFetch('/tournament/join', {
+  return apiFetch('/tournament/create', {
     method: 'POST',
     body: JSON.stringify({ size, allowUpdate }),
   });
