@@ -172,7 +172,10 @@ describe('Tournament API Endpoints', () => {
       await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'ignored', reason: expect.stringContaining('limit reached') }),
+        expect.objectContaining({
+          status: 'ignored',
+          reason: expect.stringContaining('limit reached'),
+        }),
       );
 
       // Verify NO updates were attempted
