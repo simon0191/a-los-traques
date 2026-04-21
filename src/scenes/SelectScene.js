@@ -1159,7 +1159,10 @@ export class SelectScene extends Phaser.Scene {
     }
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('StageSelectScene', {
+      // Always route through AccessorySelectScene — it auto-skips when
+      // no human slot has calibrated categories and, in online mode,
+      // exchanges each peer's picks via a one-shot relay message.
+      this.scene.start('AccessorySelectScene', {
         p1Id,
         p2Id,
         gameMode: this.gameMode,

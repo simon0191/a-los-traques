@@ -357,6 +357,30 @@ export default class FightRoom {
       case 'rematch':
         this._sendToOther(slot, data);
         break;
+      case 'accessories': {
+        // Cosmetic accessory picks exchanged between peers during
+        // AccessorySelectScene (which runs while roomState is STAGE_SELECT).
+        // Gate + size-cap to stop hostile clients from relaying arbitrary
+        // JSON floods at their opponent.
+        if (this.roomState !== RoomState.STAGE_SELECT) break;
+        const accessories = data.accessories;
+        if (!accessories || typeof accessories !== 'object' || Array.isArray(accessories)) {
+          break;
+        }
+        const keys = Object.keys(accessories);
+        if (keys.length > 32) break;
+        let valid = true;
+        for (const k of keys) {
+          const v = accessories[k];
+          if (k.length > 64 || (v !== null && (typeof v !== 'string' || v.length > 64))) {
+            valid = false;
+            break;
+          }
+        }
+        if (!valid) break;
+        this._sendToOther(slot, { type: 'accessories', accessories });
+        break;
+      }
       case 'select_stage':
         this._handleStageSelect(slot, data);
         break;

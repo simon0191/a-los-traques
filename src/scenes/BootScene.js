@@ -6,6 +6,8 @@ import {
   GAME_HEIGHT,
   GAME_WIDTH,
 } from '../config.js';
+import accessories from '../data/accessories.json';
+import { ANIM_DEFS, FIGHTERS_WITH_SPRITES } from '../data/animations.js';
 import stages from '../data/stages.json';
 import { authEnabled } from '../services/supabase.js';
 
@@ -13,44 +15,6 @@ import { authEnabled } from '../services/supabase.js';
 const fightMusicFiles = Object.keys(import.meta.glob('/public/assets/audio/fights/*.mp3')).map(
   (p) => p.replace('/public', ''),
 );
-
-// Animation definitions: name -> frame count
-const ANIM_DEFS = {
-  idle: { frames: 4, repeat: -1 },
-  walk: { frames: 4, repeat: -1 },
-  light_punch: { frames: 4, repeat: 0 },
-  heavy_punch: { frames: 5, repeat: 0 },
-  light_kick: { frames: 4, repeat: 0 },
-  heavy_kick: { frames: 5, repeat: 0 },
-  special: { frames: 5, repeat: 0 },
-  block: { frames: 2, repeat: 0 },
-  hurt: { frames: 3, repeat: 0 },
-  knockdown: { frames: 4, repeat: 0 },
-  victory: { frames: 4, repeat: -1 },
-  defeat: { frames: 3, repeat: 0 },
-  jump: { frames: 3, repeat: 0 },
-};
-
-// Fighters that have real sprite assets (add IDs here as they're generated)
-const FIGHTERS_WITH_SPRITES = [
-  'simon',
-  'jeka',
-  'chicha',
-  'cata',
-  'carito',
-  'mao',
-  'peks',
-  'lini',
-  'alv',
-  'sun',
-  'gartner',
-  'richi',
-  'cami',
-  'migue',
-  'bozzi',
-  'angy',
-  'adil',
-];
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -134,12 +98,31 @@ export class BootScene extends Phaser.Scene {
       }
       this.load.image(`portrait_${id}`, `assets/portraits/${id}.png`);
     }
+
+    // Accessory source PNGs. One per accessory — the runtime composes the
+    // overlay per-frame from the calibration manifest (no pre-baked strips).
+    for (const acc of accessories) {
+      this.load.image(`accessory_${acc.id}`, acc.image);
+    }
+
+    // Overlay calibration manifest (RFC 0018 v2). Fighter._syncOverlays looks
+    // up per-frame transforms here each render tick.
+    this.load.json('overlayManifestData', 'assets/overlays/manifest.json');
   }
 
   create() {
     // Store fight music count in registry so FightScene can pick randomly
     const count = fightMusicFiles.length > 0 ? fightMusicFiles.length : 1;
     this.game.registry.set('fightMusicCount', count);
+
+    // Overlay manifest (RFC 0018 v2). Loaded via this.load.json in preload;
+    // fall back to empty if missing so the game still boots.
+    const manifest = this.cache.json.get('overlayManifestData') ?? {
+      version: 2,
+      updatedAt: null,
+      calibrations: {},
+    };
+    this.game.registry.set('overlayManifest', manifest);
 
     // Generate placeholder rectangle textures for fighters
     this.generateFighterPlaceholder('fighter_p1', FIGHTER_COLORS.p1);
@@ -203,37 +186,44 @@ export class BootScene extends Phaser.Scene {
       });
     }
 
-    // If URL has ?room=, go directly to lobby as joiner or spectator
-    const roomId = params.get('room');
-    // Replay mode: load bundle from window global or sessionStorage
-    if (this.game.autoplay?.replay) {
-      if (!window.__REPLAY_BUNDLE) {
-        const stored = sessionStorage.getItem('__REPLAY_BUNDLE');
-        if (stored) window.__REPLAY_BUNDLE = JSON.parse(stored);
+    const startNextScene = () => {
+      // If URL has ?room=, go directly to lobby as joiner or spectator
+      const roomId = params.get('room');
+      // Replay mode: load bundle from window global or sessionStorage
+      if (this.game.autoplay?.replay) {
+        if (!window.__REPLAY_BUNDLE) {
+          const stored = sessionStorage.getItem('__REPLAY_BUNDLE');
+          if (stored) window.__REPLAY_BUNDLE = JSON.parse(stored);
+        }
       }
-    }
-    if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
-      // Skip lobby, go straight to fight using bundle config
-      const bundle = window.__REPLAY_BUNDLE;
-      this.scene.start('PreFightScene', {
-        p1Id: bundle.config.p1FighterId,
-        p2Id: bundle.config.p2FighterId,
-        stageId: bundle.config.stageId,
-        gameMode: 'local',
-      });
-    } else if (roomId && params.get('spectate') === '1') {
-      this.scene.start('SpectatorLobbyScene', { roomId });
-    } else if (roomId) {
-      this.scene.start('LobbyScene', { roomId });
-    } else if (this.game.autoplay?.enabled && this.game.autoplay.createRoom) {
-      // Autoplay mode: create a new room automatically
-      this.scene.start('LobbyScene', {});
-    } else if (!authEnabled || this.game.autoplay?.enabled) {
-      // Bypass login if Supabase not configured or in E2E/autoplay mode
-      this.scene.start('TitleScene');
-    } else {
-      this.scene.start('LoginScene');
-    }
+      // Editor routing (RFC 0018): skip login/title if ?editor=1 is present.
+      if (params.get('editor') === '1' && this.scene.get('OverlayEditorScene')) {
+        this.scene.start('OverlayEditorScene');
+      } else if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
+        // Skip lobby, go straight to fight using bundle config
+        const bundle = window.__REPLAY_BUNDLE;
+        this.scene.start('PreFightScene', {
+          p1Id: bundle.config.p1FighterId,
+          p2Id: bundle.config.p2FighterId,
+          stageId: bundle.config.stageId,
+          gameMode: 'local',
+        });
+      } else if (roomId && params.get('spectate') === '1') {
+        this.scene.start('SpectatorLobbyScene', { roomId });
+      } else if (roomId) {
+        this.scene.start('LobbyScene', { roomId });
+      } else if (this.game.autoplay?.enabled && this.game.autoplay.createRoom) {
+        // Autoplay mode: create a new room automatically
+        this.scene.start('LobbyScene', {});
+      } else if (!authEnabled || this.game.autoplay?.enabled) {
+        // Bypass login if Supabase not configured or in E2E/autoplay mode
+        this.scene.start('TitleScene');
+      } else {
+        this.scene.start('LoginScene');
+      }
+    };
+
+    startNextScene();
   }
 
   generateFighterPlaceholder(key, color) {

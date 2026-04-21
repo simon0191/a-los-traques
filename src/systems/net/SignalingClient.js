@@ -15,6 +15,9 @@ const BUFFERABLE_TYPES = new Set([
   'rematch',
   'leave',
   'opponent_joined',
+  // Peer's accessory picks can arrive before AccessorySelectScene subscribes
+  // (e.g. peer confirms immediately on an auto-skip while we're still fading in).
+  'accessories',
 ]);
 
 /**
