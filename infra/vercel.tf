@@ -11,9 +11,13 @@ resource "vercel_project" "web" {
   name      = "a-los-traques"
   framework = "nextjs"
 
-  root_directory             = "apps/web"
-  serverless_function_region = "iad1"
-  node_version               = "22.x"
+  root_directory = "apps/web"
+  node_version   = "22.x"
+
+  resource_config = {
+    # Replaces the deprecated `serverless_function_region` attribute.
+    function_default_regions = ["iad1"]
+  }
 
   # bun workspaces live at the repo root — install from there so
   # @alostraques/* symlinks resolve inside apps/web.
