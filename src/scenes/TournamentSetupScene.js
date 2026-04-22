@@ -126,9 +126,9 @@ export class TournamentSetupScene extends Phaser.Scene {
     }
   }
 
-  _toggleSize() {
+  async _toggleSize() {
     const newSize = this.lobby.state.size === 8 ? 16 : 8;
-    this.lobby.updateSize(newSize);
+    await this.lobby.updateSize(newSize);
     this._sizeBtn.text.setText(`TAMAÑO: ${newSize}`);
     this.currentPage = 0;
     // UI will update via onUpdate callback
@@ -268,6 +268,8 @@ export class TournamentSetupScene extends Phaser.Scene {
       gameMode: 'local',
       matchContext: {
         type: 'tournament',
+        // Critical: isHost is the ONLY signal gating backend writes for simulated matches.
+        // It must be forwarded through all subsequent scenes until BracketScene.
         isHost: true,
         lobbyPlayers: players,
         tournamentState: {

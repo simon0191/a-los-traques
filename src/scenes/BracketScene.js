@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
+import { isUuid, reportTournamentMatch } from '../services/api.js';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { DevConsole } from '../systems/DevConsole.js';
@@ -31,6 +32,13 @@ export class BracketScene extends Phaser.Scene {
     this.matchContext = data.matchContext;
     this.isHost = this.matchContext?.isHost ?? false;
     this.manager = new TournamentManager(this.matchContext.tournamentState);
+
+    // Hardening: Warn if isHost is missing in a tournament context to prevent silent reporting failures.
+    if (this.matchContext?.type === 'tournament' && !this.matchContext.isHost) {
+      log.warn(
+        'isHost flag missing in tournament matchContext; simulated matches will not be reported.',
+      );
+    }
 
     // Track if we just came from a match result
     this.fromMatch = data.fromMatch || false;
@@ -395,8 +403,6 @@ export class BracketScene extends Phaser.Scene {
     try {
       const isFinal = this.manager.complete;
       const championId = isFinal ? this.manager.winnerUserId : null;
-
-      const { reportTournamentMatch, isUuid } = await import('../services/api.js');
 
       const payload = {
         tourneyId,

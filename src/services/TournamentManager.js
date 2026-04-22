@@ -175,9 +175,10 @@ export class TournamentManager {
     for (let h = 0; h < humans.length; h++) {
       const slot = Math.floor((h * size) / humans.length);
       const fId = humans[h];
-      // Match by order of selection, which corresponds to lobbyHumans order
+      // Match by order of selection, which corresponds to lobbyHumans order.
+      // We use .id as the authoritative identifier (maps to profile UUID for humans, or unique string for guests).
       const lobbyP = lobbyHumans[h];
-      const pId = lobbyP?.id || lobbyP?.userId || `human-${h}`;
+      const pId = lobbyP?.id || `human-${h}`;
       tournamentFighters[slot] = {
         id: fId,
         userId: pId,
