@@ -139,12 +139,19 @@ export async function uploadDebugBundle({ fightId, slot, round, bundle }) {
 }
 
 /**
- * Create a new tournament session (Host only)
+ * Validates if a string is a valid UUID v4 format.
  */
-export async function createTournament(size = 8) {
+export const isUuid = (id) =>
+  typeof id === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+/**
+ * Create a new tournament session (persistence)
+ */
+export async function createTournament(size, allowUpdate = false) {
   return apiFetch('/tournament/create', {
     method: 'POST',
-    body: JSON.stringify({ size }),
+    body: JSON.stringify({ size, allowUpdate }),
   });
 }
 
@@ -168,10 +175,20 @@ export async function reportTournamentMatch({
   loserId,
   isFinal = false,
   championId = null,
+  roundIndex,
+  matchIndex,
 }) {
   return apiFetch('/stats/tournament-match', {
     method: 'POST',
-    body: JSON.stringify({ tourneyId, winnerId, loserId, isFinal, championId }),
+    body: JSON.stringify({
+      tourneyId,
+      winnerId,
+      loserId,
+      isFinal,
+      championId,
+      roundIndex,
+      matchIndex,
+    }),
     keepalive: true, // Ensure request finishes even if page/scene is closed
   });
 }

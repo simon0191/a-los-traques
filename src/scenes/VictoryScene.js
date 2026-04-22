@@ -341,6 +341,8 @@ export class VictoryScene extends Phaser.Scene {
               tourneyId,
               winnerId: winnerUserId,
               loserId: loserUserId,
+              roundIndex: this._currentMatch.roundIndex,
+              matchIndex: this._currentMatch.matchIndex,
             };
 
             // If tournament is finished, include crowning data in the same call
@@ -351,9 +353,12 @@ export class VictoryScene extends Phaser.Scene {
 
             const resp = await reportTournamentMatch(payload);
             log.info('Tournament result recorded', resp);
+
+            if (resp.status === 'success') {
+              this._showResultFeedback('RESULTADO REGISTRADO', '#44cc88');
+            }
           }
-          this._showResultFeedback('RESULTADO REGISTRADO', '#44cc88');
-          return; // Success: Tournament result saved, skip fallback
+          return; // Success (or idempotent ignored): handled, skip fallback
         } catch (e) {
           log.warn('Tournament match reporting failed, falling back to personal stats', {
             err: e.message,
@@ -373,7 +378,8 @@ export class VictoryScene extends Phaser.Scene {
       isP1 = this.networkManager.playerSlot === 0;
     } else if (this.matchContext?.type === 'tournament' && this._currentMatch) {
       // In tournament mode, the Host might be P1 or P2.
-      // We only record stats if the Host (user.id) was one of the fighters.
+      // We only record PERSONAL stats if the Host (user.id) was one of the fighters.
+      // But we ALWAYS record the tournament match result above (Phase 5).
       const hostIsP1 = this._currentMatch.p1UserId === user.id;
       const hostIsP2 = this._currentMatch.p2UserId === user.id;
       if (hostIsP1) {

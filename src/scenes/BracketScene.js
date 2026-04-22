@@ -2,10 +2,14 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import fightersData from '../data/fighters.json';
 import stagesData from '../data/stages.json';
+import { isUuid, reportTournamentMatch } from '../services/api.js';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { DevConsole } from '../systems/DevConsole.js';
+import { Logger } from '../systems/Logger.js';
 import { autoPickAccessories } from './accessory-select-helpers.js';
+
+const log = Logger.create('BracketScene');
 
 const HUMAN_COLORS = [
   '#ff3333',
@@ -26,10 +30,21 @@ export class BracketScene extends Phaser.Scene {
   init(data) {
     this.gameMode = data.gameMode || 'local';
     this.matchContext = data.matchContext;
+    this.isHost = this.matchContext?.isHost ?? false;
     this.manager = new TournamentManager(this.matchContext.tournamentState);
+
+    // Hardening: Warn if isHost is missing in a tournament context to prevent silent reporting failures.
+    if (this.matchContext?.type === 'tournament' && !this.matchContext.isHost) {
+      log.warn(
+        'isHost flag missing in tournament matchContext; simulated matches will not be reported.',
+      );
+    }
 
     // Track if we just came from a match result
     this.fromMatch = data.fromMatch || false;
+
+    // Hardening: Surface repeated reporting failures to the Host
+    this._reportingFailures = 0;
   }
 
   create() {
@@ -46,12 +61,12 @@ export class BracketScene extends Phaser.Scene {
 
     if (this.fromMatch) {
       if (this.manager.allHumansEliminated()) {
-        // All humans out — reveal everything
-        this.manager.simulateAllRemaining();
+        // All humans out — reveal everything and sync with backend
+        this._simulateAndReport(true);
       } else {
         // Simulate AI-vs-AI matches in the completed round
         const completedRoundIdx = this.matchContext.matchInfo.roundIndex;
-        this.manager.simulateRound(completedRoundIdx);
+        this._simulateAndReport(false, completedRoundIdx);
       }
       this.matchContext.tournamentState = this.manager.serialize();
       this.manager = new TournamentManager(this.matchContext.tournamentState);
@@ -334,6 +349,113 @@ export class BracketScene extends Phaser.Scene {
         gameMode: this.gameMode,
         matchContext: this.matchContext,
       });
+    });
+  }
+
+  /**
+   * Simulates AI-vs-AI matches and reports them to the backend to keep state in sync.
+   */
+  async _simulateAndReport(allRemaining, specificRound = null) {
+    // Only the Host should report simulated results to the backend
+    if (!this.isHost) {
+      if (allRemaining) this.manager.simulateAllRemaining();
+      else if (specificRound !== null) this.manager.simulateRound(specificRound);
+      return;
+    }
+
+    const tourneyId = this.manager.tourneyId;
+    if (!tourneyId) {
+      if (allRemaining) this.manager.simulateAllRemaining();
+      else if (specificRound !== null) this.manager.simulateRound(specificRound);
+      return;
+    }
+
+    // We must simulate matches one by one to report them correctly
+    for (let r = 0; r < this.manager.rounds.length; r++) {
+      if (specificRound !== null && r !== specificRound) continue;
+
+      const round = this.manager.rounds[r];
+      for (let m = 0; m < round.length; m++) {
+        const match = round[m];
+        if (match.p1 && match.p2 && !match.winnerUserId) {
+          const p1IsActiveHuman =
+            this.manager._isHumanPlayer(match.p1UserId) &&
+            !this.manager.isPlayerEliminated(match.p1UserId);
+          const p2IsActiveHuman =
+            this.manager._isHumanPlayer(match.p2UserId) &&
+            !this.manager.isPlayerEliminated(match.p2UserId);
+
+          if (!p1IsActiveHuman && !p2IsActiveHuman) {
+            // AI vs AI: Simulate
+            const winnerUserId = this.manager.nextRand() > 0.5 ? match.p1UserId : match.p2UserId;
+            const loserUserId = winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
+
+            this.manager._assignMatchWinner(match, winnerUserId);
+            this.manager._setWinnerInNextRound(r, m, winnerUserId);
+
+            // Report to backend (Sequential await to avoid overwhelming connection pool)
+            await this._reportSimulatedMatch(tourneyId, winnerUserId, loserUserId, r, m);
+          }
+        }
+      }
+      if (!allRemaining && r === specificRound) break;
+    }
+  }
+
+  async _reportSimulatedMatch(tourneyId, winnerUserId, loserUserId, roundIndex, matchIndex) {
+    try {
+      const isFinal = this.manager.complete;
+      const championId = isFinal ? this.manager.winnerUserId : null;
+
+      const payload = {
+        tourneyId,
+        winnerId: isUuid(winnerUserId) ? winnerUserId : null,
+        loserId: isUuid(loserUserId) ? loserUserId : null,
+        roundIndex,
+        matchIndex,
+      };
+
+      if (isFinal && championId && isUuid(championId)) {
+        payload.isFinal = true;
+        payload.championId = championId;
+      } else if (isFinal) {
+        // Still mark as final even if champion is a bot
+        payload.isFinal = true;
+      }
+
+      await reportTournamentMatch(payload);
+      log.info(`Simulated match reported: ${winnerUserId} beat ${loserUserId}`);
+      this._reportingFailures = 0; // Reset on success
+    } catch (e) {
+      this._reportingFailures++;
+      log.warn('Failed to report simulated match', {
+        err: e.message,
+        failures: this._reportingFailures,
+      });
+
+      if (this._reportingFailures >= 3) {
+        this._showSyncError();
+      }
+    }
+  }
+
+  _showSyncError() {
+    const errorText = this.add
+      .text(GAME_WIDTH / 2, 40, '⚠ RESULTADOS NO SINCRONIZADOS', {
+        fontFamily: 'Arial Black',
+        fontSize: '10px',
+        color: '#ff4444',
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: errorText,
+      alpha: 1,
+      duration: 500,
+      yoyo: true,
+      hold: 2000,
+      onComplete: () => errorText.destroy(),
     });
   }
 }

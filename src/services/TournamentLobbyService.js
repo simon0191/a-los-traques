@@ -86,7 +86,21 @@ export class TournamentLobbyService extends BaseSignalingClient {
     for (const cb of this._onUpdateCallbacks) cb(this.state);
   }
 
-  updateSize(newSize) {
+  async updateSize(newSize) {
+    this.state.size = newSize;
+
+    // Only update backend if already initialized and we have a session.
+    // This prevents creating duplicate sessions if the user clicks before initHost finishes.
+    if (this._initialized && this.state.tourneyId) {
+      try {
+        const { tourneyId } = await createTournament(newSize, true); // true for allowUpdate
+        if (tourneyId) this.state.tourneyId = tourneyId; // Defensive sync
+        log.info('Tournament session size updated', { newSize, tourneyId });
+      } catch (e) {
+        log.warn('Failed to update tournament session size', { err: e.message });
+      }
+    }
+
     this.send({
       type: 'lobby_action',
       action: 'UPDATE_SIZE',
