@@ -1,17 +1,5 @@
 [
   {
-    "id": "sombrero_catalina",
-    "category": "sombreros",
-    "label": "Sombrero Cata",
-    "image": "assets/accessories/sombrero_catalina.png"
-  },
-  {
-    "id": "sombrero_vueltiao",
-    "category": "sombreros",
-    "label": "Sombrero Vueltiao",
-    "image": "assets/accessories/sombrero_vueltiao.png"
-  },
-  {
     "id": "sombrero_chique_ron",
     "category": "sombreros",
     "label": "Sombrero Chiqué Ron",
