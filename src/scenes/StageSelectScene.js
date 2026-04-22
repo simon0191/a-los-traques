@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import stagesData from '../data/stages.json';
 import { createButton } from '../services/UIService.js';
 import { Logger } from '../systems/Logger.js';
+import { getCellRenderState } from './StageSelectRender.js';
 
 const log = Logger.create('StageSelectScene');
 
@@ -279,19 +280,17 @@ export class StageSelectScene extends Phaser.Scene {
     }
 
     this.gridCells.forEach((cell, i) => {
-      if (i === this.selectedIndex) {
-        // Officially selected
-        cell.border.setAlpha(1).setStrokeStyle(3, 0xffcc00);
-        cell.rect.setFillStyle(0x444466);
-      } else if (i === displayIndex) {
-        // Hovering preview
-        cell.border.setAlpha(0.5).setStrokeStyle(2, 0xffffff);
-        cell.rect.setFillStyle(0x333333);
-      } else {
-        // Not selected nor hovered
-        cell.border.setAlpha(0);
-        cell.rect.setFillStyle(0x333333);
+      const { borderAlpha, borderStroke, fillStyle } = getCellRenderState({
+        index: i,
+        selectedIndex: this.selectedIndex,
+        displayIndex,
+      });
+
+      cell.border.setAlpha(borderAlpha);
+      if (borderStroke) {
+        cell.border.setStrokeStyle(borderStroke[0], borderStroke[1]);
       }
+      cell.rect.setFillStyle(fillStyle);
     });
   }
 

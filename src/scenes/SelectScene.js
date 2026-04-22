@@ -157,22 +157,38 @@ export class SelectScene extends Phaser.Scene {
       rect.setInteractive();
       rect.noCursor = true; // Tell ControllerScene to hide the yellow square
 
-      const onSelect = () => {
+      const onSelect = (idx = null) => {
         if (this.transitioning) return;
+        const isPreview = idx !== null;
+        const targetIdx = isPreview ? idx : i;
+
         if (!this.p1Confirmed) {
-          this.p1Index = i;
-          this.updateP1Display();
-          this._scrollToFit(i);
+          if (!isPreview) this.p1Index = targetIdx;
+          this.updateP1Display(targetIdx);
+          this._scrollToFit(targetIdx);
         } else if (this.p2SelectionMode && !this.p2Confirmed) {
-          this.p2Index = i;
-          this.updateP2Display();
-          this._scrollToFit(i);
+          if (!isPreview) this.p2Index = targetIdx;
+          this.updateP2Display(targetIdx);
+          this._scrollToFit(targetIdx);
         }
       };
 
-      rect.on('pointerover', () => {
-        onSelect();
+      rect.on('pointerover', (p) => {
+        if (!p) {
+          // Controller/Keyboard navigation
+          onSelect();
+        } else {
+          // Mouse hover: just preview
+          onSelect(i);
+        }
         this.game.audioManager.play('ui_navigate');
+      });
+
+      rect.on('pointerout', (p) => {
+        if (p) {
+          // Restore to official selection
+          onSelect();
+        }
       });
 
       rect.on('pointerdown', () => {
@@ -617,9 +633,9 @@ export class SelectScene extends Phaser.Scene {
     }
   }
 
-  updateP1Display() {
-    const col = this.p1Index % COLS;
-    const row = Math.floor(this.p1Index / COLS);
+  updateP1Display(idx = this.p1Index) {
+    const col = idx % COLS;
+    const row = Math.floor(idx / COLS);
     const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
     const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
     this.p1Cursor.setPosition(cellX, cellY);
@@ -629,7 +645,7 @@ export class SelectScene extends Phaser.Scene {
     } else {
       this.p1CursorLabel.setPosition(cellX + CELL_W / 2, cellY - 2);
     }
-    const fighter = this.fighters[this.p1Index];
+    const fighter = this.fighters[idx];
     this.p1NameText.setText(fighter.name);
     this.p1SubtitleText.setText(fighter.subtitle);
     const isRandom = fighter.id === 'random';
@@ -661,8 +677,8 @@ export class SelectScene extends Phaser.Scene {
     });
   }
 
-  updateP2Display() {
-    this._showP2Selection(this.p2Index);
+  updateP2Display(idx = this.p2Index) {
+    this._showP2Selection(idx);
   }
 
   _clearLastTakenOverlay() {
