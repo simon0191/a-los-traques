@@ -7,7 +7,7 @@ import { NetworkFacade as NetworkManager } from '../systems/net/NetworkFacade.js
 function getPartyHost() {
   const params = new URLSearchParams(window.location.search);
   if (params.get('partyHost')) return params.get('partyHost');
-  // In local dev (vite on localhost/127.0.0.1), default to PartyKit local server
+  // In local dev (Next.js on localhost/127.0.0.1), default to PartyKit local server
   const loc = window.location.hostname;
   if (loc === 'localhost' || loc === '127.0.0.1') {
     return 'localhost:1999';

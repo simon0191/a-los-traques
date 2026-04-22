@@ -3,7 +3,7 @@
 Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape Safari target.
 480x270 internal resolution, Phaser 3 running inside a Next.js app, ES6 modules, all UI text in Spanish.
 
-## Monorepo Layout (RFC 0019, Phases 1–4)
+## Monorepo Layout (RFC 0019, Phases 1–6 — complete)
 
 Bun workspaces + Turborepo. Apps are runnable; packages are importable.
 
@@ -75,6 +75,8 @@ apps/
       about/page.tsx
       blog/page.tsx, [slug]/page.tsx  # MDX-on-disk blog (content/blog/*.md)
       play/page.tsx                # Hosts the Phaser game via next/dynamic (ssr:false)
+      join/page.tsx                # Tournament join (login + signup + guest + PartySocket handshake)
+      replay/page.tsx              # Paste a debug bundle + redirect to /play?replay=1
       api/                         # Player-facing HTTP API
         profile/route.ts
         stats/route.ts, stats/tournament-match/route.ts
@@ -93,25 +95,34 @@ apps/
       blog.ts                      # Frontmatter parser for content/blog/*.md
       queries/                     # Server-only SQL kept out of route files
     content/blog/                  # Markdown posts (no CMS — see RFC 0019)
-    public/                        # Sprites, audio, manifest.json, join.html, replay.html
+    public/                        # Sprites, audio, manifest.json (join/replay are Next pages, not static HTML)
     vercel.json                    # Cron schedule for /api/cron/cleanup-bundles
     next.config.mjs
-    tsconfig.json
+    tsconfig.json                  # Extends repo-root tsconfig.base.json
   admin/                           # Next.js 15 App Router — admin console on :3001
     app/
       page.tsx                     # Fights dashboard (behind login)
+      dev-tools/overlay-editor/page.tsx
+      dev-tools/inspector/page.tsx
       api/admin/fights/route.ts
       api/admin/debug-bundle/route.ts
+      api/overlay-export/route.ts  # Filesystem writes for overlay calibration (dev only)
       layout.tsx, globals.css
     components/
       AdminShell.tsx               # Client-side auth gate (Supabase session check)
       LoginForm.tsx
       FightsTable.tsx, Pagination.tsx
+      DevToolsHost.tsx             # Phaser host for overlay-editor / inspector
+    game-tools/
+      index.js                     # createDevToolsGame({ parent, entry })
+      scenes/OverlayEditorScene.js, InspectorScene.js
+      editor/EditorUI.js, OverlayManifest.js, OverlaySession.js
     lib/
       auth/middleware.ts           # withAdmin (sibling of apps/web's)
       supabase.ts, fetchAdmin.ts   # Browser auth + admin API fetch wrapper
+      overlay-export.ts            # Pure load/save helpers behind /api/overlay-export
     next.config.mjs
-    tsconfig.json
+    tsconfig.json                  # Extends repo-root tsconfig.base.json
   party/                           # PartyKit server (+ TURN credential endpoint)
     server.js
     partykit.json
@@ -122,9 +133,8 @@ packages/
       config.js                    # Env-driven config (configureEnv/getPartyKitHost/isDevMode)
       scenes/                      # Boot -> Title -> MultiplayerMenu -> Select -> …
       services/                    # TournamentManager.js, UIService.js, supabase.js, api.js
-      entities/                    # Fighter.js (Phaser wrapper)
+      entities/                    # Fighter.js + overlay-math.js (shared with admin editor)
       systems/                     # CombatSystem, InputManager, AIController, AudioBridge, VFXBridge, net/*
-      editor/                      # OverlayManifest, EditorUI (still in-package; Phase 5 lifts to apps/admin)
       data/                        # fighters.json, stages.json, music-manifest.js (generated)
   sim/                             # @alostraques/sim — pure simulation (no Phaser)
     src/                           # CombatSim, FighterSim, SimulationEngine, FixedPoint, combat-math, combat-block, InputBuffer, constants
@@ -140,11 +150,15 @@ assets/
   manifests/                       # JSON configs for asset pipeline (fighter_, portrait_, reference_)
   _raw/                            # Intermediate files from asset pipeline (not shipped)
 scripts/
-  asset-pipeline/                  # Gemini-based sprite generation pipeline (moves to apps/asset-pipeline later)
-  balance-sim/                     # Headless AI-vs-AI balance simulation (moves to apps/balance-sim later)
-  dev-db.js / dev-multiplayer.js   # Local dev orchestration (Turbo will replace later)
+  asset-pipeline/                  # Gemini-based sprite generation pipeline (will promote to apps/asset-pipeline)
+  balance-sim/                     # Headless AI-vs-AI balance simulation (will promote to apps/balance-sim)
+  dev-db.js, dev-multiplayer.js    # Local dev orchestration (PGLite + fake auth + spawns apps)
+  dev-auth.js                      # Fake GoTrue server for local dev
+  build-music-manifest.js          # predev/prebuild hook — emits packages/game/src/data/music-manifest.js
   migrate.sh                       # dbmate wrapper → packages/db/migrations
-tests/                             # Still at repo root during Phase 1–2; distributed in later phases
+tsconfig.base.json                 # Shared strict-TS base (apps/web, apps/admin extend it)
+turbo.json                         # Turborepo pipeline config (build/dev/lint/test)
+tests/                             # Still at repo root; per-package __tests__ is a later RFC
   simulation/                      # @alostraques/sim unit tests (PureSim, FighterSim, CombatSim)
   systems/                         # combat-math, collision, AI difficulty
   party/                           # PartyKit server (slot assignment, rate limiting, routing)

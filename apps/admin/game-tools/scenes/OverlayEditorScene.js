@@ -647,12 +647,12 @@ export class OverlayEditorScene extends Phaser.Scene {
         this.ui.setStatus('manifest guardado ✓');
         this._render();
       } else if (ct.includes('text/html')) {
-        this.ui.setStatus('plugin no cargado (reiniciá vite)');
+        this.ui.setStatus('endpoint no cargado (reiniciá el admin)');
       } else {
         this.ui.setStatus(`fallo guardar: ${res.status}`);
       }
     } catch (e) {
-      this.ui.setStatus('fallo guardar (¿está corriendo vite?)');
+      this.ui.setStatus('fallo guardar (¿está corriendo el admin?)');
       log.warn('save failed', { err: e.message });
     }
     this.ui.root?.focus();

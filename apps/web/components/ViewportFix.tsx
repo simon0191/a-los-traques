@@ -3,8 +3,7 @@
 import { useEffect } from 'react';
 
 /**
- * Replicates the old Vite `index.html` inline viewport listener: keeps
- * `#game-container` sized to the visual viewport and pokes Phaser's scale
+ * Keeps `#game-container` sized to the visual viewport and pokes Phaser's scale
  * manager when the keyboard / URL bar opens or closes on mobile Safari.
  * Only runs on pages that embed the game — the marketing layout stays out of
  * this so it doesn't fight with normal document flow.

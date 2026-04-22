@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
  */
 export function GET() {
   return NextResponse.json({
-    supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || null,
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || null,
+    supabaseUrl: process.env.SUPABASE_URL || null,
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || null,
   });
 }

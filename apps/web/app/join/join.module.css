@@ -1,0 +1,176 @@
+.page {
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #0a0a1e;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.container {
+  width: 100%;
+  max-width: 350px;
+  background: #1a1a3a;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  border: 1px solid #333366;
+}
+
+.container h1 {
+  color: #fff;
+  margin: 0 0 5px 0;
+  font-size: 22px;
+  letter-spacing: 1px;
+}
+
+.roomTag {
+  font-size: 10px;
+  color: #ffcc00;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  padding: 4px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #888;
+  transition: 0.2s;
+  border: none;
+  background: none;
+}
+
+.tabActive {
+  background: #3366ff;
+  color: white;
+}
+
+.formGroup {
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.formGroup input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #333366;
+  background: #0a0a1a;
+  color: white;
+  font-size: 14px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.formGroup input:focus {
+  border-color: #3366ff;
+}
+
+.btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btnPrimary {
+  background: #3366ff;
+  color: white;
+}
+
+.btnPrimary:hover {
+  background: #4477ff;
+}
+
+.btnGoogle {
+  background: white;
+  color: black;
+}
+
+.btnSignup {
+  background: #44cc88;
+  color: white;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.statusMsg {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 10px;
+  min-height: 15px;
+}
+
+.error {
+  color: #ff4444;
+}
+
+.success {
+  color: #44cc88;
+}
+
+.divider {
+  border: 0;
+  border-top: 1px solid #333366;
+  margin: 15px 0;
+}
+
+.activeSession {
+  margin: 20px 0;
+}
+
+.activeSession .label {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 10px;
+}
+
+.activeSession .name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffcc00;
+  margin-bottom: 20px;
+}
+
+.logoutBtn {
+  background: none;
+  color: #666;
+  font-size: 11px;
+}
+
+.doneMessage {
+  color: #aaa;
+  font-size: 13px;
+  margin: 20px 0;
+}
