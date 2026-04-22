@@ -1,17 +1,5 @@
 [
   {
-    "id": "sombrero_catalina",
-    "category": "sombreros",
-    "label": "Sombrero Cata",
-    "image": "assets/accessories/sombrero_catalina.png"
-  },
-  {
-    "id": "sombrero_volteado",
-    "category": "sombreros",
-    "label": "Sombrero Vueltiao",
-    "image": "assets/accessories/sombrero_volteado.png"
-  },
-  {
     "id": "sombrero_chique_ron",
     "category": "sombreros",
     "label": "Sombrero Chiqué Ron",
@@ -22,6 +10,84 @@
     "category": "sombreros",
     "label": "Sombrero Chiqué Antioqueño",
     "image": "assets/accessories/sombrero_chique_antioqueno.png"
+  },
+  {
+    "id": "sombrero_vueltiao_ambientetarot",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Ambientetarot",
+    "image": "assets/accessories/sombrero_vueltiao_ambientetarot.png"
+  },
+  {
+    "id": "sombrero_vueltiao_ardilla",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Ardilla",
+    "image": "assets/accessories/sombrero_vueltiao_ardilla.png"
+  },
+  {
+    "id": "sombrero_vueltiao_bunny",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Bunny",
+    "image": "assets/accessories/sombrero_vueltiao_bunny.png"
+  },
+  {
+    "id": "sombrero_vueltiao_cat",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Cat",
+    "image": "assets/accessories/sombrero_vueltiao_cat.png"
+  },
+  {
+    "id": "sombrero_vueltiao_ferrari",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Ferrari",
+    "image": "assets/accessories/sombrero_vueltiao_ferrari.png"
+  },
+  {
+    "id": "sombrero_vueltiao_ferxxo",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Ferxxo",
+    "image": "assets/accessories/sombrero_vueltiao_ferxxo.png"
+  },
+  {
+    "id": "sombrero_vueltiao_guaro",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Guaro",
+    "image": "assets/accessories/sombrero_vueltiao_guaro.png"
+  },
+  {
+    "id": "sombrero_vueltiao_guarorasta",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Guarorasta",
+    "image": "assets/accessories/sombrero_vueltiao_guarorasta.png"
+  },
+  {
+    "id": "sombrero_vueltiao_guarorosa",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Guarorosa",
+    "image": "assets/accessories/sombrero_vueltiao_guarorosa.png"
+  },
+  {
+    "id": "sombrero_vueltiao_gymbro",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Gymbro",
+    "image": "assets/accessories/sombrero_vueltiao_gymbro.png"
+  },
+  {
+    "id": "sombrero_vueltiao_pirate",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Pirate",
+    "image": "assets/accessories/sombrero_vueltiao_pirate.png"
+  },
+  {
+    "id": "sombrero_vueltiao_ron",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Ron",
+    "image": "assets/accessories/sombrero_vueltiao_ron.png"
+  },
+  {
+    "id": "sombrero_vueltiao_unicornio",
+    "category": "sombreros",
+    "label": "Sombrero Vueltiao Unicornio",
+    "image": "assets/accessories/sombrero_vueltiao_unicornio.png"
   },
   {
     "id": "gafas_rapidas",
