@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSelectionState } from '../../src/scenes/SelectRender.js';
+import { resolveSelectionState } from '../../packages/game/src/scenes/SelectRender.js';
 
 describe('SelectRender helper (resolveSelectionState)', () => {
   const baseState = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCellRenderState } from '../../src/scenes/StageSelectRender.js';
+import { getCellRenderState } from '../../packages/game/src/scenes/StageSelectRender.js';
 
 describe('StageSelectRender helper', () => {
   it('returns correctly for a selected cell', () => {
