@@ -4,6 +4,7 @@ import fightersData from '../data/fighters.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { Logger } from '../systems/Logger.js';
+import { resolveSelectionState } from './SelectRender.js';
 
 const log = Logger.create('SelectScene');
 
@@ -157,27 +158,43 @@ export class SelectScene extends Phaser.Scene {
       rect.setInteractive();
       rect.noCursor = true; // Tell ControllerScene to hide the yellow square
 
-      const onSelect = () => {
+      const handleSelection = (type, targetIndex) => {
         if (this.transitioning) return;
+
+        const state = {
+          p1Confirmed: this.p1Confirmed,
+          p2SelectionMode: this.p2SelectionMode,
+          p2Confirmed: this.p2Confirmed,
+          p1Index: this.p1Index,
+          p2Index: this.p2Index,
+        };
+
+        const result = resolveSelectionState(state, { type, index: targetIndex });
+
         if (!this.p1Confirmed) {
-          this.p1Index = i;
-          this.updateP1Display();
-          this._scrollToFit(i);
+          const selectionChanged = this.p1Index !== result.p1Index;
+          this.p1Index = result.p1Index;
+          this.updateP1Display(result.displayP1Index);
+          if (type === 'commit' || selectionChanged) this._scrollToFit(this.p1Index);
         } else if (this.p2SelectionMode && !this.p2Confirmed) {
-          this.p2Index = i;
-          this.updateP2Display();
-          this._scrollToFit(i);
+          const selectionChanged = this.p2Index !== result.p2Index;
+          this.p2Index = result.p2Index;
+          this.updateP2Display(result.displayP2Index);
+          if (type === 'commit' || selectionChanged) this._scrollToFit(this.p2Index);
         }
       };
 
-      rect.on('pointerover', () => {
-        onSelect();
+      rect.on('pointerover', (p) => {
+        handleSelection(p ? 'hover' : 'commit', i);
         this.game.audioManager.play('ui_navigate');
       });
 
+      rect.on('pointerout', (p) => {
+        if (p) handleSelection('out', i);
+      });
+
       rect.on('pointerdown', () => {
-        if (this.transitioning) return;
-        onSelect();
+        handleSelection('commit', i);
 
         // Move focus to LISTO button
         const controller = this.scene.get('ControllerScene');
@@ -617,9 +634,9 @@ export class SelectScene extends Phaser.Scene {
     }
   }
 
-  updateP1Display() {
-    const col = this.p1Index % COLS;
-    const row = Math.floor(this.p1Index / COLS);
+  updateP1Display(idx = this.p1Index) {
+    const col = idx % COLS;
+    const row = Math.floor(idx / COLS);
     const cellX = GRID_START_X + col * (CELL_W + GRID_GAP);
     const cellY = GRID_START_Y + row * (CELL_H + GRID_GAP);
     this.p1Cursor.setPosition(cellX, cellY);
@@ -629,7 +646,7 @@ export class SelectScene extends Phaser.Scene {
     } else {
       this.p1CursorLabel.setPosition(cellX + CELL_W / 2, cellY - 2);
     }
-    const fighter = this.fighters[this.p1Index];
+    const fighter = this.fighters[idx];
     this.p1NameText.setText(fighter.name);
     this.p1SubtitleText.setText(fighter.subtitle);
     const isRandom = fighter.id === 'random';
@@ -661,8 +678,8 @@ export class SelectScene extends Phaser.Scene {
     });
   }
 
-  updateP2Display() {
-    this._showP2Selection(this.p2Index);
+  updateP2Display(idx = this.p2Index) {
+    this._showP2Selection(idx);
   }
 
   _clearLastTakenOverlay() {

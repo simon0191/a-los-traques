@@ -3,6 +3,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config.js';
 import stagesData from '../data/stages.json';
 import { createButton } from '../services/UIService.js';
 import { Logger } from '../systems/Logger.js';
+import { getCellRenderState } from './StageSelectRender.js';
 
 const log = Logger.create('StageSelectScene');
 
@@ -109,9 +110,21 @@ export class StageSelectScene extends Phaser.Scene {
             }
           }
         });
-        rect.on('pointerover', () => {
-          this.selectedIndex = i;
-          this.updateSelection();
+        rect.on('pointerover', (p) => {
+          if (!p) {
+            // Controller/Keyboard navigation
+            this.selectedIndex = i;
+            this.updateSelection();
+          } else {
+            // Mouse hover: just preview info, don't change selection
+            this.updateSelection(i);
+          }
+        });
+        rect.on('pointerout', (p) => {
+          if (p) {
+            // Mouse left the cell: restore preview to actual selection
+            this.updateSelection();
+          }
         });
       }
     }
@@ -259,27 +272,26 @@ export class StageSelectScene extends Phaser.Scene {
     });
   }
 
-  updateSelection() {
-    this.gridCells.forEach((cell, i) => {
-      const isSelected = i === this.selectedIndex;
-      cell.border.setStrokeStyle(
-        isSelected ? 3 : 1,
-        isSelected ? 0xffcc00 : 0x444444,
-        isSelected ? 1 : 0.5,
-      );
-      if (isSelected) {
-        cell.rect.setFillStyle(0x444466);
-      } else {
-        cell.rect.setFillStyle(0x333333);
-      }
-    });
-
-    const stage = this.stages[this.selectedIndex];
-    const cell = this.gridCells[this.selectedIndex];
-    if (cell) {
+  updateSelection(displayIndex = this.selectedIndex) {
+    const stage = this.stages[displayIndex];
+    if (stage) {
       this.stageNameText.setText(stage.name.toUpperCase());
       this.stageDescText.setText(stage.description);
     }
+
+    this.gridCells.forEach((cell, i) => {
+      const { borderAlpha, borderStroke, fillStyle } = getCellRenderState({
+        index: i,
+        selectedIndex: this.selectedIndex,
+        displayIndex,
+      });
+
+      cell.border.setAlpha(borderAlpha);
+      if (borderStroke) {
+        cell.border.setStrokeStyle(borderStroke[0], borderStroke[1]);
+      }
+      cell.rect.setFillStyle(fillStyle);
+    });
   }
 
   confirmSelection() {
