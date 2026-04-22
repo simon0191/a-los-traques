@@ -5,8 +5,8 @@ import stagesData from '../data/stages.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { DevConsole } from '../systems/DevConsole.js';
-import { autoPickAccessories } from './accessory-select-helpers.js';
 import { Logger } from '../systems/Logger.js';
+import { autoPickAccessories } from './accessory-select-helpers.js';
 
 const log = Logger.create('BracketScene');
 
