@@ -20,6 +20,25 @@
         "vitest": "^4.1.0",
       },
     },
+    "apps/admin": {
+      "name": "@alostraques/admin",
+      "version": "0.0.0",
+      "dependencies": {
+        "@alostraques/api-core": "workspace:*",
+        "@alostraques/db": "workspace:*",
+        "@supabase/supabase-js": "^2.101.1",
+        "next": "^15.0.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+      },
+      "devDependencies": {
+        "@types/node": "^22.0.0",
+        "@types/pg": "^8.15.5",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "typescript": "^5.6.0",
+      },
+    },
     "apps/party": {
       "name": "@alostraques/party",
       "version": "0.0.0",
@@ -79,6 +98,8 @@
     },
   },
   "packages": {
+    "@alostraques/admin": ["@alostraques/admin@workspace:apps/admin"],
+
     "@alostraques/api-core": ["@alostraques/api-core@workspace:packages/api-core"],
 
     "@alostraques/db": ["@alostraques/db@workspace:packages/db"],

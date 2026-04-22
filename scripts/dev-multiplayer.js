@@ -73,6 +73,7 @@ const { result } = concurrently(
   [
     { command: 'node scripts/dev-auth.js', name: 'auth', prefixColor: 'magenta' },
     { command: "bun --filter='@alostraques/web' run dev", name: 'web', prefixColor: 'green' },
+    { command: "bun --filter='@alostraques/admin' run dev", name: 'admin', prefixColor: 'blue' },
     { command: "bun --filter='@alostraques/party' run dev", name: 'party', prefixColor: 'cyan' },
   ],
   {

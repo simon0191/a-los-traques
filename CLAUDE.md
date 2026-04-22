@@ -3,11 +3,12 @@
 Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape Safari target.
 480x270 internal resolution, Phaser 3 running inside a Next.js app, ES6 modules, all UI text in Spanish.
 
-## Monorepo Layout (RFC 0019, Phases 1–3)
+## Monorepo Layout (RFC 0019, Phases 1–4)
 
 Bun workspaces + Turborepo. Apps are runnable; packages are importable.
 
-- `apps/web/` — Next.js 15 App Router. Hosts the marketing pages (`/`, `/about`, `/blog`), the game at `/play`, and every HTTP API route (`app/api/**/route.ts`). Vercel cron lives in `apps/web/vercel.json`.
+- `apps/web/` — Next.js 15 App Router. Hosts the marketing pages (`/`, `/about`, `/blog`), the game at `/play`, and the player-facing HTTP API routes (`app/api/**/route.ts`). Vercel cron lives in `apps/web/vercel.json`.
+- `apps/admin/` — Next.js 15 admin console on `:3001` (production: `admin.alostraques.com`). Ports the old Preact `public/admin/` to React/TSX, owns `/api/admin/fights` + `/api/admin/debug-bundle`, and gates everything behind the `profiles.is_admin` check already enforced by `withAdmin`.
 - `apps/party/` — PartyKit multiplayer relay (unchanged behavior).
 - `packages/game/` — `@alostraques/game`: Phaser scenes, systems, entities, data, and the `createGame({ parent, params, env, eventBus })` factory. No Next/React/Vite. Next consumes it via `next/dynamic({ ssr: false })`.
 - `packages/sim/` — `@alostraques/sim`: pure simulation. No Phaser, Vite, React, Next.
@@ -23,9 +24,9 @@ Workspace imports: use `@alostraques/<name>` from any workspace (app or package)
 Decoupled architecture: Supabase for Auth (JWT) + Next.js Route Handlers for data persistence.
 
 - **Supabase Client**: lives in `packages/game/src/services/supabase.js`. `createGame({ env })` injects `supabaseUrl` / `supabaseAnonKey` so the package stays framework-agnostic. Moves to a dedicated `@alostraques/auth` package in a later phase.
-- **Backend API**: `apps/web/app/api/**/route.ts` (Next.js Route Handlers) — `profile`, `stats`, `leaderboard`, `fights`, `debug-bundles`, `tournament/*`, `admin/*`, `cron/*`, `public-config`.
+- **Backend API**: `apps/web/app/api/**/route.ts` — player-facing routes (`profile`, `stats`, `leaderboard`, `fights`, `debug-bundles`, `tournament/*`, `cron/*`, `public-config`). `apps/admin/app/api/admin/**/route.ts` hosts the admin routes on the separate `:3001` origin.
 - **API Service**: `packages/game/src/services/api.js` calls `/api/*` directly (same origin as the game now that it runs from Next.js).
-- **JWT Verification**: `@alostraques/api-core` exposes `verifyBearerToken` + `resolveUserId` (framework-agnostic). `apps/web/lib/auth/middleware.ts` is the Next.js `withAuth` / `withAdmin` adapter that pairs the core with a pooled `pg` client from `@alostraques/db`.
+- **JWT Verification**: `@alostraques/api-core` exposes `verifyBearerToken` + `resolveUserId` (framework-agnostic). `apps/web/lib/auth/middleware.ts` and `apps/admin/lib/auth/middleware.ts` are the per-app Next.js `withAuth` / `withAdmin` adapters that pair the core with a pooled `pg` client from `@alostraques/db`. The admin adapter is a sibling (not a shared import) so the two apps stay independently deployable.
 - **Dev Bypass**: In non-production, the middleware accepts the `X-Dev-User-Id` header when no Bearer token is present.
 - **DB Pool**: `@alostraques/db` exports `createPool`, `createClient`, and `getPool` (memoized on `globalThis`). Route handlers use `getPool` / fresh client per request on Windows.
 - **Global State**: Authenticated user object stored in `window.game.registry.get('user')`.
@@ -38,16 +39,19 @@ Decoupled architecture: Supabase for Auth (JWT) + Next.js Route Handlers for dat
 ## Build & Run
 
 ```bash
-bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + Next.js + PartyKit)
-                     # Game at http://localhost:3000/play
+bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + web + admin + PartyKit)
+                     # Game at http://localhost:3000/play, admin at http://localhost:3001/
                      # Log in as p1@test.local or p2@test.local (password: password)
+                     # DevP1 is pre-seeded as is_admin=true (packages/db/seed-dev.sql)
                      # Windows: Auto-sets PG_FRESH_CLIENT=1 to avoid ECONNRESET.
                      # RESET DB: rm -r -Force .pglite (PS) or rm -rf .pglite (Unix)
-bun run dev:all      # PGLite + Next.js (marketing + /play + API)
-bun run dev          # Next.js dev server only (delegates to @alostraques/web)
+bun run dev:all      # PGLite + apps/web + apps/admin
+bun run dev          # Next.js web only (@alostraques/web on :3000)
+bun run dev:admin    # Next.js admin only (@alostraques/admin on :3001)
 bun run party:dev    # PartyKit dev server (port 1999)
-bun run build        # Production build — delegates to apps/web (Next.js)
-bun run start        # Production Next.js server (use after build)
+bun run build        # Production build — both Next.js apps in parallel
+bun run start        # Production web server (use after build)
+bun run start:admin  # Production admin server (use after build)
 bun run migrate      # Run database migrations (scripts/migrate.sh → dbmate, packages/db/migrations)
 bun run test         # Run tests in watch mode (Vitest)
 bun run test:run     # Run tests once (CI)
@@ -65,30 +69,47 @@ bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 
 ```
 apps/
-  web/                             # Next.js 15 App Router — marketing + API
+  web/                             # Next.js 15 App Router — marketing + game + player API
     app/
-      (marketing)                  # Landing + blog + about (Phase 2 inlines these at the root)
       page.tsx                     # `/` landing
       about/page.tsx
       blog/page.tsx, [slug]/page.tsx  # MDX-on-disk blog (content/blog/*.md)
-      api/                         # HTTP API surface — thin Route Handlers over service logic
+      play/page.tsx                # Hosts the Phaser game via next/dynamic (ssr:false)
+      api/                         # Player-facing HTTP API
         profile/route.ts
         stats/route.ts, stats/tournament-match/route.ts
         leaderboard/route.ts
         fights/route.ts
         debug-bundles/route.ts
         tournament/create/route.ts, tournament/join/route.ts
-        admin/fights/route.ts, admin/debug-bundle/route.ts
         cron/cleanup-bundles/route.ts
         public-config/route.ts
       layout.tsx, globals.css
+    components/
+      GameHost.tsx, ViewportFix.tsx
     lib/
       auth/middleware.ts           # Next.js withAuth/withAdmin (wraps @alostraques/api-core + @alostraques/db)
-      env.ts                       # Zod-free env reader (SUPABASE_*, PARTYKIT_HOST, …)
+      env.ts                       # Env reader (SUPABASE_*, PARTYKIT_HOST, …)
       blog.ts                      # Frontmatter parser for content/blog/*.md
       queries/                     # Server-only SQL kept out of route files
     content/blog/                  # Markdown posts (no CMS — see RFC 0019)
+    public/                        # Sprites, audio, manifest.json, join.html, replay.html
     vercel.json                    # Cron schedule for /api/cron/cleanup-bundles
+    next.config.mjs
+    tsconfig.json
+  admin/                           # Next.js 15 App Router — admin console on :3001
+    app/
+      page.tsx                     # Fights dashboard (behind login)
+      api/admin/fights/route.ts
+      api/admin/debug-bundle/route.ts
+      layout.tsx, globals.css
+    components/
+      AdminShell.tsx               # Client-side auth gate (Supabase session check)
+      LoginForm.tsx
+      FightsTable.tsx, Pagination.tsx
+    lib/
+      auth/middleware.ts           # withAdmin (sibling of apps/web's)
+      supabase.ts, fetchAdmin.ts   # Browser auth + admin API fetch wrapper
     next.config.mjs
     tsconfig.json
   party/                           # PartyKit server (+ TURN credential endpoint)
