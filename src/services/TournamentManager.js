@@ -56,7 +56,7 @@ export class TournamentManager {
 
     this.playerFighterId = this.humanFighterIds[0] || null;
     this.playerInitialIndex = data.playerInitialIndex !== undefined ? data.playerInitialIndex : -1;
-    this.rounds = data.rounds || [];
+    this.rounds = data.rounds ? JSON.parse(JSON.stringify(data.rounds)) : [];
     this.complete = data.complete || false;
     this.winnerId = data.winnerId || null;
     this.winnerUserId = data.winnerUserId || null;
@@ -341,15 +341,15 @@ export class TournamentManager {
     const winnerFighterId = isP1Winner ? currentMatch.p1 : currentMatch.p2;
     const winnerLevel = isP1Winner ? currentMatch.p1Level : currentMatch.p2Level;
 
-    // Human players always take P1 slot in their next match
+    // Human players always take P1 slot in their next match to keep them on the left
     if (this._isHumanPlayer(winnerUserId) && this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
-      // Check if the other slot already has a human (human-vs-human upcoming)
-      const otherSlotHasHuman =
-        (isP1Slot && this._isHumanPlayer(nextMatch.p2UserId)) ||
-        (!isP1Slot && this._isHumanPlayer(nextMatch.p1UserId));
+      // If they are already in the match (shouldn't happen) or natural slotting works, just set it.
+      // Otherwise, we force them to P1.
+      const otherUserId = isP1Slot ? nextMatch.p2UserId : nextMatch.p1UserId;
+      const otherIsHuman = otherUserId && this._isHumanPlayer(otherUserId);
 
-      if (otherSlotHasHuman) {
-        // Both are human — use natural slotting to avoid overwriting
+      if (otherIsHuman) {
+        // Both are human — use natural slotting to avoid conflict
         if (isP1Slot) {
           nextMatch.p1 = winnerFighterId;
           nextMatch.p1UserId = winnerUserId;
@@ -360,22 +360,49 @@ export class TournamentManager {
           nextMatch.p2Level = winnerLevel;
         }
       } else {
-        // Human gets P1 slot
+        // Force human to P1. If a bot was already in P1, move it to P2.
+        if (!isP1Slot && nextMatch.p1UserId && !this._isHumanPlayer(nextMatch.p1UserId)) {
+          nextMatch.p2 = nextMatch.p1;
+          nextMatch.p2UserId = nextMatch.p1UserId;
+          nextMatch.p2Level = nextMatch.p1Level;
+        }
         nextMatch.p1 = winnerFighterId;
         nextMatch.p1UserId = winnerUserId;
         nextMatch.p1Level = winnerLevel;
       }
     } else if (this._isHumanPath(nextRoundIdx, nextMatchIdx)) {
-      // AI winner advancing into a path where a human might appear
+      // AI winner advancing into a path where a human might appear.
+      // The "human side" participant takes P1.
       const isFromHumanSide = this._isHumanPath(currentRoundIdx, currentMatchIdx);
       if (isFromHumanSide) {
+        // If non-human side already advanced to P1, move them to P2
+        if (nextMatch.p1UserId && !this._isHumanPath(currentRoundIdx, currentMatchIdx ^ 1)) {
+          nextMatch.p2 = nextMatch.p1;
+          nextMatch.p2UserId = nextMatch.p1UserId;
+          nextMatch.p2Level = nextMatch.p1Level;
+        }
         nextMatch.p1 = winnerFighterId;
         nextMatch.p1UserId = winnerUserId;
         nextMatch.p1Level = winnerLevel;
       } else {
-        nextMatch.p2 = winnerFighterId;
-        nextMatch.p2UserId = winnerUserId;
-        nextMatch.p2Level = winnerLevel;
+        // From non-human side. If human side already took P1, we take P2.
+        // Otherwise we take P2 naturally (or P1 if it's empty, but then human side will move us).
+        if (nextMatch.p1UserId && this._isHumanPath(currentRoundIdx, currentMatchIdx ^ 1)) {
+          nextMatch.p2 = winnerFighterId;
+          nextMatch.p2UserId = winnerUserId;
+          nextMatch.p2Level = winnerLevel;
+        } else {
+          // Natural slotting
+          if (isP1Slot) {
+            nextMatch.p1 = winnerFighterId;
+            nextMatch.p1UserId = winnerUserId;
+            nextMatch.p1Level = winnerLevel;
+          } else {
+            nextMatch.p2 = winnerFighterId;
+            nextMatch.p2UserId = winnerUserId;
+            nextMatch.p2Level = winnerLevel;
+          }
+        }
       }
     } else {
       // Pure AI branch: natural slotting
@@ -429,7 +456,7 @@ export class TournamentManager {
     return this.simulateAllRemaining();
   }
 
-  fastForwardToFinal() {
+  fastForwardToFinal({ excludeP1 = false } = {}) {
     // Iterate through all rounds except the final round
     for (let r = 0; r < this.rounds.length - 1; r++) {
       const round = this.rounds[r];
@@ -443,19 +470,33 @@ export class TournamentManager {
 
         const p1IsHuman = this._isHumanPlayer(match.p1UserId);
         const p2IsHuman = this._isHumanPlayer(match.p2UserId);
+        const hostId = this.humanPlayerIds[0];
 
         let winnerUserId;
-        // Priority: Human always beats Bot. If both human, P1 beats P2.
-        if (p1IsHuman) {
-          winnerUserId = match.p1UserId;
-        } else if (p2IsHuman) {
-          winnerUserId = match.p2UserId;
+
+        // If excludeP1 is active and P1 (host) is in the match, they must lose.
+        if (excludeP1 && (match.p1UserId === hostId || match.p2UserId === hostId)) {
+          winnerUserId = match.p1UserId === hostId ? match.p2UserId : match.p1UserId;
         } else {
-          // Bot vs Bot: Random
-          winnerUserId = this.nextRand() > 0.5 ? match.p1UserId : match.p2UserId;
+          // Priority: Human always beats Bot. If both human, P1 beats P2.
+          if (p1IsHuman) {
+            winnerUserId = match.p1UserId;
+          } else if (p2IsHuman) {
+            winnerUserId = match.p2UserId;
+          } else {
+            // Bot vs Bot: Random
+            winnerUserId = this.nextRand() > 0.5 ? match.p1UserId : match.p2UserId;
+          }
         }
 
         this._assignMatchWinner(match, winnerUserId);
+
+        // Track human elimination if applicable
+        const loserUserId = winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
+        if (this._isHumanPlayer(loserUserId) && !this.eliminatedPlayerIds.includes(loserUserId)) {
+          this.eliminatedPlayerIds.push(loserUserId);
+        }
+
         this._setWinnerInNextRound(r, m, winnerUserId);
       }
     }
