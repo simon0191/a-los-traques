@@ -17,7 +17,7 @@ export const SQL_COMPLETE_SESSION = "UPDATE active_sessions SET status = 'comple
 /**
  * Records win/loss for a tournament match. 
  * Secure: Only Host can report, and both players must have joined the session first.
- * Body: { tourneyId: string, winnerId: UUID, loserId: UUID, isFinal?: boolean, championId?: UUID }
+ * Body: { tourneyId: string, winnerId: UUID, loserId: UUID, roundIndex: number, matchIndex: number, isFinal?: boolean, championId?: UUID }
  */
 export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
   if (req.method !== 'POST') {
@@ -59,6 +59,7 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
     }
 
     // Security Mitigation: Hard limit on match reports per session based on topology
+    // A single-elimination bracket of N players has exactly N-1 matches.
     const maxMatches = Math.min(bracketSize - 1, 32); 
     if (matches_played >= maxMatches) {
       return res.status(200).json({ status: 'ignored', reason: 'Max match limit reached' });
@@ -137,13 +138,7 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
       prestigeAwarded
     });
   } catch (err) {
-    if (db.query) {
-      try {
-        await db.query('ROLLBACK');
-      } catch (_e) {
-        // Ignore rollback error if already rolled back or connection lost
-      }
-    }
+    await db.query('ROLLBACK').catch(() => {});
     console.error('Error reporting tournament match result:', err);
     throw err;
   }

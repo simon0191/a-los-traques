@@ -42,6 +42,9 @@ export class BracketScene extends Phaser.Scene {
 
     // Track if we just came from a match result
     this.fromMatch = data.fromMatch || false;
+
+    // Hardening: Surface repeated reporting failures to the Host
+    this._reportingFailures = 0;
   }
 
   create() {
@@ -422,8 +425,37 @@ export class BracketScene extends Phaser.Scene {
 
       await reportTournamentMatch(payload);
       log.info(`Simulated match reported: ${winnerUserId} beat ${loserUserId}`);
+      this._reportingFailures = 0; // Reset on success
     } catch (e) {
-      log.warn('Failed to report simulated match', { err: e.message });
+      this._reportingFailures++;
+      log.warn('Failed to report simulated match', {
+        err: e.message,
+        failures: this._reportingFailures,
+      });
+
+      if (this._reportingFailures >= 3) {
+        this._showSyncError();
+      }
     }
+  }
+
+  _showSyncError() {
+    const errorText = this.add
+      .text(GAME_WIDTH / 2, 40, '⚠ RESULTADOS NO SINCRONIZADOS', {
+        fontFamily: 'Arial Black',
+        fontSize: '10px',
+        color: '#ff4444',
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: errorText,
+      alpha: 1,
+      duration: 500,
+      yoyo: true,
+      hold: 2000,
+      onComplete: () => errorText.destroy(),
+    });
   }
 }

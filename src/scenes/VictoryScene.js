@@ -353,9 +353,12 @@ export class VictoryScene extends Phaser.Scene {
 
             const resp = await reportTournamentMatch(payload);
             log.info('Tournament result recorded', resp);
+
+            if (resp.status === 'success') {
+              this._showResultFeedback('RESULTADO REGISTRADO', '#44cc88');
+            }
           }
-          this._showResultFeedback('RESULTADO REGISTRADO', '#44cc88');
-          return; // Success: Tournament result saved, skip fallback
+          return; // Success (or idempotent ignored): handled, skip fallback
         } catch (e) {
           log.warn('Tournament match reporting failed, falling back to personal stats', {
             err: e.message,

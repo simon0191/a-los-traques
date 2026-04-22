@@ -9,7 +9,5 @@ CREATE TABLE tournament_matches (
     PRIMARY KEY (session_id, round_index, match_index)
 );
 
-CREATE INDEX idx_tournament_matches_session ON tournament_matches (session_id);
-
 -- migrate:down
 DROP TABLE IF EXISTS tournament_matches;
