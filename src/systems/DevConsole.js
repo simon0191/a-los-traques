@@ -1,7 +1,7 @@
 import { GAME_WIDTH, MAX_HP, MAX_SPECIAL, ROUNDS_TO_WIN } from '../config.js';
 
 const COMMANDS = {
-  help: 'help | noai | ai | god | mortal | kill | ko | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps | ff | ff-nop1 | set-winner [r] [m] [p1|p2] | dev:tournament:join [id]',
+  help: 'help | noai | ai | god | mortal | kill | ko | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps | ff | ff-nop1 | set-winner [r] [m] [p1|p2] | sync | dev:tournament:join [id]',
 };
 
 export class DevConsole {
@@ -266,12 +266,31 @@ export class DevConsole {
           break;
         }
 
-        scene.manager.setMatchWinner(rIdx, mIdx, winnerUserId);
-        scene.matchContext.tournamentState = scene.manager.serialize();
-        scene.scene.restart();
-        this.print(`Round ${rIdx} Match ${mIdx} winner set to ${role}.`);
+        scene.executeSetWinner(rIdx, mIdx, winnerUserId);
+        this.print(`Round ${rIdx} Match ${mIdx} winner set to ${role}. Syncing results...`);
         break;
       }
+
+      case 'sync':
+        if (scene.scene.key === 'BracketScene') {
+          if (!scene.isHost) {
+            this.print('Only the Host can sync results to the backend.');
+            break;
+          }
+          if (!scene.manager.tourneyId) {
+            this.print('No active tournament session to sync.');
+            break;
+          }
+          this.print('Syncing all finished matches to backend...');
+          scene._reportAllFinishedMatches().then(() => {
+            this.print('Sync complete. Check browser console for details.');
+          }).catch(e => {
+            this.print(`Sync failed: ${e.message}`);
+          });
+        } else {
+          this.print('Command only available in BracketScene.');
+        }
+        break;
 
       case 'dev:tournament:join': {
         if (scene.scene.key !== 'TournamentSetupScene') {

@@ -270,10 +270,56 @@ export class BracketScene extends Phaser.Scene {
     }
   }
 
-  executeFastForward(excludeP1 = false) {
+  async executeFastForward(excludeP1 = false) {
     this.manager.fastForwardToFinal({ excludeP1 });
     this.matchContext.tournamentState = this.manager.serialize();
+    if (this.isHost && this.manager.tourneyId) {
+      try {
+        await this._reportAllFinishedMatches();
+      } catch (e) {
+        log.error('Dev fast-forward reporting failed', { err: e.message });
+      }
+    }
     this.scene.restart();
+  }
+
+  async executeSetWinner(roundIndex, matchIndex, winnerUserId) {
+    const success = this.manager.setMatchWinner(roundIndex, matchIndex, winnerUserId);
+    if (success) {
+      this.matchContext.tournamentState = this.manager.serialize();
+      if (this.isHost && this.manager.tourneyId) {
+        try {
+          await this._reportAllFinishedMatches();
+        } catch (e) {
+          log.error('Dev set-winner reporting failed', { err: e.message });
+        }
+      }
+      this.scene.restart();
+    }
+  }
+
+  async _reportAllFinishedMatches() {
+    const tourneyId = this.manager.tourneyId;
+    if (!tourneyId) return;
+
+    log.info(`[Bracket] Starting batch-report of all finished matches for tourney ${tourneyId}`);
+
+    for (let r = 0; r < this.manager.rounds.length; r++) {
+      const round = this.manager.rounds[r];
+      for (let m = 0; m < round.length; m++) {
+        const match = round[m];
+        if (match.winnerUserId) {
+          const loserUserId = match.winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
+          try {
+             await this._reportSimulatedMatch(tourneyId, match.winnerUserId, loserUserId, r, m);
+          } catch (e) {
+             // If a single match fails (e.g. conflict already handled), we log but keep going.
+             log.debug('Match already reported or failed (ignoring)', { r, m, err: e.message });
+          }
+        }
+      }
+    }
+    log.info('[Bracket] Batch-report complete');
   }
 
   goToMatch(matchData) {
@@ -404,8 +450,13 @@ export class BracketScene extends Phaser.Scene {
 
   async _reportSimulatedMatch(tourneyId, winnerUserId, loserUserId, roundIndex, matchIndex) {
     try {
-      const isFinal = this.manager.complete;
-      const championId = isFinal ? this.manager.winnerUserId : null;
+      const isFinal =
+        this.manager.complete &&
+        roundIndex === this.manager.rounds.length - 1 &&
+        matchIndex === 0;
+
+      // Authoritative champion check
+      const championUserId = isFinal ? this.manager.winnerUserId : null;
 
       const payload = {
         tourneyId,
@@ -415,27 +466,33 @@ export class BracketScene extends Phaser.Scene {
         matchIndex,
       };
 
-      if (isFinal && championId && isUuid(championId)) {
+      if (isFinal && championUserId && isUuid(championUserId)) {
         payload.isFinal = true;
-        payload.championId = championId;
+        payload.championId = championUserId;
+        log.info(`[Bracket] Reporting FINAL match: ${winnerUserId} beat ${loserUserId}. Champion: ${championUserId}`);
       } else if (isFinal) {
-        // Still mark as final even if champion is a bot
         payload.isFinal = true;
+        log.info(`[Bracket] Reporting FINAL match: ${winnerUserId} beat ${loserUserId}. (AI Champion)`);
+      } else {
+        log.info(`[Bracket] Reporting match: R${roundIndex} M${matchIndex}: ${winnerUserId} beat ${loserUserId}`);
       }
 
-      await reportTournamentMatch(payload);
-      log.info(`Simulated match reported: ${winnerUserId} beat ${loserUserId}`);
+      const resp = await reportTournamentMatch(payload);
       this._reportingFailures = 0; // Reset on success
+      return resp;
     } catch (e) {
       this._reportingFailures++;
       log.warn('Failed to report simulated match', {
         err: e.message,
+        roundIndex,
+        matchIndex,
         failures: this._reportingFailures,
       });
 
       if (this._reportingFailures >= 3) {
         this._showSyncError();
       }
+      throw e; // Bubble up so the dev command can report failure
     }
   }
 
