@@ -2,10 +2,10 @@
 // Sources: apps/web/public/assets/audio/fights/*.mp3
 
 export const FIGHT_MUSIC_FILES = Object.freeze([
-  '/assets/audio/fights/a-los-traques-dembow.mp3',
-  '/assets/audio/fights/cumbia1.mp3',
-  '/assets/audio/fights/cumbia2.mp3',
-  '/assets/audio/fights/fight-fight-fight.mp3',
-  '/assets/audio/fights/fight-instrumental.mp3',
-  '/assets/audio/fights/traques-de-muerte.mp3',
+  'assets/audio/fights/a-los-traques-dembow.mp3',
+  'assets/audio/fights/cumbia1.mp3',
+  'assets/audio/fights/cumbia2.mp3',
+  'assets/audio/fights/fight-fight-fight.mp3',
+  'assets/audio/fights/fight-instrumental.mp3',
+  'assets/audio/fights/traques-de-muerte.mp3',
 ]);
