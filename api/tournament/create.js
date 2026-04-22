@@ -1,10 +1,12 @@
-import { withAuth } from '../_lib/handler.js';
 import crypto from 'crypto';
+import { withAuth } from '../_lib/handler.js';
 
-export const SQL_CHECK_EXISTING_SESSION = 'SELECT id, matches_played FROM active_sessions WHERE host_user_id = $1 AND status = $2';
+export const SQL_CHECK_EXISTING_SESSION =
+  'SELECT id, matches_played FROM active_sessions WHERE host_user_id = $1 AND status = $2';
 export const SQL_UPDATE_SESSION_SIZE = 'UPDATE active_sessions SET size = $1 WHERE id = $2';
 export const SQL_CHECK_COLLISION = 'SELECT 1 FROM active_sessions WHERE id = $1';
-export const SQL_ABANDON_ORPHAN_SESSIONS = "UPDATE active_sessions SET status = 'abandoned' WHERE host_user_id = $1 AND status = 'open'";
+export const SQL_ABANDON_ORPHAN_SESSIONS =
+  "UPDATE active_sessions SET status = 'abandoned' WHERE host_user_id = $1 AND status = 'open'";
 export const SQL_INSERT_SESSION = `
   INSERT INTO active_sessions (id, host_user_id, status, size)
   VALUES ($1, $2, 'open', $3)
@@ -42,7 +44,9 @@ export const createTournament = async (req, res, { userId, db }) => {
         const matchesPlayed = parseInt(existingRes.rows[0].matches_played, 10) || 0;
 
         if (matchesPlayed > 0) {
-          return res.status(403).json({ error: 'Cannot update tournament size after matches have started' });
+          return res
+            .status(403)
+            .json({ error: 'Cannot update tournament size after matches have started' });
         }
 
         await db.query(SQL_UPDATE_SESSION_SIZE, [bracketSize, tourneyId]);

@@ -1,5 +1,5 @@
+import { isUuid } from '@alostraques/api-core/validate';
 import { withAuth } from '../_lib/handler.js';
-import { isUuid } from '../_lib/validate.js';
 
 export const SQL_INSERT_MATCH_LEDGER = `
   INSERT INTO tournament_matches (session_id, round_index, match_index, winner_id, loser_id)
@@ -8,14 +8,18 @@ export const SQL_INSERT_MATCH_LEDGER = `
   RETURNING 1
 `;
 
-export const SQL_UPDATE_WINNER_STATS = 'UPDATE profiles SET wins = wins + 1, updated_at = now() WHERE id = $1';
-export const SQL_UPDATE_LOSER_STATS = 'UPDATE profiles SET losses = losses + 1, updated_at = now() WHERE id = $1';
-export const SQL_INCREMENT_MATCHES_PLAYED = 'UPDATE active_sessions SET matches_played = matches_played + 1 WHERE id = $1';
-export const SQL_CROWN_CHAMPION = 'UPDATE profiles SET tournament_wins = tournament_wins + 1, updated_at = now() WHERE id = $1';
+export const SQL_UPDATE_WINNER_STATS =
+  'UPDATE profiles SET wins = wins + 1, updated_at = now() WHERE id = $1';
+export const SQL_UPDATE_LOSER_STATS =
+  'UPDATE profiles SET losses = losses + 1, updated_at = now() WHERE id = $1';
+export const SQL_INCREMENT_MATCHES_PLAYED =
+  'UPDATE active_sessions SET matches_played = matches_played + 1 WHERE id = $1';
+export const SQL_CROWN_CHAMPION =
+  'UPDATE profiles SET tournament_wins = tournament_wins + 1, updated_at = now() WHERE id = $1';
 export const SQL_COMPLETE_SESSION = "UPDATE active_sessions SET status = 'completed' WHERE id = $1";
 
 /**
- * Records win/loss for a tournament match. 
+ * Records win/loss for a tournament match.
  * Secure: Only Host can report, and both players must have joined the session first.
  * Body: { tourneyId: string, winnerId: UUID, loserId: UUID, roundIndex: number, matchIndex: number, isFinal?: boolean, championId?: UUID }
  */
@@ -44,11 +48,13 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
     // 1. Verify caller is the actual Host of the tournament session
     const hostCheckRes = await db.query(
       'SELECT status, matches_played, size FROM active_sessions WHERE id = $1 AND host_user_id = $2',
-      [tid, hostUserId]
+      [tid, hostUserId],
     );
 
     if (hostCheckRes.rows.length === 0) {
-      return res.status(403).json({ error: 'Unauthorized: You are not the Host of this tournament' });
+      return res
+        .status(403)
+        .json({ error: 'Unauthorized: You are not the Host of this tournament' });
     }
 
     const { status, matches_played, size: bracketSize } = hostCheckRes.rows[0];
@@ -60,7 +66,7 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
 
     // Security Mitigation: Hard limit on match reports per session based on topology
     // A single-elimination bracket of N players has exactly N-1 matches.
-    const maxMatches = Math.min(bracketSize - 1, 32); 
+    const maxMatches = Math.min(bracketSize - 1, 32);
     if (matches_played >= maxMatches) {
       return res.status(200).json({ status: 'ignored', reason: 'Max match limit reached' });
     }
@@ -75,10 +81,10 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
       // Find which of these users actually joined the session
       const handshakeCheckRes = await db.query(
         `SELECT user_id FROM session_participants WHERE session_id = $1`,
-        [tid]
+        [tid],
       );
 
-      const participatingIds = handshakeCheckRes.rows.map(r => r.user_id);
+      const participatingIds = handshakeCheckRes.rows.map((r) => r.user_id);
       hasWinnerHandshake = isUuid(winnerId) && participatingIds.includes(winnerId);
       hasLoserHandshake = isUuid(loserId) && participatingIds.includes(loserId);
       hasChampionHandshake = isUuid(championId) && participatingIds.includes(championId);
@@ -95,7 +101,7 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
       roundIndex,
       matchIndex,
       isUuid(winnerId) ? winnerId : null,
-      isUuid(loserId) ? loserId : null
+      isUuid(loserId) ? loserId : null,
     ]);
 
     if (insertMatchRes.rows.length === 0) {
@@ -135,7 +141,7 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
       status: 'success',
       updated: { winner: hasWinnerHandshake, loser: hasLoserHandshake },
       completed: !!isFinal,
-      prestigeAwarded
+      prestigeAwarded,
     });
   } catch (err) {
     await db.query('ROLLBACK').catch(() => {});

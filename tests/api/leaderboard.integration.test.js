@@ -15,7 +15,7 @@ describe('Leaderboard SQL (integration)', () => {
     db = await PGlite.create();
 
     // Run migrations in order
-    const migrationsDir = path.resolve('db/migrations');
+    const migrationsDir = path.resolve('packages/db/migrations');
     const migrationFiles = fs
       .readdirSync(migrationsDir)
       .filter((f) => f.endsWith('.sql'))

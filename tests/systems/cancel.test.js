@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { STAMINA_COSTS } from '../../src/config.js';
 import {
   FP_SCALE,
   GROUND_Y_FP,
   MAX_STAMINA_FP,
   SPECIAL_COST_FP,
   SPECIAL_TINT_MAX_FRAMES,
-} from '../../src/systems/FixedPoint.js';
+} from '@alostraques/sim';
+import { describe, expect, it } from 'vitest';
+import { STAMINA_COSTS } from '../../apps/game-vite/src/config.js';
 
 /** Create a minimal sim fighter for cancel tests. */
 function createFighter(moves = {}) {

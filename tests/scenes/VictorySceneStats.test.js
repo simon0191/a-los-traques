@@ -7,10 +7,10 @@ vi.mock('phaser', () => ({
   },
 }));
 
-import { VictoryScene } from '../../src/scenes/VictoryScene.js';
-import * as api from '../../src/services/api.js';
+import { VictoryScene } from '../../apps/game-vite/src/scenes/VictoryScene.js';
+import * as api from '../../apps/game-vite/src/services/api.js';
 
-vi.mock('../../src/services/api.js', () => ({
+vi.mock('../../apps/game-vite/src/services/api.js', () => ({
   updateStats: vi.fn(),
   reportTournamentMatch: vi.fn(),
 }));

@@ -1,13 +1,5 @@
-import { createPool } from '../_lib/db.js';
-import { storage } from '../_lib/storage.js';
-
-let pool;
-function getPool() {
-  if (!pool) {
-    pool = createPool();
-  }
-  return pool;
-}
+import { storage } from '@alostraques/api-core/storage';
+import { getPool } from '@alostraques/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -51,10 +43,7 @@ export default async function handler(req, res) {
     for (const fightId of expiredIds) {
       try {
         await storage.deleteBundles(fightId);
-        await client.query(
-          'UPDATE fights SET has_debug_bundle = FALSE WHERE id = $1',
-          [fightId],
-        );
+        await client.query('UPDATE fights SET has_debug_bundle = FALSE WHERE id = $1', [fightId]);
         deleted++;
       } catch (err) {
         console.error(`Failed to cleanup fight ${fightId}:`, err.message);

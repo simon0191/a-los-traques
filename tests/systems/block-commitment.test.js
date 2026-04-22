@@ -1,5 +1,5 @@
+import { FP_SCALE, GROUND_Y_FP } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { FP_SCALE, GROUND_Y_FP } from '../../src/systems/FixedPoint.js';
 
 /** Create a minimal sim fighter for block commitment tests. */
 function createFighter() {

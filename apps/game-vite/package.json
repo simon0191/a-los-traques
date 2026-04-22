@@ -1,0 +1,24 @@
+{
+  "name": "@alostraques/game-vite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@alostraques/sim": "workspace:*",
+    "@google/genai": "^1.45.0",
+    "@supabase/supabase-js": "^2.101.1",
+    "partysocket": "^1.1.16",
+    "phaser": "^3.90.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.0"
+  }
+}

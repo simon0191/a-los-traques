@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_STAMINA } from '../../src/config.js';
-import fighters from '../../src/data/fighters.json';
+import { MAX_STAMINA } from '../../apps/game-vite/src/config.js';
+import fighters from '../../apps/game-vite/src/data/fighters.json';
 
 const REQUIRED_FIELDS = ['id', 'name', 'stats', 'moves'];
 const _STAT_KEYS = ['hp', 'speed', 'power', 'defense', 'special'];

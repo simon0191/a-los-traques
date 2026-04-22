@@ -1,6 +1,6 @@
+import { encodeInput } from '@alostraques/sim';
 import { describe, expect, it, vi } from 'vitest';
-import { encodeInput } from '../../../src/systems/InputBuffer.js';
-import { InputSync } from '../../../src/systems/net/InputSync.js';
+import { InputSync } from '../../../apps/game-vite/src/systems/net/InputSync.js';
 
 function makeSignaling({ isSpectator = false } = {}) {
   const handlers = new Map();

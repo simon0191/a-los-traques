@@ -1,5 +1,5 @@
+import { BUNDLE_TTL_DAYS, storage } from '@alostraques/api-core/storage';
 import { withAuth } from './_lib/handler.js';
-import { BUNDLE_TTL_DAYS, storage } from './_lib/storage.js';
 
 export default withAuth(async (req, res, { userId, db }) => {
   if (req.method !== 'POST') {

@@ -1,5 +1,5 @@
+import { comboScaledDamage } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { comboScaledDamage } from '../../src/systems/combat-math.js';
 
 describe('comboScaledDamage', () => {
   it('first hit (comboCount=0) deals full damage', () => {

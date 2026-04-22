@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { MatchEvent, MatchState, MatchStateMachine } from '../../src/systems/MatchStateMachine.js';
+import {
+  MatchEvent,
+  MatchState,
+  MatchStateMachine,
+} from '../../apps/game-vite/src/systems/MatchStateMachine.js';
 
 describe('MatchStateMachine', () => {
   describe('initial state', () => {

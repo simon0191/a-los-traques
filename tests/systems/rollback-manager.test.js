@@ -1,8 +1,13 @@
+import {
+  decodeInput,
+  EMPTY_INPUT,
+  FP_SCALE,
+  GROUND_Y_FP,
+  MAX_STAMINA_FP,
+  SNAPSHOT_VERSION,
+} from '@alostraques/sim';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SNAPSHOT_VERSION } from '../../src/simulation/SimulationEngine.js';
-import { FP_SCALE, GROUND_Y_FP, MAX_STAMINA_FP } from '../../src/systems/FixedPoint.js';
-import { decodeInput, EMPTY_INPUT } from '../../src/systems/InputBuffer.js';
-import { RollbackManager } from '../../src/systems/RollbackManager.js';
+import { RollbackManager } from '../../apps/game-vite/src/systems/RollbackManager.js';
 
 // Mock NetworkManager
 function mockNM(slot = 0) {

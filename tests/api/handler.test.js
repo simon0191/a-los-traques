@@ -17,7 +17,7 @@ vi.mock('jose', () => ({
   createRemoteJWKSet: vi.fn(),
 }));
 
-vi.mock('../../api/_lib/db.js', () => ({
+vi.mock('@alostraques/db', () => ({
   createPool: vi.fn().mockImplementation(() => ({
     connect: mockConnect,
   })),
@@ -25,6 +25,9 @@ vi.mock('../../api/_lib/db.js', () => ({
     mockClient.connect = mockConnect;
     return mockClient;
   }),
+  getPool: vi.fn().mockImplementation(() => ({
+    connect: mockConnect,
+  })),
 }));
 
 describe('withAuth middleware', () => {

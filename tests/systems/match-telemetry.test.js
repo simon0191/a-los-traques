@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MatchTelemetry } from '../../src/systems/MatchTelemetry.js';
+import { MatchTelemetry } from '../../apps/game-vite/src/systems/MatchTelemetry.js';
 
 describe('MatchTelemetry', () => {
   let telemetry;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ConnectionMonitor } from '../../../src/systems/net/ConnectionMonitor.js';
+import { ConnectionMonitor } from '../../../apps/game-vite/src/systems/net/ConnectionMonitor.js';
 
 function makeSignaling() {
   const handlers = new Map();

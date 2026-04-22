@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MANIFEST_VERSION, OverlayManifest } from '../../src/editor/OverlayManifest.js';
+import {
+  MANIFEST_VERSION,
+  OverlayManifest,
+} from '../../apps/game-vite/src/editor/OverlayManifest.js';
 
 function makeEntry(overrides = {}) {
   return {

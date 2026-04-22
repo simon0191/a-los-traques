@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUploadDebugBundle = vi.fn();
 
-vi.mock('../../src/services/api.js', () => ({
+vi.mock('../../apps/game-vite/src/services/api.js', () => ({
   uploadDebugBundle: (...args) => mockUploadDebugBundle(...args),
 }));
 
 // Mock Logger to avoid side effects
-vi.mock('../../src/systems/Logger.js', () => ({
+vi.mock('../../apps/game-vite/src/systems/Logger.js', () => ({
   Logger: {
     create: () => ({
       info: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('../../src/systems/Logger.js', () => ({
   },
 }));
 
-import { DebugBundleExporter } from '../../src/systems/DebugBundleExporter.js';
+import { DebugBundleExporter } from '../../apps/game-vite/src/systems/DebugBundleExporter.js';
 
 describe('DebugBundleExporter.uploadBundle', () => {
   beforeEach(() => {

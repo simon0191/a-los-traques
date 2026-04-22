@@ -1,9 +1,6 @@
+import { CombatSim, createCombatSim, createFighterSim, encodeInput, tick } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { GAME_WIDTH, MAX_HP } from '../../src/config.js';
-import { CombatSim, createCombatSim } from '../../src/simulation/CombatSim.js';
-import { createFighterSim } from '../../src/simulation/FighterSim.js';
-import { tick } from '../../src/simulation/SimulationEngine.js';
-import { encodeInput } from '../../src/systems/InputBuffer.js';
+import { GAME_WIDTH, MAX_HP } from '../../apps/game-vite/src/config.js';
 
 const EMPTY = encodeInput({
   left: false,

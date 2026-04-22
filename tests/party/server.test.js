@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import FightRoom from '../../party/server.js';
+import FightRoom from '../../apps/party/server.js';
 
 // --- Helpers ---
 

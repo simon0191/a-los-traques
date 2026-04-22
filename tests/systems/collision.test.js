@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   FIGHTER_BODY_WIDTH_FP,
   FP_SCALE,
@@ -6,7 +5,8 @@ import {
   GROUND_Y_FP,
   STAGE_LEFT_FP,
   STAGE_RIGHT_FP,
-} from '../../src/systems/FixedPoint.js';
+} from '@alostraques/sim';
+import { describe, expect, it } from 'vitest';
 
 // Inline the FP collision resolution logic to test without Phaser dependency
 function resolveBodyCollision(f1, f2) {

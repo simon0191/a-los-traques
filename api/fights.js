@@ -5,7 +5,9 @@ export default withAuth(async (req, res, { userId, db }) => {
     const { fightId, roomId, p1Fighter, p2Fighter, stageId } = req.body;
 
     if (!fightId || !roomId || !p1Fighter || !p2Fighter || !stageId) {
-      return res.status(400).json({ error: 'Missing required fields: fightId, roomId, p1Fighter, p2Fighter, stageId' });
+      return res
+        .status(400)
+        .json({ error: 'Missing required fields: fightId, roomId, p1Fighter, p2Fighter, stageId' });
     }
 
     try {

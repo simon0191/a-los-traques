@@ -7,13 +7,13 @@
  * produces the same encoded integer that applyInputToFighter() would consume.
  */
 
-import { AIController } from '../../src/systems/AIController.js';
-import { encodeInput } from '../../src/systems/InputBuffer.js';
+import { encodeInput } from '@alostraques/sim';
+import { AIController } from '../../apps/game-vite/src/systems/AIController.js';
 
 /**
  * Create a headless AI controller (no Phaser scene needed).
- * @param {import('../../src/simulation/FighterSim.js').FighterSim} fighter
- * @param {import('../../src/simulation/FighterSim.js').FighterSim} opponent
+ * @param {import('@alostraques/sim').FighterSim} fighter
+ * @param {import('@alostraques/sim').FighterSim} opponent
  * @param {'easy'|'medium'|'hard'} difficulty
  * @param {number} seed
  * @returns {AIController}

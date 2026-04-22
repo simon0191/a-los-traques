@@ -18,7 +18,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FIGHTERS_WITH_SPRITES } from '../../src/data/animations.js';
+import { FIGHTERS_WITH_SPRITES } from '../../apps/game-vite/src/data/animations.js';
 import { calibrateCategoryForFighter } from './overlays/calibrate-hat.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

@@ -1,6 +1,5 @@
+import { EMPTY_INPUT, encodeInput, FP_SCALE } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { FP_SCALE } from '../../src/systems/FixedPoint.js';
-import { EMPTY_INPUT, encodeInput } from '../../src/systems/InputBuffer.js';
 
 describe('FP_SCALE', () => {
   it('equals 1000 for 1000x scaling', () => {

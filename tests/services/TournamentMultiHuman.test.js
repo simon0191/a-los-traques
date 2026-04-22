@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TournamentManager } from '../../src/services/TournamentManager.js';
+import { TournamentManager } from '../../apps/game-vite/src/services/TournamentManager.js';
 
 describe('TournamentManager - Multi-Human Attribution', () => {
   const fighters = ['alv', 'simon', 'jeka', 'paula', 'richi', 'sun', 'mao', 'gartner'];

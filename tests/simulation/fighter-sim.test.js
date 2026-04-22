@@ -1,13 +1,14 @@
-import { describe, expect, it } from 'vitest';
-import { MAX_HP, STAMINA_COSTS } from '../../src/config.js';
-import { createFighterSim, FighterSim } from '../../src/simulation/FighterSim.js';
 import {
+  createFighterSim,
   DOUBLE_JUMP_AIRBORNE_THRESHOLD,
+  FighterSim,
   FP_SCALE,
   GROUND_Y_FP,
   JUMP_VY_FP,
   SPECIAL_COST_FP,
-} from '../../src/systems/FixedPoint.js';
+} from '@alostraques/sim';
+import { describe, expect, it } from 'vitest';
+import { MAX_HP, STAMINA_COSTS } from '../../apps/game-vite/src/config.js';
 
 describe('FighterSim', () => {
   describe('constructor', () => {

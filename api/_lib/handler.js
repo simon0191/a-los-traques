@@ -1,31 +1,13 @@
-import { jwtVerify, createRemoteJWKSet, decodeProtectedHeader } from 'jose';
-import { createPool, createClient } from './db.js';
+// Vercel Function adapter that composes @alostraques/api-core's framework-agnostic
+// auth with a connection lease from @alostraques/db. The Next.js app (Phase 2) will
+// grow its own adapter at apps/web/lib/auth/middleware.ts using the same core.
 
-// Connection pooling for Vercel Functions (Production)
-let pool;
-let jwks;
-
-function getPool() {
-  if (!pool) {
-    pool = createPool();
-  }
-  return pool;
-}
-
-function getJWKS() {
-  const projectId = process.env.SUPABASE_PROJECT_ID;
-  if (!projectId) return null;
-  
-  if (!jwks) {
-    const url = new URL(`https://${projectId}.supabase.co/auth/v1/.well-known/jwks.json`);
-    jwks = createRemoteJWKSet(url);
-  }
-  return jwks;
-}
+import { AuthError, resolveUserId } from '@alostraques/api-core';
+import { createClient, getPool } from '@alostraques/db';
 
 /**
  * Higher-order function for authenticated handlers.
- * It verifies the Supabase JWT and provides a DB client.
+ * Verifies the Supabase JWT (or dev bypass) and supplies a DB client.
  */
 export function withAuth(handler, options = {}) {
   const { maxRetries = 3, retryDelay = 1000 } = options;
@@ -34,47 +16,29 @@ export function withAuth(handler, options = {}) {
     const isProd = process.env.NODE_ENV === 'production';
     const jwtSecret = process.env.SUPABASE_JWT_SECRET;
     const projectId = process.env.SUPABASE_PROJECT_ID;
-    const authHeader = req.headers.authorization;
-    const devUserId = req.headers['x-dev-user-id'];
 
     let userId;
-
-    // 1. JWT Authentication
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      try {
-        const header = decodeProtectedHeader(token);
-        if (header.alg === 'HS256') {
-          if (!jwtSecret) throw new Error('SUPABASE_JWT_SECRET is missing for HS256');
-          const secret = new TextEncoder().encode(jwtSecret);
-          const { payload } = await jwtVerify(token, secret);
-          userId = payload.sub;
-        } else {
-          const remoteJWKS = getJWKS();
-          if (!remoteJWKS) throw new Error('SUPABASE_PROJECT_ID is missing for asymmetric verification');
-          
-          const { payload } = await jwtVerify(token, remoteJWKS, {
-            issuer: `https://${projectId}.supabase.co/auth/v1`,
-            audience: 'authenticated',
-          });
-          userId = payload.sub;
-        }
-      } catch (err) {
-        console.error('JWT Verification failed:', err.message);
-        return res.status(401).json({ error: 'Unauthorized: Invalid token', message: err.message });
+    try {
+      userId = await resolveUserId({
+        authHeader: req.headers.authorization,
+        devUserId: req.headers['x-dev-user-id'],
+        isProd,
+        jwtSecret,
+        projectId,
+      });
+    } catch (err) {
+      if (err instanceof AuthError) {
+        console.error('JWT Verification failed:', err.cause?.message ?? err.message);
+        const body = { error: err.message };
+        if (err.cause?.message) body.message = err.cause.message;
+        return res.status(err.status).json(body);
       }
-    } 
-    else if (!isProd && devUserId) {
-      userId = devUserId;
-    } 
-    else {
-      return res.status(401).json({ error: 'Unauthorized: Missing credentials' });
+      throw err;
     }
 
-    // 2. Database Access
-    // Opt-in fresh client per request (e.g. for Windows local dev)
+    // Opt-in fresh client per request (e.g. Windows local dev).
     const useFreshClient = process.env.PG_FRESH_CLIENT === '1';
-    
+
     let db;
     let attempts = 0;
 
@@ -87,13 +51,13 @@ export function withAuth(handler, options = {}) {
           const dbPool = getPool();
           db = await dbPool.connect();
         }
-        break; // Success
+        break;
       } catch (err) {
         attempts++;
         console.error(`Database connection failed (${err.message}). Attempt: ${attempts}`);
-        
+
         if (db && useFreshClient) await db.end().catch(() => {});
-        
+
         if (attempts > maxRetries) {
           const response = { error: 'Internal Server Error: Database connection failed' };
           if (process.env.NODE_ENV !== 'production') {

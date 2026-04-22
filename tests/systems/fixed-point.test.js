@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   DOUBLE_JUMP_AIRBORNE_THRESHOLD,
   FP_SCALE,
@@ -10,7 +9,8 @@ import {
   JUMP_VY_FP,
   msToFrames,
   pixelsToFP,
-} from '../../src/systems/FixedPoint.js';
+} from '@alostraques/sim';
+import { describe, expect, it } from 'vitest';
 
 describe('fpClamp', () => {
   it('returns val when in range', () => {

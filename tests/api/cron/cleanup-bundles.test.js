@@ -14,15 +14,18 @@ vi.mock('jose', () => ({
   createRemoteJWKSet: vi.fn(),
 }));
 
-vi.mock('../../../api/_lib/db.js', () => ({
+vi.mock('@alostraques/db', () => ({
   createPool: vi.fn().mockImplementation(() => ({
     connect: () => Promise.resolve(mockClient),
   })),
   createClient: vi.fn().mockImplementation(() => mockClient),
+  getPool: vi.fn().mockImplementation(() => ({
+    connect: () => Promise.resolve(mockClient),
+  })),
 }));
 
 const mockDeleteBundles = vi.fn();
-vi.mock('../../../api/_lib/storage.js', () => ({
+vi.mock('@alostraques/api-core/storage', () => ({
   BUNDLE_TTL_DAYS: 7,
   storage: {
     deleteBundles: (...args) => mockDeleteBundles(...args),

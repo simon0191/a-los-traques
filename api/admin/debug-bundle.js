@@ -1,5 +1,5 @@
+import { storage } from '@alostraques/api-core/storage';
 import { withAdmin } from '../_lib/handler.js';
-import { storage } from '../_lib/storage.js';
 
 export default withAdmin(async (req, res, { userId, db }) => {
   if (req.method !== 'GET') {
@@ -18,6 +18,9 @@ export default withAdmin(async (req, res, { userId, db }) => {
   }
 
   res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', `attachment; filename="debug-${fightId}-p${slot}-r${round}.json"`);
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="debug-${fightId}-p${slot}-r${round}.json"`,
+  );
   return res.status(200).send(content);
 });

@@ -2,12 +2,17 @@
   "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
   "files": {
     "includes": [
-      "src/**",
+      "apps/**",
+      "packages/**",
+      "api/**",
       "tests/**",
-      "party/**",
       "scripts/**",
       "*.json",
       "*.js",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/*.html",
+      "!apps/game-vite/public",
       "!scripts/asset-pipeline/pose/.venv",
       "!scripts/asset-pipeline/pose/models",
       "!scripts/asset-pipeline/pose/__pycache__"

@@ -1,7 +1,6 @@
+import { calculateBlockDamage, calculateDamage } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { MAX_SPECIAL } from '../../src/config.js';
-import { calculateBlockDamage } from '../../src/entities/combat-block.js';
-import { calculateDamage } from '../../src/systems/combat-math.js';
+import { MAX_SPECIAL } from '../../apps/game-vite/src/config.js';
 
 describe('calculateDamage', () => {
   it('neutral stats (power=3, defense=3) returns damage close to base', () => {

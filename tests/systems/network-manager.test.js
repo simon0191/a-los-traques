@@ -1,8 +1,8 @@
+import { encodeInput } from '@alostraques/sim';
 import { describe, expect, it, vi } from 'vitest';
-import { encodeInput } from '../../src/systems/InputBuffer.js';
 
 // Mock WebRTCTransport before importing NetworkManager
-vi.mock('../../src/systems/WebRTCTransport.js', () => {
+vi.mock('../../apps/game-vite/src/systems/WebRTCTransport.js', () => {
   class MockWebRTCTransport {
     constructor(opts) {
       this._opts = opts;
@@ -72,7 +72,7 @@ vi.mock('partysocket', () => {
 });
 
 // Import after mock is set up
-const { NetworkManager } = await import('../../src/systems/NetworkManager.js');
+const { NetworkManager } = await import('../../apps/game-vite/src/systems/NetworkManager.js');
 
 // --- Helpers ---
 

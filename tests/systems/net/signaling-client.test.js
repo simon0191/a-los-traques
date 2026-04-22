@@ -27,7 +27,9 @@ vi.mock('partysocket', () => {
   return { default: MockPartySocket };
 });
 
-const { SignalingClient } = await import('../../../src/systems/net/SignalingClient.js');
+const { SignalingClient } = await import(
+  '../../../apps/game-vite/src/systems/net/SignalingClient.js'
+);
 
 function makeClient() {
   return new SignalingClient('test-room', 'localhost:1999');

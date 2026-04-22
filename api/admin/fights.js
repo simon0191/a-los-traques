@@ -1,5 +1,5 @@
+import { storage } from '@alostraques/api-core/storage';
 import { withAdmin } from '../_lib/handler.js';
-import { storage } from '../_lib/storage.js';
 
 export default withAdmin(async (req, res, { userId, db }) => {
   if (req.method !== 'GET') {
@@ -14,9 +14,7 @@ export default withAdmin(async (req, res, { userId, db }) => {
   const whereClause = hasDebug ? 'WHERE f.has_debug_bundle = TRUE' : '';
 
   // Get total count
-  const countResult = await db.query(
-    `SELECT COUNT(*) FROM fights f ${whereClause}`,
-  );
+  const countResult = await db.query(`SELECT COUNT(*) FROM fights f ${whereClause}`);
   const total = parseInt(countResult.rows[0].count, 10);
 
   // Get paginated fights with player nicknames

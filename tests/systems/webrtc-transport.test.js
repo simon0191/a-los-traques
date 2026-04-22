@@ -102,7 +102,7 @@ globalThis.RTCPeerConnection = MockRTCPeerConnection;
 globalThis.RTCSessionDescription = MockRTCSessionDescription;
 globalThis.RTCIceCandidate = MockRTCIceCandidate;
 
-const { WebRTCTransport } = await import('../../src/systems/WebRTCTransport.js');
+const { WebRTCTransport } = await import('../../apps/game-vite/src/systems/WebRTCTransport.js');
 
 describe('WebRTCTransport', () => {
   let signals, messages, events;

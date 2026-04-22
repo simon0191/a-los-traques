@@ -17,10 +17,9 @@ export const joinTournament = async (req, res, { userId, db }) => {
 
   try {
     // 1. Verify the tournament session exists and is open
-    const sessionRes = await db.query(
-      'SELECT status FROM active_sessions WHERE id = $1',
-      [tourneyId.toLowerCase()]
-    );
+    const sessionRes = await db.query('SELECT status FROM active_sessions WHERE id = $1', [
+      tourneyId.toLowerCase(),
+    ]);
 
     if (sessionRes.rows.length === 0) {
       return res.status(404).json({ error: 'Tournament not found' });
@@ -35,7 +34,7 @@ export const joinTournament = async (req, res, { userId, db }) => {
       `INSERT INTO session_participants (session_id, user_id)
        VALUES ($1, $2)
        ON CONFLICT DO NOTHING`,
-      [tourneyId.toLowerCase(), userId]
+      [tourneyId.toLowerCase(), userId],
     );
 
     return res.status(200).json({ status: 'joined', tourneyId: tourneyId.toLowerCase() });

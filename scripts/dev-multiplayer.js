@@ -32,7 +32,7 @@ await dbServer.start();
 console.log('[db] PGLite running on localhost:5432');
 
 // 3. Run migrations
-const migrationsDir = path.resolve('db/migrations');
+const migrationsDir = path.resolve('packages/db/migrations');
 const migrationFiles = fs
   .readdirSync(migrationsDir)
   .filter((f) => f.endsWith('.sql'))
@@ -56,7 +56,7 @@ for (const file of migrationFiles) {
 }
 
 // 4. Run seed data
-const seedFile = path.resolve('db/seed-dev.sql');
+const seedFile = path.resolve('packages/db/seed-dev.sql');
 if (fs.existsSync(seedFile)) {
   await db.exec(fs.readFileSync(seedFile, 'utf-8'));
   console.log('[db] Seed data applied (DevP1, DevP2)');
