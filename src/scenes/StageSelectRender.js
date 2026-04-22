@@ -26,7 +26,7 @@ export function getCellRenderState({ index, selectedIndex, displayIndex }) {
   // Not selected nor hovered
   return {
     borderAlpha: 0,
-    borderStroke: [2, 0xffffff], // Default stroke if ever shown
+    borderStroke: null,
     fillStyle: 0x333333,
   };
 }

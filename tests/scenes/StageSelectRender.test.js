@@ -16,16 +16,17 @@ describe('StageSelectRender helper', () => {
     expect(state.fillStyle).toBe(0x333333);
   });
 
-  it('prioritizes selection over hover', () => {
-    // This case happens if displayIndex (preview) is same as selectedIndex
+  it('prioritizes selection over hover when indices collide', () => {
+    // If the index matches both selected and display, it should show selection style
     const state = getCellRenderState({ index: 5, selectedIndex: 5, displayIndex: 5 });
     expect(state.borderAlpha).toBe(1);
-    expect(state.borderStroke[1]).toBe(0xffcc00);
+    expect(state.borderStroke[1]).toBe(0xffcc00); // yellow
   });
 
-  it('returns correctly for a regular (non-selected, non-hovered) cell', () => {
+  it('correctly handles non-selected cell when another is hovered', () => {
     const state = getCellRenderState({ index: 0, selectedIndex: 5, displayIndex: 3 });
     expect(state.borderAlpha).toBe(0);
+    expect(state.borderStroke).toBeNull();
     expect(state.fillStyle).toBe(0x333333);
   });
 });

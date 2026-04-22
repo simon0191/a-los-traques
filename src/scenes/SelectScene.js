@@ -4,6 +4,7 @@ import fightersData from '../data/fighters.json';
 import { TournamentManager } from '../services/TournamentManager.js';
 import { createButton } from '../services/UIService.js';
 import { Logger } from '../systems/Logger.js';
+import { resolveSelectionState } from './SelectRender.js';
 
 const log = Logger.create('SelectScene');
 
@@ -157,43 +158,43 @@ export class SelectScene extends Phaser.Scene {
       rect.setInteractive();
       rect.noCursor = true; // Tell ControllerScene to hide the yellow square
 
-      const onSelect = (idx = null) => {
+      const handleSelection = (type, targetIndex) => {
         if (this.transitioning) return;
-        const isPreview = idx !== null;
-        const targetIdx = isPreview ? idx : i;
+
+        const state = {
+          p1Confirmed: this.p1Confirmed,
+          p2SelectionMode: this.p2SelectionMode,
+          p2Confirmed: this.p2Confirmed,
+          p1Index: this.p1Index,
+          p2Index: this.p2Index,
+        };
+
+        const result = resolveSelectionState(state, { type, index: targetIndex });
 
         if (!this.p1Confirmed) {
-          if (!isPreview) this.p1Index = targetIdx;
-          this.updateP1Display(targetIdx);
-          this._scrollToFit(targetIdx);
+          const selectionChanged = this.p1Index !== result.p1Index;
+          this.p1Index = result.p1Index;
+          this.updateP1Display(result.displayP1Index);
+          if (type === 'commit' || selectionChanged) this._scrollToFit(this.p1Index);
         } else if (this.p2SelectionMode && !this.p2Confirmed) {
-          if (!isPreview) this.p2Index = targetIdx;
-          this.updateP2Display(targetIdx);
-          this._scrollToFit(targetIdx);
+          const selectionChanged = this.p2Index !== result.p2Index;
+          this.p2Index = result.p2Index;
+          this.updateP2Display(result.displayP2Index);
+          if (type === 'commit' || selectionChanged) this._scrollToFit(this.p2Index);
         }
       };
 
       rect.on('pointerover', (p) => {
-        if (!p) {
-          // Controller/Keyboard navigation
-          onSelect();
-        } else {
-          // Mouse hover: just preview
-          onSelect(i);
-        }
+        handleSelection(p ? 'hover' : 'commit', i);
         this.game.audioManager.play('ui_navigate');
       });
 
       rect.on('pointerout', (p) => {
-        if (p) {
-          // Restore to official selection
-          onSelect();
-        }
+        if (p) handleSelection('out', i);
       });
 
       rect.on('pointerdown', () => {
-        if (this.transitioning) return;
-        onSelect();
+        handleSelection('commit', i);
 
         // Move focus to LISTO button
         const controller = this.scene.get('ControllerScene');
