@@ -56,6 +56,9 @@ export class OverlayEditorScene extends Phaser.Scene {
     this._dragStart = null;
     this._dragMode = null;
     this._sessionDirty = false;
+    // Snapshot of frames as loaded from manifest — used to compute the delta
+    // when propagating calibration offsets across all animations.
+    this._loadedFrames = null;
 
     // Dark background behind preview (DOM panels cover the rest).
     this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x0f0f1a);
@@ -166,6 +169,8 @@ export class OverlayEditorScene extends Phaser.Scene {
         return this._interpolate();
       case 'fill-frames':
         return this._fillAllFrames();
+      case 'propagate-offset':
+        return this._propagateOffset();
       case 'save':
         return this._saveManifest();
       default:
@@ -236,6 +241,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     kb.on('keydown-F', () => this._toggleKeyframe());
     kb.on('keydown-I', () => this._interpolate());
     kb.on('keydown-R', () => this._resetFrame());
+    kb.on('keydown-P', () => this._propagateOffset());
     kb.on('keydown-C', () => this._copyFromPrev());
     kb.on('keydown-V', () => this._copyToNext());
     kb.on('keydown-TAB', (e) => {
@@ -393,6 +399,7 @@ export class OverlayEditorScene extends Phaser.Scene {
     });
     this.frameIdx = Math.min(this.frameIdx, frameCount - 1);
     this._sessionDirty = false;
+    this._loadedFrames = this.session.frames.map((f) => ({ ...f }));
     this._render();
   }
 
@@ -530,6 +537,76 @@ export class OverlayEditorScene extends Phaser.Scene {
     this._render();
     this.ui.setStatus(`copiado a los ${this.session.frameCount - 1} frames restantes`);
   }
+  /**
+   * Propagate the offset between the current frame's position and its
+   * originally-loaded position to every frame of every animation for this
+   * (fighter, category). This lets the user adjust a hat once and apply that
+   * same shift everywhere without overwriting per-frame head-tracking data.
+   */
+  _propagateOffset() {
+    if (!this.session || !this._loadedFrames) return;
+    const current = this.session.frames[this.frameIdx];
+    const original = this._loadedFrames[this.frameIdx];
+    if (!original) {
+      this.ui.setStatus('sin referencia de calibración');
+      return;
+    }
+
+    const dx = current.x - original.x;
+    const dy = current.y - original.y;
+    const dRotation = current.rotation - original.rotation;
+
+    if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01 && Math.abs(dRotation) < 0.001) {
+      this.ui.setStatus('sin cambios para propagar');
+      return;
+    }
+
+    // Apply delta to all other frames in the current session.
+    for (let i = 0; i < this.session.frameCount; i++) {
+      if (i === this.frameIdx) continue;
+      const f = this.session.frames[i];
+      this.session.setTransform(i, {
+        x: f.x + dx,
+        y: f.y + dy,
+        rotation: f.rotation + dRotation,
+        scale: f.scale,
+      });
+    }
+    this._markDirty();
+
+    // Apply delta to every other calibrated animation for this (fighter, category).
+    const fighter = this._fighter();
+    const category = this._category();
+    const currentAnim = this._anim();
+    const byAnim = this.manifest.calibrations?.[fighter]?.[category];
+    if (byAnim) {
+      for (const [anim, entry] of Object.entries(byAnim)) {
+        if (anim === currentAnim) continue;
+        this.manifest.set(fighter, category, anim, {
+          frameCount: entry.frameCount,
+          frames: entry.frames.map((f) => ({
+            x: f.x + dx,
+            y: f.y + dy,
+            rotation: f.rotation + dRotation,
+            scale: f.scale,
+          })),
+          keyframes: entry.keyframes,
+        });
+      }
+    }
+
+    // Update baseline so propagating again doesn't double-apply.
+    this._loadedFrames = this.session.frames.map((f) => ({ ...f }));
+
+    this._render();
+    const parts = [];
+    if (Math.abs(dx) >= 0.01 || Math.abs(dy) >= 0.01)
+      parts.push(`Δx=${dx.toFixed(1)} Δy=${dy.toFixed(1)}`);
+    if (Math.abs(dRotation) >= 0.001)
+      parts.push(`Δrot=${((dRotation * 180) / Math.PI).toFixed(1)}°`);
+    this.ui.setStatus(`offset propagado (${parts.join(', ')})`);
+  }
+
   _undo() {
     if (this.session?.undo()) this._markDirty();
     this._render();
