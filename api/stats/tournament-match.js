@@ -1,6 +1,19 @@
 import { withAuth } from '../_lib/handler.js';
 import { isUuid } from '../_lib/validate.js';
 
+export const SQL_INSERT_MATCH_LEDGER = `
+  INSERT INTO tournament_matches (session_id, round_index, match_index, winner_id, loser_id)
+  VALUES ($1, $2, $3, $4, $5)
+  ON CONFLICT (session_id, round_index, match_index) DO NOTHING
+  RETURNING 1
+`;
+
+export const SQL_UPDATE_WINNER_STATS = 'UPDATE profiles SET wins = wins + 1, updated_at = now() WHERE id = $1';
+export const SQL_UPDATE_LOSER_STATS = 'UPDATE profiles SET losses = losses + 1, updated_at = now() WHERE id = $1';
+export const SQL_INCREMENT_MATCHES_PLAYED = 'UPDATE active_sessions SET matches_played = matches_played + 1 WHERE id = $1';
+export const SQL_CROWN_CHAMPION = 'UPDATE profiles SET tournament_wins = tournament_wins + 1, updated_at = now() WHERE id = $1';
+export const SQL_COMPLETE_SESSION = "UPDATE active_sessions SET status = 'completed' WHERE id = $1";
+
 /**
  * Records win/loss for a tournament match. 
  * Secure: Only Host can report, and both players must have joined the session first.
@@ -76,19 +89,13 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
     // Phase 1.5: Strong Idempotency Check (Ledger)
     // We attempt to insert this match into our history table.
     // If it already exists, the database will return 0 rows due to ON CONFLICT.
-    const insertMatchRes = await db.query(
-      `INSERT INTO tournament_matches (session_id, round_index, match_index, winner_id, loser_id)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (session_id, round_index, match_index) DO NOTHING
-       RETURNING 1`,
-      [
-        tid,
-        roundIndex,
-        matchIndex,
-        isUuid(winnerId) ? winnerId : null,
-        isUuid(loserId) ? loserId : null
-      ]
-    );
+    const insertMatchRes = await db.query(SQL_INSERT_MATCH_LEDGER, [
+      tid,
+      roundIndex,
+      matchIndex,
+      isUuid(winnerId) ? winnerId : null,
+      isUuid(loserId) ? loserId : null
+    ]);
 
     if (insertMatchRes.rows.length === 0) {
       // Already reported, skip all updates but return success for idempotency
@@ -98,42 +105,27 @@ export const reportMatch = async (req, res, { userId: hostUserId, db }) => {
 
     // Update match stats
     if (hasWinnerHandshake) {
-      await db.query(
-        'UPDATE profiles SET wins = wins + 1, updated_at = now() WHERE id = $1',
-        [winnerId]
-      );
+      await db.query(SQL_UPDATE_WINNER_STATS, [winnerId]);
     }
 
     if (hasLoserHandshake) {
-      await db.query(
-        'UPDATE profiles SET losses = losses + 1, updated_at = now() WHERE id = $1',
-        [loserId]
-      );
+      await db.query(SQL_UPDATE_LOSER_STATS, [loserId]);
     }
 
     // Increment matches played counter
     // Note: We increment even if zero handshakes were found (PvE/Guest matches)
     // to ensure the progression lock eventually reaches the topology cap.
-    await db.query(
-      'UPDATE active_sessions SET matches_played = matches_played + 1 WHERE id = $1',
-      [tid]
-    );
+    await db.query(SQL_INCREMENT_MATCHES_PLAYED, [tid]);
 
     // If this is the final match, crown champion and lock room
     let prestigeAwarded = false;
     if (isFinal) {
       if (hasChampionHandshake) {
-        await db.query(
-          'UPDATE profiles SET tournament_wins = tournament_wins + 1, updated_at = now() WHERE id = $1',
-          [championId]
-        );
+        await db.query(SQL_CROWN_CHAMPION, [championId]);
         prestigeAwarded = true;
       }
 
-      await db.query(
-        "UPDATE active_sessions SET status = 'completed' WHERE id = $1",
-        [tid]
-      );
+      await db.query(SQL_COMPLETE_SESSION, [tid]);
     }
 
     await db.query('COMMIT');

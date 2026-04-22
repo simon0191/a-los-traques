@@ -1,6 +1,20 @@
 import { withAuth } from '../_lib/handler.js';
 import crypto from 'crypto';
 
+export const SQL_CHECK_EXISTING_SESSION = 'SELECT id, matches_played FROM active_sessions WHERE host_user_id = $1 AND status = $2';
+export const SQL_UPDATE_SESSION_SIZE = 'UPDATE active_sessions SET size = $1 WHERE id = $2';
+export const SQL_CHECK_COLLISION = 'SELECT 1 FROM active_sessions WHERE id = $1';
+export const SQL_ABANDON_ORPHAN_SESSIONS = "UPDATE active_sessions SET status = 'abandoned' WHERE host_user_id = $1 AND status = 'open'";
+export const SQL_INSERT_SESSION = `
+  INSERT INTO active_sessions (id, host_user_id, status, size)
+  VALUES ($1, $2, 'open', $3)
+`;
+export const SQL_JOIN_HOST = `
+  INSERT INTO session_participants (session_id, user_id)
+  VALUES ($1, $2)
+  ON CONFLICT DO NOTHING
+`;
+
 /**
  * Creates a new tournament session and returns a unique 6-character ID.
  * Body: { size: number }
@@ -21,10 +35,7 @@ export const createTournament = async (req, res, { userId, db }) => {
   try {
     // Phase 7: Update existing open session if requested
     if (allowUpdate) {
-      const existingRes = await db.query(
-        'SELECT id, matches_played FROM active_sessions WHERE host_user_id = $1 AND status = $2',
-        [userId, 'open']
-      );
+      const existingRes = await db.query(SQL_CHECK_EXISTING_SESSION, [userId, 'open']);
 
       if (existingRes.rows.length > 0) {
         tourneyId = existingRes.rows[0].id;
@@ -34,10 +45,7 @@ export const createTournament = async (req, res, { userId, db }) => {
           return res.status(403).json({ error: 'Cannot update tournament size after matches have started' });
         }
 
-        await db.query(
-          'UPDATE active_sessions SET size = $1 WHERE id = $2',
-          [bracketSize, tourneyId]
-        );
+        await db.query(SQL_UPDATE_SESSION_SIZE, [bracketSize, tourneyId]);
         return res.status(200).json({ tourneyId });
       }
     }
@@ -46,9 +54,7 @@ export const createTournament = async (req, res, { userId, db }) => {
       tourneyId = crypto.randomBytes(3).toString('hex').toLowerCase();
 
       // Check if ID already exists
-      const collisionCheck = await db.query('SELECT 1 FROM active_sessions WHERE id = $1', [
-        tourneyId,
-      ]);
+      const collisionCheck = await db.query(SQL_CHECK_COLLISION, [tourneyId]);
       if (collisionCheck.rows.length === 0) break;
 
       attempts++;
@@ -58,24 +64,12 @@ export const createTournament = async (req, res, { userId, db }) => {
     }
 
     // Cleanup orphan sessions (precautionary)
-    await db.query(
-      "UPDATE active_sessions SET status = 'abandoned' WHERE host_user_id = $1 AND status = 'open'",
-      [userId]
-    );
+    await db.query(SQL_ABANDON_ORPHAN_SESSIONS, [userId]);
 
-    await db.query(
-      `INSERT INTO active_sessions (id, host_user_id, status, size)
-       VALUES ($1, $2, 'open', $3)`,
-      [tourneyId, userId, bracketSize]
-    );
+    await db.query(SQL_INSERT_SESSION, [tourneyId, userId, bracketSize]);
 
     // Also automatically join the host to their own tournament
-    await db.query(
-      `INSERT INTO session_participants (session_id, user_id)
-       VALUES ($1, $2)
-       ON CONFLICT DO NOTHING`,
-      [tourneyId, userId]
-    );
+    await db.query(SQL_JOIN_HOST, [tourneyId, userId]);
 
     return res.status(201).json({ tourneyId });
   } catch (err) {

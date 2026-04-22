@@ -1,6 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { reportMatch } from '../../api/stats/tournament-match.js';
-import { createTournament } from '../../api/tournament/create.js';
+import {
+  reportMatch,
+  SQL_COMPLETE_SESSION,
+  SQL_CROWN_CHAMPION,
+  SQL_INCREMENT_MATCHES_PLAYED,
+  SQL_INSERT_MATCH_LEDGER,
+  SQL_UPDATE_LOSER_STATS,
+  SQL_UPDATE_WINNER_STATS,
+} from '../../api/stats/tournament-match.js';
+import {
+  createTournament,
+  SQL_INSERT_SESSION,
+  SQL_UPDATE_SESSION_SIZE,
+} from '../../api/tournament/create.js';
 import { joinTournament } from '../../api/tournament/join.js';
 
 // Mock Response object
@@ -48,7 +60,7 @@ describe('Tournament API Endpoints', () => {
       const data = res.json.mock.calls[0][0];
       expect(data.tourneyId).toHaveLength(6);
       expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO active_sessions'),
+        SQL_INSERT_SESSION,
         expect.arrayContaining([expect.any(String), validHostUuid, 16]),
       );
     });
@@ -65,10 +77,7 @@ describe('Tournament API Endpoints', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ tourneyId: 'old-id' });
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE active_sessions SET size = $1'),
-        [16, 'old-id'],
-      );
+      expect(mockDb.query).toHaveBeenCalledWith(SQL_UPDATE_SESSION_SIZE, [16, 'old-id']);
     });
 
     it('fails to update size if matches have already started', async () => {
@@ -165,21 +174,19 @@ describe('Tournament API Endpoints', () => {
       expect(data.updated.winner).toBe(true);
       expect(data.updated.loser).toBe(false);
 
+      // Verify idempotency record was created
+      expect(mockDb.query).toHaveBeenCalledWith(
+        SQL_INSERT_MATCH_LEDGER,
+        expect.arrayContaining([defaultIds.tourneyId.toLowerCase(), 0, 0]),
+      );
       // Verify profile update for winner
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE profiles SET wins = wins + 1'),
-        [defaultIds.winnerId],
-      );
+      expect(mockDb.query).toHaveBeenCalledWith(SQL_UPDATE_WINNER_STATS, [defaultIds.winnerId]);
       // Loser should not be updated as they didn't handshake (Regression Test #3)
-      expect(mockDb.query).not.toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE profiles SET losses = losses + 1'),
-        expect.any(Array),
-      );
+      expect(mockDb.query).not.toHaveBeenCalledWith(SQL_UPDATE_LOSER_STATS, expect.any(Array));
       // Verify counter increment
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE active_sessions SET matches_played = matches_played + 1'),
-        [defaultIds.tourneyId.toLowerCase()],
-      );
+      expect(mockDb.query).toHaveBeenCalledWith(SQL_INCREMENT_MATCHES_PLAYED, [
+        defaultIds.tourneyId.toLowerCase(),
+      ]);
     });
 
     it('ignores duplicate reports for the same match (Ledger Pattern)', async () => {
@@ -225,15 +232,11 @@ describe('Tournament API Endpoints', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       // Verify crowning
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE profiles SET tournament_wins = tournament_wins + 1'),
-        [validWinnerUuid],
-      );
+      expect(mockDb.query).toHaveBeenCalledWith(SQL_CROWN_CHAMPION, [validWinnerUuid]);
       // Verify room locking
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining("UPDATE active_sessions SET status = 'completed'"),
-        [defaultIds.tourneyId.toLowerCase()],
-      );
+      expect(mockDb.query).toHaveBeenCalledWith(SQL_COMPLETE_SESSION, [
+        defaultIds.tourneyId.toLowerCase(),
+      ]);
     });
 
     it('increments matches_played even if no profiles are updated (no handshakes) (Regression Test #2)', async () => {
@@ -250,15 +253,11 @@ describe('Tournament API Endpoints', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       // Verify session counter is still incremented
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE active_sessions SET matches_played = matches_played + 1'),
-        [defaultIds.tourneyId.toLowerCase()],
-      );
+      expect(mockDb.query).toHaveBeenCalledWith(SQL_INCREMENT_MATCHES_PLAYED, [
+        defaultIds.tourneyId.toLowerCase(),
+      ]);
       // Verify profiles are NOT updated
-      expect(mockDb.query).not.toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE profiles SET wins'),
-        expect.any(Array),
-      );
+      expect(mockDb.query).not.toHaveBeenCalledWith(SQL_UPDATE_WINNER_STATS, expect.any(Array));
     });
 
     it('idempotently handles match limit based on bracket size', async () => {
