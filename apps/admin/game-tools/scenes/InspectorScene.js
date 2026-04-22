@@ -1,7 +1,7 @@
+import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '@alostraques/game/config';
+import { ANIM_DEFS, ANIM_NAMES, FIGHTERS_WITH_SPRITES } from '@alostraques/game/data/animations.js';
+import fightersData from '@alostraques/game/data/fighters.json';
 import * as Phaser from 'phaser';
-import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
-import { ANIM_DEFS, ANIM_NAMES, FIGHTERS_WITH_SPRITES } from '../data/animations.js';
-import fightersData from '../data/fighters.json';
 
 const LEFT_PANEL_WIDTH = 120;
 const RIGHT_X = LEFT_PANEL_WIDTH + (GAME_WIDTH - LEFT_PANEL_WIDTH) / 2;

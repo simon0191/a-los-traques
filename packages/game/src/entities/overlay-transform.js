@@ -7,12 +7,12 @@
  * (0.5, 0.5) so rotation is about its own center.
  *
  * The scale formula is shared with the editor's live preview via
- * `src/editor/math.js`, guaranteeing WYSIWYG between calibration and runtime.
+ * `./overlay-math.js`, guaranteeing WYSIWYG between calibration and runtime.
  *
  * No Phaser dependency — callable from unit tests.
  */
 
-import { overlayBaseWidth } from '../editor/math.js';
+import { overlayBaseWidth } from './overlay-math.js';
 
 /**
  * @typedef {{x:number, y:number, rotation:number, scale:number}} CalibrationFrame

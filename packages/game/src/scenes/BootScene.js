@@ -189,6 +189,14 @@ export class BootScene extends Phaser.Scene {
     }
 
     const startNextScene = () => {
+      // Admin-side dev tools (apps/admin/game-tools) set this global when they
+      // want BootScene to hand off to a specific scene after preload instead
+      // of running the regular routing chain.
+      const devToolsEntry = typeof window !== 'undefined' ? window.__DEV_TOOLS_ENTRY : undefined;
+      if (devToolsEntry && this.scene.get(devToolsEntry)) {
+        this.scene.start(devToolsEntry);
+        return;
+      }
       // If URL has ?room=, go directly to lobby as joiner or spectator
       const roomId = params.get('room');
       // Replay mode: load bundle from window global or sessionStorage
@@ -198,10 +206,7 @@ export class BootScene extends Phaser.Scene {
           if (stored) window.__REPLAY_BUNDLE = JSON.parse(stored);
         }
       }
-      // Editor routing (RFC 0018): skip login/title if ?editor=1 is present.
-      if (params.get('editor') === '1' && this.scene.get('OverlayEditorScene')) {
-        this.scene.start('OverlayEditorScene');
-      } else if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
+      if (this.game.autoplay?.replay && window.__REPLAY_BUNDLE) {
         // Skip lobby, go straight to fight using bundle config
         const bundle = window.__REPLAY_BUNDLE;
         this.scene.start('PreFightScene', {

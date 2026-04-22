@@ -26,8 +26,10 @@
       "dependencies": {
         "@alostraques/api-core": "workspace:*",
         "@alostraques/db": "workspace:*",
+        "@alostraques/game": "workspace:*",
         "@supabase/supabase-js": "^2.101.1",
         "next": "^15.0.0",
+        "phaser": "^3.90.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
       },

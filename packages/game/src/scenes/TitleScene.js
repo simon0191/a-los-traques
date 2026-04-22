@@ -157,15 +157,11 @@ export class TitleScene extends Phaser.Scene {
       this.goToLearning();
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'INSPECTOR', () => {
-      this.goToInspector();
-    });
-
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'MUSICA', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 3, 'MUSICA', () => {
       this.goToMusic();
     });
 
-    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 5, 'LEADERBOARD', () => {
+    createButton(this, GAME_WIDTH / 2, cy + 30 + btnGap * 4, 'LEADERBOARD', () => {
       this.goToLeaderboard();
     });
 
@@ -199,15 +195,6 @@ export class TitleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('MultiplayerMenuScene');
-    });
-  }
-
-  goToInspector() {
-    if (this.transitioning) return;
-    this.transitioning = true;
-    this.cameras.main.fadeOut(300, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('InspectorScene');
     });
   }
 

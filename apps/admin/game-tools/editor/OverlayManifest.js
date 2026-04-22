@@ -1,12 +1,12 @@
 /**
  * OverlayManifest — in-memory model of the consolidated overlay calibration
- * file at `public/assets/overlays/manifest.json` (RFC 0018 v2).
+ * file at `apps/web/public/assets/overlays/manifest.json` (RFC 0018 v2).
  *
  * Replaces the v1 per-combo `sessions/*.json` files. The game loads this
  * single JSON in BootScene to position accessories per fighter.
  */
 
-export const MANIFEST_PATH = 'public/assets/overlays/manifest.json';
+export const MANIFEST_PATH = 'apps/web/public/assets/overlays/manifest.json';
 export const MANIFEST_VERSION = 2;
 
 function emptyManifest() {

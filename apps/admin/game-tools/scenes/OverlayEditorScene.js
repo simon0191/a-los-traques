@@ -1,20 +1,21 @@
 /**
  * OverlayEditorScene — dev tool for calibrating per-frame accessory overlays.
- * Reachable via `?editor=1`. See RFC 0018 for the full design.
+ * Reachable only from `apps/admin` at `/dev-tools/overlay-editor`. See RFC 0018 for the design.
  *
  * v2 (this file): consolidated `manifest.json` replaces per-combo session
  * files; UI chrome is DOM (`EditorUI`), the Phaser canvas shows only the
  * preview (fighter + overlay sprite).
  */
+
+import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '@alostraques/game/config';
+import accessoryCatalog from '@alostraques/game/data/accessories.json';
+import { ANIM_DEFS, ANIM_NAMES, FIGHTERS_WITH_SPRITES } from '@alostraques/game/data/animations.js';
+import { overlayBaseWidth } from '@alostraques/game/entities/overlay-math.js';
+import { Logger } from '@alostraques/game/systems/Logger.js';
 import * as Phaser from 'phaser';
-import { FIGHTER_HEIGHT, FIGHTER_WIDTH, GAME_HEIGHT, GAME_WIDTH } from '../config.js';
-import accessoryCatalog from '../data/accessories.json';
-import { ANIM_DEFS, ANIM_NAMES, FIGHTERS_WITH_SPRITES } from '../data/animations.js';
 import { EditorUI } from '../editor/EditorUI.js';
-import { overlayBaseWidth } from '../editor/math.js';
 import { MANIFEST_PATH, OverlayManifest } from '../editor/OverlayManifest.js';
 import { DEFAULT_TRANSFORM, OverlaySession } from '../editor/OverlaySession.js';
-import { Logger } from '../systems/Logger.js';
 
 const log = Logger.create('OverlayEditor');
 
@@ -36,7 +37,11 @@ const PREVIEW_LEFT = PREVIEW_CX - PREVIEW_SIZE / 2;
 const PREVIEW_TOP = PREVIEW_CY - PREVIEW_SIZE / 2;
 const CANVAS_TO_FRAME = 1 / ZOOM;
 
-const DEV_EXPORT_URL = '/dev/overlay-export';
+// Route handler under `apps/admin/app/api/overlay-export/route.ts`. The editor
+// writes directly to the repo filesystem — only works when admin runs locally
+// (Vercel functions are read-only). That's by design: overlay calibration is
+// a dev-time workflow that commits its output to git.
+const DEV_EXPORT_URL = '/api/overlay-export';
 
 export class OverlayEditorScene extends Phaser.Scene {
   constructor() {
