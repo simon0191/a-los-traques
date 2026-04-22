@@ -46,6 +46,18 @@ Introducir **Luks**, una moneda virtual interna que los jugadores ganan por vict
 
 **Nota sobre anti-abuse en local**: Las peleas locales son client-authoritative — el cliente reporta si ganó o perdió, y no hay servidor validando el resultado. Un jugador podría teóricamente modificar el cliente para reportar victorias falsas. Esto es un riesgo aceptado porque: (a) los montos locales son bajos (3 Luks), (b) los Luks solo compran cosméticos, (c) el juego es entre amigos y no hay incentivo real para hacer trampa, (d) el endpoint `POST /api/stats` ya confía en el cliente para wins/losses en modo local — los Luks simplemente acompañan esa misma llamada.
 
+**Nota sobre source spoofing (online vs local)**: El cliente envía `source: 'online'` o `source: 'local'` y el backend confía en ese valor. Un cliente modificado podría enviar `source: 'online'` en peleas locales para obtener 10 Luks en vez de 3. Para mitigar esto sin necesidad de validar el source en el servidor, se implementa un **daily cap** de Luks en el backend: máximo **200 Luks por período de 24 horas** por usuario. El cap se verifica en el UPDATE atómico usando `LEAST`:
+
+```sql
+UPDATE profiles
+SET luks = LEAST(luks + $2, luks_last_reset_luks + 200),
+    ...
+```
+
+Alternativamente, un approach más simple: un counter `luks_earned_today` que se resetea diariamente. Si `luks_earned_today + reward > 200`, el reward se trunca al remanente. Esto previene inflación automatizada sin afectar al jugador normal — 200 Luks diarios equivalen a 20 victorias online o ~67 victorias locales, más de lo que un humano jugaría en un día.
+
+El cap se implementa en `api/_lib/luks.js` como constante `LUKS_DAILY_CAP = 200` para mantener la centralización.
+
 ### Data flow — Pelea (local u online)
 
 ```mermaid
@@ -96,21 +108,23 @@ En el flujo actual de `VictoryScene._saveResult()`, el **Host** (slot 0) reporta
 
 El **non-host** (slot 1) también tiene `tourneyId` en su matchContext (sincronizado via PartyKit en `TournamentLobbyService._handleMessageInternal`). Entra al bloque de `reportTournamentMatch`, pero el backend responde 403 (solo el `host_user_id` puede reportar). El non-host cae al `catch`, y sin un guard, llegaría al fallback de `updateStats(didWin)` — haciendo un **segundo write de stats + Luks** para sí mismo. Esto es doble-conteo.
 
-**Solución**: Después del bloque de `reportTournamentMatch`, el non-host no debe caer al fallback. El discriminador es `networkManager.playerSlot`: slot 0 = host, slot 1 = non-host. El guard se coloca en línea 363 actual (después del `if (tourneyId && this._currentMatch)`, dentro del `if (matchContext.type === 'tournament')`):
+**Solución**: Después del bloque de `reportTournamentMatch`, el non-host no debe caer al fallback. El discriminador es `networkManager.isHost` (derivado de `playerSlot === 0`, pero semánticamente más claro y robusto ante futuros modos como espectadores o lobbies de 4 jugadores). El guard se coloca después del bloque de `reportTournamentMatch`:
 
 ```js
-// VictoryScene._saveResult() — después del bloque de reportTournamentMatch (línea 363)
+// VictoryScene._saveResult() — después del bloque de reportTournamentMatch
 // Non-host en torneo online: el host ya reportó nuestro resultado.
 // No hacer fallback a updateStats para evitar doble-conteo.
-if (this.gameMode === 'online' && this.networkManager?.playerSlot !== 0) {
+if (this.gameMode === 'online' && !this.networkManager?.isHost) {
   return; // Non-host: stats ya actualizados por el host via reportTournamentMatch
 }
 ```
 
+**Nota**: Si `networkManager` no expone `isHost` actualmente, se agrega como getter: `get isHost() { return this.playerSlot === 0; }`. Esto centraliza la lógica de autoridad en un solo lugar y evita comparaciones directas contra `playerSlot` dispersas por el código.
+
 Flujos resultantes:
-- **Host, report exitoso**: ya hizo `return` en línea 356. Nunca llega al guard.
-- **Host, report falla**: cae al catch, llega al guard, pero `playerSlot === 0` → no entra al `if` → sigue al fallback de `updateStats`. Correcto: el host salva sus stats personales como fallback.
-- **Non-host**: cae al catch (403), llega al guard, `playerSlot === 1` → entra al `if` → retorna sin doble-conteo. Correcto.
+- **Host, report exitoso**: ya hizo `return` en el bloque anterior. Nunca llega al guard.
+- **Host, report falla**: cae al catch, llega al guard, pero `isHost === true` → no entra al `if` → sigue al fallback de `updateStats`. Correcto: el host salva sus stats personales como fallback.
+- **Non-host**: cae al catch (403), llega al guard, `isHost === false` → entra al `if` → retorna sin doble-conteo. Correcto.
 - **Torneo local**: `gameMode === 'local'` → no entra al `if` → sigue al fallback. Correcto: el usuario autenticado salva sus stats.
 
 ### No-retroactividad
@@ -284,12 +298,13 @@ La llamada a `updateStats` pasa el `gameMode` como `source`:
 const data = await updateStats(didWin, this.gameMode);  // 'local' o 'online'
 ```
 
-Y en `src/services/api.js`, `updateStats` incluye el source:
+Y en `src/services/api.js`, `updateStats` incluye el source y usa `keepalive: true` para garantizar que el request se complete incluso si el jugador cierra la pestaña o navega fuera inmediatamente después del match:
 
 ```js
 export async function updateStats(isWin = true, source = 'local') {
   return apiFetch('/stats', {
     method: 'POST',
+    keepalive: true,
     body: JSON.stringify({ isWin, source }),
   });
 }
@@ -330,9 +345,9 @@ Mostrar el balance de Luks del jugador en la esquina superior derecha del TitleS
 LUKS: 520
 ```
 
-Texto pequeño (fontSize 10), color dorado (`#FFD700`), posición `(GAME_WIDTH - 40, 12)`. Solo visible si el usuario está autenticado (`user.luks !== undefined`).
+Texto pequeño (fontSize 10), color dorado (`#FFD700`), alineado a la derecha con `setOrigin(1, 0)` y posición `(GAME_WIDTH - 8, 12)`. El `setOrigin(1, 0)` ancla el texto por su borde derecho, garantizando que no se corte independientemente del largo del número. Se verificará contra el aspect ratio de iPhone 15 landscape (target del juego) y se validará que no superponga el version string existente. Solo visible si el usuario está autenticado (`user.luks !== undefined`).
 
-Se usa texto plano `LUKS:` en vez de emoji porque Phaser renderiza en canvas 2D, donde los emojis son inconsistentes entre plataformas (especialmente iOS Safari vs Chrome desktop). Si se quiere un icono visual, se puede agregar un sprite de moneda como follow-up.
+Se usa texto plano `LUKS:` en vez de emoji porque Phaser renderiza en canvas 2D, donde los emojis son inconsistentes entre plataformas (especialmente iOS Safari vs Chrome desktop). Se evita deliberadamente el símbolo `$` para no crear confusión con microtransacciones de dinero real — la moneda siempre se muestra como `LUKS` o `LK` en la UI. Si se quiere un icono visual, se puede agregar un sprite de moneda dedicado como follow-up.
 
 ### Endpoints de tienda (Phase 2 — fuera de scope de esta RFC)
 
@@ -352,7 +367,7 @@ Los accesorios visuales usarían el sistema de poses (RFC de pose estimation, `p
 | File | Purpose |
 |---|---|
 | `db/migrations/YYYYMMDD000000_add_luks_to_profiles.sql` | Agrega columna `luks` a `profiles` (con `migrate:down`) |
-| `api/_lib/luks.js` | Constantes centralizadas de montos de Luks |
+| `api/_lib/luks.js` | Constantes centralizadas de montos de Luks + daily cap |
 
 ### Modified files
 
@@ -361,8 +376,9 @@ Los accesorios visuales usarían el sistema de poses (RFC de pose estimation, `p
 | `api/stats.js` | Importar `getLuksReward` de `luks.js`, leer `source` del body, incluir `luks` en el UPDATE atómico y RETURNING |
 | `api/stats/tournament-match.js` | Importar constantes de `luks.js`, incluir `luks` en los UPDATEs de winner/loser/champion |
 | `api/profile.js` | Agregar `luks` a la lista de columnas en el SELECT del GET (línea 9) |
-| `src/services/api.js` | Agregar parámetro `source` a `updateStats()`, incluirlo en el body del POST |
-| `src/scenes/VictoryScene.js` | Pasar `gameMode` a `updateStats()`, agregar parámetro `y` a `_showResultFeedback`, mostrar feedback "+N LUKS" (delta calculado), actualizar global state, guard de non-host en torneo online |
+| `src/services/api.js` | Agregar parámetro `source` a `updateStats()`, incluirlo en el body del POST, usar `keepalive: true` |
+| `src/systems/net/NetworkFacade.js` | Agregar getter `isHost` (si no existe) |
+| `src/scenes/VictoryScene.js` | Pasar `gameMode` a `updateStats()`, agregar parámetro `y` a `_showResultFeedback`, mostrar feedback "+N LUKS" (delta calculado), actualizar global state, guard de non-host usando `isHost` en torneo online |
 | `src/scenes/TitleScene.js` | Mostrar balance de Luks en esquina superior derecha (texto, no emoji) |
 | `src/scenes/LoginScene.js` | Asegurar que `luks` se propaga al global state |
 
@@ -371,23 +387,24 @@ Los accesorios visuales usarían el sistema de poses (RFC de pose estimation, `p
 ### Phase 1 — Database + Backend
 
 1. Crear migración SQL para agregar `luks` a `profiles` (con `migrate:down`)
-2. Crear `api/_lib/luks.js` con constantes centralizadas y helper `getLuksReward(source, isWin)`
-3. Modificar `api/stats.js` — leer `source` del body, usar `getLuksReward`, award Luks atómicamente
-4. Modificar `api/stats/tournament-match.js` — importar constantes, award Luks en transacción existente
+2. Crear `api/_lib/luks.js` con constantes centralizadas, helper `getLuksReward(source, isWin)`, y `LUKS_DAILY_CAP = 200`
+3. Modificar `api/stats.js` — leer `source` del body, usar `getLuksReward`, award Luks atómicamente con daily cap
+4. Modificar `api/stats/tournament-match.js` — importar constantes, award Luks en transacción existente con daily cap
 5. Modificar `api/profile.js` — agregar `luks` a la lista de columnas del SELECT en GET
-6. Tests para los nuevos montos (local win/loss, online win/loss, source ausente defaultea a local)
+6. Tests para los nuevos montos (local win/loss, online win/loss, source ausente defaultea a local, daily cap)
 
 ### Phase 2 — Client
 
-1. Actualizar `src/services/api.js` — agregar parámetro `source` a `updateStats()`
-2. Actualizar `LoginScene` para propagar `luks` al global state
-3. Actualizar `VictoryScene`:
+1. Actualizar `src/services/api.js` — agregar parámetro `source` a `updateStats()`, usar `keepalive: true`
+2. Agregar getter `isHost` a `NetworkFacade` (si no existe)
+3. Actualizar `LoginScene` para propagar `luks` al global state
+4. Actualizar `VictoryScene`:
    - Pasar `this.gameMode` como source a `updateStats(didWin, this.gameMode)`
    - Agregar parámetro `y` a `_showResultFeedback`
    - Mostrar feedback de Luks ganados en `y=56` (delta calculado desde la respuesta)
-   - Agregar guard para non-host en torneo online (evitar doble-conteo)
+   - Agregar guard para non-host en torneo online usando `isHost` (evitar doble-conteo)
    - Actualizar `user.luks` en global state con la respuesta del backend
-4. Actualizar `TitleScene` — mostrar balance actual con texto `LUKS: N` (sin emoji)
+5. Actualizar `TitleScene` — mostrar balance actual con texto `LUKS: N` (sin emoji ni `$`), usando `setOrigin(1, 0)` para alinear a la derecha
 5. Test manual en `dev:mp`, verificando:
    - Pelea local vs AI: jugador autenticado recibe 3/1 Luks (win/loss)
    - Pelea online: ambos jugadores reciben 10/2 Luks correctos
@@ -418,6 +435,8 @@ Siguiendo el patrón de `tests/api/`:
 | Stats response includes luksAwarded | `updateStats` response has `luksAwarded` matching the awarded amount |
 | Tournament response includes luksAwarded | `reportTournamentMatch` response has `luksAwarded.winner` and `luksAwarded.loser` |
 | getLuksReward is consistent | Helper returns correct amounts for all source/isWin combinations |
+| Daily cap prevents farming | After earning 200 Luks in 24h, further rewards are truncated to 0 |
+| Daily cap resets after 24h | After reset period, rewards flow normally again |
 
 No tests para escenas — son Phaser-dependent y se verifican manualmente.
 
