@@ -270,8 +270,8 @@ export class BracketScene extends Phaser.Scene {
     }
   }
 
-  executeFastForward() {
-    this.manager.fastForwardToFinal();
+  executeFastForward(excludeP1 = false) {
+    this.manager.fastForwardToFinal({ excludeP1 });
     this.matchContext.tournamentState = this.manager.serialize();
     this.scene.restart();
   }

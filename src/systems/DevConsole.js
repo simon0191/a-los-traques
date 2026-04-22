@@ -1,7 +1,7 @@
-import { GAME_WIDTH, MAX_HP, MAX_SPECIAL } from '../config.js';
+import { GAME_WIDTH, MAX_HP, MAX_SPECIAL, ROUNDS_TO_WIN } from '../config.js';
 
 const COMMANDS = {
-  help: 'help | noai | ai | god | mortal | kill | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps | ff | dev:tournament:join [id]',
+  help: 'help | noai | ai | god | mortal | kill | ko | hp [n] | sp [n] | timer [n] | speed [n] | pos | reset | fps | ff | ff-nop1 | set-winner [r] [m] [p1|p2] | dev:tournament:join [id]',
 };
 
 export class DevConsole {
@@ -45,9 +45,9 @@ export class DevConsole {
       .setOrigin(0, 0);
     this.container.add(this.inputDisplay);
 
-    // Toggle with backtick key or hyphen
+    // Toggle with backtick or less-than key
     scene.input.keyboard.on('keydown', (e) => {
-      if (e.key === '`' || e.key === '~' || e.key === '-') {
+      if (e.key === '`' || e.key === '~' || e.key === '<') {
         e.preventDefault();
         this.toggle();
         return;
@@ -152,6 +152,18 @@ export class DevConsole {
         this.print('P2 HP set to 0. KO will trigger on next hit/tick.');
         break;
 
+      case 'ko':
+        if (scene.scene.key !== 'FightScene') {
+          this.print('Command only available in FightScene.');
+          break;
+        }
+        // Hard transition: force matchOver, force rounds, trigger match over manually
+        scene.combat.matchOver = true;
+        scene.combat.p1RoundsWon = ROUNDS_TO_WIN;
+        scene.onMatchOver(0); // 0 corresponds to P1 winner
+        this.print('KO: Match forced to end in P1 victory.');
+        break;
+
       case 'hp': {
         const val = parseInt(arg, 10);
         if (!Number.isNaN(val)) {
@@ -223,6 +235,43 @@ export class DevConsole {
           this.print('Command only available in BracketScene.');
         }
         break;
+
+      case 'ff-nop1':
+        if (scene.scene.key === 'BracketScene') {
+          scene.executeFastForward(true);
+          this.print('Tournament fast-forwarded to final (excluding P1).');
+        } else {
+          this.print('Command only available in BracketScene.');
+        }
+        break;
+
+      case 'set-winner': {
+        if (scene.scene.key !== 'BracketScene') {
+          this.print('Command only available in BracketScene.');
+          break;
+        }
+        const rIdx = parseInt(parts[1], 10);
+        const mIdx = parseInt(parts[2], 10);
+        const role = parts[3]?.toLowerCase();
+
+        const match = scene.manager.rounds[rIdx]?.[mIdx];
+        if (!match) {
+          this.print(`Invalid match coordinates: ${parts[1]} ${parts[2]}`);
+          break;
+        }
+
+        const winnerUserId = role === 'p2' ? match.p2UserId : match.p1UserId;
+        if (!winnerUserId) {
+          this.print(`Winner slot ${role} is empty for this match.`);
+          break;
+        }
+
+        scene.manager.setMatchWinner(rIdx, mIdx, winnerUserId);
+        scene.matchContext.tournamentState = scene.manager.serialize();
+        scene.scene.restart();
+        this.print(`Round ${rIdx} Match ${mIdx} winner set to ${role}.`);
+        break;
+      }
 
       case 'dev:tournament:join': {
         if (scene.scene.key !== 'TournamentSetupScene') {
