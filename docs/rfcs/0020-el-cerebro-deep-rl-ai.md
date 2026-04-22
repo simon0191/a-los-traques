@@ -24,25 +24,36 @@ El entrenamiento usa la simulación determinista existente (`src/simulation/`) c
 
 ### 1. Observation space (qué ve el agente)
 
-Vector normalizado de floats, ~35 dimensiones:
+Vector normalizado de floats, ~47 dimensiones:
 
-| Grupo | Dimensiones | Valores |
+**Nota sobre fixed-point**: Las posiciones y velocidades en `FighterSim` se almacenan como enteros fixed-point (`simX`, `simY` escalados por `FP_SCALE=1000`). La extracción de observación debe dividir por `FP_SCALE` primero y luego normalizar:
+```js
+posX_normalized = (fighter.simX / FP_SCALE) / STAGE_RIGHT  // correcto
+// NO: fighter.simX / STAGE_RIGHT  // sería ~1000x demasiado grande
+```
+
+| Grupo | Dims | Valores |
 |---|---|---|
-| **Self position** | 2 | `posX / STAGE_RIGHT`, `posY / GROUND_Y` (normalizados 0-1) |
-| **Self velocity** | 2 | `velX / MAX_VEL`, `velY / MAX_VEL` (normalizados -1 a 1) |
-| **Self resources** | 3 | `hp / MAX_HP`, `stamina / MAX_STAMINA`, `special / MAX_SPECIAL` (0-1) |
+| **Self position** | 2 | `(simX / FP_SCALE) / STAGE_RIGHT`, `(simY / FP_SCALE) / GROUND_Y` (0-1) |
+| **Self velocity** | 2 | `(simVX / FP_SCALE) / MAX_VEL`, `(simVY / FP_SCALE) / MAX_VEL` (-1 a 1) |
+| **Self resources** | 3 | `hp / MAX_HP`, `stamina / MAX_STAMINA_FP`, `special / MAX_SPECIAL_FP` (0-1) |
 | **Self state** | 7 | One-hot: idle, walking, jumping, attacking, hurt, knockdown, blocking |
-| **Self attack info** | 3 | `attackCooldown / MAX_COOLDOWN`, `attackFrameElapsed / MAX_FRAMES`, `isCurrentAttackActive` (0/1) |
-| **Self flags** | 2 | `isOnGround` (0/1), `facingRight` (0/1) |
+| **Self attack info** | 3 | `attackCooldown / MAX_COOLDOWN`, `attackFrameElapsed / MAX_COOLDOWN`, `isCurrentAttackActive` (0/1) |
+| **Self combat** | 2 | `comboCount / MAX_COMBO`, `blockTimer / MAX_BLOCKSTUN` |
+| **Self flags** | 4 | `isOnGround`, `facingRight`, `hasDoubleJumped`, `_isTouchingWall` (0/1 cada uno) |
 | **Opponent position** | 2 | Misma normalización que self |
 | **Opponent velocity** | 2 | Misma normalización que self |
 | **Opponent resources** | 3 | Misma normalización que self |
 | **Opponent state** | 7 | One-hot (mismos 7 estados) |
-| **Opponent attack info** | 3 | `attackCooldown`, `attackFrameElapsed`, `isCurrentAttackActive` — cruciales para aprender punish windows |
+| **Opponent attack info** | 3 | `attackCooldown`, `attackFrameElapsed`, `isCurrentAttackActive` — cruciales para punish windows |
+| **Opponent combat** | 2 | `comboCount`, `blockTimer` — misma normalización que self |
+| **Opponent flags** | 4 | `isOnGround`, `facingRight`, `hasDoubleJumped`, `_isTouchingWall` |
 | **Context** | 3 | `roundTimer / MAX_TIMER`, `distanceToOpponent / STAGE_WIDTH`, `distanceToNearestWall / (STAGE_WIDTH/2)` |
-| **Total** | ~**39** | |
+| **Total** | **47** | |
 
-La inclusión de `attackCooldown`, `attackFrameElapsed`, y `currentAttack` del oponente es crítica: sin ella, el agente no puede aprender a castigar recovery frames (lo que el AI rule-based hace en `hard` con `punishRecovery: true`).
+**Constantes de normalización**: `MAX_COOLDOWN` se computa una vez al inicio como el máximo `startup + active + recovery` global entre todos los fighters y todos los ataques (actualmente: special con 8+4+10 = 22 frames para varios fighters). Se usa el máximo global (no per-fighter) para que la semántica de la observación sea consistente entre agentes. Misma lógica para `MAX_BLOCKSTUN` (máximo `blockstun` global) y `MAX_COMBO` (hardcodeado a 10, suficiente para cualquier secuencia realista).
+
+La inclusión de `attackCooldown` y `attackFrameElapsed` del oponente es crítica: sin ella, el agente no puede aprender a castigar recovery frames. `comboCount` es necesario para que los glass cannons optimicen el archetype bonus de combos ≥ 3. `blockTimer` permite a los tanks saber cuándo termina su blockstun para contraatacar. `hasDoubleJumped` e `_isTouchingWall` permiten juego aéreo y wall-jumps informados.
 
 ### 2. Action space (qué decide el agente)
 
@@ -73,10 +84,12 @@ for (const move of [-1, 0, 1]) {         // left/none/right
     }
   }
 }
-// ACTION_TABLE[42] → { move: 1, jump: 0, block: 1, atk: 'lk' }
+// ACTION_TABLE[57] → { move: 1, jump: 0, block: 1, atk: 'lk' }
+// Stride: move(24) × jump(12) × block(6) × atk(1)
+// Index: 2*24 + 0*12 + 1*6 + 3 = 57
 // → encodeInput({ left: false, right: true, up: false, down: true,
 //                  lp: false, hp: false, lk: true, hk: false, sp: false })
-// → bits: 0b001000110 = 70
+// → bits: right(bit1) + down(bit3) + lk(bit6) = 2 + 8 + 64 = 74 (0b001001010)
 ```
 
 **Invariantes del mapping**:
@@ -93,7 +106,7 @@ for (const move of [-1, 0, 1]) {         // left/none/right
 |---|---|---|
 | Daño infligido | `+dmg_dealt / 100` | Incentiva atacar |
 | Daño recibido | `−dmg_taken / 100` | Incentiva defender |
-| Acercarse al oponente | `+0.001` por frame si distancia disminuyó | Anti-camping |
+| Acercarse al oponente | `+0.001` por frame si la velocidad del agente apunta hacia el oponente | Anti-camping. Basado en la velocidad propia del agente (`sign(velX) == sign(opponent.posX - self.posX)`), no en el delta de distancia — esto evita dar reward cuando el oponente se acerca solo |
 
 #### Rewards escasos (por evento)
 
@@ -107,7 +120,7 @@ for (const move of [-1, 0, 1]) {         // left/none/right
 
 | Penalty | Valor | Condición | Propósito |
 |---|---|---|---|
-| Whiff en rango cercano | `−0.01` | Ataque falló **y** distancia al oponente < `heavyKick.reach * 1.5` | Anti-spam. Solo penaliza whiffs a distancia de castigo — los whiffs a distancia segura (zoning, space control) son legítimos y no se penalizan |
+| Whiff en rango cercano | `−0.01` | Ataque falló **y** distancia al oponente < `avgReach * 1.5` | Anti-spam. Solo penaliza whiffs a distancia de castigo — los whiffs a distancia segura (zoning, space control) son legítimos y no se penalizan. `avgReach` es el promedio de `reach` de los ataques del fighter que lo tienen definido; si ningún ataque tiene `reach`, se usa 45px (la mediana global) |
 | Esquina | `−0.005` / frame | Distancia a pared más cercana < 30px | Incentiva salir de la esquina |
 
 #### Archetype bonus (por fighter, soft bias)
@@ -141,7 +154,7 @@ Arquitectura:
 - **Dueling DQN** con double Q-learning (reduce overestimation bias)
 - **Prioritized experience replay** buffer (1M transiciones, muestreadas por TD-error priority)
 - **Target network** actualizada cada 10K steps (Polyak average τ=0.005)
-- Red: MLP `obs(39) → 128 → 128 → Q(72)` con ReLU activations
+- Red: MLP `obs(47) → 128 → 128 → Q(72)` con ReLU activations
 - ε-greedy exploration: ε decae de 1.0 → 0.05 en 500K steps
 
 ### 5. Training pipeline (todo local)
@@ -191,17 +204,23 @@ Nuevo directorio `scripts/cerebro/`:
 | `env.js` | Gym-like wrapper: reset (nuevo match), step (tick + reward), observe (state → vector) |
 | `collect.js` | CLI: corre N matches headless, guarda transiciones a disco |
 | `action-table.js` | Lookup table de 72 acciones → 9-bit encoded input |
-| `storage.js` | Escritura binaria `.npz`-compatible. Delta encoding: solo frames donde la acción cambió + keyframes cada 30 frames (~10x compresión) |
+| `storage.js` | Escritura binaria `.npz`-compatible con compresión lz4 por batch |
+
+**Frame-skip (action repeat)**: El agente decide cada **4 sim frames** — la acción elegida se repite durante los 3 frames intermedios. Esto es práctica estándar en RL para juegos de pelea y análogo al `thinkInterval` del AI rule-based (easy=40, hard=8). Solo se almacena la transición en el frame de decisión.
+
+Esto es necesario porque DQN requiere tuplas completas `(obs, action, reward, next_obs, done)`. Las observaciones cambian cada frame (posiciones, velocidades, cooldowns), así que no se pueden reconstruir frames omitidos sin re-simular. Frame-skip resuelve esto reduciendo las transiciones a almacenar sin perder información.
 
 ```bash
-node scripts/cerebro/collect.js --fighter=simon --episodes=100000 --workers=4
+node scripts/cerebro/collect.js --fighter=simon --episodes=100000 --workers=4 --frame-skip=4
 ```
 
 Target de performance: ~1500 fights/sec single-threaded (M1 Mac), ~5000/sec con `worker_threads`.
 
-Storage estimate (delta encoding):
-- ~500 frames/episode × 10% keyframe rate ≈ 50 stored frames/episode × ~130 bytes ≈ 6.5KB/episode
-- 1M episodes ≈ 6.5GB raw → ~1.5GB comprimido
+Storage estimate (frame-skip=4):
+- ~500 sim frames/episode ÷ 4 = ~125 decision-point transitions/episode
+- Per transition: obs(47 floats) + action(1) + reward(1) + next_obs(47) + done(1) = 388 bytes
+- 125 × 388 = ~48KB/episode
+- 1M episodes ≈ 48GB raw → ~4-5GB con lz4 compression por batch
 
 #### Tier 2 — Entrenamiento (Python)
 
@@ -242,18 +261,31 @@ python training/export_onnx.py --fighter=simon --checkpoint=checkpoint_N+1.pt
 
 Cada iteración toma ~5-10 minutos (recolección + training). El replay buffer acumula datos de todas las iteraciones — DQN es off-policy, así que los datos viejos siguen siendo útiles (con priority decay).
 
-**Past selves**: Se guardan checkpoints cada 100K steps. En iteraciones futuras, el oponente se samplea aleatoriamente entre: checkpoint actual (50%), past selves (30%), AI rule-based (20%). Esto previene catastrophic forgetting y overfitting al último oponente.
+**Past selves**: Se guardan checkpoints cada 100K steps. En iteraciones futuras, el oponente se samplea aleatoriamente entre: checkpoint actual (50%), past selves (30%), AI rule-based (20%). Esto previene catastrophic forgetting y overfitting al último oponente. Los ratios son configurables via CLI:
+
+```bash
+node scripts/cerebro/collect.js --fighter=simon --opponent-mix="current:0.5,past:0.3,rule:0.2" --episodes=50000
+```
+
+Si el agente empieza a overfitear al rule-based o los past selves son demasiado débiles, se puede ajustar sin cambiar código.
 
 ### 6. Diversity entre fighters
 
 Fighters con stats similares (simon/bozzi/angy: speed=4, power~3-4) convergen a la misma política sin incentivos explícitos.
 
 **Mecanismo — Intrinsic diversity reward**:
-- Durante el loop de self-play, se computa la KL divergence entre la distribución de acciones de cada agente y el promedio de la liga.
 - Reward extra: `r_diversity = +0.01 * KL(π_agent || π_league_avg)`
 - Esto incentiva a cada agente a encontrar su *nicho* en vez de converger a una sola meta.
 
-Combinado con los archetype bonus de §3 (derivados de stats), cada fighter tiene dos fuerzas de diversificación: una global (KL reward) y una local (archetype bonus).
+**Workflow de cómputo** (resuelto en Python, no en JS):
+1. **Data collection (JS)**: Guarda las tuplas base `(obs, action, reward, next_obs, done)` con los rewards de combate (daño, victoria, penalties). No computa KL — JS no tiene acceso a las 16 políticas.
+2. **Training (Python)**: Antes de insertar en el replay buffer, Python agrega el bonus KL al reward almacenado. Para esto necesita:
+   - La acción tomada (ya en la tupla)
+   - La distribución de acciones del agente actual (forward pass del modelo)
+   - La distribución promedio de la liga (recomputada cada 50K steps a partir de 1000 observaciones random por agente)
+3. **Liga promedio**: Se mantiene un archivo `league_avg.npy` con la distribución promedio (72 floats). Se actualiza periódicamente durante Phase 3 cuando los 16 agentes ya tienen checkpoints. En Phase 2 (un solo fighter) no aplica.
+
+Combinado con los archetype bonus de §3 (derivados de stats), cada fighter tiene dos fuerzas de diversificación: una global (KL reward, computada en Python) y una local (archetype bonus, computado en JS durante collection).
 
 ### 7. Inferencia en browser
 
@@ -386,10 +418,9 @@ Correr 100K peleas para Simon como validación. Guardar en `data/cerebro/simon/`
 
 ### Phase 2 — Single-fighter DQN POC (~1 semana)
 
-Python `training/` con Dueling DQN. Entrenar con datos de Simon. Exportar ONNX.
-Cargar ONNX en Node.js y evaluar contra rule-based AI.
+Python `training/` con Dueling DQN. Entrenar con datos de Simon (bootstrap offline contra rule-based). Exportar ONNX. Cargar ONNX en Node.js y evaluar contra rule-based AI.
 
-**Deliverable**: Un modelo ONNX que gana >70% contra el AI rule-based en hard.
+**Deliverable**: Un modelo ONNX que gana >50% contra el AI rule-based en medium **y** pasa los criterios cualitativos del go/no-go gate (§12). El target de >70% contra hard es para el modelo final post-self-play (Phase 3), no para el POC bootstrap.
 
 ### **GO/NO-GO GATE**
 
