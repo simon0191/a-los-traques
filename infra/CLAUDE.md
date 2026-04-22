@@ -56,29 +56,43 @@ terraform plan         # Preview changes
 terraform apply        # Apply changes
 ```
 
-## Migrating from the pre-monorepo project
+## One-time: import the pre-existing Vercel project
 
-Before this file, `vercel_project_id` was an external input and only the
-domain bindings were managed. The first apply after the monorepo migration
-needs one of:
+Before this file, only the domain bindings were in Terraform — the project
+itself was dashboard-managed. Bring it under Terraform control with:
 
-1. **Import the existing project** (keeps deploy history + production domain continuity):
-   ```bash
-   terraform import vercel_project.web <old-project-id>
-   terraform import vercel_project_domain.apex alostraques.com
-   terraform import vercel_project_domain.www www.alostraques.com
-   # envs need one import each (or let Terraform create them net-new — dashboard
-   # entries silently get overwritten):
-   terraform import vercel_project_environment_variable.database_url <project-id>/<env-var-id>
-   ```
-   Grab the env var ids from `vercel env ls` via the CLI.
+```bash
+./import.sh            # Imports vercel_project.web + both vercel_project_domain.*
+```
 
-2. **Start fresh** (simpler, but loses deploy history + domain reverifies):
-   - Delete the old project in the Vercel dashboard.
-   - Run `terraform apply`.
-   - Reconnect `alostraques.com` — Vercel asks to verify; since DNS is already
-     pointing at `cname.vercel-dns.com` via `cloudflare_dns_record.apex`, it
-     verifies automatically.
+What the script does:
+
+1. Reads the existing project ID from 1Password (same item as
+   `vercel_api_token`).
+2. `terraform import vercel_project.web <project-id>`.
+3. `terraform import vercel_project_domain.apex <project-id>/alostraques.com`.
+4. `terraform import vercel_project_domain.www  <project-id>/www.alostraques.com`.
+5. Skips anything already in state — safe to re-run.
+
+**Env vars are not imported** — they're always rewritten from
+`terraform.auto.tfvars` on apply. If the project already has the keys
+`DATABASE_URL`, `SUPABASE_*`, `CRON_SECRET`, `STORAGE_BACKEND`, or
+`NEXT_PUBLIC_PARTYKIT_HOST` set in the dashboard, delete them there before
+the first apply so Vercel doesn't reject the create. Any values Terraform
+doesn't track (say, a hand-added `DEBUG_FLAG`) are left alone.
+
+After the import:
+
+```bash
+terraform plan         # Expect drift on root_directory, install_command,
+                       # build_command, and N new env vars.
+terraform apply
+```
+
+**Alternative — start fresh** (simpler, but loses deploy history and the
+domain re-verifies): delete the old project in the Vercel dashboard, skip
+`./import.sh`, and run `terraform apply` directly. DNS already points at
+`cname.vercel-dns.com` so the domain verifies automatically.
 
 ## DNS Setup
 
