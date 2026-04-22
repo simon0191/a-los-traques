@@ -11,7 +11,7 @@ const STYLE_ID = 'overlay-editor-ui-style';
 const CSS = `
 #overlay-editor-root:focus { outline: none; }
 #overlay-editor-root {
-  position: fixed; inset: 0;
+  position: absolute; inset: 0;
   display: grid;
   grid-template-columns: 110px 180px 1fr;
   grid-template-rows: 52px 1fr 96px;
@@ -119,11 +119,15 @@ function el(tag, props = {}, children = []) {
 }
 
 export class EditorUI {
-  constructor({ fighters, animations, accessories, handlers }) {
+  constructor({ fighters, animations, accessories, handlers, mount }) {
     this.fighters = fighters;
     this.animations = animations;
     this.accessories = accessories;
     this.handlers = handlers;
+    // Optional mount node — lets the admin layout keep its sidebar visible by
+    // anchoring the editor to `#game-container` instead of `document.body`.
+    // Falls back to `document.body` for any consumer that doesn't care.
+    this.mount = mount ?? (typeof document !== 'undefined' ? document.body : null);
     this._fighterBtns = new Map();
     this._animBtns = new Map();
     this._accBtns = new Map();
@@ -240,7 +244,7 @@ export class EditorUI {
     this.accPanel.appendChild(this.accLabel);
     this.root.appendChild(this.accPanel);
 
-    document.body.appendChild(this.root);
+    this.mount.appendChild(this.root);
     // Grab focus so window-level keydown handlers fire before the browser
     // acts on Ctrl+S/E/Z. Without this the first keypress after page load
     // still pops the browser's Save dialog.

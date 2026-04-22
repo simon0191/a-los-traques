@@ -122,6 +122,10 @@ export class OverlayEditorScene extends Phaser.Scene {
       fighters: FIGHTERS_WITH_SPRITES,
       animations: ANIM_NAMES,
       accessories: ACCESSORIES,
+      // Mount inside the Phaser-created #game-container so the overlay sits
+      // next to the <canvas> and stays bounded to the admin main area
+      // (sidebar stays visible, not covered by a fixed full-viewport layer).
+      mount: this.game.canvas?.parentElement ?? undefined,
       handlers: {
         onFighter: (id) => {
           this._flushSessionToManifest();
