@@ -6,5 +6,9 @@ export const metadata: Metadata = {
 };
 
 export default function OverlayEditorPage() {
-  return <DevToolsHostClient entry="OverlayEditorScene" />;
+  return (
+    <div className="admin-canvas">
+      <DevToolsHostClient entry="OverlayEditorScene" />
+    </div>
+  );
 }

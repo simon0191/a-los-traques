@@ -8,10 +8,14 @@ import { LoginForm } from './LoginForm';
 type ShellState = 'checking' | 'authed' | 'needs-login' | 'not-admin';
 
 /**
- * Gatekeeper: tries a low-cost admin call (HEAD-like GET) against
- * `/api/admin/fights` to verify both that a session exists and that the
- * caller is actually an admin. Non-admins get routed back to the login
- * screen with a human-readable error.
+ * Auth gate for the admin app. Tries a low-cost admin call
+ * (`/api/admin/fights?page=1&limit=1`) to verify both that a session
+ * exists and that the caller is actually an admin. Non-admins get routed
+ * back to the login screen with the server's error message.
+ *
+ * No UI chrome — once authed, children render as-is. Layout (sidebar,
+ * main area) lives in `AuthedShell` so this stays easy to drop into any
+ * admin sub-app.
  */
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<ShellState>('checking');
@@ -47,37 +51,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     return <LoginForm onAuthenticated={verify} initialError={error} />;
   }
 
-  return (
-    <>
-      <nav>
-        <h1>A Los Traques Admin</h1>
-        <a href="/" className="active">
-          Peleas
-        </a>
-        <button
-          type="button"
-          onClick={async () => {
-            const sb = getSupabaseClient();
-            if (sb) await sb.auth.signOut();
-            setState('needs-login');
-          }}
-          style={{
-            marginLeft: 'auto',
-            background: 'transparent',
-            color: '#aaa',
-            border: '1px solid #333',
-            padding: '6px 12px',
-            borderRadius: 4,
-            cursor: 'pointer',
-            fontSize: 13,
-          }}
-        >
-          Salir
-        </button>
-      </nav>
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }
 
 async function hasSession(): Promise<boolean> {

@@ -6,5 +6,9 @@ export const metadata: Metadata = {
 };
 
 export default function InspectorPage() {
-  return <DevToolsHostClient entry="InspectorScene" />;
+  return (
+    <div className="admin-canvas">
+      <DevToolsHostClient entry="InspectorScene" />
+    </div>
+  );
 }

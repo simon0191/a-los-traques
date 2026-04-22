@@ -15,9 +15,7 @@ const nextConfig = {
   async rewrites() {
     const assetOrigin =
       process.env.NEXT_PUBLIC_ASSET_ORIGIN ||
-      (process.env.NODE_ENV === 'production'
-        ? 'https://alostraques.com'
-        : 'http://localhost:3000');
+      (process.env.NODE_ENV === 'production' ? 'https://alostraques.com' : 'http://localhost:3000');
     return [
       {
         source: '/assets/:path*',

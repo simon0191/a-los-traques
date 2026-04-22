@@ -42,16 +42,17 @@ export function DevToolsHost({ entry }: DevToolsHostProps) {
     };
   }, [entry]);
 
+  // Fills the parent <main> flex area — the (authed) layout reserves
+  // sidebar space, so a full-viewport `position: fixed` would overlap it.
   return (
     <div
       id="game-container"
       ref={containerRef}
       style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100dvh',
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        minHeight: 0,
       }}
     />
   );

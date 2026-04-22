@@ -1,4 +1,3 @@
-import { AdminShell } from '@/components/AdminShell';
 import { FightsTable } from '@/components/FightsTable';
 
 export const metadata = {
@@ -7,8 +6,8 @@ export const metadata = {
 
 export default function AdminHome() {
   return (
-    <AdminShell>
+    <div className="admin-page">
       <FightsTable />
-    </AdminShell>
+    </div>
   );
 }
