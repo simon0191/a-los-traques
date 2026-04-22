@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TournamentManager } from '../../apps/game-vite/src/services/TournamentManager.js';
+import { TournamentManager } from '../../packages/game/src/services/TournamentManager.js';
 
 describe('TournamentManager - Bot Level Extensions', () => {
   const fighters = ['alv', 'angy', 'bozzi', 'cami', 'carito', 'cata', 'chicha', 'gartner'];

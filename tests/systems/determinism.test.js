@@ -27,13 +27,13 @@ import {
   WALL_SLIDE_SPEED_FP,
 } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { MAX_HP, STAMINA_COSTS } from '../../apps/game-vite/src/config.js';
+import { MAX_HP, STAMINA_COSTS } from '../../packages/game/src/config.js';
 import {
   captureCombatState,
   captureFighterState,
   restoreCombatState,
   restoreFighterState,
-} from '../../apps/game-vite/src/systems/GameState.js';
+} from '../../packages/game/src/systems/GameState.js';
 
 /**
  * Create a pure simulation fighter (no Phaser dependency).

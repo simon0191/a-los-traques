@@ -21,7 +21,7 @@ vi.mock('partysocket', () => {
   return { default: MockPartySocket };
 });
 
-const { NetworkManager } = await import('../../apps/game-vite/src/systems/NetworkManager.js');
+const { NetworkManager } = await import('../../packages/game/src/systems/NetworkManager.js');
 
 describe('NetworkManager pong timeout', () => {
   let nm;

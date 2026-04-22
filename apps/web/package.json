@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node ../../scripts/build-music-manifest.js",
+    "prebuild": "node ../../scripts/build-music-manifest.js",
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start"
@@ -11,6 +13,7 @@
   "dependencies": {
     "@alostraques/api-core": "workspace:*",
     "@alostraques/db": "workspace:*",
+    "@alostraques/game": "workspace:*",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

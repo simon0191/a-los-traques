@@ -1,20 +1,20 @@
 # A Los Traques
 
 Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape Safari target.
-480x270 internal resolution, Phaser 3 + Vite, ES6 modules, all UI text in Spanish.
+480x270 internal resolution, Phaser 3 running inside a Next.js app, ES6 modules, all UI text in Spanish.
 
-## Monorepo Layout (RFC 0019, Phases 1–2)
+## Monorepo Layout (RFC 0019, Phases 1–3)
 
 Bun workspaces + Turborepo. Apps are runnable; packages are importable.
 
-- `apps/web/` — Next.js 15 App Router. Hosts the marketing pages (`/`, `/about`, `/blog`) and every HTTP API route (`app/api/**/route.ts`). Vercel cron lives in `apps/web/vercel.json`.
-- `apps/game-vite/` — Vite + Phaser SPA. Proxies `/api/*` to the Next.js app on `:3000`. Will be replaced by `/play` inside `apps/web` in Phase 3.
+- `apps/web/` — Next.js 15 App Router. Hosts the marketing pages (`/`, `/about`, `/blog`), the game at `/play`, and every HTTP API route (`app/api/**/route.ts`). Vercel cron lives in `apps/web/vercel.json`.
 - `apps/party/` — PartyKit multiplayer relay (unchanged behavior).
+- `packages/game/` — `@alostraques/game`: Phaser scenes, systems, entities, data, and the `createGame({ parent, params, env, eventBus })` factory. No Next/React/Vite. Next consumes it via `next/dynamic({ ssr: false })`.
 - `packages/sim/` — `@alostraques/sim`: pure simulation. No Phaser, Vite, React, Next.
 - `packages/db/` — `@alostraques/db`: raw `pg` pool factory + dbmate migrations.
 - `packages/api-core/` — `@alostraques/api-core`: framework-agnostic JWT verify + pluggable storage + Zod-ready validate helpers.
-- `tests/` — still at repo root; Phase 3+ distribute them into colocated `__tests__/` per package.
-- `scripts/` — glue only (`dev-db.js`, `dev-multiplayer.js`, `migrate.sh`, `build-music-manifest.js`, `overlay-export-server.js`, plus asset-pipeline + balance-sim which promote to apps in later phases).
+- `tests/` — still at repo root; later phases distribute them into colocated `__tests__/` per package.
+- `scripts/` — glue only (`dev-db.js`, `dev-multiplayer.js`, `migrate.sh`, `build-music-manifest.js`, `overlay-export-server.js`, plus asset-pipeline + balance-sim which promote to apps in later phases). `scripts/build-music-manifest.js` runs as an `apps/web` predev/prebuild hook and emits `packages/game/src/data/music-manifest.js` from the MP3s in `apps/web/public/assets/audio/fights/`.
 
 Workspace imports: use `@alostraques/<name>` from any workspace (app or package). No cross-app `../../apps/*` imports; share via `packages/*`.
 
@@ -22,9 +22,9 @@ Workspace imports: use `@alostraques/<name>` from any workspace (app or package)
 
 Decoupled architecture: Supabase for Auth (JWT) + Next.js Route Handlers for data persistence.
 
-- **Supabase Client**: `apps/game-vite/src/services/supabase.js` (Auth only). Moves to `@alostraques/auth` in Phase 3.
+- **Supabase Client**: lives in `packages/game/src/services/supabase.js`. `createGame({ env })` injects `supabaseUrl` / `supabaseAnonKey` so the package stays framework-agnostic. Moves to a dedicated `@alostraques/auth` package in a later phase.
 - **Backend API**: `apps/web/app/api/**/route.ts` (Next.js Route Handlers) — `profile`, `stats`, `leaderboard`, `fights`, `debug-bundles`, `tournament/*`, `admin/*`, `cron/*`, `public-config`.
-- **API Service**: `apps/game-vite/src/services/api.js` (client-side fetch against `/api/*`, which Vite proxies to `:3000`).
+- **API Service**: `packages/game/src/services/api.js` calls `/api/*` directly (same origin as the game now that it runs from Next.js).
 - **JWT Verification**: `@alostraques/api-core` exposes `verifyBearerToken` + `resolveUserId` (framework-agnostic). `apps/web/lib/auth/middleware.ts` is the Next.js `withAuth` / `withAdmin` adapter that pairs the core with a pooled `pg` client from `@alostraques/db`.
 - **Dev Bypass**: In non-production, the middleware accepts the `X-Dev-User-Id` header when no Bearer token is present.
 - **DB Pool**: `@alostraques/db` exports `createPool`, `createClient`, and `getPool` (memoized on `globalThis`). Route handlers use `getPool` / fresh client per request on Windows.
@@ -33,19 +33,21 @@ Decoupled architecture: Supabase for Auth (JWT) + Next.js Route Handlers for dat
     - Managed via `dbmate` (pure Postgres). `bun run migrate` calls `scripts/migrate.sh` which points dbmate at `packages/db/migrations/`.
     - `profiles` table (id, nickname, wins, losses, is_admin).
     - `fights` table (id, room_id, players, fighters, stage, result, debug bundle status/TTL).
-- **Graceful Degradation**: If `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` are missing, the game bypasses `LoginScene` and operates in "Guest Mode" automatically.
+- **Graceful Degradation**: If the `/api/public-config` response comes back with null Supabase values (or the fetch fails), the game bypasses `LoginScene` and operates in "Guest Mode" automatically.
 
 ## Build & Run
 
 ```bash
-bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + Vite + Next.js API + PartyKit)
+bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + Next.js + PartyKit)
+                     # Game at http://localhost:3000/play
                      # Log in as p1@test.local or p2@test.local (password: password)
                      # Windows: Auto-sets PG_FRESH_CLIENT=1 to avoid ECONNRESET.
                      # RESET DB: rm -r -Force .pglite (PS) or rm -rf .pglite (Unix)
-bun run dev:all      # PGLite + Vite + Next.js API (no PartyKit / fake auth)
-bun run dev          # Vite dev server only (delegates to @alostraques/game-vite)
+bun run dev:all      # PGLite + Next.js (marketing + /play + API)
+bun run dev          # Next.js dev server only (delegates to @alostraques/web)
 bun run party:dev    # PartyKit dev server (port 1999)
-bun run build        # Production build for the Vite app
+bun run build        # Production build — delegates to apps/web (Next.js)
+bun run start        # Production Next.js server (use after build)
 bun run migrate      # Run database migrations (scripts/migrate.sh → dbmate, packages/db/migrations)
 bun run test         # Run tests in watch mode (Vitest)
 bun run test:run     # Run tests once (CI)
@@ -89,25 +91,20 @@ apps/
     vercel.json                    # Cron schedule for /api/cron/cleanup-bundles
     next.config.mjs
     tsconfig.json
-  game-vite/                       # Vite + Phaser SPA (Phase 3 folds into apps/web/play)
-    index.html
-    vite.config.js                 # Proxies /api to http://localhost:3000 (Next.js)
-    public/
-      assets/
-        fighters/{id}/             # Animation strip PNGs
-        portraits/
-        audio/
-    src/
-      scenes/                      # Boot -> Title -> MultiplayerMenu -> Select -> …
-      services/                    # TournamentManager.js, UIService.js, supabase.js, api.js
-      entities/                    # Fighter.js (Phaser wrapper)
-      systems/                     # CombatSystem, InputManager, AIController, AudioBridge, VFXBridge, net/*
-      data/                        # fighters.json, stages.json
-      config.js                    # Re-exports pure constants from @alostraques/sim + game-side (PARTYKIT_HOST etc.)
   party/                           # PartyKit server (+ TURN credential endpoint)
     server.js
     partykit.json
 packages/
+  game/                            # @alostraques/game — Phaser scenes, systems, entities, data
+    src/
+      index.js                     # createGame({ parent, params, env, eventBus }) factory
+      config.js                    # Env-driven config (configureEnv/getPartyKitHost/isDevMode)
+      scenes/                      # Boot -> Title -> MultiplayerMenu -> Select -> …
+      services/                    # TournamentManager.js, UIService.js, supabase.js, api.js
+      entities/                    # Fighter.js (Phaser wrapper)
+      systems/                     # CombatSystem, InputManager, AIController, AudioBridge, VFXBridge, net/*
+      editor/                      # OverlayManifest, EditorUI (still in-package; Phase 5 lifts to apps/admin)
+      data/                        # fighters.json, stages.json, music-manifest.js (generated)
   sim/                             # @alostraques/sim — pure simulation (no Phaser)
     src/                           # CombatSim, FighterSim, SimulationEngine, FixedPoint, combat-math, combat-block, InputBuffer, constants
   db/                              # @alostraques/db — pg Pool factory + dbmate migrations
@@ -147,7 +144,7 @@ tests/                             # Still at repo root during Phase 1–2; dist
 - `matchContext`: payload containing competition logic. `type: 'tournament'` (bracket), `type: 'versus'` (local 2P quick match), or absent (regular local/online).
 - Scenes pass data via `scene.start('SceneName', { p1Id, p2Id, stageId, gameMode, networkManager, matchContext })`
 - FightScene uses `MatchStateMachine` for flow control: `isPaused` is a getter on SM state, `_reconnecting`/`_onlineDisconnected` eliminated, update loop guards on `matchState.state` instead of `combat.roundActive`
-- **Logging**: Use `Logger.create('ModuleName')` from `apps/game-vite/src/systems/Logger.js` instead of `console.log/warn/error`. Zero overhead when level is OFF (default). See RFC 0005.
+- **Logging**: Use `Logger.create('ModuleName')` from `packages/game/src/systems/Logger.js` instead of `console.log/warn/error`. Zero overhead when level is OFF (default). See RFC 0005.
 - **Pure simulation imports**: always from `@alostraques/sim` (FP math, combat math, input encoding, sim classes). Never reach into `packages/sim/src/*.js` via relative path from outside the package.
 - **Before every commit**: run `bun run lint:fix` to auto-fix formatting/lint issues, then verify with `bun run lint`. CI runs Biome lint and will fail on any error.
 - **Atomic commits**: make a separate commit for each logical change. Don't bundle unrelated changes into one commit.
@@ -181,7 +178,7 @@ Use the `/generate-fighter` skill for the full workflow. Key points:
 1. Add photo to `assets/photos/{id}.jpg` (optional — only needed if manifest `referenceImages` references it)
 2. Create manifests: `reference_{id}.json` and `fighter_{id}.json`
 3. Run `/generate-fighter {id}`
-4. Add fighter ID to `FIGHTERS_WITH_SPRITES` in `apps/game-vite/src/data/animations.js` (single source of truth — consumed by BootScene, OverlayEditorScene, InspectorScene, and the calibrate-overlays CLI)
+4. Add fighter ID to `FIGHTERS_WITH_SPRITES` in `packages/game/src/data/animations.js` (single source of truth — consumed by BootScene, OverlayEditorScene, InspectorScene, and the calibrate-overlays CLI)
 
 ### Regenerating an existing fighter
 1. Delete stale cache: `rm -rf assets/_raw/fighters/{id}`
@@ -206,14 +203,14 @@ Use the `/generate-poses` skill to extract per-frame keypoints for attaching run
 - **Model**: MediaPipe PoseLandmarker heavy (BlazePose GHUM) via Python + `uv`. Managed in `scripts/asset-pipeline/pose/` with its own `pyproject.toml`.
 - **Must run AFTER `/generate-fighter` Phase 4** (facing fixes). Running before swaps `left*`/`right*` keypoints across an animation.
 - **Frame splitting gotcha**: strips have a `128x128+0+0` page geometry from `+append`; split must use `+repage -crop 128x128 +repage` or only the first frame is produced.
-- **Output**: `apps/game-vite/public/assets/fighters/{id}/poses.json` — one consolidated file per fighter with all 13 animations. 23 named keypoints per frame (pixel-space, top-left origin) + derived `head/torso/leftHand/rightHand/leftFoot/rightFoot` angles (degrees, CCW from +x).
+- **Output**: `apps/web/public/assets/fighters/{id}/poses.json` — one consolidated file per fighter with all 13 animations. 23 named keypoints per frame (pixel-space, top-left origin) + derived `head/torso/leftHand/rightHand/leftFoot/rightFoot` angles (degrees, CCW from +x).
 - **Low-vis frames**: `block`, `hurt`, `knockdown` sometimes have contorted poses MediaPipe can't read — stored as `detected: false`, runtime code should skip attachment or interpolate.
 - **`--debug`**: writes skeleton-overlay strips to `assets/_raw/poses/{id}/{anim}_debug.png` for QA.
 - **Model file** (~30 MB) auto-downloads to `scripts/asset-pipeline/pose/models/` on first run. Gitignored.
 
 ### Accessory calibration seed (RFC 0018)
 
-Pose data seeds the overlay editor's manifest so accessories start on/near the head instead of at the default. Run AFTER `/generate-poses` so `apps/game-vite/public/assets/fighters/{id}/poses.json` exists:
+Pose data seeds the overlay editor's manifest so accessories start on/near the head instead of at the default. Run AFTER `/generate-poses` so `apps/web/public/assets/fighters/{id}/poses.json` exists:
 
 ```bash
 node scripts/asset-pipeline/calibrate-overlays.js              # seed only missing (fighter, category, anim) combos
@@ -221,7 +218,7 @@ node scripts/asset-pipeline/calibrate-overlays.js --force      # overwrite exist
 node scripts/asset-pipeline/calibrate-overlays.js --fighter=simon --category=gafas --dry-run
 ```
 
-- Writes into the consolidated `apps/game-vite/public/assets/overlays/manifest.json` — `calibrations[fighterId][category][animation] = {frameCount, frames, keyframes, lastEditedAt}`. Categories come from `apps/game-vite/src/data/accessories.json` (currently `sombreros`, `gafas`).
+- Writes into the consolidated `apps/web/public/assets/overlays/manifest.json` — `calibrations[fighterId][category][animation] = {frameCount, frames, keyframes, lastEditedAt}`. Categories come from `packages/game/src/data/accessories.json` (currently `sombreros`, `gafas`).
 - **Skips existing entries by default** so hand-tuned calibrations from the editor aren't clobbered. `--force` overwrites.
 - **Anchor strategy**: `sombreros` place the hat center so the bottom edge sits ~2 px below the top of head landmarks (eyes/ears/nose min y). `gafas` center on the eye-line midpoint. Both categories use `derived.head.center.x` for X.
 - **Scale model** (new in v2): `renderedWidth = FIGHTER_HEIGHT × scale` — independent of the accessory PNG's pixel dimensions. Uniform per (fighter, category) as the editor enforces. Derived from shoulder distance (shoulders are more reliable than ears in 3/4-view sprites): `scale = (shoulderWidth × widthRatio) / 128`, where `widthRatio = 1.3` for sombreros, `0.85` for gafas.
@@ -241,7 +238,7 @@ node scripts/asset-pipeline/calibrate-overlays.js --fighter=simon --category=gaf
 ## Tests
 
 Vitest, configured in `vitest.config.js`. Tests live in `tests/` (not alongside source).
-Pure logic is extracted into small modules (`apps/game-vite/src/systems/combat-math.js`, `apps/game-vite/src/entities/combat-block.js`) to enable Phaser-free unit testing.
+Pure logic is extracted into small modules (`packages/game/src/systems/combat-math.js`, `packages/game/src/entities/combat-block.js`) to enable Phaser-free unit testing.
 CI runs via GitHub Actions (`.github/workflows/test.yml`) on PRs and pushes to main — runs lint (Biome) then tests.
 
 ### E2E Multiplayer Testing
@@ -296,7 +293,7 @@ Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered
 
 - **VS Local**: 2-player quick match from TitleScene via MultiplayerMenuScene. Split keyboard: P1 = WASD + FGCVT, P2 = Arrows + IOKLP.
 - **Tournament**: 1–8 human players in a bracket. Sequential fighter selection, no duplicate fighters.
-- **Input profiles** (`apps/game-vite/src/systems/InputProfiles.js`): `keyboard_full` (single player), `keyboard_left` (P1 in 2P), `keyboard_right` (P2 in 2P). `InputManager` accepts `profileId` parameter.
+- **Input profiles** (`packages/game/src/systems/InputProfiles.js`): `keyboard_full` (single player), `keyboard_left` (P1 in 2P), `keyboard_right` (P2 in 2P). `InputManager` accepts `profileId` parameter.
 - **TournamentManager**: `humanFighterIds` array tracks N humans. `getNextPlayableMatch()` routes matches. `isHumanVsHuman()` triggers split keyboard in FightScene.
 - **matchContext.isHumanVsHuman**: set per-match by BracketScene when both fighters are human.
 - **matchContext.type === 'versus'**: signals VS Local mode — FightScene creates two InputManagers.
@@ -306,7 +303,7 @@ Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered
 ## Online Multiplayer
 
 - PartyKit server at `apps/party/server.js`, max 2 players per room (pure relay, no game logic, TURN credential endpoint)
-- **Network modules** in `apps/game-vite/src/systems/net/`: SignalingClient (WebSocket), TransportManager (WebRTC + TURN), InputSync (buffers), ConnectionMonitor (ping/RTT), SpectatorRelay, NetworkFacade (composes all, same API as old NetworkManager)
+- **Network modules** in `packages/game/src/systems/net/`: SignalingClient (WebSocket), TransportManager (WebRTC + TURN), InputSync (buffers), ConnectionMonitor (ping/RTT), SpectatorRelay, NetworkFacade (composes all, same API as old NetworkManager)
 - **Cloudflare TURN**: TURN key created via Cloudflare dashboard, credentials stored as PartyKit env vars (`CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN`). Server endpoint `/turn-creds` generates short-lived ICE credentials. Enables P2P behind symmetric NAT (mobile carriers).
 - **Rollback netcode** (GGPO-style): both peers run identical simulations locally with zero perceived input lag
 - **Event-driven presentation** (Phase 3): `tick()` returns `{ state, events, roundEvent }`. `AudioBridge` and `VFXBridge` consume events for audio/VFX — no direct `audioManager.play()` or `cameras.main.shake()` in simulation code. During rollback resimulation, events are discarded (no `_muteEffects` flag).
@@ -326,11 +323,11 @@ Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered
 
 ## Multiplayer Debuggability (RFC 0005)
 
-- **Logger** (`apps/game-vite/src/systems/Logger.js`): Static singleton with levels OFF/ERROR/WARN/INFO/DEBUG/TRACE, per-module tags, 256-entry ring buffer. Zero overhead when OFF. All net modules instrumented.
-- **MatchTelemetry** (`apps/game-vite/src/systems/MatchTelemetry.js`): Always-on counters (rollbacks, desyncs, RTT samples, transport changes). Wired in `_setupOnlineMode()`.
+- **Logger** (`packages/game/src/systems/Logger.js`): Static singleton with levels OFF/ERROR/WARN/INFO/DEBUG/TRACE, per-module tags, 256-entry ring buffer. Zero overhead when OFF. All net modules instrumented.
+- **MatchTelemetry** (`packages/game/src/systems/MatchTelemetry.js`): Always-on counters (rollbacks, desyncs, RTT samples, transport changes). Wired in `_setupOnlineMode()`.
 - **Debug mode**: `?debug=1` URL param or triple-tap top-right corner. Activates FightRecorder for real matches, verbose logging, debug overlay.
-- **DebugOverlay** (`apps/game-vite/src/systems/DebugOverlay.js`): Bottom-left HUD showing RTT, transport mode, rollback stats, match state. Tap to expand. Spanish labels.
-- **DebugBundleExporter** (`apps/game-vite/src/systems/DebugBundleExporter.js`): Generates v2 bundles with FightRecorder data + Logger ring buffer + MatchTelemetry + environment info. Supports clipboard copy and file download.
+- **DebugOverlay** (`packages/game/src/systems/DebugOverlay.js`): Bottom-left HUD showing RTT, transport mode, rollback stats, match state. Tap to expand. Spanish labels.
+- **DebugBundleExporter** (`packages/game/src/systems/DebugBundleExporter.js`): Generates v2 bundles with FightRecorder data + Logger ring buffer + MatchTelemetry + environment info. Supports clipboard copy and file download.
 - **1-click bundle collection**: "Exportar Todo" collects bundles from both peers + server `/diagnostics` endpoint. Uses `debug_request`/`debug_response` message relay.
 - **Session ID**: Generated in SignalingClient, passed as PartySocket query param, included in all server logs and debug bundles for client-server correlation.
 - **Server logging**: `apps/party/server.js` uses structured JSON logging (`_log()` method) with ring buffer. State transitions, connect/disconnect, rejoin, rate limits all logged.

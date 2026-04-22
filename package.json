@@ -7,12 +7,12 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun --filter='@alostraques/game-vite' run dev",
+    "dev": "bun --filter='@alostraques/web' run dev",
     "dev:db": "node scripts/dev-db.js",
-    "dev:all": "concurrently \"node scripts/dev-db.js\" \"bun --filter='@alostraques/game-vite' run dev\" \"bun --filter='@alostraques/web' run dev\"",
+    "dev:all": "concurrently \"node scripts/dev-db.js\" \"bun --filter='@alostraques/web' run dev\"",
     "dev:mp": "node scripts/dev-multiplayer.js",
-    "build": "bun --filter='@alostraques/game-vite' run build",
-    "preview": "bun --filter='@alostraques/game-vite' run preview",
+    "build": "bun --filter='@alostraques/web' run build",
+    "start": "bun --filter='@alostraques/web' run start",
     "party:dev": "bun --filter='@alostraques/party' run dev",
     "party:deploy": "bun --filter='@alostraques/party' run deploy",
     "test": "vitest",

@@ -3,7 +3,7 @@ import {
   MatchEvent,
   MatchState,
   MatchStateMachine,
-} from '../../apps/game-vite/src/systems/MatchStateMachine.js';
+} from '../../packages/game/src/systems/MatchStateMachine.js';
 
 /**
  * Tests validating the MatchStateMachine transition sequences used by FightScene.

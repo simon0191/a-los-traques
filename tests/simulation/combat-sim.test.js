@@ -1,6 +1,6 @@
 import { CombatSim, createCombatSim, FighterSim } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { ROUND_TIME } from '../../apps/game-vite/src/config.js';
+import { ROUND_TIME } from '../../packages/game/src/config.js';
 
 describe('CombatSim', () => {
   describe('constructor', () => {

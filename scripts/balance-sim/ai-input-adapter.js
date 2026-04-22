@@ -8,7 +8,7 @@
  */
 
 import { encodeInput } from '@alostraques/sim';
-import { AIController } from '../../apps/game-vite/src/systems/AIController.js';
+import { AIController } from '../../packages/game/src/systems/AIController.js';
 
 /**
  * Create a headless AI controller (no Phaser scene needed).

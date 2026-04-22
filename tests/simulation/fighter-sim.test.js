@@ -8,7 +8,7 @@ import {
   SPECIAL_COST_FP,
 } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { MAX_HP, STAMINA_COSTS } from '../../apps/game-vite/src/config.js';
+import { MAX_HP, STAMINA_COSTS } from '../../packages/game/src/config.js';
 
 describe('FighterSim', () => {
   describe('constructor', () => {

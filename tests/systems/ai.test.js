@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 // Import only the class to call getDifficultyConfig as a method
 // We construct with null scene/fighter/opponent since we only test config
-import { AIController } from '../../apps/game-vite/src/systems/AIController.js';
+import { AIController } from '../../packages/game/src/systems/AIController.js';
 
 function getConfig(difficulty) {
   // getDifficultyConfig is a regular method, call it directly

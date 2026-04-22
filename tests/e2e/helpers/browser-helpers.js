@@ -57,7 +57,7 @@ export function p1Url(baseUrl, { fighter, seed, aiDifficulty, speed = DEFAULT_SP
   if (seed != null) params.set('seed', String(seed));
   if (aiDifficulty) params.set('aiDifficulty', aiDifficulty);
   if (speed > 1) params.set('speed', String(speed));
-  return `${baseUrl}?${params}`;
+  return `${baseUrl}/play?${params}`;
 }
 
 /**
@@ -73,5 +73,5 @@ export function p2Url(
   if (seed != null) params.set('seed', String(seed));
   if (aiDifficulty) params.set('aiDifficulty', aiDifficulty);
   if (speed > 1) params.set('speed', String(speed));
-  return `${baseUrl}?${params}`;
+  return `${baseUrl}/play?${params}`;
 }

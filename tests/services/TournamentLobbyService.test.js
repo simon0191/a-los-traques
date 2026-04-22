@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TournamentLobbyService } from '../../apps/game-vite/src/services/TournamentLobbyService.js';
+import { TournamentLobbyService } from '../../packages/game/src/services/TournamentLobbyService.js';
 
 // Mock dependency modules
-vi.mock('../../apps/game-vite/src/services/api.js', () => ({
+vi.mock('../../packages/game/src/services/api.js', () => ({
   getProfile: vi.fn(),
 }));
 
@@ -34,7 +34,7 @@ describe('TournamentLobbyService', () => {
   });
 
   it('initHost handles profile fetch and initial broadcast', async () => {
-    const { getProfile } = await import('../../apps/game-vite/src/services/api.js');
+    const { getProfile } = await import('../../packages/game/src/services/api.js');
     getProfile.mockResolvedValue({ id: 'real-uid', nickname: 'KillerTraque' });
 
     const service = new TournamentLobbyService(roomId);

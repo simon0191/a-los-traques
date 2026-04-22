@@ -1,7 +1,7 @@
 import { createFighterSim, decodeInput } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { GAME_WIDTH } from '../../apps/game-vite/src/config.js';
-import fightersData from '../../apps/game-vite/src/data/fighters.json' with { type: 'json' };
+import { GAME_WIDTH } from '../../packages/game/src/config.js';
+import fightersData from '../../packages/game/src/data/fighters.json' with { type: 'json' };
 import { createHeadlessAI, getEncodedInput } from '../../scripts/balance-sim/ai-input-adapter.js';
 
 const P1_START_X = Math.trunc(GAME_WIDTH * 0.3);

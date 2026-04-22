@@ -6,7 +6,7 @@ import {
   SPECIAL_TINT_MAX_FRAMES,
 } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { STAMINA_COSTS } from '../../apps/game-vite/src/config.js';
+import { STAMINA_COSTS } from '../../packages/game/src/config.js';
 
 /** Create a minimal sim fighter for cancel tests. */
 function createFighter(moves = {}) {

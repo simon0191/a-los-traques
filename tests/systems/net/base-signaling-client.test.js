@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BaseSignalingClient } from '../../../apps/game-vite/src/systems/net/BaseSignalingClient.js';
+import { BaseSignalingClient } from '../../../packages/game/src/systems/net/BaseSignalingClient.js';
 
 // Mock PartySocket
 vi.mock('partysocket', () => {

@@ -12,7 +12,7 @@ import {
 import { generateBundle } from './helpers/bundle-generator.js';
 import { generateReport } from './helpers/report-generator.js';
 
-const BASE_URL = 'http://localhost:5173';
+const BASE_URL = 'http://localhost:3000';
 const RESULTS_DIR = 'test-results';
 
 test.describe('Multiplayer reconnection', () => {

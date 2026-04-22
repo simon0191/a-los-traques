@@ -8,7 +8,7 @@ import {
   restoreFighterState,
   restoreGameState,
   SNAPSHOT_VERSION,
-} from '../../apps/game-vite/src/systems/GameState.js';
+} from '../../packages/game/src/systems/GameState.js';
 
 function makeFighter(overrides = {}) {
   return {

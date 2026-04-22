@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import accessoryCatalog from '../../apps/game-vite/src/data/accessories.json';
+import accessoryCatalog from '../../packages/game/src/data/accessories.json';
 import {
   autoPickAccessories,
   calibratedCategories,
-} from '../../apps/game-vite/src/scenes/accessory-select-helpers.js';
+} from '../../packages/game/src/scenes/accessory-select-helpers.js';
 
 // Dummy calibration entry. `calibratedCategories` requires a non-null
 // idle[0] so preview anchors have something to read; downstream tests that

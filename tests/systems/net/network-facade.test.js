@@ -2,7 +2,7 @@ import { encodeInput } from '@alostraques/sim';
 import { describe, expect, it, vi } from 'vitest';
 
 // Mock WebRTCTransport
-vi.mock('../../../apps/game-vite/src/systems/WebRTCTransport.js', () => {
+vi.mock('../../../packages/game/src/systems/WebRTCTransport.js', () => {
   class MockWebRTCTransport {
     constructor(opts) {
       this._opts = opts;
@@ -69,7 +69,7 @@ vi.mock('partysocket', () => {
   return { default: MockPartySocket };
 });
 
-const { NetworkFacade } = await import('../../../apps/game-vite/src/systems/net/NetworkFacade.js');
+const { NetworkFacade } = await import('../../../packages/game/src/systems/net/NetworkFacade.js');
 
 function makeFacade() {
   return new NetworkFacade('test-room', 'localhost:1999');

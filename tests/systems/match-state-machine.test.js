@@ -3,7 +3,7 @@ import {
   MatchEvent,
   MatchState,
   MatchStateMachine,
-} from '../../apps/game-vite/src/systems/MatchStateMachine.js';
+} from '../../packages/game/src/systems/MatchStateMachine.js';
 
 describe('MatchStateMachine', () => {
   describe('initial state', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 // Mock WebRTCTransport before importing TransportManager
-vi.mock('../../../apps/game-vite/src/systems/WebRTCTransport.js', () => {
+vi.mock('../../../packages/game/src/systems/WebRTCTransport.js', () => {
   class MockWebRTCTransport {
     constructor(opts) {
       this._opts = opts;
@@ -42,7 +42,7 @@ vi.mock('../../../apps/game-vite/src/systems/WebRTCTransport.js', () => {
 });
 
 const { TransportManager } = await import(
-  '../../../apps/game-vite/src/systems/net/TransportManager.js'
+  '../../../packages/game/src/systems/net/TransportManager.js'
 );
 
 function makeSignaling() {

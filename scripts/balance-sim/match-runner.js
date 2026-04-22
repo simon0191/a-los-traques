@@ -4,8 +4,8 @@
  */
 
 import { createCombatSim, createFighterSim, tick } from '@alostraques/sim';
-import { GAME_WIDTH, ROUND_TIME } from '../../apps/game-vite/src/config.js';
-import fightersData from '../../apps/game-vite/src/data/fighters.json' with { type: 'json' };
+import { GAME_WIDTH, ROUND_TIME } from '../../packages/game/src/config.js';
+import fightersData from '../../packages/game/src/data/fighters.json' with { type: 'json' };
 import { createHeadlessAI, getEncodedInput } from './ai-input-adapter.js';
 
 const P1_START_X = Math.trunc(GAME_WIDTH * 0.3);

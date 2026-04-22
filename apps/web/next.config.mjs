@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Silence the "experimental" turbopack banner in dev.
+  // Transpile workspace packages so Next's webpack pipeline resolves Phaser's
+  // ESM/CJS interop correctly (`import Phaser from 'phaser'` otherwise fails).
+  transpilePackages: ['@alostraques/game', '@alostraques/sim'],
   experimental: {},
   // Allow the Vite app (localhost:5173) to call /api/* endpoints during local dev.
   async headers() {

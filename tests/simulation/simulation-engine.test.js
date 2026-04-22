@@ -10,7 +10,7 @@ import {
   tick,
 } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { ROUND_TIME, ROUNDS_TO_WIN } from '../../apps/game-vite/src/config.js';
+import { ROUND_TIME, ROUNDS_TO_WIN } from '../../packages/game/src/config.js';
 
 const EMPTY = encodeInput({});
 const RIGHT = encodeInput({ right: true });

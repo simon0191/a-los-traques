@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveOverlayTransform } from '../../apps/game-vite/src/entities/overlay-transform.js';
+import { resolveOverlayTransform } from '../../packages/game/src/entities/overlay-transform.js';
 
 // Defaults that mirror the shipped fighter dimensions so the test exercises the
 // same numbers the runtime uses.

@@ -9,9 +9,9 @@ import {
   createFighterSim,
   hashGameState,
 } from '@alostraques/sim';
-import { GAME_WIDTH, ROUNDS_TO_WIN } from '../../apps/game-vite/src/config.js';
-import fightersData from '../../apps/game-vite/src/data/fighters.json' with { type: 'json' };
-import { simulateFrame } from '../../apps/game-vite/src/systems/SimulationStep.js';
+import { GAME_WIDTH, ROUNDS_TO_WIN } from '../../packages/game/src/config.js';
+import fightersData from '../../packages/game/src/data/fighters.json' with { type: 'json' };
+import { simulateFrame } from '../../packages/game/src/systems/SimulationStep.js';
 import { expandSparseInputs } from './input-utils.js';
 
 const P1_START_X = Math.trunc(GAME_WIDTH * 0.3);
