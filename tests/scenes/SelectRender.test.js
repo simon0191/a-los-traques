@@ -12,7 +12,7 @@ describe('SelectRender helper (resolveSelectionState)', () => {
 
   it('mouse sweep scenario: hovering across cells does not mutate official selection', () => {
     const state = { ...baseState, p1Index: 0 };
-    
+
     // Hover cell 1
     let result = resolveSelectionState(state, { type: 'hover', index: 1 });
     expect(result.p1Index).toBe(0); // Official selection unchanged
@@ -31,14 +31,14 @@ describe('SelectRender helper (resolveSelectionState)', () => {
   });
 
   it('P2 selection mode respects P2 states', () => {
-    const p2State = { 
-      ...baseState, 
-      p1Confirmed: true, 
-      p2SelectionMode: true, 
-      p1Index: 5, 
-      p2Index: 8 
+    const p2State = {
+      ...baseState,
+      p1Confirmed: true,
+      p2SelectionMode: true,
+      p1Index: 5,
+      p2Index: 8,
     };
-    
+
     // Hover cell 12
     let result = resolveSelectionState(p2State, { type: 'hover', index: 12 });
     expect(result.p1Index).toBe(5);
