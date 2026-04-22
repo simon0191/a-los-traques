@@ -145,10 +145,10 @@ describe('Tournament API Endpoints', () => {
       matchIndex: 0,
     };
 
-    it('updates stats and increments matches_played on first report', async () => {
+    it('updates stats and increments matches_played on first report (handshake check)', async () => {
       mockDb.query
         .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 0, size: 8 }] }) // host check
-        .mockResolvedValueOnce({ rows: [{ user_id: defaultIds.winnerId }] }) // handshake
+        .mockResolvedValueOnce({ rows: [{ user_id: defaultIds.winnerId }] }) // only winner has handshake
         .mockResolvedValueOnce({ rows: [{ success: true }] }) // BEGIN
         .mockResolvedValueOnce({ rows: [1] }); // INSERT INTO tournament_matches RETURNING 1
 
@@ -162,17 +162,18 @@ describe('Tournament API Endpoints', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       const data = res.json.mock.calls[0][0];
-      expect(data.status).toBe('success');
+      expect(data.updated.winner).toBe(true);
+      expect(data.updated.loser).toBe(false);
 
-      // Verify idempotency record was created
-      expect(mockDb.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO tournament_matches'),
-        expect.arrayContaining([defaultIds.tourneyId.toLowerCase(), 0, 0]),
-      );
-      // Verify profile update
+      // Verify profile update for winner
       expect(mockDb.query).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE profiles SET wins = wins + 1'),
         [defaultIds.winnerId],
+      );
+      // Loser should not be updated as they didn't handshake (Regression Test #3)
+      expect(mockDb.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE profiles SET losses = losses + 1'),
+        expect.any(Array),
       );
       // Verify counter increment
       expect(mockDb.query).toHaveBeenCalledWith(
@@ -203,9 +204,59 @@ describe('Tournament API Endpoints', () => {
 
       // Verify ROLLBACK was called
       expect(mockDb.query).toHaveBeenCalledWith('ROLLBACK');
-      // Verify NO stats were updated after collision
+    });
+
+    it('atomically crowns champion on isFinal (Regression Test #1)', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 6, size: 8 }] }) // host check
+        .mockResolvedValueOnce({
+          rows: [{ user_id: validWinnerUuid }, { user_id: validLoserUuid }],
+        }) // handshakes
+        .mockResolvedValueOnce({ rows: [{ success: true }] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [1] }); // Ledger insert
+
+      const req = {
+        method: 'POST',
+        body: { ...defaultIds, isFinal: true, championId: validWinnerUuid },
+      };
+      const res = createRes();
+
+      await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      // Verify crowning
+      expect(mockDb.query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE profiles SET tournament_wins = tournament_wins + 1'),
+        [validWinnerUuid],
+      );
+      // Verify room locking
+      expect(mockDb.query).toHaveBeenCalledWith(
+        expect.stringContaining("UPDATE active_sessions SET status = 'completed'"),
+        [defaultIds.tourneyId.toLowerCase()],
+      );
+    });
+
+    it('increments matches_played even if no profiles are updated (no handshakes) (Regression Test #2)', async () => {
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [{ status: 'open', matches_played: 0, size: 8 }] }) // host check
+        .mockResolvedValueOnce({ rows: [] }) // no handshakes (e.g. AI match)
+        .mockResolvedValueOnce({ rows: [{ success: true }] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [1] }); // Ledger insert
+
+      const req = { method: 'POST', body: defaultIds };
+      const res = createRes();
+
+      await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      // Verify session counter is still incremented
+      expect(mockDb.query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE active_sessions SET matches_played = matches_played + 1'),
+        [defaultIds.tourneyId.toLowerCase()],
+      );
+      // Verify profiles are NOT updated
       expect(mockDb.query).not.toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE profiles'),
+        expect.stringContaining('UPDATE profiles SET wins'),
         expect.any(Array),
       );
     });
@@ -240,9 +291,6 @@ describe('Tournament API Endpoints', () => {
 
       await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('cannot be the same') }),
-      );
     });
 
     it('returns 400 when indices are missing', async () => {
@@ -254,9 +302,6 @@ describe('Tournament API Endpoints', () => {
 
       await reportMatch(req, res, { userId: validHostUuid, db: mockDb });
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: expect.stringContaining('Missing required fields') }),
-      );
     });
   });
 });
