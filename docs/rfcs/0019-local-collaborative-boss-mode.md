@@ -31,14 +31,25 @@ A new scene modeled after `TournamentSetupScene` will allow local players to joi
 - **Role Assignment**: All joined participants are assigned to Team 0 (Players).
 - **Match Context**: Transitions to `SelectScene` with `type: 'coop_boss'`.
 
-## 2. Selection Mode (`SelectScene`)
+## 3. Selection Mode (`SelectScene`)
 
 When in `coop_boss` mode, the character selection flow changes:
 - Humans pick characters one by one for the team.
 - Once all team members have picked, a **Boss** is randomly assigned from the remaining characters.
 - The Boss is assigned to Team 1.
 
-## 3. Engine Generalization (N vs 1)
+### Setup & Selection Flow
+```mermaid
+graph TD
+    A[Multiplayer Menu] --> B[Coop Setup Scene]
+    B -->|Join humans/guests| C[Select Scene]
+    C -->|Pick Team 1| D[Select Scene]
+    D -->|Pick Team 2| E[Select Scene]
+    E -->|Finish Team| F[Randomly Pick Boss]
+    F --> G[Fight Scene]
+```
+
+## 4. Engine Generalization (N vs 1)
 
 The fight engine must be updated to support more than two active fighters.
 
@@ -55,7 +66,25 @@ The fight engine must be updated to support more than two active fighters.
 - Refactor `tick()` to `tickCoop()` or generalize `tick()` to accept arrays of fighters for each side.
 - **Facing Logic**: Players always face the Boss. The Boss faces the *closest* player.
 
-## 4. Boss AI (`AIController.js`)
+### Generalized Tick Logic
+```mermaid
+sequenceDiagram
+    participant S as SimulationEngine
+    participant T0 as Team 0 (Players)
+    participant T1 as Team 1 (Boss)
+    participant C as CombatSim
+
+    S->>T0: Update (Gravity, Timers)
+    S->>T1: Update (Gravity, Timers)
+    S->>C: resolveBodyCollisions(allFighters)
+    S->>T0: faceOpponent(Boss)
+    S->>T1: faceOpponent(ClosestPlayer)
+    S->>C: checkHitsMulti(T0, T1)
+    S->>C: checkHitsMulti(T1, T0)
+    Note over S,C: Update round state if Boss or ALL Players die
+```
+
+## 5. Boss AI (`AIController.js`)
 
 The AI must be multi-target aware:
 - Instead of a single `opponent` reference, it evaluates all members of Team 0.
