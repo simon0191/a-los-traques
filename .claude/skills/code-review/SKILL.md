@@ -56,6 +56,7 @@ For each changed file, ask:
 - What are the *edge cases* at the boundaries — scene transitions, network races, optimistic-vs-authoritative state, what happens when a message is lost or arrives late, what happens during rollback re-simulation?
 - Is existing behavior preserved for paths the PR didn't mean to change? (Regression prevention is one of the most common things flagged in this repo.)
 - Does the change scope match the PR description, or did it grow sideways into unrelated refactors?
+- **Does it support keyboard and controller navigation?** If a new in-game scenario is created that includes navigation options (e.g., buttons), ensure navigation is supported with both keyboard arrow keys and controllers.
 - **Is there test coverage for the new/changed behavior?** See the next subsection — this is one of the core checks on every PR.
 
 Trace data flow. If a bug fix touches `onMatchOver` in one place, search for other callers — that's how the "same bug still present in the main path" comments get caught.
