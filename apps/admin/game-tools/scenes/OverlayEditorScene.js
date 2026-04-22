@@ -19,14 +19,19 @@ import { DEFAULT_TRANSFORM, OverlaySession } from '../editor/OverlaySession.js';
 
 const log = Logger.create('OverlayEditor');
 
-// Accessory catalog is the single source of truth (src/data/accessories.json).
+// Accessory catalog is the single source of truth (packages/game/src/data/accessories.json).
 // Each accessory has a `category` — calibrations are shared per category so
 // two different hats on the same fighter inherit the same placement.
+//
+// `image` is stored as a root-relative path like "assets/accessories/…". Phaser's
+// loader has `setBaseURL('/')` so that works for the scene preload, but the
+// `<img>` tags rendered by EditorUI resolve URLs against the current page
+// (`/dev-tools/overlay-editor/…`) unless we force-absolute them here.
 const ACCESSORIES = accessoryCatalog.map((a) => ({
   id: a.id,
   category: a.category,
   label: a.label,
-  imageUrl: a.image,
+  imageUrl: a.image.startsWith('/') ? a.image : `/${a.image}`,
 }));
 
 const ZOOM = 2;
