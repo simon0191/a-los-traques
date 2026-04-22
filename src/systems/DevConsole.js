@@ -282,11 +282,14 @@ export class DevConsole {
             break;
           }
           this.print('Syncing all finished matches to backend...');
-          scene._reportAllFinishedMatches().then(() => {
-            this.print('Sync complete. Check browser console for details.');
-          }).catch(e => {
-            this.print(`Sync failed: ${e.message}`);
-          });
+          scene
+            ._reportAllFinishedMatches()
+            .then(() => {
+              this.print('Sync complete. Check browser console for details.');
+            })
+            .catch((e) => {
+              this.print(`Sync failed: ${e.message}`);
+            });
         } else {
           this.print('Command only available in BracketScene.');
         }

@@ -309,12 +309,13 @@ export class BracketScene extends Phaser.Scene {
       for (let m = 0; m < round.length; m++) {
         const match = round[m];
         if (match.winnerUserId) {
-          const loserUserId = match.winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
+          const loserUserId =
+            match.winnerUserId === match.p1UserId ? match.p2UserId : match.p1UserId;
           try {
-             await this._reportSimulatedMatch(tourneyId, match.winnerUserId, loserUserId, r, m);
+            await this._reportSimulatedMatch(tourneyId, match.winnerUserId, loserUserId, r, m);
           } catch (e) {
-             // If a single match fails (e.g. conflict already handled), we log but keep going.
-             log.debug('Match already reported or failed (ignoring)', { r, m, err: e.message });
+            // If a single match fails (e.g. conflict already handled), we log but keep going.
+            log.debug('Match already reported or failed (ignoring)', { r, m, err: e.message });
           }
         }
       }
@@ -451,9 +452,7 @@ export class BracketScene extends Phaser.Scene {
   async _reportSimulatedMatch(tourneyId, winnerUserId, loserUserId, roundIndex, matchIndex) {
     try {
       const isFinal =
-        this.manager.complete &&
-        roundIndex === this.manager.rounds.length - 1 &&
-        matchIndex === 0;
+        this.manager.complete && roundIndex === this.manager.rounds.length - 1 && matchIndex === 0;
 
       // Authoritative champion check
       const championUserId = isFinal ? this.manager.winnerUserId : null;
@@ -469,12 +468,18 @@ export class BracketScene extends Phaser.Scene {
       if (isFinal && championUserId && isUuid(championUserId)) {
         payload.isFinal = true;
         payload.championId = championUserId;
-        log.info(`[Bracket] Reporting FINAL match: ${winnerUserId} beat ${loserUserId}. Champion: ${championUserId}`);
+        log.info(
+          `[Bracket] Reporting FINAL match: ${winnerUserId} beat ${loserUserId}. Champion: ${championUserId}`,
+        );
       } else if (isFinal) {
         payload.isFinal = true;
-        log.info(`[Bracket] Reporting FINAL match: ${winnerUserId} beat ${loserUserId}. (AI Champion)`);
+        log.info(
+          `[Bracket] Reporting FINAL match: ${winnerUserId} beat ${loserUserId}. (AI Champion)`,
+        );
       } else {
-        log.info(`[Bracket] Reporting match: R${roundIndex} M${matchIndex}: ${winnerUserId} beat ${loserUserId}`);
+        log.info(
+          `[Bracket] Reporting match: R${roundIndex} M${matchIndex}: ${winnerUserId} beat ${loserUserId}`,
+        );
       }
 
       const resp = await reportTournamentMatch(payload);
