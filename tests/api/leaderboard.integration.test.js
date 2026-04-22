@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { queryLeaderboard } from '../../api/leaderboard.js';
+import { queryLeaderboard } from '../../apps/web/lib/queries/leaderboard';
 
 function uuid(n) {
   return `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;

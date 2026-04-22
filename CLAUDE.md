@@ -3,16 +3,16 @@
 Street Fighter-style fighting game starring 16 real friends. iPhone 15 landscape Safari target.
 480x270 internal resolution, Phaser 3 + Vite, ES6 modules, all UI text in Spanish.
 
-## Monorepo Layout (RFC 0019, Phase 1)
+## Monorepo Layout (RFC 0019, Phases 1–2)
 
 Bun workspaces + Turborepo. Apps are runnable; packages are importable.
 
-- `apps/game-vite/` — Vite + Phaser SPA (will be replaced by `apps/web` in Phase 3).
+- `apps/web/` — Next.js 15 App Router. Hosts the marketing pages (`/`, `/about`, `/blog`) and every HTTP API route (`app/api/**/route.ts`). Vercel cron lives in `apps/web/vercel.json`.
+- `apps/game-vite/` — Vite + Phaser SPA. Proxies `/api/*` to the Next.js app on `:3000`. Will be replaced by `/play` inside `apps/web` in Phase 3.
 - `apps/party/` — PartyKit multiplayer relay (unchanged behavior).
 - `packages/sim/` — `@alostraques/sim`: pure simulation. No Phaser, Vite, React, Next.
 - `packages/db/` — `@alostraques/db`: raw `pg` pool factory + dbmate migrations.
-- `packages/api-core/` — `@alostraques/api-core`: framework-agnostic auth + pluggable storage + Zod-ready validate helpers.
-- `api/` — Vercel Functions. Still at repo root; Phase 2 ports these to `apps/web/app/api/*`.
+- `packages/api-core/` — `@alostraques/api-core`: framework-agnostic JWT verify + pluggable storage + Zod-ready validate helpers.
 - `tests/` — still at repo root; Phase 3+ distribute them into colocated `__tests__/` per package.
 - `scripts/` — glue only (`dev-db.js`, `dev-multiplayer.js`, `migrate.sh`, `build-music-manifest.js`, `overlay-export-server.js`, plus asset-pipeline + balance-sim which promote to apps in later phases).
 
@@ -20,14 +20,14 @@ Workspace imports: use `@alostraques/<name>` from any workspace (app or package)
 
 ## Authentication & Persistence
 
-Decoupled architecture: Supabase for Auth (JWT) + Vercel Functions for data persistence.
+Decoupled architecture: Supabase for Auth (JWT) + Next.js Route Handlers for data persistence.
 
-- **Supabase Client**: `apps/game-vite/src/services/supabase.js` (Auth only).
-- **Backend API**: `api/` (Vercel Functions) - `profile.js`, `stats.js`.
-- **API Service**: `apps/game-vite/src/services/api.js` (Client-side communication with backend).
-- **JWT Verification**: `@alostraques/api-core` exposes `verifyBearerToken` + `resolveUserId` (framework-agnostic). `api/_lib/handler.js` wraps them into Vercel-specific `withAuth` / `withAdmin`.
-- **Dev Bypass**: In non-production, backend accepts `X-Dev-User-Id` if secret is missing.
-- **DB Pool**: `@alostraques/db` exports `createPool`, `createClient`, and `getPool` (memoized on `globalThis`). Vercel handlers use `getPool` / fresh client per request on Windows.
+- **Supabase Client**: `apps/game-vite/src/services/supabase.js` (Auth only). Moves to `@alostraques/auth` in Phase 3.
+- **Backend API**: `apps/web/app/api/**/route.ts` (Next.js Route Handlers) — `profile`, `stats`, `leaderboard`, `fights`, `debug-bundles`, `tournament/*`, `admin/*`, `cron/*`, `public-config`.
+- **API Service**: `apps/game-vite/src/services/api.js` (client-side fetch against `/api/*`, which Vite proxies to `:3000`).
+- **JWT Verification**: `@alostraques/api-core` exposes `verifyBearerToken` + `resolveUserId` (framework-agnostic). `apps/web/lib/auth/middleware.ts` is the Next.js `withAuth` / `withAdmin` adapter that pairs the core with a pooled `pg` client from `@alostraques/db`.
+- **Dev Bypass**: In non-production, the middleware accepts the `X-Dev-User-Id` header when no Bearer token is present.
+- **DB Pool**: `@alostraques/db` exports `createPool`, `createClient`, and `getPool` (memoized on `globalThis`). Route handlers use `getPool` / fresh client per request on Windows.
 - **Global State**: Authenticated user object stored in `window.game.registry.get('user')`.
 - **Database Schema**:
     - Managed via `dbmate` (pure Postgres). `bun run migrate` calls `scripts/migrate.sh` which points dbmate at `packages/db/migrations/`.
@@ -38,11 +38,11 @@ Decoupled architecture: Supabase for Auth (JWT) + Vercel Functions for data pers
 ## Build & Run
 
 ```bash
-bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + Vite + Vercel Dev + PartyKit)
+bun run dev:mp       # Full multiplayer dev (fake auth + PGLite + Vite + Next.js API + PartyKit)
                      # Log in as p1@test.local or p2@test.local (password: password)
                      # Windows: Auto-sets PG_FRESH_CLIENT=1 to avoid ECONNRESET.
                      # RESET DB: rm -r -Force .pglite (PS) or rm -rf .pglite (Unix)
-bun run dev:all      # Run both Vite and Vercel Dev (recommended)
+bun run dev:all      # PGLite + Vite + Next.js API (no PartyKit / fake auth)
 bun run dev          # Vite dev server only (delegates to @alostraques/game-vite)
 bun run party:dev    # PartyKit dev server (port 1999)
 bun run build        # Production build for the Vite app
@@ -63,21 +63,46 @@ bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 
 ```
 apps/
-  game-vite/                       # Vite + Phaser SPA (replaced by apps/web in Phase 3)
+  web/                             # Next.js 15 App Router — marketing + API
+    app/
+      (marketing)                  # Landing + blog + about (Phase 2 inlines these at the root)
+      page.tsx                     # `/` landing
+      about/page.tsx
+      blog/page.tsx, [slug]/page.tsx  # MDX-on-disk blog (content/blog/*.md)
+      api/                         # HTTP API surface — thin Route Handlers over service logic
+        profile/route.ts
+        stats/route.ts, stats/tournament-match/route.ts
+        leaderboard/route.ts
+        fights/route.ts
+        debug-bundles/route.ts
+        tournament/create/route.ts, tournament/join/route.ts
+        admin/fights/route.ts, admin/debug-bundle/route.ts
+        cron/cleanup-bundles/route.ts
+        public-config/route.ts
+      layout.tsx, globals.css
+    lib/
+      auth/middleware.ts           # Next.js withAuth/withAdmin (wraps @alostraques/api-core + @alostraques/db)
+      env.ts                       # Zod-free env reader (SUPABASE_*, PARTYKIT_HOST, …)
+      blog.ts                      # Frontmatter parser for content/blog/*.md
+      queries/                     # Server-only SQL kept out of route files
+    content/blog/                  # Markdown posts (no CMS — see RFC 0019)
+    vercel.json                    # Cron schedule for /api/cron/cleanup-bundles
+    next.config.mjs
+    tsconfig.json
+  game-vite/                       # Vite + Phaser SPA (Phase 3 folds into apps/web/play)
     index.html
-    vite.config.js
-    public/                        # Static assets (moved from repo-root public/)
+    vite.config.js                 # Proxies /api to http://localhost:3000 (Next.js)
+    public/
       assets/
-        fighters/{id}/             # Animation strip PNGs (idle.png, walk.png, etc.)
-        portraits/                 # Portrait images per fighter
-        audio/                     # Music, SFX, announcer MP3s
+        fighters/{id}/             # Animation strip PNGs
+        portraits/
+        audio/
     src/
-      scenes/                      # Boot -> Title -> MultiplayerMenu -> Select -> (TournamentSetup -> Bracket) -> PreFight -> Fight -> Victory
+      scenes/                      # Boot -> Title -> MultiplayerMenu -> Select -> …
       services/                    # TournamentManager.js, UIService.js, supabase.js, api.js
       entities/                    # Fighter.js (Phaser wrapper)
-      systems/                     # CombatSystem, InputManager, InputProfiles, TouchControls, AIController, AudioBridge, VFXBridge
-        net/                       # NetworkFacade, SignalingClient, TransportManager, InputSync, ConnectionMonitor, SpectatorRelay
-      data/                        # fighters.json (17 fighters), stages.json (5 stages)
+      systems/                     # CombatSystem, InputManager, AIController, AudioBridge, VFXBridge, net/*
+      data/                        # fighters.json, stages.json
       config.js                    # Re-exports pure constants from @alostraques/sim + game-side (PARTYKIT_HOST etc.)
   party/                           # PartyKit server (+ TURN credential endpoint)
     server.js
@@ -87,12 +112,10 @@ packages/
     src/                           # CombatSim, FighterSim, SimulationEngine, FixedPoint, combat-math, combat-block, InputBuffer, constants
   db/                              # @alostraques/db — pg Pool factory + dbmate migrations
     src/                           # pool.js (createPool, createClient, getPool)
-    migrations/                    # Moved from repo-root db/migrations (dbmate-driven)
+    migrations/
     seed-dev.sql
   api-core/                        # @alostraques/api-core — framework-agnostic API primitives
     src/                           # auth.js, storage.js, validate.js
-api/                               # Vercel Functions (Phase 2 ports to apps/web/app/api/*)
-  _lib/handler.js                  # Vercel adapter over @alostraques/api-core + @alostraques/db
 assets/
   references/                      # Golden reference images for generation pipeline
   photos/                          # Source photos of friends (input for generation)
@@ -103,12 +126,15 @@ scripts/
   balance-sim/                     # Headless AI-vs-AI balance simulation (moves to apps/balance-sim later)
   dev-db.js / dev-multiplayer.js   # Local dev orchestration (Turbo will replace later)
   migrate.sh                       # dbmate wrapper → packages/db/migrations
-tests/                             # Still at repo root during Phase 1; distributed in later phases
+tests/                             # Still at repo root during Phase 1–2; distributed in later phases
   simulation/                      # @alostraques/sim unit tests (PureSim, FighterSim, CombatSim)
   systems/                         # combat-math, collision, AI difficulty
   party/                           # PartyKit server (slot assignment, rate limiting, routing)
   data/                            # fighters.json data validation
   balance-sim/                     # Balance simulation adapter + runner tests
+  api/                             # storage unit + leaderboard integration. The old
+                                   # per-handler unit tests were deleted in Phase 2
+                                   # (business logic moves to features/<domain>/service in Phase 3+).
 ```
 
 ## Conventions

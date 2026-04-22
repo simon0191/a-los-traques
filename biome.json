@@ -4,15 +4,16 @@
     "includes": [
       "apps/**",
       "packages/**",
-      "api/**",
       "tests/**",
       "scripts/**",
       "*.json",
       "*.js",
       "!**/node_modules",
       "!**/dist",
+      "!**/.next",
       "!**/*.html",
       "!apps/game-vite/public",
+      "!apps/web/.next",
       "!scripts/asset-pipeline/pose/.venv",
       "!scripts/asset-pipeline/pose/models",
       "!scripts/asset-pipeline/pose/__pycache__"

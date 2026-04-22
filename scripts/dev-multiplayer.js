@@ -1,7 +1,7 @@
 /**
  * Single-command orchestrator for local multiplayer development.
  *
- * Starts: PGLite (in-process) + fake auth + Vite + Vercel Dev + PartyKit
+ * Starts: PGLite (in-process) + fake auth + Vite (game) + Next.js (API) + PartyKit
  * Usage:  bun run dev:mp
  *
  * Test accounts: p1@test.local / p2@test.local (password: password)
@@ -68,9 +68,13 @@ console.log('\n[dev:mp] Starting services...\n');
 const { result } = concurrently(
   [
     { command: 'node scripts/dev-auth.js', name: 'auth', prefixColor: 'magenta' },
-    { command: 'bunx vite', name: 'vite', prefixColor: 'green' },
-    { command: 'bunx vercel dev --yes', name: 'api', prefixColor: 'yellow' },
-    { command: 'bunx partykit dev', name: 'party', prefixColor: 'cyan' },
+    {
+      command: "bun --filter='@alostraques/game-vite' run dev",
+      name: 'vite',
+      prefixColor: 'green',
+    },
+    { command: "bun --filter='@alostraques/web' run dev", name: 'api', prefixColor: 'yellow' },
+    { command: "bun --filter='@alostraques/party' run dev", name: 'party', prefixColor: 'cyan' },
   ],
   {
     prefix: 'name',

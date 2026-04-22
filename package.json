@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "bun --filter='@alostraques/game-vite' run dev",
     "dev:db": "node scripts/dev-db.js",
-    "dev:all": "concurrently \"node scripts/dev-db.js\" \"bun --filter='@alostraques/game-vite' run dev\" \"vercel dev --yes\"",
+    "dev:all": "concurrently \"node scripts/dev-db.js\" \"bun --filter='@alostraques/game-vite' run dev\" \"bun --filter='@alostraques/web' run dev\"",
     "dev:mp": "node scripts/dev-multiplayer.js",
     "build": "bun --filter='@alostraques/game-vite' run build",
     "preview": "bun --filter='@alostraques/game-vite' run preview",
