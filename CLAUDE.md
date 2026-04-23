@@ -15,7 +15,8 @@ Bun workspaces + Turborepo. Apps are runnable; packages are importable.
 - `packages/db/` — `@alostraques/db`: raw `pg` pool factory + dbmate migrations.
 - `packages/api-core/` — `@alostraques/api-core`: framework-agnostic JWT verify + pluggable storage + Zod-ready validate helpers.
 - `tests/` — still at repo root; later phases distribute them into colocated `__tests__/` per package.
-- `scripts/` — glue only (`dev-db.js`, `dev-multiplayer.js`, `migrate.sh`, `build-music-manifest.js`, `overlay-export-server.js`, plus asset-pipeline + balance-sim which promote to apps in later phases). `scripts/build-music-manifest.js` runs as an `apps/web` predev/prebuild hook and emits `packages/game/src/data/music-manifest.js` from the MP3s in `apps/web/public/assets/audio/fights/`.
+- `scripts/` — glue only (`dev-db.js`, `dev-multiplayer.js`, `dev-auth.js`, `migrate.sh`, `build-music-manifest.js`, plus `asset-pipeline/` + `balance-sim/` which promote to apps in later phases). `build-music-manifest.js` runs as an `apps/web` predev/prebuild hook and emits `packages/game/src/data/music-manifest.js` from the MP3s in `apps/web/public/assets/audio/fights/`. Overlay-export used to be a Vite dev plugin here — it's now a Route Handler at `apps/admin/app/api/overlay-export/route.ts`.
+- `infra/` — Terraform for the Vercel project, Cloudflare DNS, and Supabase auth settings. See *Deployment* below.
 
 Workspace imports: use `@alostraques/<name>` from any workspace (app or package). No cross-app `../../apps/*` imports; share via `packages/*`.
 
@@ -65,109 +66,37 @@ bun run balance -- --p1=simon --p2=jeka  # Single matchup deep-dive
 
 **Windows Support**: If you experience `ECONNRESET` errors with the local database on Windows, ensure `PG_FRESH_CLIENT=1` is set in your environment. This forces a fresh database connection per request instead of using a pool. This is automatically handled by `bun run dev:mp`.
 
-## Project Structure
+## Project entry points
 
-```
-apps/
-  web/                             # Next.js 15 App Router — marketing + game + player API
-    app/
-      page.tsx                     # `/` landing
-      about/page.tsx
-      blog/page.tsx, [slug]/page.tsx  # MDX-on-disk blog (content/blog/*.md)
-      play/page.tsx                # Hosts the Phaser game via next/dynamic (ssr:false)
-      join/page.tsx                # Tournament join (login + signup + guest + PartySocket handshake)
-      replay/page.tsx              # Paste a debug bundle + redirect to /play?replay=1
-      api/                         # Player-facing HTTP API
-        profile/route.ts
-        stats/route.ts, stats/tournament-match/route.ts
-        leaderboard/route.ts
-        fights/route.ts
-        debug-bundles/route.ts
-        tournament/create/route.ts, tournament/join/route.ts
-        cron/cleanup-bundles/route.ts
-        public-config/route.ts
-      layout.tsx, globals.css
-    components/
-      GameHost.tsx, ViewportFix.tsx
-    lib/
-      auth/middleware.ts           # Next.js withAuth/withAdmin (wraps @alostraques/api-core + @alostraques/db)
-      env.ts                       # Env reader (SUPABASE_*, PARTYKIT_HOST, …)
-      blog.ts                      # Frontmatter parser for content/blog/*.md
-      queries/                     # Server-only SQL kept out of route files
-    content/blog/                  # Markdown posts (no CMS — see RFC 0019)
-    public/                        # Sprites, audio, manifest.json (join/replay are Next pages, not static HTML)
-    vercel.json                    # Cron schedule for /api/cron/cleanup-bundles
-    next.config.mjs
-    tsconfig.json                  # Extends repo-root tsconfig.base.json
-  admin/                           # Next.js 15 App Router — admin console on :3001
-    app/
-      page.tsx                     # Fights dashboard (behind login)
-      dev-tools/overlay-editor/page.tsx
-      dev-tools/inspector/page.tsx
-      api/admin/fights/route.ts
-      api/admin/debug-bundle/route.ts
-      api/overlay-export/route.ts  # Filesystem writes for overlay calibration (dev only)
-      layout.tsx, globals.css
-    components/
-      AdminShell.tsx               # Client-side auth gate (Supabase session check)
-      LoginForm.tsx
-      FightsTable.tsx, Pagination.tsx
-      DevToolsHost.tsx             # Phaser host for overlay-editor / inspector
-    game-tools/
-      index.js                     # createDevToolsGame({ parent, entry })
-      scenes/OverlayEditorScene.js, InspectorScene.js
-      editor/EditorUI.js, OverlayManifest.js, OverlaySession.js
-    lib/
-      auth/middleware.ts           # withAdmin (sibling of apps/web's)
-      supabase.ts, fetchAdmin.ts   # Browser auth + admin API fetch wrapper
-      overlay-export.ts            # Pure load/save helpers behind /api/overlay-export
-    next.config.mjs
-    tsconfig.json                  # Extends repo-root tsconfig.base.json
-  party/                           # PartyKit server (+ TURN credential endpoint)
-    server.js
-    partykit.json
-packages/
-  game/                            # @alostraques/game — Phaser scenes, systems, entities, data
-    src/
-      index.js                     # createGame({ parent, params, env, eventBus }) factory
-      config.js                    # Env-driven config (configureEnv/getPartyKitHost/isDevMode)
-      scenes/                      # Boot -> Title -> MultiplayerMenu -> Select -> …
-      services/                    # TournamentManager.js, UIService.js, supabase.js, api.js
-      entities/                    # Fighter.js + overlay-math.js (shared with admin editor)
-      systems/                     # CombatSystem, InputManager, AIController, AudioBridge, VFXBridge, net/*
-      data/                        # fighters.json, stages.json, music-manifest.js (generated)
-  sim/                             # @alostraques/sim — pure simulation (no Phaser)
-    src/                           # CombatSim, FighterSim, SimulationEngine, FixedPoint, combat-math, combat-block, InputBuffer, constants
-  db/                              # @alostraques/db — pg Pool factory + dbmate migrations
-    src/                           # pool.js (createPool, createClient, getPool)
-    migrations/
-    seed-dev.sql
-  api-core/                        # @alostraques/api-core — framework-agnostic API primitives
-    src/                           # auth.js, storage.js, validate.js
-assets/
-  references/                      # Golden reference images for generation pipeline
-  photos/                          # Source photos of friends (input for generation)
-  manifests/                       # JSON configs for asset pipeline (fighter_, portrait_, reference_)
-  _raw/                            # Intermediate files from asset pipeline (not shipped)
-scripts/
-  asset-pipeline/                  # Gemini-based sprite generation pipeline (will promote to apps/asset-pipeline)
-  balance-sim/                     # Headless AI-vs-AI balance simulation (will promote to apps/balance-sim)
-  dev-db.js, dev-multiplayer.js    # Local dev orchestration (PGLite + fake auth + spawns apps)
-  dev-auth.js                      # Fake GoTrue server for local dev
-  build-music-manifest.js          # predev/prebuild hook — emits packages/game/src/data/music-manifest.js
-  migrate.sh                       # dbmate wrapper → packages/db/migrations
-tsconfig.base.json                 # Shared strict-TS base (apps/web, apps/admin extend it)
-turbo.json                         # Turborepo pipeline config (build/dev/lint/test)
-tests/                             # Still at repo root; per-package __tests__ is a later RFC
-  simulation/                      # @alostraques/sim unit tests (PureSim, FighterSim, CombatSim)
-  systems/                         # combat-math, collision, AI difficulty
-  party/                           # PartyKit server (slot assignment, rate limiting, routing)
-  data/                            # fighters.json data validation
-  balance-sim/                     # Balance simulation adapter + runner tests
-  api/                             # storage unit + leaderboard integration. The old
-                                   # per-handler unit tests were deleted in Phase 2
-                                   # (business logic moves to features/<domain>/service in Phase 3+).
-```
+Key files to know when navigating the repo. See the *Monorepo Layout* bullets above for the one-liner per-workspace overview.
+
+- **Game boot**: `packages/game/src/index.js` exports `createGame({ parent, params, env, eventBus })`. `apps/web/components/GameHost.tsx` (client) dynamic-imports it.
+- **Game config**: `packages/game/src/config.js` — `configureEnv()`, `getPartyKitHost()`, `isDevMode()`. Injected via `createGame({ env })`.
+- **Scenes**: `packages/game/src/scenes/` — BootScene → (Login) → Title → MultiplayerMenu → Select → (TournamentSetup → Bracket) → PreFight → Fight → Victory. Dev scenes (OverlayEditor / Inspector) live in `apps/admin/game-tools/scenes/` instead.
+- **Pure sim**: `packages/sim/src/` — CombatSim, FighterSim, SimulationEngine, FixedPoint, combat-math, combat-block, InputBuffer, constants.
+- **Player API**: `apps/web/app/api/**/route.ts` — `profile`, `stats`, `stats/tournament-match`, `leaderboard`, `fights`, `debug-bundles`, `tournament/{create,join}`, `cron/cleanup-bundles`, `public-config`. All go through `apps/web/lib/auth/middleware.ts` (`withAuth` / `withAdmin`).
+- **Admin API**: `apps/admin/app/api/{admin/fights, admin/debug-bundle, overlay-export}/route.ts`. Sibling `apps/admin/lib/auth/middleware.ts` — not shared, so admin stays independently deployable.
+- **Admin shell**: `apps/admin/app/(authed)/layout.tsx` wraps everything in `AuthedShell` (auth gate + `Sidebar` + flex main). All admin pages live under `app/(authed)/`; dev-tools sit at `/dev-tools/{overlay-editor,inspector}` and mount Phaser via `DevToolsHost`.
+- **Marketing pages**: `apps/web/app/{page,about,blog,blog/[slug],join,replay,play}/page.tsx`. Blog reads Markdown from `apps/web/content/blog/*.md` via `apps/web/lib/blog.ts`.
+- **DB**: `packages/db/src/pool.js` (`createPool`, `createClient`, `getPool`). Migrations in `packages/db/migrations/` (dbmate). Dev seed in `packages/db/seed-dev.sql`.
+- **API core**: `packages/api-core/src/{auth,storage,validate}.js` — framework-agnostic JWT verify, pluggable storage (local/supabase), UUID helpers.
+- **Assets**: source PNGs/MP3s in `apps/web/public/assets/{fighters,portraits,stages,audio,accessories,overlays,ui}/`. Admin proxies these via `next.config.mjs` → `NEXT_PUBLIC_ASSET_ORIGIN`.
+- **Scripts**: `scripts/{dev-db,dev-multiplayer,dev-auth,build-music-manifest,migrate}.*` for local dev + build hooks; `scripts/asset-pipeline/` + `scripts/balance-sim/` are CLIs (will promote to `apps/*` later).
+- **Infra**: `infra/{vercel,dns,supabase,variables,outputs,providers}.tf` + `init-tfvars.sh` + `import.sh`. See *Deployment* below.
+- **Tests**: `tests/` at repo root (subdirs: `simulation/`, `systems/`, `party/`, `data/`, `balance-sim/`, `api/` — the last holds `storage.test.js` + `leaderboard.integration.test.js`; old Vercel-handler tests were dropped in Phase 2). `vitest.config.js` for the runner; `tests/e2e/playwright.config.js` for Playwright.
+- **Repo-wide configs**: `tsconfig.base.json` (shared TS base), `turbo.json` (pipeline), `biome.json` (lint + format).
+
+## Deployment
+
+- **Vercel** (production): two projects, both wired to the same GitHub repo for auto-deploys.
+  - `a-los-traques` (apps/web) → `alostraques.com` — managed by Terraform (`infra/vercel.tf`), build settings + env vars + domain bindings all in code. Merges to `main` promote to production; every other push / PR gets a unique preview URL.
+  - Admin project not yet in Terraform; `apps/admin` is buildable and locally verified but hasn't been stood up on its own subdomain. When it goes live, target is `admin.alostraques.com`.
+- **PartyKit**: `bun --filter='@alostraques/party' run deploy` pushes to the Cloudflare-hosted PartyKit runtime. Env vars (TURN credentials) set via the PartyKit dashboard.
+- **Cloudflare DNS**: `infra/dns.tf` — apex + `www` CNAMEs to `cname.vercel-dns.com`. DNS-only (not proxied); Vercel handles SSL.
+- **Supabase**: `infra/supabase.tf` manages the auth redirect allowlist. The `debug-bundles` storage bucket is created manually in the dashboard (see RFC 0011).
+- **Secrets**: all live in 1Password under items named `alostraques.{supabase,vercel,cloudflare}.com` + `alostraques.com` (the last holds the cron secret). `infra/init-tfvars.sh` reads them into `terraform.auto.tfvars` via `op`. Account `my.1password.com`, vault `ok7w54ncq6rqp4q73guhs4t7lq`.
+- **Env vars reaching Vercel**: Terraform's `vercel_project_environment_variable.*` resources own `DATABASE_URL`, `SUPABASE_*`, `CRON_SECRET`, `STORAGE_BACKEND`, `NEXT_PUBLIC_PARTYKIT_HOST`. Dashboard edits to these will be overwritten on the next `terraform apply`.
+- **First-time import** (one-off; already done for the current Vercel project): `cd infra && ./import.sh` pulls the live project + domains + any pre-existing env vars into Terraform state so `terraform apply` converges rather than errors on conflict.
 
 ## Conventions
 
@@ -314,6 +243,7 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0013-fighter-balance-simulation.md` — Headless AI-vs-AI balance simulation pipeline
 - `docs/rfcs/0014-fix-desync-adaptive-delay-gap.md` — Fix desync from adaptive input delay frame gaps
 - `docs/rfcs/0015-local-multiplayer-tournament.md` — Local multiplayer tournament + VS Local (N human players, split keyboard)
+- `docs/rfcs/0019-nextjs-monorepo-restructure.md` — The monorepo migration this repo ran through (phases 1–6, all shipped)
 
 ## Balance Simulation
 
@@ -372,11 +302,11 @@ Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered
 
 - **Fight ID**: UUID generated in PartyKit server when both players ready, included in `start` message, stored in `FightRecorder.log.fightId`.
 - **Auto-upload**: In debug mode, both peers independently upload debug bundles per-round and at match end via `POST /api/debug-bundles`.
-- **Storage interface** (`api/_lib/storage.js`): Pluggable backend — `STORAGE_BACKEND=local` (filesystem, dev) or `STORAGE_BACKEND=supabase` (Supabase Storage, prod). Path: `{fightId}/p{slot}_round{round}.json`.
+- **Storage interface** (`packages/api-core/src/storage.js`): Pluggable backend — `STORAGE_BACKEND=local` (filesystem, dev) or `STORAGE_BACKEND=supabase` (Supabase Storage, prod). Path: `{fightId}/p{slot}_round{round}.json`.
 - **Fights table**: `packages/db/migrations/20260401000000_create_fights.sql` — tracks all online fights with player IDs, fighters, stage, result, debug bundle status/TTL.
-- **Admin panel**: Preact SPA at `/admin/` (CDN imports, no build step). Protected by `is_admin` column on profiles table. `withAdmin()` middleware in `api/_lib/handler.js`.
-- **Admin API**: `GET /api/admin/fights` (paginated, filterable), `GET /api/admin/debug-bundle` (download).
-- **TTL cleanup**: Vercel Cron daily at 3 AM UTC (`api/cron/cleanup-bundles.js`), deletes bundles older than 7 days.
+- **Admin panel**: `apps/admin/` (Next.js 15 on `:3001` dev, `admin.alostraques.com` prod). Protected by `is_admin` column on profiles table via `apps/admin/lib/auth/middleware.ts`' `withAdmin`.
+- **Admin API**: `GET /api/admin/fights` (paginated, filterable), `GET /api/admin/debug-bundle` (download). Served by `apps/admin`, not `apps/web`.
+- **TTL cleanup**: Vercel Cron daily at 3 AM UTC (`apps/web/app/api/cron/cleanup-bundles/route.ts`, schedule in `apps/web/vercel.json`), deletes bundles older than 7 days.
 
 ## CRITICAL: Keep this file updated
 
