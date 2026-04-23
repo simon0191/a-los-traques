@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { calculateBlockDamage } from '../../src/entities/combat-block.js';
 import {
+  calculateBlockDamage,
   FP_SCALE,
   GROUND_Y_FP,
   HURT_TIMER_KNOCKDOWN,
@@ -8,7 +7,8 @@ import {
   KNOCKBACK_VX_FP,
   KNOCKBACK_VY_FP,
   MAX_SPECIAL_FP,
-} from '../../src/systems/FixedPoint.js';
+} from '@alostraques/sim';
+import { describe, expect, it } from 'vitest';
 
 /** Create minimal fighter for hitstun tests. */
 function createFighter(overrides = {}) {

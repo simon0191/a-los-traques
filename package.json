@@ -1,36 +1,40 @@
 {
   "private": true,
+  "name": "a-los-traques",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
+    "dev": "bun --filter='@alostraques/web' run dev",
+    "dev:admin": "bun --filter='@alostraques/admin' run dev",
     "dev:db": "node scripts/dev-db.js",
-    "dev:all": "concurrently \"node scripts/dev-db.js\" \"vite\" \"vercel dev --yes\"",
+    "dev:all": "concurrently \"node scripts/dev-db.js\" \"bun --filter='@alostraques/web' run dev\" \"bun --filter='@alostraques/admin' run dev\"",
     "dev:mp": "node scripts/dev-multiplayer.js",
-    "build": "vite build",
-    "preview": "vite preview",
-    "party:dev": "bunx partykit dev",
-    "party:deploy": "bunx partykit deploy",
+    "build": "concurrently \"bun --filter='@alostraques/web' run build\" \"bun --filter='@alostraques/admin' run build\"",
+    "start": "bun --filter='@alostraques/web' run start",
+    "start:admin": "bun --filter='@alostraques/admin' run start",
+    "party:dev": "bun --filter='@alostraques/party' run dev",
+    "party:deploy": "bun --filter='@alostraques/party' run deploy",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:e2e": "npx playwright test --config tests/e2e/playwright.config.js",
-    "test:e2e:headed": "npx playwright test --config tests/e2e/playwright.config.js --headed",
-    "test:e2e:remote": "npx playwright test --config tests/e2e/remote/remote-playwright.config.js",
-    "test:e2e:hybrid": "npx playwright test --config tests/e2e/remote/remote-playwright.config.js hybrid-multiplayer",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.js",
+    "test:e2e:headed": "playwright test --config tests/e2e/playwright.config.js --headed",
+    "test:e2e:remote": "playwright test --config tests/e2e/remote/remote-playwright.config.js",
+    "test:e2e:hybrid": "playwright test --config tests/e2e/remote/remote-playwright.config.js hybrid-multiplayer",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "balance": "bun run scripts/balance-sim/run.js"
+    "balance": "bun run scripts/balance-sim/run.js",
+    "migrate": "bash scripts/migrate.sh"
   },
   "dependencies": {
-    "@google/genai": "^1.45.0",
-    "@supabase/supabase-js": "^2.101.1",
-    "jose": "^6.2.2",
-    "partykit": "^0.0.115",
-    "partysocket": "^1.1.16",
+    "@alostraques/api-core": "workspace:*",
+    "@alostraques/db": "workspace:*",
+    "@alostraques/sim": "workspace:*",
     "pg": "^8.20.0",
-    "phaser": "^3.90.0",
-    "qrcode": "^1.5.4",
-    "vite": "^8.0.0"
+    "partykit": "^0.0.115"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
@@ -38,6 +42,7 @@
     "@electric-sql/pglite-socket": "^0.1.2",
     "@playwright/test": "^1.58.2",
     "concurrently": "^9.2.1",
+    "turbo": "^2.9.6",
     "vitest": "^4.1.0"
   }
 }

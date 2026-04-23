@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SpectatorRelay } from '../../../src/systems/net/SpectatorRelay.js';
+import { SpectatorRelay } from '../../../packages/game/src/systems/net/SpectatorRelay.js';
 
 function makeSignaling() {
   const handlers = new Map();

@@ -1,5 +1,5 @@
+import { FP_SCALE } from '@alostraques/sim';
 import { describe, expect, it, vi } from 'vitest';
-import { FP_SCALE } from '../../src/systems/FixedPoint.js';
 
 /**
  * Lightweight tests for Fighter presentation methods (syncSprite, updateAnimation)

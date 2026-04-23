@@ -3,11 +3,9 @@
  * Uses SimulationEngine.tick() for deterministic frame advance with event telemetry.
  */
 
-import { GAME_WIDTH, ROUND_TIME } from '../../src/config.js';
-import fightersData from '../../src/data/fighters.json' with { type: 'json' };
-import { createCombatSim } from '../../src/simulation/CombatSim.js';
-import { createFighterSim } from '../../src/simulation/FighterSim.js';
-import { tick } from '../../src/simulation/SimulationEngine.js';
+import { createCombatSim, createFighterSim, tick } from '@alostraques/sim';
+import { GAME_WIDTH, ROUND_TIME } from '../../packages/game/src/config.js';
+import fightersData from '../../packages/game/src/data/fighters.json' with { type: 'json' };
 import { createHeadlessAI, getEncodedInput } from './ai-input-adapter.js';
 
 const P1_START_X = Math.trunc(GAME_WIDTH * 0.3);

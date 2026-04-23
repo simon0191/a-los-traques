@@ -1,7 +1,6 @@
+import { EMPTY_INPUT, encodeInput, FP_SCALE, GROUND_Y_FP, MAX_STAMINA_FP } from '@alostraques/sim';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FP_SCALE, GROUND_Y_FP, MAX_STAMINA_FP } from '../../src/systems/FixedPoint.js';
-import { EMPTY_INPUT, encodeInput } from '../../src/systems/InputBuffer.js';
-import { RollbackManager } from '../../src/systems/RollbackManager.js';
+import { RollbackManager } from '../../packages/game/src/systems/RollbackManager.js';
 
 // Mock NetworkManager
 function mockNM(slot = 0) {

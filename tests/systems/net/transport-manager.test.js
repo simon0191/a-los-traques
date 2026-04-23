@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 // Mock WebRTCTransport before importing TransportManager
-vi.mock('../../../src/systems/WebRTCTransport.js', () => {
+vi.mock('../../../packages/game/src/systems/WebRTCTransport.js', () => {
   class MockWebRTCTransport {
     constructor(opts) {
       this._opts = opts;
@@ -41,7 +41,9 @@ vi.mock('../../../src/systems/WebRTCTransport.js', () => {
   return { WebRTCTransport: MockWebRTCTransport };
 });
 
-const { TransportManager } = await import('../../../src/systems/net/TransportManager.js');
+const { TransportManager } = await import(
+  '../../../packages/game/src/systems/net/TransportManager.js'
+);
 
 function makeSignaling() {
   const handlers = new Map();

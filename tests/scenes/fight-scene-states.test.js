@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { MatchEvent, MatchState, MatchStateMachine } from '../../src/systems/MatchStateMachine.js';
+import {
+  MatchEvent,
+  MatchState,
+  MatchStateMachine,
+} from '../../packages/game/src/systems/MatchStateMachine.js';
 
 /**
  * Tests validating the MatchStateMachine transition sequences used by FightScene.

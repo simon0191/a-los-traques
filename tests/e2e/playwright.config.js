@@ -20,12 +20,15 @@ export default defineConfig({
     },
   ],
 
+  // Phase 3: the game now ships from Next.js at /play. The helpers in
+  // browser-helpers.js append /play automatically, so tests keep
+  // constructing BASE_URL = http://localhost:3000.
   webServer: [
     {
       command: 'bun run dev',
-      port: 5173,
+      port: 3000,
       reuseExistingServer: true,
-      timeout: 15_000,
+      timeout: 30_000,
     },
     {
       command: 'bun run party:dev',

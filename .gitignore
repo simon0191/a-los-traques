@@ -1,5 +1,8 @@
 node_modules/
 dist/
+.next/
+.turbo/
+next-env.d.ts
 assets/_raw/
 assets/photos/
 .DS_Store

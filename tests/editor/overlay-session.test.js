@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { _internals, OverlaySession } from '../../src/editor/OverlaySession.js';
+import { _internals, OverlaySession } from '../../apps/admin/game-tools/editor/OverlaySession.js';
 
 function makeSession(overrides = {}) {
   return new OverlaySession({

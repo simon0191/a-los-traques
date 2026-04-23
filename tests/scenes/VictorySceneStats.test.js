@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock Phaser before importing anything that uses it
+// Mock Phaser before importing anything that uses it. `import * as Phaser` in
+// the game package reads `Phaser.Scene` off the module namespace directly.
 vi.mock('phaser', () => ({
-  default: {
-    Scene: class MockScene {},
-  },
+  Scene: class MockScene {},
 }));
 
-import { VictoryScene } from '../../src/scenes/VictoryScene.js';
-import * as api from '../../src/services/api.js';
+import { VictoryScene } from '../../packages/game/src/scenes/VictoryScene.js';
+import * as api from '../../packages/game/src/services/api.js';
 
-vi.mock('../../src/services/api.js', () => ({
+vi.mock('../../packages/game/src/services/api.js', () => ({
   updateStats: vi.fn(),
   reportTournamentMatch: vi.fn(),
 }));

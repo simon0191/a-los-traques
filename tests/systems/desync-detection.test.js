@@ -1,7 +1,7 @@
+import { FP_SCALE, GROUND_Y_FP, MAX_STAMINA_FP } from '@alostraques/sim';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { FP_SCALE, GROUND_Y_FP, MAX_STAMINA_FP } from '../../src/systems/FixedPoint.js';
-import { hashGameState } from '../../src/systems/GameState.js';
-import { RollbackManager } from '../../src/systems/RollbackManager.js';
+import { hashGameState } from '../../packages/game/src/systems/GameState.js';
+import { RollbackManager } from '../../packages/game/src/systems/RollbackManager.js';
 
 // --- Helpers ---
 

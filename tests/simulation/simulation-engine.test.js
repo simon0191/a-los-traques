@@ -1,16 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import { ROUND_TIME, ROUNDS_TO_WIN } from '../../src/config.js';
-import { CombatSim } from '../../src/simulation/CombatSim.js';
-import { FighterSim } from '../../src/simulation/FighterSim.js';
 import {
+  CombatSim,
   captureGameState,
+  encodeInput,
+  FighterSim,
   hashGameState,
   restoreCombatState,
   restoreFighterState,
   restoreGameState,
   tick,
-} from '../../src/simulation/SimulationEngine.js';
-import { encodeInput } from '../../src/systems/InputBuffer.js';
+} from '@alostraques/sim';
+import { describe, expect, it } from 'vitest';
+import { ROUND_TIME, ROUNDS_TO_WIN } from '../../packages/game/src/config.js';
 
 const EMPTY = encodeInput({});
 const RIGHT = encodeInput({ right: true });

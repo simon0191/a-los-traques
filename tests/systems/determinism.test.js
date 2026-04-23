@@ -1,8 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { MAX_HP, STAMINA_COSTS } from '../../src/config.js';
-import { calculateBlockDamage } from '../../src/entities/combat-block.js';
-import { calculateDamage } from '../../src/systems/combat-math.js';
 import {
+  calculateBlockDamage,
+  calculateDamage,
   DOUBLE_JUMP_AIRBORNE_THRESHOLD,
   FP_SCALE,
   fpClamp,
@@ -27,13 +25,15 @@ import {
   WALL_JUMP_X_FP,
   WALL_JUMP_Y_FP,
   WALL_SLIDE_SPEED_FP,
-} from '../../src/systems/FixedPoint.js';
+} from '@alostraques/sim';
+import { describe, expect, it } from 'vitest';
+import { MAX_HP, STAMINA_COSTS } from '../../packages/game/src/config.js';
 import {
   captureCombatState,
   captureFighterState,
   restoreCombatState,
   restoreFighterState,
-} from '../../src/systems/GameState.js';
+} from '../../packages/game/src/systems/GameState.js';
 
 /**
  * Create a pure simulation fighter (no Phaser dependency).

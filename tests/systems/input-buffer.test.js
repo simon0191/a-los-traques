@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   ATTACK_MASK,
   decodeInput,
@@ -7,7 +6,8 @@ import {
   inputsEqual,
   MOVEMENT_MASK,
   predictInput,
-} from '../../src/systems/InputBuffer.js';
+} from '@alostraques/sim';
+import { describe, expect, it } from 'vitest';
 
 describe('encodeInput / decodeInput', () => {
   it('empty input encodes to 0', () => {

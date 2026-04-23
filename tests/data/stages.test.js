@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import stages from '../../src/data/stages.json';
+import stages from '../../packages/game/src/data/stages.json';
 
 const REQUIRED_FIELDS = ['id', 'name', 'bgColor', 'groundColor', 'description', 'texture'];
 

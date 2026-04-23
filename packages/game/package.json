@@ -1,0 +1,22 @@
+{
+  "name": "@alostraques/game",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./config": "./src/config.js",
+    "./scenes/*": "./src/scenes/*",
+    "./systems/*": "./src/systems/*",
+    "./entities/*": "./src/entities/*",
+    "./data/*": "./src/data/*"
+  },
+  "dependencies": {
+    "@alostraques/sim": "workspace:*",
+    "@supabase/supabase-js": "^2.101.1",
+    "partysocket": "^1.1.16",
+    "phaser": "^3.90.0",
+    "qrcode": "^1.5.4"
+  }
+}

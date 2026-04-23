@@ -1,6 +1,6 @@
+import { FP_SCALE, GROUND_Y_FP } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import fighters from '../../src/data/fighters.json';
-import { FP_SCALE, GROUND_Y_FP } from '../../src/systems/FixedPoint.js';
+import fighters from '../../packages/game/src/data/fighters.json';
 
 /** Create a minimal fighter for hitbox tests. */
 function createFighter(fighterData) {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { FightRecorder } from '../../src/systems/FightRecorder.js';
+import { FightRecorder } from '../../packages/game/src/systems/FightRecorder.js';
 
 describe('FightRecorder - fightId', () => {
   let originalFightLog;

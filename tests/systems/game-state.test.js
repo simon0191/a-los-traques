@@ -1,5 +1,5 @@
+import { FP_SCALE, GROUND_Y_FP } from '@alostraques/sim';
 import { describe, expect, it, vi } from 'vitest';
-import { FP_SCALE, GROUND_Y_FP } from '../../src/systems/FixedPoint.js';
 import {
   captureCombatState,
   captureFighterState,
@@ -8,7 +8,7 @@ import {
   restoreFighterState,
   restoreGameState,
   SNAPSHOT_VERSION,
-} from '../../src/systems/GameState.js';
+} from '../../packages/game/src/systems/GameState.js';
 
 function makeFighter(overrides = {}) {
   return {

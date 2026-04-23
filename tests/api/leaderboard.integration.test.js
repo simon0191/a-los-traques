@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { queryLeaderboard } from '../../api/leaderboard.js';
+import { queryLeaderboard } from '../../apps/web/lib/queries/leaderboard';
 
 function uuid(n) {
   return `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
@@ -15,7 +15,7 @@ describe('Leaderboard SQL (integration)', () => {
     db = await PGlite.create();
 
     // Run migrations in order
-    const migrationsDir = path.resolve('db/migrations');
+    const migrationsDir = path.resolve('packages/db/migrations');
     const migrationFiles = fs
       .readdirSync(migrationsDir)
       .filter((f) => f.endsWith('.sql'))

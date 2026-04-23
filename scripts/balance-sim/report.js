@@ -3,7 +3,7 @@
  * from simulation matrix results.
  */
 
-import fightersData from '../../src/data/fighters.json' with { type: 'json' };
+import fightersData from '../../packages/game/src/data/fighters.json' with { type: 'json' };
 
 const TIER_THRESHOLDS = [
   { tier: 'S', min: 0.57 },

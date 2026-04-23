@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ReconnectionManager } from '../../src/systems/ReconnectionManager.js';
+import { ReconnectionManager } from '../../packages/game/src/systems/ReconnectionManager.js';
 
 describe('ReconnectionManager', () => {
   let clock;

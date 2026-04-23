@@ -1,10 +1,8 @@
+import { createCombatSim, createFighterSim, encodeInput } from '@alostraques/sim';
 import { describe, expect, it } from 'vitest';
-import { MAX_HP } from '../../src/config.js';
-import { createCombatSim } from '../../src/simulation/CombatSim.js';
-import { createFighterSim } from '../../src/simulation/FighterSim.js';
-import { captureGameState, restoreGameState } from '../../src/systems/GameState.js';
-import { encodeInput } from '../../src/systems/InputBuffer.js';
-import { simulateFrame } from '../../src/systems/SimulationStep.js';
+import { MAX_HP } from '../../packages/game/src/config.js';
+import { captureGameState, restoreGameState } from '../../packages/game/src/systems/GameState.js';
+import { simulateFrame } from '../../packages/game/src/systems/SimulationStep.js';
 
 const EMPTY = encodeInput({
   left: false,

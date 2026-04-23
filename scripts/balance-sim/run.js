@@ -12,7 +12,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import fightersData from '../../src/data/fighters.json' with { type: 'json' };
+import fightersData from '../../packages/game/src/data/fighters.json' with { type: 'json' };
 import { runFullMatrix, runMatchup } from './match-runner.js';
 import { generateJsonReport, generateMarkdownReport } from './report.js';
 

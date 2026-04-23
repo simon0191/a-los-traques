@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { storage, validatePathComponent } from '@alostraques/api-core/storage';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { storage, validatePathComponent } from '../../api/_lib/storage.js';
 
-vi.unmock('../../api/_lib/storage.js');
+vi.unmock('@alostraques/api-core/storage');
 
 const TEST_BASE = path.join(process.cwd(), 'tmp', 'debug-bundles');
 
