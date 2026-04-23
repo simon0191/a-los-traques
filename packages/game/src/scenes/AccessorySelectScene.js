@@ -13,6 +13,14 @@ const ALL_CATEGORIES = [...new Set(accessoryCatalog.map((a) => a.category))];
 
 const PREVIEW_SCALE = 0.7; // 128 * 0.7 ≈ 90 px
 
+// Paginated accessory row: how many tiles are visible at once per column.
+const TILE_SIZE = 28;
+const TILE_GAP = 4;
+const VISIBLE_TILES = 3;
+const ROW_WIDTH = VISIBLE_TILES * TILE_SIZE + (VISIBLE_TILES - 1) * TILE_GAP;
+// Arrow indicators on each side of the row.
+const ARROW_W = 12;
+
 /**
  * Per-player accessory selection screen with live fighter preview.
  *
@@ -133,6 +141,8 @@ export class AccessorySelectScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ESC', () => this._back());
     this.input.keyboard.on('keydown-BACKSPACE', () => this._back());
 
+    this._setupAccessoryKeyboard();
+
     // E2E autoplay: don't block at the picker — accept whatever's preselected
     // (or auto-picked for bots) and move on once the fade-in finishes.
     if (this.game.autoplay?.enabled) {
@@ -234,7 +244,15 @@ export class AccessorySelectScene extends Phaser.Scene {
     // Active category defaults to the first calibrated one (so the selector
     // lands on something useful), falling back to the first in the catalog.
     const activeCategory = ALL_CATEGORIES.find((c) => calibrated.has(c)) ?? ALL_CATEGORIES[0];
-    return { fighterId, calibrated, choices, activeCategory, refs: {} };
+    return {
+      fighterId,
+      calibrated,
+      choices,
+      activeCategory,
+      cursorIdx: 0,
+      scrollOffset: 0,
+      refs: {},
+    };
   }
 
   _buildColumn(centerX, player) {
@@ -342,28 +360,149 @@ export class AccessorySelectScene extends Phaser.Scene {
     this.game.audioManager?.play?.('ui_navigate');
   }
 
+  /**
+   * Keyboard navigation for accessory selection.
+   *
+   * In local 2P (VS Local), both players navigate simultaneously:
+   *   P1 (keyboard_left): A/D = scroll accessories, W/S = switch category, F = pick
+   *   P2 (keyboard_right): ←/→ = scroll accessories, ↑/↓ = switch category, I = pick
+   *
+   * In 1P or online (single column): ←/→ = scroll, ↑/↓ = category, SPACE = pick
+   */
+  _setupAccessoryKeyboard() {
+    const kb = this.input.keyboard;
+    const is2P = this._humanSlotSet.has(0) && this._humanSlotSet.has(1);
+
+    if (is2P) {
+      // P1: WASD + F
+      kb.on('keydown-A', () => this._moveCursor(this.p1, -1));
+      kb.on('keydown-D', () => this._moveCursor(this.p1, 1));
+      kb.on('keydown-W', () => this._cycleCategory(this.p1, -1));
+      kb.on('keydown-S', () => this._cycleCategory(this.p1, 1));
+      kb.on('keydown-F', () => this._pickAtCursor(this.p1));
+      // P2: Arrows + I
+      kb.on('keydown-LEFT', () => this._moveCursor(this.p2, -1));
+      kb.on('keydown-RIGHT', () => this._moveCursor(this.p2, 1));
+      kb.on('keydown-UP', () => this._cycleCategory(this.p2, -1));
+      kb.on('keydown-DOWN', () => this._cycleCategory(this.p2, 1));
+      kb.on('keydown-I', () => this._pickAtCursor(this.p2));
+    } else {
+      // Single player: arrows + SPACE
+      const player = this.p1 ?? this.p2;
+      if (player) {
+        kb.on('keydown-LEFT', () => this._moveCursor(player, -1));
+        kb.on('keydown-RIGHT', () => this._moveCursor(player, 1));
+        kb.on('keydown-UP', () => this._cycleCategory(player, -1));
+        kb.on('keydown-DOWN', () => this._cycleCategory(player, 1));
+        kb.on('keydown-SPACE', () => this._pickAtCursor(player));
+      }
+    }
+  }
+
+  _moveCursor(player, direction) {
+    if (!player?._accOptions) return;
+    const newIdx = player.cursorIdx + direction;
+    if (newIdx < 0 || newIdx >= player._accOptions.length) return;
+    player.cursorIdx = newIdx;
+    this._clampScroll(player);
+    const centerX = player === this.p1 ? GAME_WIDTH * 0.25 : GAME_WIDTH * 0.75;
+    this._renderAccessoryWindow(player, centerX);
+    this.game.audioManager?.play?.('ui_navigate');
+  }
+
+  _cycleCategory(player, direction) {
+    if (!player) return;
+    const calibrated = ALL_CATEGORIES.filter((c) => player.calibrated.has(c));
+    if (calibrated.length <= 1) return;
+    const currentIdx = calibrated.indexOf(player.activeCategory);
+    const nextIdx = (currentIdx + direction + calibrated.length) % calibrated.length;
+    this._switchCategory(player, calibrated[nextIdx]);
+  }
+
+  _pickAtCursor(player) {
+    if (!player?._accOptions) return;
+    const opt = player._accOptions[player.cursorIdx];
+    const centerX = player === this.p1 ? GAME_WIDTH * 0.25 : GAME_WIDTH * 0.75;
+    this._pick(player, opt?.id ?? null, centerX);
+  }
+
   _rebuildAccessoryRow(player, centerX, y) {
-    // Rebuild the container children for the active category.
     player.refs.accContainer.removeAll(true);
     player.refs.accContainer.y = y;
 
+    // Full options list: [null (no accessory), ...catalog items for category]
     const options = [null, ...accessoryCatalog.filter((a) => a.category === player.activeCategory)];
-    const size = 28;
-    const gap = 4;
-    const totalW = options.length * size + (options.length - 1) * gap;
-    const startX = centerX - totalW / 2 + size / 2;
+    player._accOptions = options;
 
+    // Reset cursor and scroll when switching categories
+    player.cursorIdx = 0;
+    player.scrollOffset = 0;
+
+    // Position the currently selected item's cursor if there's a prior pick
+    const currentPick = player.choices[player.activeCategory] ?? null;
+    const pickIdx = options.findIndex((o) => (o?.id ?? null) === currentPick);
+    if (pickIdx >= 0) player.cursorIdx = pickIdx;
+    this._clampScroll(player);
+
+    this._renderAccessoryWindow(player, centerX);
+  }
+
+  /** Render only the visible slice of the accessory row (paginated). */
+  _renderAccessoryWindow(player, centerX) {
+    player.refs.accContainer.removeAll(true);
+    const options = player._accOptions;
+    if (!options) return;
+
+    const start = player.scrollOffset;
+    const end = Math.min(start + VISIBLE_TILES, options.length);
+    const hasLeft = start > 0;
+    const hasRight = end < options.length;
+
+    // Left arrow
+    if (hasLeft) {
+      const arrow = this.add
+        .text(centerX - ROW_WIDTH / 2 - ARROW_W, 0, '◀', {
+          fontSize: '12px',
+          color: '#ffcc44',
+        })
+        .setOrigin(0.5);
+      arrow.setInteractive({ useHandCursor: true });
+      arrow.on('pointerdown', () => this._scrollRow(player, -1, centerX));
+      player.refs.accContainer.add(arrow);
+    }
+
+    // Right arrow
+    if (hasRight) {
+      const arrow = this.add
+        .text(centerX + ROW_WIDTH / 2 + ARROW_W, 0, '►', {
+          fontSize: '12px',
+          color: '#ffcc44',
+        })
+        .setOrigin(0.5);
+      arrow.setInteractive({ useHandCursor: true });
+      arrow.on('pointerdown', () => this._scrollRow(player, 1, centerX));
+      player.refs.accContainer.add(arrow);
+    }
+
+    // Visible tiles
+    const visibleCount = end - start;
+    const startX =
+      centerX - (visibleCount * TILE_SIZE + (visibleCount - 1) * TILE_GAP) / 2 + TILE_SIZE / 2;
     const tiles = [];
-    options.forEach((opt, i) => {
-      const x = startX + i * (size + gap);
-      const bg = this.add.rectangle(x, 0, size, size, 0x222244);
+
+    for (let vi = 0; vi < visibleCount; vi++) {
+      const dataIdx = start + vi;
+      const opt = options[dataIdx];
+      const x = startX + vi * (TILE_SIZE + TILE_GAP);
+      const bg = this.add.rectangle(x, 0, TILE_SIZE, TILE_SIZE, 0x222244);
       player.refs.accContainer.add(bg);
+
       if (opt) {
         const accKey = `accessory_${opt.id}`;
         if (this.textures.exists(accKey)) {
           const img = this.add.image(x, 0, accKey);
           const src = this.textures.get(accKey).getSourceImage();
-          const scl = (size - 2) / Math.max(src.width, src.height);
+          const scl = (TILE_SIZE - 2) / Math.max(src.width, src.height);
           img.setScale(scl);
           player.refs.accContainer.add(img);
         }
@@ -371,13 +510,34 @@ export class AccessorySelectScene extends Phaser.Scene {
         const t = this.add.text(x, 0, '—', { fontSize: '14px', color: '#888' }).setOrigin(0.5);
         player.refs.accContainer.add(t);
       }
+
       bg.setInteractive({ useHandCursor: true });
       bg.on('pointerdown', () => this._pick(player, opt?.id ?? null, centerX));
-      tiles.push({ bg, optId: opt?.id ?? null });
-    });
+      tiles.push({ bg, optId: opt?.id ?? null, dataIdx });
+    }
 
     player.refs.accTiles = tiles;
     this._highlightPick(player);
+  }
+
+  _scrollRow(player, direction, centerX) {
+    player.scrollOffset = Math.max(
+      0,
+      Math.min(player.scrollOffset + direction, player._accOptions.length - VISIBLE_TILES),
+    );
+    this._renderAccessoryWindow(player, centerX);
+    this.game.audioManager?.play?.('ui_navigate');
+  }
+
+  _clampScroll(player) {
+    const maxScroll = Math.max(0, player._accOptions.length - VISIBLE_TILES);
+    // Ensure cursor is visible in the current window
+    if (player.cursorIdx < player.scrollOffset) {
+      player.scrollOffset = player.cursorIdx;
+    } else if (player.cursorIdx >= player.scrollOffset + VISIBLE_TILES) {
+      player.scrollOffset = player.cursorIdx - VISIBLE_TILES + 1;
+    }
+    player.scrollOffset = Math.max(0, Math.min(player.scrollOffset, maxScroll));
   }
 
   _pick(player, accessoryId, previewCenterX) {
@@ -410,8 +570,15 @@ export class AccessorySelectScene extends Phaser.Scene {
     if (!player.refs.accTiles) return;
     const active = player.choices[player.activeCategory] ?? null;
     for (const t of player.refs.accTiles) {
-      const on = t.optId === active;
-      t.bg.setStrokeStyle(on ? 2 : 1, on ? 0xffcc44 : 0x4466aa);
+      const isPicked = t.optId === active;
+      const isCursor = t.dataIdx === player.cursorIdx;
+      if (isPicked) {
+        t.bg.setStrokeStyle(2, 0xffcc44); // gold = selected
+      } else if (isCursor) {
+        t.bg.setStrokeStyle(2, 0x66aaff); // blue = cursor
+      } else {
+        t.bg.setStrokeStyle(1, 0x4466aa);
+      }
     }
   }
 
