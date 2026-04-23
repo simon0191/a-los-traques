@@ -5,13 +5,13 @@
 
 ## Problem
 
-El AI actual (`src/systems/AIController.js`) es rule-based: árboles de decisión que revisan distancia, estado del oponente, salud, y stamina. Funciona para casual play pero es predecible — los patrones se descubren en pocas peleas. No hay sensación de *estilo* por personaje: todos los fighters pelean esencialmente igual a la misma dificultad. El AI tiene 5 niveles (easy → hard_plus) con parámetros configurados a mano (`thinkInterval`, `missRate`, `blockChance`, etc.), pero la estructura de decisión es idéntica para los 16 fighters.
+El AI actual (`packages/game/src/systems/AIController.js`) es rule-based: árboles de decisión que revisan distancia, estado del oponente, salud, y stamina. Funciona para casual play pero es predecible — los patrones se descubren en pocas peleas. No hay sensación de *estilo* por personaje: todos los fighters pelean esencialmente igual a la misma dificultad. El AI tiene 5 niveles (easy → hard_plus) con parámetros configurados a mano (`thinkInterval`, `missRate`, `blockChance`, etc.), pero la estructura de decisión es idéntica para los 16 fighters.
 
 ## Solution
 
 Reemplazar el AI rule-based con agentes entrenados por reinforcement learning. Cada uno de los 16 fighters recibe su propia red neuronal que desarrolla un estilo de pelea emergente a partir de sus stats únicos (speed, power, defense, special) y frame data de moves.
 
-El entrenamiento usa la simulación determinista existente (`src/simulation/`) como entorno, recolecta datos en Node.js, entrena en Python, y exporta modelos ONNX para inferencia en el browser.
+El entrenamiento usa la simulación determinista existente (`packages/sim/src/`) como entorno, recolecta datos en Node.js, entrena en Python, y exporta modelos ONNX para inferencia en el browser.
 
 ### Principios de diseño
 
@@ -176,7 +176,7 @@ graph LR
     
     subgraph "Disco"
         DATA[(data/cerebro/<br/>transiciones .npz)]
-        MODELS[(public/assets/ai/<br/>*.onnx)]
+        MODELS[(apps/web/public/assets/ai/<br/>*.onnx)]
     end
     
     SIM --> COLLECT
@@ -193,7 +193,7 @@ graph LR
 
 - **Recolección** (Tier 1): Node.js usa la sim existente directamente. Zero riesgo de conformance.
 - **Entrenamiento** (Tier 2): Python lee las transiciones `(obs, action, reward, next_obs, done)` de disco. No necesita simular nada — solo optimizar Q-values.
-- **Evaluación**: Node.js carga modelos ONNX via `onnxruntime-node` y corre matches con el headless runner existente (`scripts/balance-sim/match-runner.js`). Reutiliza la misma infra del balance sim.
+- **Evaluación**: Node.js carga modelos ONNX via `onnxruntime-node` y corre matches con el headless runner existente (`scripts/balance-sim/match-runner.js` (root scripts)). Reutiliza la misma infra del balance sim.
 
 #### Tier 1 — Recolección de datos (Node.js)
 
@@ -333,7 +333,7 @@ this.decision = {
 
 **Fallback automático**: Si el modelo ONNX falla al cargar (red, formato, etc.), se cae al `AIController` rule-based con un `log.warn`. El jugador nunca se queda sin oponente.
 
-**Lazy load**: `BootScene` descarga `public/assets/ai/{fighterId}.onnx` solo para el fighter AI seleccionado. No se cargan los 16 modelos upfront.
+**Lazy load**: `BootScene` descarga `apps/web/public/assets/ai/{fighterId}.onnx` solo para el fighter AI seleccionado. No se cargan los 16 modelos upfront.
 
 **Rollback netcode**: Inferencia es pura (sin side effects), determinista (PRNG seeded), y corre en <1ms post pre-warm. Compatible con el rollback existente.
 
@@ -350,7 +350,7 @@ Post-entrenamiento, `scripts/cerebro/evaluate.js` corre en Node.js (reutilizando
 7. Output: `cerebro-report.md` + `cerebro-report.json`
 
 ```bash
-node scripts/cerebro/evaluate.js --models-dir=public/assets/ai/ --fights=500
+node scripts/cerebro/evaluate.js --models-dir=apps/web/public/assets/ai/ --fights=500
 ```
 
 Esto espeja el pipeline existente `bun run balance` — mismo formato, diferente fuente de input.
@@ -395,17 +395,18 @@ Si es No-Go, se explora la **alternativa incremental**: mejorar el AI rule-based
 |---|---|
 | `docs/rfcs/0020-el-cerebro-deep-rl-ai.md` | Este documento |
 
-Todos los archivos de `scripts/cerebro/`, `training/`, y `public/assets/ai/` son trabajo de implementación de Phases 1-5, no parte de este PR.
+Todos los archivos de `scripts/cerebro/`, `training/`, y `apps/web/public/assets/ai/` son trabajo de implementación de Phases 1-5, no parte de este PR.
 
 ### Files que se modificarán (en phases futuras)
 
 | File | Change |
 |---|---|
-| `src/systems/NeuralAIController.js` | Nueva clase (Phase 4) |
-| `src/scenes/BootScene.js` | Lazy-load ONNX model (Phase 4) |
-| `src/scenes/PreFightScene.js` | Pre-warm ONNX runtime (Phase 4) |
-| `src/scenes/FightScene.js` | Feature flag `?ai=cerebro` para usar `NeuralAIController` (Phase 4) |
-| `package.json` | Agregar `onnxruntime-node` como dev dependency (Phase 1) |
+| `packages/game/src/systems/NeuralAIController.js` | Nueva clase (Phase 4) |
+| `packages/game/src/scenes/BootScene.js` | Lazy-load ONNX model (Phase 4) |
+| `packages/game/src/scenes/PreFightScene.js` | Pre-warm ONNX runtime (Phase 4) |
+| `packages/game/src/scenes/FightScene.js` | Feature flag `?ai=cerebro` para usar `NeuralAIController` (Phase 4) |
+| `packages/game/package.json` | Agregar `onnxruntime-web` como dependency (Phase 4) |
+| Root `package.json` | Agregar `onnxruntime-node` como dev dependency for scripts (Phase 1) |
 
 ## Implementation Plan
 
