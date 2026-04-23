@@ -78,9 +78,9 @@ console.log(`Model loaded. Input: ${session.inputNames}, Output: ${session.outpu
  * @param {Float32Array} obs  Observation vector (47 dims)
  * @returns {number} Best action index (argmax of Q-values)
  */
-function inferAction(obs) {
+async function inferAction(obs) {
   const inputTensor = new ort.Tensor('float32', obs, [1, OBS_DIM]);
-  const results = session.runSync({ [session.inputNames[0]]: inputTensor });
+  const results = await session.run({ [session.inputNames[0]]: inputTensor });
   const qValues = results[session.outputNames[0]].data;
 
   // Argmax
@@ -129,18 +129,13 @@ for (const diff of DIFFICULTIES) {
   for (let fight = 0; fight < fightsPerLevel; fight++) {
     const seed = baseSeed + fight * 2;
 
-    // Create sim objects
-    const p1 = createFighterSim(P1_START_X, 0, fighterData);
-    const p2 = createFighterSim(P2_START_X, 1, fighterData);
-    const combat = createCombatSim({ suppressRoundEvents: true });
-
-    // P2 = rule-based AI opponent
-    const p2Ai = createHeadlessAI(p2, p1, diff, seed + 10000);
-
-    // P1 = ONNX model — we use env.js for observation extraction
-    const p1Ai = null; // lazy init for fighter refs
-
-    const opponentPolicy = (p2Ref, p1Ref) => getEncodedInput(p2Ai);
+    // P2 = rule-based AI opponent. Lazy-init from the env's internal
+    // fighter refs so the AI reads live state, not stale externals.
+    let p2Ai = null;
+    const opponentPolicy = (p2Ref, p1Ref) => {
+      if (!p2Ai) p2Ai = createHeadlessAI(p2Ref, p1Ref, diff, seed + 10000);
+      return getEncodedInput(p2Ai);
+    };
 
     const env = createEnv({
       fighterData,
@@ -153,7 +148,7 @@ for (const diff of DIFFICULTIES) {
     let done = false;
 
     while (!done) {
-      const action = inferAction(obs);
+      const action = await inferAction(obs);
       actionCounts[action]++;
       const result = env.step(action);
       obs = result.obs;
@@ -161,16 +156,16 @@ for (const diff of DIFFICULTIES) {
 
       // Collect stats from events
       for (const evt of result.info.events) {
-        if (evt.type === 'hit' && evt.playerIndex === 0) {
+        if (evt.type === 'hit' && evt.attackerIndex === 0) {
           totalHits++;
           totalDmgDealt += evt.damage ?? 0;
         }
-        if (evt.type === 'hit' && evt.playerIndex === 1) {
+        if (evt.type === 'hit' && evt.attackerIndex === 1) {
           totalDmgTaken += evt.damage ?? 0;
         }
-        if (evt.type === 'whiff' && evt.playerIndex === 0) totalWhiffs++;
-        if (evt.type === 'hit_blocked' && evt.playerIndex === 0) totalBlocks++;
-        if (evt.type === 'special_charge' && evt.playerIndex === 0) totalSpecials++;
+        if (evt.type === 'whiff' && evt.attackerIndex === 0) totalWhiffs++;
+        if (evt.type === 'hit_blocked' && evt.attackerIndex === 0) totalBlocks++;
+        if (evt.type === 'special_charge' && evt.attackerIndex === 0) totalSpecials++;
       }
 
       if (result.info.matchOver) {
