@@ -54,14 +54,20 @@ export async function signUp(email, password, nickname) {
 }
 
 /**
- * Log in using Google OAuth
+ * Log in using Google OAuth. We explicitly set `redirectTo` to the current
+ * URL so Supabase brings the user back to `/play` (and keeps any query
+ * params like `?room=`). Without this, Supabase falls back to the project's
+ * Site URL — which for us is the marketing `/` page, where no Supabase
+ * client is initialised to consume the `#access_token=…` hash. The user
+ * would then land on / "logged in" as far as Google is concerned but the
+ * session would never reach localStorage, so the game (on /play) still
+ * sees them as anonymous.
  */
 export async function logInWithGoogle() {
+  const redirectTo = typeof window !== 'undefined' ? window.location.href : undefined;
   const { data, error } = await requireClient().auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      // Supabase automatically picks up the current URL to return to
-    },
+    options: { redirectTo },
   });
   if (error) throw error;
   return data;
