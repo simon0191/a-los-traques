@@ -29,3 +29,6 @@ infra/*.tfvars
 scripts/asset-pipeline/pose/.venv/
 scripts/asset-pipeline/pose/__pycache__/
 scripts/asset-pipeline/pose/models/
+
+# El Cerebro training data (generated, ~GB scale)
+data/cerebro/
