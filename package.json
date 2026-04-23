@@ -42,6 +42,7 @@
     "@electric-sql/pglite-socket": "^0.1.2",
     "@playwright/test": "^1.58.2",
     "concurrently": "^9.2.1",
+    "onnxruntime-node": "^1.24.3",
     "turbo": "^2.9.6",
     "vitest": "^4.1.0"
   }
