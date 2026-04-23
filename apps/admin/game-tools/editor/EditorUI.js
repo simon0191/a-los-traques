@@ -65,6 +65,14 @@ const CSS = `
 #overlay-editor-root .tb-ctx { flex: 1; font-size: 12px; color: #9aa0c4; text-align: right; padding-right: 8px; }
 #overlay-editor-root .tb-status { font-size: 12px; color: #66ccff; min-width: 180px; text-align: right; }
 
+#overlay-editor-root .acc-category-select {
+  padding: 6px 8px;
+  background: #242845; color: #cfd4ff;
+  border: 1px solid #3a4070; border-radius: 6px;
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer; min-width: 100px;
+}
+#overlay-editor-root .acc-category-select:focus { border-color: #6fa0ff; outline: none; }
 #overlay-editor-root .acc-btn {
   width: 64px; height: 64px; padding: 0;
   background: #1c2040; border: 2px solid #2a3050; border-radius: 8px;
@@ -222,27 +230,43 @@ export class EditorUI {
     this.timeline = el('div', { className: 'timeline' });
     this.root.appendChild(this.timeline);
 
-    // Accessories row
+    // Accessories row with category dropdown
     this.accPanel = el('section', { className: 'panel panel-acc' });
-    this.accPanel.appendChild(el('div', { className: 'panel-title', text: 'Objetos' }));
-    for (const acc of this.accessories) {
-      const btn = el('button', {
-        className: 'acc-btn',
-        onClick: () => this.handlers.onAccessory(acc.id),
-        title: acc.label ?? acc.id,
-      });
-      if (acc.imageUrl) {
-        const img = el('img', { src: acc.imageUrl, alt: acc.id });
-        btn.appendChild(img);
-      } else {
-        btn.textContent = acc.label ?? acc.id;
-      }
-      this._accBtns.set(acc.id, btn);
-      this.accPanel.appendChild(btn);
+
+    // Category dropdown
+    this._categories = [...new Set(this.accessories.map((a) => a.category))];
+    this._activeCategory = this._categories[0] ?? null;
+    const catSelect = el('select', { className: 'acc-category-select' });
+    for (const cat of this._categories) {
+      const option = el('option', { value: cat, text: cat.toUpperCase() });
+      catSelect.appendChild(option);
     }
+    catSelect.addEventListener('change', (e) => {
+      this._activeCategory = e.target.value;
+      this._rebuildAccButtons();
+      // Refocus root so Phaser keyboard handlers keep working.
+      setTimeout(() => this.root?.focus(), 0);
+    });
+    // Prevent the dropdown from stealing keyboard focus for Phaser shortcuts.
+    catSelect.addEventListener('mousedown', (e) => e.stopPropagation());
+    this.accPanel.appendChild(catSelect);
+    this._catSelect = catSelect;
+
+    // Separator
+    this.accPanel.appendChild(el('div', { className: 'tb-sep' }));
+
+    // Container for accessory buttons (rebuilt when category changes)
+    this._accBtnContainer = el('div', {
+      className: 'panel-acc',
+      style: 'display:flex; align-items:center; gap:10px; padding:0; border:none; background:none;',
+    });
+    this.accPanel.appendChild(this._accBtnContainer);
+
     this.accLabel = el('span', { className: 'acc-label', text: '' });
     this.accPanel.appendChild(this.accLabel);
     this.root.appendChild(this.accPanel);
+
+    this._rebuildAccButtons();
 
     this.mount.appendChild(this.root);
     // Grab focus so window-level keydown handlers fire before the browser
@@ -263,6 +287,31 @@ export class EditorUI {
         setTimeout(() => this.root?.focus(), 0);
       }
     });
+  }
+
+  _rebuildAccButtons() {
+    // Clear existing buttons
+    while (this._accBtnContainer.firstChild) {
+      this._accBtnContainer.removeChild(this._accBtnContainer.firstChild);
+    }
+    this._accBtns.clear();
+
+    const filtered = this.accessories.filter((a) => a.category === this._activeCategory);
+    for (const acc of filtered) {
+      const btn = el('button', {
+        className: 'acc-btn',
+        onClick: () => this.handlers.onAccessory(acc.id),
+        title: acc.label ?? acc.id,
+      });
+      if (acc.imageUrl) {
+        const img = el('img', { src: acc.imageUrl, alt: acc.id });
+        btn.appendChild(img);
+      } else {
+        btn.textContent = acc.label ?? acc.id;
+      }
+      this._accBtns.set(acc.id, btn);
+      this._accBtnContainer.appendChild(btn);
+    }
   }
 
   update(state) {
@@ -297,11 +346,18 @@ export class EditorUI {
       btn._status.className = `status ${has ? 'ok' : 'miss'}`;
     }
 
+    // Sync category dropdown if the selected accessory is in a different category
+    const accDef = this.accessories.find((a) => a.id === accessory);
+    if (accDef && accDef.category !== this._activeCategory) {
+      this._activeCategory = accDef.category;
+      this._catSelect.value = accDef.category;
+      this._rebuildAccButtons();
+    }
+
     // Accessory buttons
     for (const [id, btn] of this._accBtns) {
       btn.classList.toggle('active', id === accessory);
     }
-    const accDef = this.accessories.find((a) => a.id === accessory);
     this.accLabel.textContent = accDef?.label ?? accessory;
 
     // Context line
