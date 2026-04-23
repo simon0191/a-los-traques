@@ -9,7 +9,7 @@ El AI actual (`packages/game/src/systems/AIController.js`) es rule-based: árbol
 
 ## Solution
 
-Reemplazar el AI rule-based con agentes entrenados por reinforcement learning. Cada uno de los 16 fighters recibe su propia red neuronal que desarrolla un estilo de pelea emergente a partir de sus stats únicos (speed, power, defense, special) y frame data de moves.
+Reemplazar el AI rule-based con agentes entrenados por reinforcement learning. Cada uno de los 17 fighters recibe su propia red neuronal que desarrolla un estilo de pelea emergente a partir de sus stats únicos (speed, power, defense, special) y frame data de moves.
 
 El entrenamiento usa la simulación determinista existente (`packages/sim/src/`) como entorno, recolecta datos en Node.js, entrena en Python, y exporta modelos ONNX para inferencia en el browser.
 
@@ -37,7 +37,7 @@ posX_normalized = (fighter.simX / FP_SCALE) / STAGE_RIGHT  // correcto
 | **Self position** | 2 | `(simX / FP_SCALE) / STAGE_RIGHT`, `(simY / FP_SCALE) / GROUND_Y` (0-1) |
 | **Self velocity** | 2 | `(simVX / FP_SCALE) / MAX_VEL`, `(simVY / FP_SCALE) / MAX_VEL` (-1 a 1) |
 | **Self resources** | 3 | `hp / MAX_HP`, `stamina / MAX_STAMINA_FP`, `special / MAX_SPECIAL_FP` (0-1) |
-| **Self state** | 7 | One-hot: idle, walking, jumping, attacking, hurt, knockdown, blocking |
+| **Self state** | 7 | One-hot: idle, walking, jumping, attacking, hurt, knockdown, blocking. Nota: `FighterSim.state` tiene estados post-KO (`victory`/`defeat`) pero el episodio termina en KO, así que nunca se observan durante entrenamiento |
 | **Self attack info** | 3 | `attackCooldown / MAX_COOLDOWN`, `attackFrameElapsed / MAX_COOLDOWN`, `isCurrentAttackActive` (0/1) |
 | **Self combat** | 2 | `comboCount / MAX_COMBO`, `blockTimer / MAX_BLOCKSTUN` |
 | **Self flags** | 4 | `isOnGround`, `facingRight`, `hasDoubleJumped`, `_isTouchingWall` (0/1 cada uno) |
@@ -106,7 +106,7 @@ for (const move of [-1, 0, 1]) {         // left/none/right
 |---|---|---|
 | Daño infligido | `+dmg_dealt / 100` | Incentiva atacar |
 | Daño recibido | `−dmg_taken / 100` | Incentiva defender |
-| Acercarse al oponente | `+0.001` por frame si la velocidad del agente apunta hacia el oponente | Anti-camping. Basado en la velocidad propia del agente (`sign(velX) == sign(opponent.posX - self.posX)`), no en el delta de distancia — esto evita dar reward cuando el oponente se acerca solo |
+| Acercarse al oponente | `+0.0001` por frame si la velocidad del agente apunta hacia el oponente | Anti-camping. Basado en la velocidad propia del agente (`sign(velX) == sign(opponent.posX - self.posX)`), no en el delta de distancia — esto evita dar reward cuando el oponente se acerca solo. Escala reducida intencionalmente: a 60fps, máximo `+0.006/sec` → ~0.6 por round de 99s, bien por debajo del `+1.0` de ganar round |
 
 #### Rewards escasos (por evento)
 
@@ -120,7 +120,7 @@ for (const move of [-1, 0, 1]) {         // left/none/right
 
 | Penalty | Valor | Condición | Propósito |
 |---|---|---|---|
-| Whiff en rango cercano | `−0.01` | Ataque falló **y** distancia al oponente < `avgReach * 1.5` | Anti-spam. Solo penaliza whiffs a distancia de castigo — los whiffs a distancia segura (zoning, space control) son legítimos y no se penalizan. `avgReach` es el promedio de `reach` de los ataques del fighter que lo tienen definido; si ningún ataque tiene `reach`, se usa 45px (la mediana global) |
+| Whiff en rango cercano | `−0.01` | Ataque falló **y** distancia al oponente < `avgReach * 1.5` | Anti-spam. Solo penaliza whiffs a distancia de castigo — los whiffs a distancia segura (zoning, space control) son legítimos y no se penalizan. `avgReach` es el promedio de `reach` de los ataques del fighter. Para fighters sin `reach` explícito en `fighters.json`, se usa el `defaultReach` de `FighterSim.js` (mismo fallback que usa la sim en runtime). Si el fighter no tiene ningún ataque con `reach` definido, se usa 45px (mediana global entre todos los fighters) |
 | Esquina | `−0.005` / frame | Distancia a pared más cercana < 30px | Incentiva salir de la esquina |
 
 #### Archetype bonus (por fighter, soft bias)
@@ -214,7 +214,7 @@ Esto es necesario porque DQN requiere tuplas completas `(obs, action, reward, ne
 node scripts/cerebro/collect.js --fighter=simon --episodes=100000 --workers=4 --frame-skip=4
 ```
 
-Target de performance: ~1500 fights/sec single-threaded (M1 Mac), ~5000/sec con `worker_threads`.
+Target de performance: ~1500 fights/sec single-threaded (M1 Mac), ~5000/sec con `worker_threads`. Nota: cada worker re-importa el módulo de simulación (`@alostraques/sim`) independientemente — esto es correcto ya que el estado de sim es per-match y no se comparte entre threads. La paralelización con workers es un nice-to-have post-POC; el deliverable de Phase 1 es single-threaded.
 
 Storage estimate (frame-skip=4):
 - ~500 sim frames/episode ÷ 4 = ~125 decision-point transitions/episode
@@ -237,7 +237,7 @@ Nuevo directorio top-level `training/`:
 #### Entrenamiento en dos fases distintas
 
 **Fase A — Bootstrap (offline puro)**:
-1. Recolectar datos contra el AI rule-based a varias dificultades (easy → hard_plus)
+1. Recolectar datos contra el AI rule-based, ponderando hacia dificultades altas (70% `hard`/`hard_plus`, 20% `medium`, 10% `easy`/`easy_plus`) para que el bootstrap aprenda de datos de calidad
 2. Entrenar DQN puramente offline desde los datos guardados
 3. Esto produce un agente que ya es mejor que el rule-based
 
@@ -274,40 +274,46 @@ Si el agente empieza a overfitear al rule-based o los past selves son demasiado 
 Fighters con stats similares (simon/bozzi/angy: speed=4, power~3-4) convergen a la misma política sin incentivos explícitos.
 
 **Mecanismo — Intrinsic diversity reward**:
-- Reward extra: `r_diversity = +0.01 * KL(π_agent || π_league_avg)`
+- Reward extra **por episodio (no por frame)**: `r_diversity = +0.01 * KL(π_agent || π_league_avg)`, dividido uniformemente entre todos los frames del episodio. KL típico entre políticas ~0.5-2.0 nats → bonus total por episodio ~0.005-0.02, negligible vs outcome reward (+1.0) pero suficiente para romper empates de convergencia.
 - Esto incentiva a cada agente a encontrar su *nicho* en vez de converger a una sola meta.
 
 **Workflow de cómputo** (resuelto en Python, no en JS):
-1. **Data collection (JS)**: Guarda las tuplas base `(obs, action, reward, next_obs, done)` con los rewards de combate (daño, victoria, penalties). No computa KL — JS no tiene acceso a las 16 políticas.
+1. **Data collection (JS)**: Guarda las tuplas base `(obs, action, reward, next_obs, done)` con los rewards de combate (daño, victoria, penalties). No computa KL — JS no tiene acceso a las 17 políticas.
 2. **Training (Python)**: Antes de insertar en el replay buffer, Python agrega el bonus KL al reward almacenado. Para esto necesita:
    - La acción tomada (ya en la tupla)
    - La distribución de acciones del agente actual (forward pass del modelo)
    - La distribución promedio de la liga (recomputada cada 50K steps a partir de 1000 observaciones random por agente)
-3. **Liga promedio**: Se mantiene un archivo `league_avg.npy` con la distribución promedio (72 floats). Se actualiza periódicamente durante Phase 3 cuando los 16 agentes ya tienen checkpoints. En Phase 2 (un solo fighter) no aplica.
+3. **Liga promedio**: Se mantiene un archivo `league_avg.npy` con la distribución promedio (72 floats). Se actualiza periódicamente durante Phase 3 cuando los 17 agentes ya tienen checkpoints. En Phase 2 (un solo fighter) no aplica.
 
 Combinado con los archetype bonus de §3 (derivados de stats), cada fighter tiene dos fuerzas de diversificación: una global (KL reward, computada en Python) y una local (archetype bonus, computado en JS durante collection).
 
 ### 7. Inferencia en browser
 
-- Exportar modelos a **ONNX** (MLP pequeño: 2 hidden layers × 128 units ≈ 50-100KB por fighter)
+- Exportar modelos a **ONNX** con **int8 quantization** (MLP pequeño: 2 hidden layers × 128 units, Dueling DQN con shared trunk + value/advantage heads ≈ 31K params. Float32 ≈ 124KB, int8 quantized ≈ 31KB por fighter). `export_onnx.py` incluye quantization pass con `onnxruntime.quantization`
 - Cargar via **ONNX Runtime Web** (WASM backend) — funciona en Safari iOS, sin WebGL
-- Payload total: 16 × ~100KB = ~1.6MB (lazy-loaded por fighter, no upfront)
-- **Pre-warm en PreFightScene**: ONNX WASM cold start es ~200ms, primera inferencia >5ms por JIT. Inicializar el runtime y correr una inferencia dummy durante el countdown de PreFight (3 segundos de tiempo muerto) para que la primera inferencia real en FightScene sea sub-1ms
+- Payload total: 17 × ~31KB (int8 quantized) = ~0.5MB (lazy-loaded por fighter, no upfront). Sin quantization serían ~124KB × 17 = ~2.1MB
+- **Pre-warm en PreFightScene**: ONNX WASM cold start es ~200ms (estimado, pendiente medición real en iPhone 15 Safari en Phase 2), primera inferencia >5ms por JIT. Inicializar el runtime y correr una inferencia dummy durante el countdown de PreFight (3 segundos de tiempo muerto) para que la primera inferencia real en FightScene sea sub-1ms. El deliverable de Phase 2 incluye medición de latencia real en Safari iOS
 - Inferencia determinista: misma observación → misma acción (argmax en hard; ε-greedy con seeded PRNG para dificultades fáciles)
 
 ### 8. Difficulty levels
 
-Mapeados a los **5 niveles existentes** del AI rule-based para mantener paridad:
+Mapeados a los **5 niveles existentes** del AI rule-based para mantener paridad. La dificultad se controla con **tres knobs ortogonales**, análogos a los del AI rule-based (`thinkInterval`, `missRate`, gated capabilities):
 
-| Nivel | Modelo | ε (random actions) | Fuente |
-|---|---|---|---|
-| **Fácil** (1) | Checkpoint temprano (100K steps, agente débil) | 0.35 | Equivale a `easy` rule-based |
-| **Fácil+** (2) | Checkpoint temprano (200K steps) | 0.25 | Equivale a `easy_plus` |
-| **Normal** (3) | Checkpoint medio (400K steps) | 0.10 | Equivale a `medium` |
-| **Difícil** (4) | Modelo final | 0.05 | Equivale a `hard` |
-| **Difícil+** (5) | Modelo final | 0.00 (puro argmax) | Equivale a `hard_plus` |
+1. **Observation delay** (`obsDelay`): el agente ve `obs(t−k)` en vez de `obs(t)`. Simula tiempo de reacción humano. Sin esto, un modelo entrenado a frame 0 reacciona en 1 frame (~17ms), 10× más rápido que un humano (~200ms). **Baked into training**: cada nivel de dificultad se entrena con su propio delay, para que la política aprenda a jugar con información retrasada en vez de mispredecir por recibir features desfasadas en inferencia.
+2. **Decision cadence** (`decisionInterval`): el agente solo elige una nueva acción cada N frames; la acción anterior se repite entre decisiones. Análogo directo a `thinkInterval` del rule-based.
+3. **Action noise** (`ε`): probabilidad de elegir una acción aleatoria en vez del argmax de Q-values. Análogo a `missRate`.
 
-Los checkpoints de entrenamiento proveen naturalmente una escalera de habilidad sin configuración manual.
+| Nivel | Modelo | obsDelay | decisionInterval | ε | Fuente |
+|---|---|---|---|---|---|
+| **Fácil** (1) | Entrenado con delay=25 | 25 frames (~417ms) | 40 frames | 0.35 | Equivale a `easy` |
+| **Fácil+** (2) | Entrenado con delay=18 | 18 frames (~300ms) | 25 frames | 0.25 | Equivale a `easy_plus` |
+| **Normal** (3) | Entrenado con delay=12 | 12 frames (~200ms) | 15 frames | 0.10 | Equivale a `medium` |
+| **Difícil** (4) | Entrenado con delay=6 | 6 frames (~100ms) | 8 frames | 0.05 | Equivale a `hard` |
+| **Difícil+** (5) | Entrenado con delay=4 | 4 frames (~67ms) | 4 frames | 0.00 | Equivale a `hard_plus` |
+
+**Implicación para training**: se entrenan 5 variantes por fighter (una por nivel de dificultad) con su propio `obsDelay` baked into el environment. Esto produce agentes que son *más lentos* en vez de *más estúpidos* — una distinción clave para que la experiencia se sienta humana. El `decisionInterval` también se aplica durante entrenamiento (es el frame-skip ya descrito en §5, pero parametrizado por dificultad). El ε se aplica solo en inferencia.
+
+Los checkpoints tempranos ya **no** se usan como proxy de dificultad — la separación en tres knobs elimina esa necesidad.
 
 ### 9. Integración con código existente
 
@@ -333,7 +339,7 @@ this.decision = {
 
 **Fallback automático**: Si el modelo ONNX falla al cargar (red, formato, etc.), se cae al `AIController` rule-based con un `log.warn`. El jugador nunca se queda sin oponente.
 
-**Lazy load**: `BootScene` descarga `apps/web/public/assets/ai/{fighterId}.onnx` solo para el fighter AI seleccionado. No se cargan los 16 modelos upfront.
+**Lazy load**: `BootScene` descarga `apps/web/public/assets/ai/{fighterId}.onnx` solo para el fighter AI seleccionado. No se cargan los 17 modelos upfront.
 
 **Rollback netcode**: Inferencia es pura (sin side effects), determinista (PRNG seeded), y corre en <1ms post pre-warm. Compatible con el rollback existente.
 
@@ -341,7 +347,7 @@ this.decision = {
 
 Post-entrenamiento, `scripts/cerebro/evaluate.js` corre en Node.js (reutilizando `match-runner.js` + `onnxruntime-node`):
 
-1. Round-robin: cada agente juega 500 matches vs cada otro → 16×15×500 = 120K matches
+1. Round-robin: cada agente juega 500 matches vs cada otro → 17×16×500 = 136K matches
 2. Win rate matrix (mismo formato que `balance-report.md`)
 3. Tier placement por agente
 4. Style profile por agente: distancia promedio, frecuencia de ataque, block rate, combo rate, whiff rate
@@ -363,9 +369,9 @@ El Cerebro se activa como default cuando **todos** los siguientes se cumplen:
 |---|---|---|
 | Win rate vs rule-based AI (por nivel) | Fácil: pierde 60-70%, Normal: ~50/50, Difícil: gana 70-80%, Difícil+: gana 95%+ | 1000 matches round-robin por fighter por nivel |
 | Action diversity (anti-spam) | Max repeat-action streak < 40% de frames en cualquier match | 10K matches por agente |
-| Style diversity (inter-agente) | Mean pairwise KL divergence > 0.5 nats entre los 16 agentes | Action distributions de 10K matches cada uno |
+| Style diversity (inter-agente) | Mean pairwise KL divergence > 0.5 nats entre los 17 agentes | Action distributions de 10K matches cada uno |
 | Inferencia latency (post pre-warm) | p99 < 1ms en iPhone 15 Safari | `performance.now()` en debug mode |
-| Model size | < 150KB por fighter ONNX | File size check |
+| Model size | < 50KB por fighter ONNX (int8 quantized) | File size check |
 | Sin regresiones de balance | Tier list de `bun run balance` no cambia más de 1 tier para ningún fighter | Comparar pre/post balance reports |
 
 ### 12. Go/No-Go gate después de Phase 2
@@ -375,7 +381,7 @@ Después de completar el POC con un solo fighter (Phase 2), se evalúa:
 **Go** si el agente:
 - Se acerca al oponente (no campea en esquina)
 - Usa ataques variados (no spamea un solo move)
-- Bloquea ataques incoming (al menos 30% de los que podría bloquear)
+- Bloquea ataques incoming (al menos 50% de blockable attacks). **Definición de "blockable"**: un ataque es blockable si el oponente tiene un ataque en estado `active` (frame `attackFrameElapsed > 0` y `isCurrentAttackActive`), el agente está `isOnGround`, y `distanceToOpponent < attackReach * 1.2`. Se mide como `blocks / blockable_attacks` sobre 1000 matches
 - "Se siente" cualitativamente diferente al AI rule-based en playtesting
 - Inferencia sub-1ms post pre-warm en Safari
 
@@ -383,7 +389,7 @@ Después de completar el POC con un solo fighter (Phase 2), se evalúa:
 - El agente converge a una política degenerada (spam, camping, inacción)
 - La diferencia subjetiva con el rule-based no es perceptible
 - La latencia de inferencia ONNX WASM es >2ms p99
-- El esfuerzo de escalar a 16 fighters no se justifica vs mejorar el rule-based
+- El esfuerzo de escalar a 17 fighters no se justifica vs mejorar el rule-based
 
 Si es No-Go, se explora la **alternativa incremental**: mejorar el AI rule-based derivando parámetros de stats (`idealRange` basado en `reach`, `blockChance` basado en `defense`, `thinkInterval` basado en `speed`) + agregar variación por fighter + patrones de combo condicionales. Esto no requiere ML y resuelve el problema de "todos pelean igual" con ~2-3 días de trabajo.
 
@@ -396,6 +402,8 @@ Si es No-Go, se explora la **alternativa incremental**: mejorar el AI rule-based
 | `docs/rfcs/0020-el-cerebro-deep-rl-ai.md` | Este documento |
 
 Todos los archivos de `scripts/cerebro/`, `training/`, y `apps/web/public/assets/ai/` son trabajo de implementación de Phases 1-5, no parte de este PR.
+
+**Versionamiento de modelos**: Los archivos `.onnx` (17 × ~31KB quantized = ~0.5MB total) se commitean con git plain (no LFS) en `apps/web/public/assets/ai/`. Son regenerados desde training runs locales y commiteados manualmente — no se regeneran en CI. El directorio `data/cerebro/` (transiciones de entrenamiento, ~4-5GB comprimidas) se gitignora; solo los modelos finales se commitean.
 
 ### Files que se modificarán (en phases futuras)
 
@@ -421,7 +429,7 @@ Correr 100K peleas para Simon como validación. Guardar en `data/cerebro/simon/`
 
 Python `training/` con Dueling DQN. Entrenar con datos de Simon (bootstrap offline contra rule-based). Exportar ONNX. Cargar ONNX en Node.js y evaluar contra rule-based AI.
 
-**Deliverable**: Un modelo ONNX que gana >50% contra el AI rule-based en medium **y** pasa los criterios cualitativos del go/no-go gate (§12). El target de >70% contra hard es para el modelo final post-self-play (Phase 3), no para el POC bootstrap.
+**Deliverable**: Un modelo ONNX para Simon que gana >50% contra Simon rule-based `hard_plus` en mirror match (1000 matches) **y** pasa los criterios cualitativos del go/no-go gate (§12). Mirror match (mismo fighter) es la prueba más limpia — elimina la variable de stats/matchup. El target de >70% contra `hard_plus` es para el modelo final post-self-play (Phase 3), no para el POC bootstrap.
 
 ### **GO/NO-GO GATE**
 
@@ -429,11 +437,11 @@ Evaluar el POC contra los criterios de §12. Si no-go, pivotar a mejoras del AI 
 
 ### Phase 3 — Self-play + diversidad (~2 semanas, solo si go)
 
-Extender recolección a los 16 fighters. Loop de self-play iterativo (Fase B de §5).
+Extender recolección a los 17 fighters. Loop de self-play iterativo (Fase B de §5).
 Entrenar con diversity rewards + archetype bonus derivados de stats.
 Guardar checkpoints a 100K/200K/400K/final para la escalera de dificultad.
 
-**Deliverable**: 16 modelos ONNX con `cerebro-report` que muestra KL divergence > 0.5 nats.
+**Deliverable**: 17 × 5 = 85 modelos ONNX (fighter × dificultad) con `cerebro-report` que muestra KL divergence > 0.5 nats entre los 17 agentes (nivel Difícil+).
 
 ### Phase 4 — Integración browser (~1 semana)
 
