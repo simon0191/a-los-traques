@@ -32,3 +32,10 @@ scripts/asset-pipeline/pose/models/
 
 # El Cerebro training data (generated, ~GB scale)
 data/cerebro/
+
+# El Cerebro training artifacts
+training/__pycache__/
+training/.venv/
+checkpoints/
+*.onnx
+*.onnx.data
