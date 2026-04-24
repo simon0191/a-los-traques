@@ -37,5 +37,6 @@ data/cerebro/
 training/__pycache__/
 training/.venv/
 checkpoints/
-*.onnx
-*.onnx.data
+# ONNX test artifacts (root level only — models in apps/web/public/assets/ai/ are tracked)
+/*.onnx
+/*.onnx.data

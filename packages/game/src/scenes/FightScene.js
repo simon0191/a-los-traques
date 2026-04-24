@@ -29,6 +29,7 @@ import { InputManager } from '../systems/InputManager.js';
 import { Logger, LogLevel } from '../systems/Logger.js';
 import { MatchEvent, MatchState, MatchStateMachine } from '../systems/MatchStateMachine.js';
 import { MatchTelemetry } from '../systems/MatchTelemetry.js';
+import { NeuralAIController } from '../systems/NeuralAIController.js';
 import { ReconnectionManager } from '../systems/ReconnectionManager.js';
 import { ReplayInputSource } from '../systems/ReplayInputSource.js';
 import { RollbackManager } from '../systems/RollbackManager.js';
@@ -227,12 +228,17 @@ export class FightScene extends Phaser.Scene {
           this.aiController = null;
         } else {
           if (this.p1Fighter && this.p2Fighter) {
-            this.aiController = new AIController(
-              this,
-              this.p2Fighter,
-              this.p1Fighter,
-              this.aiDifficulty,
-            );
+            const useCerebro = new URLSearchParams(window.location?.search).get('ai') === 'cerebro';
+            if (useCerebro) {
+              this._initCerebroAI();
+            } else {
+              this.aiController = new AIController(
+                this,
+                this.p2Fighter,
+                this.p1Fighter,
+                this.aiDifficulty,
+              );
+            }
           } else {
             log.error('Cannot initialize AI: fighters missing', {
               p1: !!this.p1Fighter,
@@ -2725,6 +2731,39 @@ export class FightScene extends Phaser.Scene {
       duration: 300,
       onComplete: () => flash.destroy(),
     });
+  }
+
+  // =========================================================================
+  // EL CEREBRO — ONNX neural AI (RFC 0020, ?ai=cerebro)
+  // =========================================================================
+
+  /**
+   * Initialize the neural AI controller. Loads the ONNX model for the
+   * opponent's fighter asynchronously; the controller falls back to idle
+   * until the model is ready (typically <200ms).
+   */
+  _initCerebroAI() {
+    const ctrl = new NeuralAIController(this, this.p2Fighter, this.p1Fighter, this.aiDifficulty);
+    this.aiController = ctrl;
+
+    const fighterId = this.p2Id;
+    const modelUrl = `assets/ai/${fighterId}.onnx`;
+
+    import('onnxruntime-web')
+      .then(async (ort) => {
+        ort.env.wasm.numThreads = 1;
+        const session = await ort.InferenceSession.create(modelUrl, {
+          executionProviders: ['wasm'],
+        });
+        ctrl.setSession(ort, session);
+        log.info('Cerebro model loaded', { fighterId, modelUrl });
+      })
+      .catch((err) => {
+        log.warn('Cerebro model failed to load, AI will idle', {
+          fighterId,
+          err: err.message,
+        });
+      });
   }
 
   // =========================================================================
