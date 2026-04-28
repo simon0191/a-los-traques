@@ -34,3 +34,5 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --system-prompt "This repo ships a custom code-review skill at .claude/skills/code-review/SKILL.md. Whenever the request involves reviewing a PR, reviewing changes, giving feedback on a diff, or auditing a change for issues, invoke that skill before doing anything else — it encodes the project's review format, severity tiers, and architectural guardrails (sim determinism, rollback netcode, Phaser/sim boundary). For any other request, behave normally."
