@@ -11,6 +11,11 @@ variable "cloudflare_zone_id" {
   type        = string
 }
 
+variable "cloudflare_account_id" {
+  description = "Cloudflare Account ID — needed for account-scoped resources like Email Routing destination addresses"
+  type        = string
+}
+
 # --- Vercel ---
 
 variable "vercel_api_token" {
@@ -95,4 +100,11 @@ variable "domain" {
   description = "The apex domain"
   type        = string
   default     = "alostraques.com"
+}
+
+# --- Email Routing ---
+
+variable "email_forwards" {
+  description = "Map of local-part → destination address for Cloudflare Email Routing. Keys are local-parts on the apex zone, values are external destinations. Each unique destination gets created as a verified address; the recipient must click a Cloudflare verification email before forwarding starts working."
+  type        = map(string)
 }
