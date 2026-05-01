@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
-import { loadBacklog, saveBacklog, emptyBacklog } from '../../scripts/blog-backlog/backlog.js';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { emptyBacklog, loadBacklog, saveBacklog } from '../../scripts/blog-backlog/backlog.js';
 
 let tmpDir;
 let file;

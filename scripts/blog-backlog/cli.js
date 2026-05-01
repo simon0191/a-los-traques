@@ -9,7 +9,7 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { loadBacklog, saveBacklog, emptyBacklog } from './backlog.js';
+import { emptyBacklog, loadBacklog, saveBacklog } from './backlog.js';
 import { applyPlan } from './dedup.js';
 
 const DEFAULT_FILE = path.resolve(process.cwd(), 'docs/blog-backlog.json');

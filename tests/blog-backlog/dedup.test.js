@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { applyPlan } from '../../scripts/blog-backlog/dedup.js';
+import { describe, expect, it } from 'vitest';
 import { emptyBacklog } from '../../scripts/blog-backlog/backlog.js';
+import { applyPlan } from '../../scripts/blog-backlog/dedup.js';
 
 const NOW = '2026-05-01T12:00:00Z';
 

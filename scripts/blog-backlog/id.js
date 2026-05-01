@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto';
 
 export function slugify(input) {
-  const ascii = input
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, ''); // strip combining diacriticals
+  const ascii = input.normalize('NFKD').replace(/[̀-ͯ]/g, ''); // strip combining diacriticals
   const lower = ascii.toLowerCase();
   const dashed = lower.replace(/[^a-z0-9]+/g, '-');
   const trimmed = dashed.replace(/^-+|-+$/g, '');
