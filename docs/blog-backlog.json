@@ -1,9 +1,703 @@
 {
   "version": 1,
   "cursor": {
-    "pr": 0,
-    "rfc": "",
-    "transcript": "1970-01-01T00:00:00Z"
+    "pr": 151,
+    "rfc": "0019-nextjs-monorepo-restructure.md",
+    "transcript": "2026-05-01T20:01:51Z"
   },
-  "entries": []
+  "entries": [
+    {
+      "id": "rollback-netcode-for-a-fighting-game-starring-16-of-my-frien-667a",
+      "title": "Rollback netcode for a fighting game starring 16 of my friends",
+      "hook": "GGPO-style rollback netcode means both peers run the exact same simulation locally with zero perceived input lag — and rewind up to 7 frames when predictions miss. Here's the architecture (GameState snapshot/restore, InputBuffer, RollbackManager, deterministic frame timers) and why it's the only sensible choice for cross-device WebRTC fights.",
+      "audience": "en-tech",
+      "targetLength": 2200,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 17
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Foundational netcode story with concrete modules and a clear before/after.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "why-your-fighting-game-needs-fixed-point-integer-math-and-ho-086d",
+      "title": "Why your fighting game needs fixed-point integer math (and how 1000x scale fixed our desyncs)",
+      "hook": "Phaser's float physics drift one ULP between browsers and the whole rollback edifice collapses. We replaced positions, velocities, and timers with int * 1000 fixed-point math. The 75-line FixedPoint.js module is now load-bearing for peer-equal multiplayer; a 100-run determinism test proves bit-identical state across runs.",
+      "audience": "en-tech",
+      "targetLength": 1900,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 20
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Determinism is the canonical netcode topic; concrete formula + tests.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "why-your-multiplayer-is-silently-desyncing-a-four-rfc-bug-hu-5dd3",
+      "title": "Why your multiplayer is silently desyncing: a four-RFC bug hunt",
+      "hook": "After fixing the obvious multiplayer bugs, real matches still desynced. Each fix exposed the next bug underneath: a callback overwrite that killed RTT measurement (RFC 0006), a checksum offset that depended on per-peer state (RFC 0007), prediction pruning that masked late corrections (RFC 0008), and a resync that rewound the frame counter (RFC 0010). A debugging story across four RFCs.",
+      "audience": "en-tech",
+      "targetLength": 2800,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0006-fix-p1-no-rollback.md"
+        },
+        {
+          "type": "rfc",
+          "ref": "0007-fix-desync-detection.md"
+        },
+        {
+          "type": "rfc",
+          "ref": "0008-prediction-pruning-causes-silent-desync.md"
+        },
+        {
+          "type": "rfc",
+          "ref": "0010-resync-rewinds-frame-counter.md"
+        },
+        {
+          "type": "pr",
+          "number": 78
+        },
+        {
+          "type": "pr",
+          "number": 80
+        },
+        {
+          "type": "pr",
+          "number": 82
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Multi-RFC arc. Each RFC documents a distinct bug found by debug bundles from real cross-device matches; together they form a unique narrative about layered failure modes.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "how-a-single-missing-input-frame-creates-an-unfixable-desync-3cc8",
+      "title": "How a single missing input frame creates an unfixable desync",
+      "hook": "When RTT spikes and inputDelay bumps from 3 to 4, one localInputHistory slot is permanently skipped. Local peer renders that frame as EMPTY_INPUT; remote peer mispredicts and never sees a confirming input arrive. Three of four hybrid-E2E desyncs landed exactly 14 frames after the gap. The fix: detect the target-frame skip and fill the gap with the current input, sending each gap frame to the remote.",
+      "audience": "en-tech",
+      "targetLength": 1900,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 97
+        },
+        {
+          "type": "rfc",
+          "ref": "0014-fix-desync-adaptive-delay-gap.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Sharp, focused bug with great evidence (predicted gap frames matched observed desync frames within 14-frame checksum offset).",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "bug-hunting-gh-93-with-the-llm-don-t-trust-the-issue-verify--60a9",
+      "title": "Bug-hunting GH#93 with the LLM: 'don't trust the issue, verify everything yourself'",
+      "hook": "User opens with one prompt: 'Analyse the debug bundle and verify the hypothesis. Don't trust what the issue says.' What follows is a Socratic argument about RTT spikes, frame-gap collisions, and whether overwriting committed inputs is harmless — ending with the user saying 'use critical thinking' and the RFC scope expanding mid-session.",
+      "audience": "en-tech",
+      "targetLength": 2000,
+      "supporting": [
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-gh93-desync-assymetric-rollback/0e9d192a-59ef-4ce7-86c8-ec3609c41244.jsonl"
+        },
+        {
+          "type": "pr",
+          "number": 97
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Best example of explicitly disabling agreeableness ('use critical thinking') and forcing the model to verify a debug bundle from first principles.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "from-sound-to-silence-redesigning-a-phaser-simulation-to-be--7faa",
+      "title": "From sound to silence: redesigning a Phaser simulation to be Phaser-free",
+      "hook": "Our 'pure' game logic was firing audioManager.play() inside the rollback loop. Every frame of resimulation was muted by a _muteEffects flag — a leak, not a boundary. We extracted FighterSim and CombatSim, made tick() return events instead of side effects, and got headless determinism testing for free.",
+      "audience": "en-tech",
+      "targetLength": 2200,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 65
+        },
+        {
+          "type": "rfc",
+          "ref": "0002-multiplayer-redesign.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Generalizable architecture lesson — split simulation from presentation — with concrete before/after metrics.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "tier-listing-16-fighters-with-28-900-ai-vs-ai-fights-in-18-s-92b9",
+      "title": "Tier-listing 16 fighters with 28,900 AI-vs-AI fights in 18 seconds",
+      "hook": "Players said some fighters felt overpowered. With 17 characters and unique stats per move, manual balancing was guesswork. The pure simulation already runs without Phaser — we ran the full 17×17 matrix at 100 fights per matchup in 20 seconds and produced a tier list with outlier matchups. Iterated four passes; spread closed from 16-79% to 45-57%.",
+      "audience": "en-tech",
+      "targetLength": 2000,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 94
+        },
+        {
+          "type": "rfc",
+          "ref": "0013-fighter-balance-simulation.md"
+        }
+      ],
+      "status": "drafted",
+      "notes": "",
+      "rationale": "Self-contained, satisfying narrative: pure sim makes balance testing essentially free.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": "apps/web/content/blog/_drafts/tier-listing-16-fighters-with-28-900-ai-vs-ai-fights-in-18-s-92b9.md"
+    },
+    {
+      "id": "iterating-fighter-balance-with-the-llm-as-both-engineer-and--175f",
+      "title": "Iterating fighter balance with the LLM as both engineer and game designer",
+      "hook": "The user explicitly says: 'Update the PR description with the results, and explain the process we followed with the iterations. Let's use it as documentation for a future blog post.' Then runs 25,600 simulated fights, finds 'special' is a dead stat read nowhere in the codebase, double-checks that claim, opens a GH issue, and tunes base damage values down to a 45-55% spread.",
+      "audience": "en-tech",
+      "targetLength": 2400,
+      "supporting": [
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-nerf-fighters/e69adcd3-f512-4b57-ba3c-0cffc2a4d232.jsonl"
+        },
+        {
+          "type": "pr",
+          "number": 94
+        },
+        {
+          "type": "rfc",
+          "ref": "0013-fighter-balance-simulation.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "User explicitly framed the session as future-blog-post material. Tier list, P1 bias fix, dead-stat detection, scientific-method tuning with an LLM in the loop.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "frame-perfect-e2e-tests-for-a-real-time-multiplayer-fighting-6a59",
+      "title": "Frame-perfect E2E tests for a real-time multiplayer fighting game",
+      "hook": "Multiplayer bugs need two phones on cellular and one human per phone. We replaced both humans with seeded AIControllers, autoplay URL params (?autoplay=1&seed=42&speed=2), a FightRecorder that dumps inputs/checksums/rollbacks to window.__FIGHT_LOG, and Playwright spawning two browser contexts. Caught a real desync at frames 742/1102/1132 on the first run.",
+      "audience": "en-tech",
+      "targetLength": 1700,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 36
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Concrete and reproducible: seeded PRNG + fixture inputs + Playwright replaces a class of bugs you can't otherwise catch.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "frame-based-round-transitions-the-time-delayedcall-that-brok-53c0",
+      "title": "Frame-based round transitions: the time.delayedCall that broke determinism",
+      "hook": "E2E checksum diverged at frame 855, every time. Round transitions used Phaser time.delayedCall, which fires on wall-clock deltas — the two browsers reset fighters at slightly different simulation frames and the next round started already desynced. Replaced with a transitionTimer counted inside simulateFrame(); the simulation never pauses online so the rollback/checksum loop stays alive.",
+      "audience": "en-tech",
+      "targetLength": 1500,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 41
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Small clean bug story with one of the better one-liner lessons: 'no wall-clock anything in the sim path'.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "auto-uploading-debug-bundles-so-i-can-debug-fights-i-wasn-t--276c",
+      "title": "Auto-uploading debug bundles so I can debug fights I wasn't watching",
+      "hook": "Asking players to tap an overlay and paste JSON into Discord works once. By the third bug report, you've lost more bundles than you've collected. We made every fight upload its own bundle to Supabase Storage with a 7-day TTL and an admin panel to browse them — pluggable storage backend means dev writes to /tmp/, prod writes to Supabase, same code path.",
+      "audience": "en-tech",
+      "targetLength": 1800,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 84
+        },
+        {
+          "type": "rfc",
+          "ref": "0011-auto-upload-debug-bundles.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Operational debuggability story tied to a concrete RFC; broadly relatable for game devs and not just netcode-curious.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "pose-estimation-for-fighter-sprites-putting-hats-on-ai-gener-26d4",
+      "title": "Pose estimation for fighter sprites: putting hats on AI-generated friends",
+      "hook": "Sixteen fighter sprites generated by Gemini, each with 13 animations averaging 4 frames apiece. We ran MediaPipe PoseLandmarker heavy on every frame, derived head/torso/hand/foot orientation angles, and emitted one consolidated poses.json per fighter. The integration twist: shoulders > ears for hat scale (ears unreliable in 3/4-view sprites), and fall back to the nearest detected frame for low-vis poses like block/hurt/knockdown.",
+      "audience": "en-tech",
+      "targetLength": 2200,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 131
+        },
+        {
+          "type": "pr",
+          "number": 132
+        },
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-integrate-hats-human-pose-estimation/fd2c0c5a-9c7e-48b7-891b-3bc623db8bcb.jsonl"
+        },
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-human-pose-estimation/d88e50a6-3acd-432b-af4a-85b61bb5f675.jsonl"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Multi-tool AI pipeline (Gemini for sprites, MediaPipe for poses) with a clean ML-meets-game-engine story and concrete engineering tradeoffs.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "sprite-overlay-editor-a-phaser-rendered-preview-a-dom-toolba-090a",
+      "title": "Sprite overlay editor: a Phaser-rendered preview, a DOM toolbar, and 14k-line manifest commits",
+      "hook": "Accessories used to be 342 pre-baked per-(fighter, accessory, animation) strip PNGs. The runtime now reads manifest.calibrations[fighter][category][anim].frames[i] and applies setPosition/setRotation/setScale per frame. Editor at ?editor=1: pure-logic OverlaySession with bounded undo, keyframe interpolation, shortest-arc rotation; Vite dev plugin atomically writes the consolidated manifest.json.",
+      "audience": "en-tech",
+      "targetLength": 2100,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 132
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Concrete custom-tooling story: the editor exists because the alternative (baking strips) is worse, and the math/architecture is generalizable.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "a-code-review-skill-that-knows-my-repo-s-invariants-and-imme-1ff1",
+      "title": "A code-review skill that knows my repo's invariants (and immediately finds 15 critical issues)",
+      "hook": "Generic LLM PR reviews don't enforce 'no Phaser in @alostraques/sim' or 'every API route handler must go through withAuth'. We analyzed the last 50 PRs to extract the project's review style, and the codebase to extract guardrails. First dogfooding run on PR #127: hardcoded Supabase placeholders, an unrelated devDependency, a state-machine bypass with the comment 'Bypass strict transition check', and zero tests for 600+ lines of new pure logic.",
+      "audience": "en-tech",
+      "targetLength": 1800,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 130
+        },
+        {
+          "type": "pr",
+          "number": 127
+        },
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-review-skill/26d3821e-bfc0-4813-af52-cda727ebad49.jsonl"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Skill-creation + immediate dogfooding in a single session. Recipe: skill = workflow + architecture-guardrails + checklist + template.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "split-keyboard-n-humans-no-rewrites-turning-a-1p-game-into-l-7ad0",
+      "title": "Split keyboard, N humans, no rewrites: turning a 1P game into local multiplayer",
+      "hook": "The game supported player-vs-AI and online multiplayer. Friends sitting at the same machine had no way to play each other. We added 1-8 player local tournaments and a 2-player VS Local mode by introducing input profiles (keyboard_left, keyboard_right) and threading two InputManagers through FightScene — without touching the simulation layer.",
+      "audience": "en-tech",
+      "targetLength": 1700,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0015-local-multiplayer-tournament.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Clean architectural example of how clean separation lets you add features by adding modules, not modifying core.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "how-a-27-subagent-task-swarm-shipped-local-tournament-mode-i-2c23",
+      "title": "How a 27-subagent task swarm shipped local tournament mode in one session",
+      "hook": "One worktree, 925 main-thread lines, 27 subagents typed bracket-fix / qa-tests / ux-polish / docs-update / victory-nav. The thread ran out of context twice and resumed itself from JSONL summaries. 'Wait. Let's write the plan as an RFC and create a PR for the team to review before implementation.'",
+      "audience": "en-tech",
+      "targetLength": 2200,
+      "supporting": [
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-torneo-multiplayer-local/c3f4d0af-b30c-4007-a42f-936349c250cc.jsonl"
+        },
+        {
+          "type": "pr",
+          "number": 110
+        },
+        {
+          "type": "rfc",
+          "ref": "0015-local-multiplayer-tournament.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Most sub-agent-heavy session in the repo by 2x. Custom agent types show a real specialized team emerging. Auto-compaction recovered mid-feature and kept shipping.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "how-we-fixed-the-desync-in-our-friends-only-fighting-game-th-7db8",
+      "title": "How we fixed the desync in our friends-only fighting game (the WebRTC redesign)",
+      "hook": "Real cross-device tests revealed the multiplayer was broken in two layers at once: round events fired during rollback resimulation, and the WebRTC stack collapsed behind any symmetric NAT. We fixed it by deferring round events, decomposing a 759-line NetworkManager monolith into focused modules, and adding Cloudflare TURN — without rewriting the rollback math.",
+      "audience": "en-tech",
+      "targetLength": 2200,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0001-networking-redesign.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Lift-and-edit. RFC structured as problem → architecture → 4 phased shipments. Strong hook (real bugs on real phones), opinionated technology comparison.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "three-worlds-and-a-bus-untangling-phaser-react-and-postgres--988b",
+      "title": "Three worlds and a bus: untangling Phaser, React, and Postgres in a fighting game",
+      "hook": "Phaser scenes were calling Supabase directly, dev tools shipped in the player bundle, and 'where do I put this?' had no answer. We restructured into a bun-workspaces monorepo with two Next.js apps and enforced one rule: the game knows nothing about React, React knows nothing about the game, and the data layer knows nothing about either.",
+      "audience": "en-tech",
+      "targetLength": 2400,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0019-nextjs-monorepo-restructure.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Lift-and-edit. The RFC is essentially a long-form essay already. Wide appeal beyond gamedev (any team that lets concerns leak across folders).",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "writing-the-rfc-for-a-next-js-monorepo-restructure-and-askin-169b",
+      "title": "Writing the RFC for a Next.js monorepo restructure (and asking the LLM to argue with itself)",
+      "hook": "Two sessions on worktree improve-structure: one for RFC 0019 spec'd over six phases, the second a 3,361-line implementation thread that imported a live Vercel project into Terraform, set up 1Password-named secrets, and replaced the dev plugin with a Next.js Route Handler — all phase-by-phase with a 'commit, push, continue' cadence.",
+      "audience": "en-tech",
+      "targetLength": 2400,
+      "supporting": [
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-improve-structure/eb6aa34b-ec47-4866-8540-b171e45c172a.jsonl"
+        },
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-improve-structure/b57c069c-fe07-47ca-bb6e-148e3503cd8e.jsonl"
+        },
+        {
+          "type": "pr",
+          "number": 143
+        },
+        {
+          "type": "rfc",
+          "ref": "0019-nextjs-monorepo-restructure.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "RFC-driven workflow at peak intensity: phase-gated implementation, terraform import to converge live infra into code. The clearest Spec→Plan→Phase loop in any transcript.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "debug-bundles-from-real-matches-building-observability-for-a-a92f",
+      "title": "Debug bundles from real matches: building observability for a P2P game",
+      "hook": "When a friend says 'multiplayer is broken on my phone,' you have nothing. No logs. No DevTools on iOS. Just guessing. We built a system that runs zero-overhead by default but spins up structured logging, telemetry, and one-click bundle export from both peers + server when you append ?debug=1.",
+      "audience": "en-tech",
+      "targetLength": 2000,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0005-multiplayer-debuggability.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Universally relatable problem (debugging mobile bugs you can't reproduce). Concrete techniques: ring buffer, sessionId correlation, bundle merging from both peers.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "two-browsers-two-continents-real-network-e2e-testing-on-brow-009b",
+      "title": "Two browsers, two continents: real-network E2E testing on BrowserStack",
+      "hook": "Local E2E tests run both peers on the same machine with sub-1ms RTT. They catch determinism bugs but miss everything that only appears under real network conditions: TURN credential flow, ICE negotiation, RTT asymmetry, geographic latency. We hooked Playwright into BrowserStack's CDP endpoint to run P1 in Chrome on Windows and P2 in Safari on macOS, against deployed staging.",
+      "audience": "en-tech",
+      "targetLength": 1800,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0009-e2e-remote-browser-testing.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Reusable techniques (Playwright CDP connect over BrowserStack instead of their SDK). Useful to any team running real-time multiplayer.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "why-two-scenes-never-received-the-rematch-message-fd6a",
+      "title": "Why two scenes never received the rematch message",
+      "hook": "Players got stuck on 'Esperando el oponente' after every fight. We assumed a network race. It was actually a callback overwrite: NetworkFacade registered onSocketOpen twice in its constructor, the second call silently overwrote the first, and rematch messages were dispatched to a listener that no longer existed. A debugging story about how a proxy pattern can sever its own wires.",
+      "audience": "en-tech",
+      "targetLength": 1500,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0015-multiplayer-scene-transitions-reliability.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Short, sharp diagnostic story. Two related root causes (severed wire + stale handler), both about handler lifecycle in a layered networking stack.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "designing-a-tournament-lobby-that-works-across-devices-and-a-832f",
+      "title": "Designing a tournament lobby that works across devices and accounts",
+      "hook": "Local tournaments started as a player-count selector. They grew into a hybrid-cloud lobby — one PC as host, friends joining via QR on their phones, with persistent slots, kiosk mode, mixed bots and humans, and a server-mediated handshake to record stats for every authenticated player without exposing tokens to the host.",
+      "audience": "en-tech",
+      "targetLength": 2000,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0017-tournament-lobby-redesign.md"
+        },
+        {
+          "type": "rfc",
+          "ref": "0018-tournament-participant-persistence.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Paired RFCs. 0017 covers lobby UX/sync (implemented), 0018 covers security/persistence model. Together: turning 'simple local tournament' into a multi-device coordination problem.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "adding-gamepad-support-without-rewriting-every-menu-0233",
+      "title": "Adding gamepad support without rewriting every menu",
+      "hook": "PS4 controllers were the obvious next input device. The problem wasn't the gamepad API — it was that every scene implemented its own keyboard navigation. We built a global ControllerScene that lerps a cursor between registered buttons, and gave every menu controller support with one line of registration code.",
+      "audience": "en-tech",
+      "targetLength": 1500,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0016-ps4-controller-support.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Useful pattern (centralizing navigation as a 'global brain' scene). Covers the broader principle of not duplicating UX glue across screens.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "ranking-16-friends-how-a-leaderboard-got-us-out-of-an-abuse--caf5",
+      "title": "Ranking 16 friends: how a leaderboard got us out of an abuse-conversation",
+      "hook": "Wins and losses were already in Postgres. Players had no way to see them. We added a leaderboard scene fed by an authenticated GET /api/leaderboard, picked sort-by-wins-then-win-rate (not pure win rate, which favors 1W/0L), and gated it behind withAuth so we got rate limiting for free.",
+      "audience": "en-tech",
+      "targetLength": 1100,
+      "supporting": [
+        {
+          "type": "rfc",
+          "ref": "0015-global-leaderboard.md"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Small, focused feature post. Useful for the design-decisions table (why not sort by win rate, why authenticated).",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "5-segundos-para-reconectarse-sin-perder-la-pelea-8965",
+      "title": "5 segundos para reconectarse sin perder la pelea",
+      "hook": "Cuando el celular pierde señal en plena pelea, el rollback aguanta los primeros 117ms en silencio (8 frames de input prediction). Después aparece el cartel RECONECTANDO con cuenta regresiva, el server reserva tu slot 5 segundos, y si volvés mandás 'rejoin' y seguís peleando como si nada. Si te tardás más, ahí sí: DESCONECTADO.",
+      "audience": "es-friends",
+      "targetLength": 450,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 22
+        }
+      ],
+      "status": "drafted",
+      "notes": "",
+      "rationale": "Friend-facing UX story for the WhatsApp-on-cellular reality of these matches.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": "apps/web/content/blog/_drafts/5-segundos-para-reconectarse-sin-perder-la-pelea-8965.md"
+    },
+    {
+      "id": "por-que-tu-pantalla-se-achicaba-al-unirte-a-una-sala-desde-e-5b5e",
+      "title": "Por qué tu pantalla se achicaba al unirte a una sala desde el iPhone",
+      "hook": "Tocabas UNIRSE, escribías el código de sala, dabas ENTRAR — y el juego quedaba miniatura. Era el teclado de iOS abriendo y cerrando: nuestro fixHeight() reaccionaba a cada cambio de viewport y el contenedor del juego se quedaba con el tamaño chiquito. Solucion: bloquear fixHeight() mientras el input está activo, y darle 500ms al teclado para terminar la animación antes de reactivarlo.",
+      "audience": "es-friends",
+      "targetLength": 380,
+      "supporting": [
+        {
+          "type": "pr",
+          "number": 12
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Tiny relatable mobile UX bug — the kind of thing every friend playing on their iPhone hit firsthand.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "designing-an-agent-team-to-suggest-blog-posts-about-an-agent-06ea",
+      "title": "Designing an agent team to suggest blog posts about an agent-team-built game",
+      "hook": "We have 19 RFCs and 90+ PRs of source material and zero blog posts. So we designed five agents to do the triage.",
+      "audience": "en-tech",
+      "targetLength": 2200,
+      "supporting": [
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-blogs/8e2285b4-d498-4b5e-929d-80c46f72ab6a.jsonl"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Pure meta-story: pr-miner / rfc-miner / transcript-miner / orchestrator / dedup-judge designed in one session, with source-of-truth-from-code requirement and dual CLAUDE_CONFIG_DIR handling. Self-referential and unique.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "recruiting-a-data-analyst-with-five-agents-and-a-one-page-pd-fe4d",
+      "title": "Recruiting a data analyst with five agents and a one-page PDF pitch",
+      "hook": "The role doesn't exist yet. So we dispatched five parallel subagents to inventory our data, scout external datasets, and pitch three projects sized S/M/L — then exported the recruiting deck as a single-page HTML-to-PDF.",
+      "audience": "en-tech",
+      "targetLength": 2400,
+      "supporting": [
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-brainstorm-for-data-analysis/fa239636-5234-4e08-824f-423d7e6f2994.jsonl"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Five typed parallel subagents (Internal data, ML/AI ideas, External datasets, Frame data wikis, Retention pitch). Balanza Perfecta and El Cerebro emerged as M/L pitches. Pure agent-team meta-story without any PR backing it.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "handover-md-as-a-contract-between-claude-sessions-ac75",
+      "title": "Handover.md as a contract between Claude sessions",
+      "hook": "Mid-feature, the user told a fresh session: 'There was a Claude session I was working on before this one. Find the transcript in ~/.claude-personal to contextualize yourself.' Later: 'write a handover.md in the root of the repo for another agent to continue working on this.' The transcript becomes the handoff artifact.",
+      "audience": "en-tech",
+      "targetLength": 1600,
+      "supporting": [
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude/projects/-Users-simon-personal-a-los-traques--claude-worktrees-integrate-hats-human-pose-estimation/0d922bfb-896e-4606-a3eb-fbcd125010a1.jsonl"
+        },
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-integrate-hats-human-pose-estimation/5998e71f-ce09-4336-a0ea-3c48c2bebfed.jsonl"
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "Tiny but punchy meta-story about session continuity. Documents the 'accidental .claude vs intentional .claude-personal' gotcha.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    },
+    {
+      "id": "one-command-local-multiplayer-dev-designing-an-auth-ladder-f-95c8",
+      "title": "One-command local multiplayer dev — designing an auth ladder from no-auth to fake IdP to Supabase",
+      "hook": "User: 'Currently manually testing multiplayer is cumbersome. You need to create the special 0000 user, run multiple things, etc. Goal: single command, no API keys, three auth modes.' Result: bun run dev:mp boots PGLite + fake auth + web + admin + PartyKit, with autoplay flags so the LLM can drive both browsers.",
+      "audience": "en-tech",
+      "targetLength": 1800,
+      "supporting": [
+        {
+          "type": "transcript",
+          "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-multiplayer-local-dx/779228dd-bc80-4029-8999-013aa9fe5793.jsonl"
+        },
+        {
+          "type": "pr",
+          "number": 99
+        }
+      ],
+      "status": "proposed",
+      "notes": "",
+      "rationale": "DX-as-AI-affordance story: dev loop redesigned partly so an LLM could drive both ends of multiplayer with autoplay params. Concrete win — single command replaced ~5 manual steps.",
+      "createdAt": "2026-05-01T18:12:47.654Z",
+      "lastSeenAt": "2026-05-01T18:12:47.654Z",
+      "draftPath": null
+    }
+  ]
 }
