@@ -3,12 +3,19 @@
 # Usage: ./init-tfvars.sh
 #
 # 1Password items (item title / field) in the vault below:
-#   alostraques.cloudflare.com / api_token, zone_id
+#   alostraques.cloudflare.com / api_token, zone_id, account_id
 #   alostraques.vercel.com     / api_token, project_id
 #   alostraques.supabase.com   / access_token, project_ref, database_url,
 #                                project_url, anon_key, jwt_secret,
 #                                service_role_key
-#   alostraques.com            / cron_secret
+#   alostraques.com            / cron_secret, email_forwards
+#
+# The `email_forwards` 1Password field is a multiline string containing a raw
+# HCL map literal — it is splatted into tfvars unquoted. Example contents:
+#   {
+#     hello = "you@example.com"
+#     admin = "you@example.com"
+#   }
 set -euo pipefail
 
 TFVARS_FILE="$(dirname "$0")/terraform.auto.tfvars"
@@ -20,6 +27,7 @@ op_read() { op read --account "$OP_ACCOUNT" "op://$OP_VAULT/$1"; }
 cat > "$TFVARS_FILE" <<EOF
 cloudflare_api_token      = "$(op_read "alostraques.cloudflare.com/api_token")"
 cloudflare_zone_id        = "$(op_read "alostraques.cloudflare.com/zone_id")"
+cloudflare_account_id     = "$(op_read "alostraques.cloudflare.com/account_id")"
 
 vercel_api_token          = "$(op_read "alostraques.vercel.com/api_token")"
 
@@ -33,6 +41,7 @@ supabase_anon_key         = "$(op_read "alostraques.supabase.com/anon_key")"
 supabase_jwt_secret       = "$(op_read "alostraques.supabase.com/jwt_secret")"
 supabase_service_role_key = "$(op_read "alostraques.supabase.com/service_role_key")"
 cron_secret               = "$(op_read "alostraques.com/cron_secret")"
+email_forwards            = $(op_read "alostraques.com/email_forwards")
 EOF
 
 echo "Wrote $TFVARS_FILE"

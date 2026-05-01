@@ -1,7 +1,7 @@
 # Infrastructure (Terraform)
 
-Manages DNS, the Vercel project for `apps/web`, and Supabase auth settings
-for `alostraques.com`.
+Manages DNS, the Vercel project for `apps/web`, Supabase auth settings, and
+Cloudflare Email Routing for `alostraques.com`.
 
 ## Resources
 
@@ -9,6 +9,8 @@ for `alostraques.com`.
 |----------|----------|---------|
 | Cloudflare | `cloudflare_dns_record.apex` | CNAME `@` → `cname.vercel-dns.com` |
 | Cloudflare | `cloudflare_dns_record.www` | CNAME `www` → `cname.vercel-dns.com` |
+| Cloudflare | `cloudflare_email_routing_address.destinations[*]` | One per distinct destination in `var.email_forwards` (recipient confirms via emailed link) |
+| Cloudflare | `cloudflare_email_routing_rule.forwards[*]` | One per `var.email_forwards` entry — literal `local-part@alostraques.com` → destination |
 | Vercel | `vercel_project.web` | apps/web build settings + GitHub auto-deploy |
 | Vercel | `vercel_project_environment_variable.*` | Prod + preview env vars (DATABASE_URL, SUPABASE_*, CRON_SECRET, NEXT_PUBLIC_PARTYKIT_HOST, STORAGE_BACKEND) |
 | Vercel | `vercel_project_domain.apex` | Binds `alostraques.com` to `vercel_project.web` |
@@ -108,3 +110,60 @@ Managed in `supabase.tf`. Current entries:
 - `https://a-los-traques.vercel.app/**` (Vercel default domain)
 - `https://a-los-traques-*.vercel.app/**` (Vercel preview deploys)
 - `http://localhost:3000/**` (local Next.js dev)
+
+## Email Routing
+
+`email.tf` configures Cloudflare Email Routing with explicit per-address
+forwarding (no catch-all). The forward table is a single `map(string)` named
+`var.email_forwards` keyed by local-part:
+
+```hcl
+email_forwards = {
+  hello = "you@example.com"
+  admin = "you@example.com"
+}
+# → hello@alostraques.com → you@example.com
+# → admin@alostraques.com → you@example.com
+# Anything else hitting *@alostraques.com is rejected.
+```
+
+For each entry the config produces:
+- One `cloudflare_email_routing_rule` (literal `to:` matcher).
+- One `cloudflare_email_routing_address` per **distinct** destination
+  (deduped via `toset(values(...))`), so two forwards to the same inbox share
+  a single verified address.
+
+**One-time prerequisite — enable Email Routing in the dashboard.** The
+`POST /zones/{id}/email/routing/dns` endpoint that activates the feature sits
+behind a Cloudflare permission group that doesn't honor scoped API tokens
+reliably (returns 403 even with `Email Routing Rules Write` set). So we don't
+manage it from terraform. Instead, click **Email → Email Routing → Get
+started** once on the zone. That activation:
+- Enables Email Routing on the zone.
+- Auto-creates the MX (`route{1,2,3}.mx.cloudflare.net`) and SPF TXT records
+  under Cloudflare's management. Don't add `cloudflare_dns_record` blocks for
+  them — they'd collide.
+
+Apply order / verification:
+
+1. Activate Email Routing in the dashboard (one time, per zone).
+2. `terraform apply` creates the verified destinations and the forwarding
+   rules.
+3. Cloudflare emails each distinct destination a verification link.
+   **Forwarding stays inactive for that destination until the link is
+   clicked** — rules are created immediately but mail is dropped silently in
+   the meantime.
+4. Once verified, mapped addresses forward to their destinations.
+
+**1Password prerequisites** on the listed items in `init-tfvars.sh`:
+- `alostraques.cloudflare.com / account_id` — required by the account-scoped
+  destination address resource (find it in the Cloudflare dashboard's right
+  sidebar).
+- `alostraques.com / email_forwards` — multiline field containing a raw HCL
+  map literal (splatted unquoted into tfvars). Example body:
+  ```
+  {
+    hello = "you@example.com"
+    admin = "you@example.com"
+  }
+  ```
