@@ -35,12 +35,27 @@ You'll need the existing entries' `id`, `title`, `hook`, `supporting`, `status` 
 
 ### 4. Dispatch the three miners in parallel
 
-Use a single message with three Agent tool calls (see "## Using your tools" in the system prompt — independent calls go in one message).
+The miner agent definitions live in `.claude/agents/{pr-miner,rfc-miner,transcript-miner}.md`. Read each file and inline its full body as the prompt for a `general-purpose` Agent dispatch — that way the skill works in any Claude Code session (custom subagent_types only auto-register at session start; this dispatches via the always-available `general-purpose` agent).
+
+Use a single message with three Agent tool calls (independent calls go in one message — see "## Using your tools" in the system prompt).
 
 ```
-Agent({ subagent_type: "pr-miner", prompt: "since_pr_number=<N>, repo_path=<cwd>. <full pr-miner prompt>" })
-Agent({ subagent_type: "rfc-miner", prompt: "since_rfc_filename=<F>, repo_path=<cwd>. <full rfc-miner prompt>" })
-Agent({ subagent_type: "transcript-miner", prompt: "since_transcript_mtime=<T>. <full transcript-miner prompt>" })
+prBody = Read('.claude/agents/pr-miner.md')
+rfcBody = Read('.claude/agents/rfc-miner.md')
+transcriptBody = Read('.claude/agents/transcript-miner.md')
+
+Agent({
+  subagent_type: "general-purpose",
+  prompt: `Inputs:\n- since_pr_number: <N>\n- repo_path: <cwd>\n\n---\n\n${prBody}`
+})
+Agent({
+  subagent_type: "general-purpose",
+  prompt: `Inputs:\n- since_rfc_filename: "<F>"\n- repo_path: <cwd>\n\n---\n\n${rfcBody}`
+})
+Agent({
+  subagent_type: "general-purpose",
+  prompt: `Inputs:\n- since_transcript_mtime: <T>\n- transcript_roots: ~/.claude-personal/projects, ~/.claude/projects\n\n---\n\n${transcriptBody}`
+})
 ```
 
 Each subagent returns its candidate JSON array + `_cursor` line on stdout (in its final message).

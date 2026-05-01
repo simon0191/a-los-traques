@@ -37,10 +37,14 @@ apps/web/content/blog/_drafts/<id>.md
 
 ### 5. Dispatch the drafter subagent
 
+The drafter agent definition lives in `.claude/agents/blog-drafter.md`. Read it and inline its body as the prompt for a `general-purpose` Agent dispatch (custom subagent_types only auto-register at session start; this dispatches via the always-available `general-purpose` agent).
+
 ```
+drafterBody = Read('.claude/agents/blog-drafter.md')
+
 Agent({
-  subagent_type: "blog-drafter",
-  prompt: `Entry: <full entry JSON>. draft_path: apps/web/content/blog/_drafts/<id>.md. <full blog-drafter prompt>`
+  subagent_type: "general-purpose",
+  prompt: `Entry: <full entry JSON>\ndraft_path: apps/web/content/blog/_drafts/<id>.md\n\n---\n\n${drafterBody}`
 })
 ```
 
