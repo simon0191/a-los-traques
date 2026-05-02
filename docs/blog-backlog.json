@@ -103,12 +103,12 @@
           "ref": "0014-fix-desync-adaptive-delay-gap.md"
         }
       ],
-      "status": "proposed",
+      "status": "drafted",
       "notes": "",
       "rationale": "Sharp, focused bug with great evidence (predicted gap frames matched observed desync frames within 14-frame checksum offset).",
       "createdAt": "2026-05-01T18:12:47.654Z",
       "lastSeenAt": "2026-05-01T18:12:47.654Z",
-      "draftPath": null
+      "draftPath": "apps/web/content/blog/_drafts/how-a-single-missing-input-frame-creates-an-unfixable-desync-3cc8.md"
     },
     {
       "id": "bug-hunting-gh-93-with-the-llm-don-t-trust-the-issue-verify--60a9",
@@ -627,12 +627,12 @@
           "ref": "/Users/simon/.claude-personal/projects/-Users-simon-personal-a-los-traques--claude-worktrees-blogs/8e2285b4-d498-4b5e-929d-80c46f72ab6a.jsonl"
         }
       ],
-      "status": "proposed",
+      "status": "drafted",
       "notes": "",
       "rationale": "Pure meta-story: pr-miner / rfc-miner / transcript-miner / orchestrator / dedup-judge designed in one session, with source-of-truth-from-code requirement and dual CLAUDE_CONFIG_DIR handling. Self-referential and unique.",
       "createdAt": "2026-05-01T18:12:47.654Z",
       "lastSeenAt": "2026-05-01T18:12:47.654Z",
-      "draftPath": null
+      "draftPath": "apps/web/content/blog/_drafts/designing-an-agent-team-to-suggest-blog-posts-about-an-agent-06ea.md"
     },
     {
       "id": "recruiting-a-data-analyst-with-five-agents-and-a-one-page-pd-fe4d",
