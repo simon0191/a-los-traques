@@ -246,6 +246,17 @@ Markdown docs with Mermaid diagrams in `docs/`. When making significant changes 
 - `docs/rfcs/0015-local-multiplayer-tournament.md` — Local multiplayer tournament + VS Local (N human players, split keyboard)
 - `docs/rfcs/0019-nextjs-monorepo-restructure.md` — The monorepo migration this repo ran through (phases 1–6, all shipped)
 
+## Blog Backlog
+
+A five-agent system mines this repo's PRs, RFCs, and Claude Code session transcripts for blog-post candidates, deduped into `docs/blog-backlog.json`. Voice and audience are tagged per article (`es-friends`, `en-tech`, or `both`).
+
+- **`/blog-mine`** — incremental scan. Reads the cursor in `docs/blog-backlog.json`, dispatches `pr-miner` / `rfc-miner` / `transcript-miner` in parallel, dedups against existing entries, writes updated backlog. Run after merging interesting PRs.
+- **`/blog-expand <id>`** — promote one backlog entry to a draft under `apps/web/content/blog/_drafts/<id>.md`. Drafter reads supporting refs (PR diffs, RFCs, transcripts, code) and verifies claims against source — PR descriptions are hints, not authoritative. Move the draft up one directory + set `date:` to publish.
+- **Manual feedback loop**: edit `status` (`proposed | greenlit | rejected | drafted | published`) and `notes` on backlog entries to steer the system. The orchestrator respects user-set fields on merge.
+- **Backlog manipulation CLI**: `node scripts/blog-backlog/cli.js {init|cursor|apply|get|update}`. Used internally by the slash commands; safe to call by hand.
+- Transcript ingestion reads both `~/.claude-personal/projects/*a-los-traques*` and `~/.claude/projects/*a-los-traques*` (some sessions accidentally landed on the company install).
+- Spec: `docs/superpowers/specs/2026-05-01-blog-article-agent-team-design.md`. Plan: `docs/superpowers/plans/2026-05-01-blog-article-agent-team.md`.
+
 ## Balance Simulation
 
 Headless pipeline that runs AI-vs-AI fights to identify overpowered/underpowered fighters. Uses the pure simulation layer (no Phaser) with seeded AIController for deterministic, reproducible results.
