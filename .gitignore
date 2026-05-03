@@ -29,3 +29,14 @@ infra/*.tfvars
 scripts/asset-pipeline/pose/.venv/
 scripts/asset-pipeline/pose/__pycache__/
 scripts/asset-pipeline/pose/models/
+
+# El Cerebro training data (generated, ~GB scale)
+data/cerebro/
+
+# El Cerebro training artifacts
+training/__pycache__/
+training/.venv/
+checkpoints/
+# ONNX test artifacts (root level only — models in apps/web/public/assets/ai/ are tracked)
+/*.onnx
+/*.onnx.data
